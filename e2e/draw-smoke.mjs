@@ -255,14 +255,14 @@ window.__mountCascadeFixture = (left = 80) => {
   const sibling = document.createElement("button")
   sibling.type = "button"
   sibling.className = "menu-item"
-  sibling.textContent = "删除色块"
+  sibling.textContent = "删除时间段"
   primary.append(trigger, sibling)
   document.body.appendChild(primary)
   attachCascadeMenu(primary, trigger, [
     { title: "开发", checked: true },
     { title: "运动", checked: false },
     { title: "睡觉", checked: false },
-  ], "选择色块类型", (index) => {
+  ], "选择时间分类", (index) => {
     window.__cascadeSelected.push(index)
     primary.remove()
   })
@@ -289,7 +289,7 @@ window.__mountCascadeSwitchFixture = () => {
   attachCascadeMenu(primary, typeTrigger, [
     { title: "开发", checked: true },
     { title: "运动", checked: false },
-  ], "选择色块类型", () => {})
+  ], "选择时间分类", () => {})
   attachCascadeMenu(primary, todoTrigger, [
     { title: "任务 A", checked: false },
     { title: "任务 B", checked: false },
