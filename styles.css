@@ -1495,7 +1495,8 @@
   box-sizing: border-box;
   position: relative;
   font-size: 14px;
-  padding-top: 20px; /* 顶部永远留一行给手柄（yyt：编辑/渲染都从第二行起，不跳变） */
+  /* 首行与同排槽位的内容顶线对齐：移动手柄只在 hover 时浮在左侧
+     content-inset 留出的槽沟里，不再需要常驻留出一整行。 */
   cursor: text;
 }
 
