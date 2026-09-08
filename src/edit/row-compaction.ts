@@ -14,7 +14,13 @@ export const TIMELINE_TOPBAR_COMPACTION = ["is-compact-labels"] as const
 /** Creation row: geometry buttons go icon-only first, then the Plan mode switch loses its label. */
 export const CREATION_ROW_COMPACTION = ["is-compact-tools", "is-compact-plan"] as const
 
-export function attachRowCompaction(row: HTMLElement, levels: readonly string[]): () => void {
+export interface RowCompactionHandle {
+  /** Re-measure now (for callers that size slots synchronously after mount). */
+  update: () => void
+  disconnect: () => void
+}
+
+export function attachRowCompaction(row: HTMLElement, levels: readonly string[]): RowCompactionHandle {
   const apply = (): void => {
     for (const level of levels) row.classList.remove(level)
     let applied = 0
@@ -28,7 +34,7 @@ export function attachRowCompaction(row: HTMLElement, levels: readonly string[])
   }
   apply()
   const ResizeObserverCtor = row.ownerDocument.defaultView?.ResizeObserver
-  if (!ResizeObserverCtor) return () => {}
+  if (!ResizeObserverCtor) return { update: apply, disconnect: () => {} }
   const observer = new ResizeObserverCtor(() => {
     if (!row.isConnected) {
       observer.disconnect()
@@ -37,5 +43,5 @@ export function attachRowCompaction(row: HTMLElement, levels: readonly string[])
     apply()
   })
   observer.observe(row)
-  return () => observer.disconnect()
+  return { update: apply, disconnect: () => observer.disconnect() }
 }

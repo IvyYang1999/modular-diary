@@ -798,6 +798,31 @@
   background: var(--background-modifier-hover);
 }
 
+/* Folded categories: the list shows at most MAX_CATEGORY_ROWS rows and a
+ * quiet "More (n)" control that opens the rest in the shared menu. */
+.oneday-category-list > .oneday-swatch.is-overflowed {
+  display: none;
+}
+
+.oneday-toolbar button.oneday-category-more {
+  color: var(--text-muted);
+}
+
+.oneday-toolbar button.oneday-category-more:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.oneday-category-more-icon {
+  display: inline-flex;
+  line-height: 0;
+}
+
+.oneday-category-more-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
 .oneday-add svg {
   width: 14px;
   height: 14px;

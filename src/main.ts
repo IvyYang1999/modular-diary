@@ -1107,6 +1107,8 @@ export default class OnedayPlugin extends Plugin {
           },
         })
       }
+      // 先按当前宽度折叠分类，再量高：否则槽位会按未折叠的八行分类撑高。
+      toolbar.layout()
       // 自动量高：内容比格子高的槽位撑开格子（修新建块截断），只改显示不自动写源码
       this.fitSlotHeights(container)
       this.restoreScroll(scrollSnapshot, container)

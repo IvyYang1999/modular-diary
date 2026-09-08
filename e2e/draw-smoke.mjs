@@ -204,6 +204,29 @@ window.__mountEnglishToolbar = () => {
   container.appendChild(layers)
   configureI18n(() => "zh")
 }
+window.__mountManyCategories = (width) => {
+  document.querySelector("#many-categories-slot")?.remove()
+  const slot = document.createElement("div")
+  slot.id = "many-categories-slot"
+  slot.className = "oneday-slot oneday-slot-toolbar"
+  slot.style.cssText = "position:relative;inset:auto;width:" + width + "px;height:auto"
+  container.appendChild(slot)
+  const names = ["开发", "自媒体", "运动", "睡觉", "阅读", "生活", "wasted", "看剧", "画画", "写作", "游泳", "信息摄取", "战略思考", "环境搭建", "洗澡", "聊天", "发布产品", "复盘反思", "装修", "按摩", "出门"]
+  window.__manySelected = []
+  const many = buildToolbar({
+    typeColors: Object.fromEntries(names.map((name, index) => [name, "hsl(" + (index * 17) + " 60% 60%)"])),
+    hiddenTypes: [],
+    activeType: names[0],
+    brushMode: "actual",
+    onBrushModeChange: () => {},
+    onSelect: (type) => window.__manySelected.push(type),
+    onHide: () => {},
+    onShow: () => {},
+    onAddNew: () => {},
+  })
+  slot.appendChild(many.el)
+  return many
+}
 window.__mountAfterMidnightHover = () => {
   document.querySelector("#after-midnight-hover")?.remove()
   const host = document.createElement("div")
@@ -1641,6 +1664,66 @@ await page.locator("#no-hidden-toolbar .oneday-add").click()
 if (await page.locator(".oneday-add-menu").count() !== 0) {
   console.error("empty hidden menu should not open"); process.exit(1)
 }
+
+// 7b2. Twenty-one categories fold behind "More (n)" after two rows instead
+// of stacking eight rows in a narrow pane; folded categories stay reachable
+// (and selectable) through the menu, and a wide pane shows them all.
+const readManyCategories = () => page.evaluate(() => {
+  const slot = document.querySelector("#many-categories-slot")
+  const list = slot.querySelector(".oneday-category-list")
+  const visible = [...list.children].filter((child) => !child.hidden && child.getBoundingClientRect().width > 0)
+  const more = list.querySelector(".oneday-category-more")
+  return {
+    rows: new Set(visible.map((child) => child.offsetTop)).size,
+    folded: Number(list.dataset.foldedCategories),
+    visibleSwatches: visible.filter((child) => child.dataset.type).map((child) => child.dataset.type),
+    moreVisible: !more.hidden && more.getBoundingClientRect().width > 0,
+    moreLabel: more.querySelector(".oneday-category-more-label")?.textContent,
+    moreAria: more.getAttribute("aria-label"),
+    moreFocusable: more.tabIndex >= 0,
+    moreLast: visible.at(-1)?.classList.contains("oneday-add") && visible.at(-2) === more,
+    active: list.querySelector(".oneday-swatch[data-type].is-active")?.dataset.type,
+    listHeight: list.getBoundingClientRect().height,
+  }
+})
+await page.evaluate(() => window.__mountManyCategories(300))
+// Folding is measured by a ResizeObserver once the list has a laid-out width.
+await page.waitForTimeout(80)
+const manyNarrow = await readManyCategories()
+if (manyNarrow.rows !== 2 || manyNarrow.folded < 5 || !manyNarrow.moreVisible || !manyNarrow.moreLast || !manyNarrow.moreFocusable
+  || manyNarrow.moreLabel !== `更多 (${manyNarrow.folded})` || manyNarrow.moreAria !== `显示其余 ${manyNarrow.folded} 个分类`
+  || manyNarrow.visibleSwatches.length + manyNarrow.folded !== 21 || manyNarrow.visibleSwatches[0] !== "开发") {
+  console.error("many categories did not fold after two rows", manyNarrow); process.exit(1)
+}
+await page.locator("#many-categories-slot").screenshot({ path: path.join(out, "toolbar-many-categories-folded.png") })
+await page.locator("#many-categories-slot .oneday-category-more").click()
+const foldedMenu = await page.evaluate(() => {
+  const menu = document.querySelector(".oneday-add-menu")
+  return {
+    open: Boolean(menu),
+    items: [...(menu?.querySelectorAll('.oneday-add-item[role="menuitem"]') ?? [])].map((item) => item.textContent),
+    focusedInMenu: menu?.contains(document.activeElement) ?? false,
+    expanded: document.querySelector("#many-categories-slot .oneday-category-more").getAttribute("aria-expanded"),
+  }
+})
+const lastName = "出门"
+if (!foldedMenu.open || foldedMenu.items.length !== manyNarrow.folded || foldedMenu.items.at(-1) !== lastName || !foldedMenu.focusedInMenu || foldedMenu.expanded !== "true") {
+  console.error("More menu did not list the folded categories", foldedMenu); process.exit(1)
+}
+await page.locator('.oneday-add-menu .oneday-add-item:has-text("出门")').click()
+const manyAfterPick = await readManyCategories()
+const pickedSelected = await page.evaluate(() => window.__manySelected)
+if (manyAfterPick.rows !== 2 || manyAfterPick.active !== lastName || !manyAfterPick.visibleSwatches.includes(lastName) || pickedSelected.join() !== lastName
+  || manyAfterPick.folded !== manyNarrow.folded || await page.locator(".oneday-add-menu").count() !== 0) {
+  console.error("picking a folded category did not surface it as the active swatch", { manyAfterPick, pickedSelected }); process.exit(1)
+}
+await page.evaluate(() => { document.querySelector("#many-categories-slot").style.width = "1400px" })
+await page.waitForTimeout(80)
+const manyWide = await readManyCategories()
+if (manyWide.folded !== 0 || manyWide.moreVisible || manyWide.visibleSwatches.length !== 21 || manyWide.rows > 2) {
+  console.error("widening did not unfold the categories", manyWide); process.exit(1)
+}
+await page.evaluate(() => { document.querySelector("#many-categories-slot").remove() })
 
 // 7c. A zero palette keeps the geometry selector reachable so users can switch
 // to the other independent set; its category row is one full-size creation entry.

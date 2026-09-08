@@ -44,8 +44,18 @@ export interface ToolbarHandle {
   /** 外部同步荧光笔模式视觉（视图联动时调用，专家：状态所有权必须一致） */
   setBrushMode: (mode: DrawMode) => void
   setDrawTool: (tool: TimelineDrawTool) => void
+  /**
+   * Re-run width-dependent layout (row compaction, category folding) now.
+   * Hosts that size slots synchronously after mounting call this first so
+   * the slot is measured against the folded toolbar, not the unfolded one.
+   */
+  layout: () => void
 }
 
+/** Categories beyond this many rows fold into a "More" menu (P2-18). */
+export const MAX_CATEGORY_ROWS = 2
+
+const CHEVRON_SVG = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>'
 const PLUS_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
 
 /** Right-click menu on a swatch, anchored to the swatch itself. */
@@ -203,7 +213,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   planGroup.appendChild(planToggle)
   // The first row never wraps and categories never rise into it; when the
   // pane is too narrow for the copy, tools and then Plan mode go icon-only.
-  attachRowCompaction(creationControls, CREATION_ROW_COMPACTION)
+  const creationCompaction = attachRowCompaction(creationControls, CREATION_ROW_COMPACTION)
 
   const renderCategoryList = (): void => {
     categoryList.replaceChildren()
@@ -231,25 +241,29 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     }
 
     const visible = configured.filter((type) => !hiddenTypes.includes(type))
+    const selectCategory = (type: string): void => {
+      el.querySelectorAll<HTMLButtonElement>(".oneday-swatch[data-type]").forEach((b) => {
+        const active = b.dataset.type === type
+        b.classList.toggle("is-active", active)
+        b.setAttribute("aria-pressed", String(active))
+      })
+      activeByTool[currentDrawTool] = type
+      deps.onSelect(type)
+      // The active category is always visible: picking one from the More
+      // menu swaps it into the visible rows.
+      applyCategoryOverflow()
+    }
     for (const type of visible) {
     const btn = dom.createElement("button")
     btn.type = "button"
     btn.className = "oneday-swatch" + (type === activeType ? " is-active" : "")
     btn.dataset.type = type
     btn.setAttribute("aria-label", t("selectCategory", { name: type }))
-    btn.setAttribute("aria-pressed", String(type === deps.activeType))
+    btn.setAttribute("aria-pressed", String(type === activeType))
     const dot = createCategoryMark(type)
     btn.appendChild(dot)
     btn.appendChild(dom.createTextNode(type))
-    btn.addEventListener("click", () => {
-      el.querySelectorAll<HTMLButtonElement>(".oneday-swatch[data-type]").forEach((b) => {
-        const active = b === btn
-        b.classList.toggle("is-active", active)
-        b.setAttribute("aria-pressed", String(active))
-      })
-      activeByTool[currentDrawTool] = type
-      deps.onSelect(type)
-    })
+    btn.addEventListener("click", () => selectCategory(type))
     btn.addEventListener("contextmenu", (e) => {
       e.preventDefault()
       e.stopPropagation()
@@ -257,6 +271,52 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     })
     categoryList.appendChild(btn)
     }
+
+  // Categories beyond MAX_CATEGORY_ROWS fold behind a "More (n)" button that
+  // opens the same custom menu the tail "+" uses; every folded category stays
+  // reachable by keyboard through that menu.
+  const moreBtn = dom.createElement("button")
+  moreBtn.type = "button"
+  moreBtn.className = "oneday-swatch oneday-category-more"
+  moreBtn.hidden = true
+  moreBtn.setAttribute("aria-haspopup", "menu")
+  moreBtn.setAttribute("aria-expanded", "false")
+  moreBtn.setAttribute("aria-label", t("moreCategoriesMenu"))
+  const moreLabel = dom.createElement("span")
+  moreLabel.className = "oneday-category-more-label"
+  const moreIcon = dom.createElement("span")
+  moreIcon.className = "oneday-category-more-icon"
+  moreIcon.setAttribute("aria-hidden", "true")
+  moreIcon.innerHTML = CHEVRON_SVG
+  moreBtn.append(moreLabel, moreIcon)
+  moreBtn.addEventListener("click", (e) => {
+    e.stopPropagation()
+    const folded = visible.filter((type) => categoryList.querySelector(`.oneday-swatch[data-type="${CSS.escape(type)}"]`)?.classList.contains("is-overflowed"))
+    if (folded.length === 0) return
+    const menu = dom.createElement("div")
+    menu.className = "oneday-add-menu"
+    menu.setAttribute("role", "menu")
+    labelCustomMenu(menu, t("moreCategoriesMenu"), dom)
+    let close = (): void => {}
+    for (const type of folded) {
+      const item = dom.createElement("button")
+      item.type = "button"
+      item.className = "oneday-add-item"
+      item.setAttribute("role", "menuitem")
+      item.setAttribute("aria-label", t("selectCategory", { name: type }))
+      item.appendChild(createCategoryMark(type))
+      item.appendChild(dom.createTextNode(type))
+      item.addEventListener("click", () => {
+        close()
+        selectCategory(type)
+      })
+      menu.appendChild(item)
+    }
+    moreBtn.setAttribute("aria-expanded", "true")
+    close = showCustomMenu(menu, { anchor: moreBtn }, () => moreBtn.setAttribute("aria-expanded", "false"))
+    menu.querySelector<HTMLButtonElement>(".oneday-add-item")?.focus()
+  })
+  categoryList.appendChild(moreBtn)
 
   // Tail "+" is always present: restore hidden swatches or open global palette settings.
   const hidden = hiddenTypes.filter((type) => type in colors)
@@ -313,8 +373,55 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     })
   }
     categoryList.appendChild(addBtn)
+    applyCategoryOverflow()
+  }
+
+  /**
+   * Fold trailing categories until the list fits MAX_CATEGORY_ROWS rows.
+   * The active category is never folded, so the visible set is the leading
+   * categories plus the active one; "More (n)" reports what is folded.
+   */
+  const applyCategoryOverflow = (): void => {
+    const swatches = Array.from(categoryList.querySelectorAll<HTMLButtonElement>(".oneday-swatch[data-type]"))
+    const moreBtn = categoryList.querySelector<HTMLButtonElement>(".oneday-category-more")
+    for (const swatch of swatches) swatch.classList.remove("is-overflowed")
+    if (moreBtn) moreBtn.hidden = true
+    categoryList.dataset.foldedCategories = "0"
+    if (!moreBtn || swatches.length === 0 || categoryList.clientWidth === 0) return
+    const rowCount = (): number => {
+      const tops = new Set<number>()
+      for (const child of Array.from(categoryList.children) as HTMLElement[]) {
+        if (child.hidden || child.classList.contains("is-overflowed")) continue
+        tops.add(child.offsetTop)
+      }
+      return tops.size
+    }
+    if (rowCount() <= MAX_CATEGORY_ROWS) return
+    moreBtn.hidden = false
+    let folded = 0
+    for (let index = swatches.length - 1; index >= 0 && rowCount() > MAX_CATEGORY_ROWS; index -= 1) {
+      const swatch = swatches[index]
+      if (swatch.classList.contains("is-active")) continue
+      swatch.classList.add("is-overflowed")
+      folded += 1
+    }
+    categoryList.dataset.foldedCategories = String(folded)
+    const label = moreBtn.querySelector<HTMLElement>(".oneday-category-more-label")
+    if (label) label.textContent = t("moreCategories", { count: folded })
+    moreBtn.setAttribute("aria-label", t("showMoreCategories", { count: folded }))
   }
   renderCategoryList()
+  const ResizeObserverCtor = dom.defaultView?.ResizeObserver
+  if (ResizeObserverCtor) {
+    const observer = new ResizeObserverCtor(() => {
+      if (!categoryList.isConnected) {
+        observer.disconnect()
+        return
+      }
+      applyCategoryOverflow()
+    })
+    observer.observe(categoryList)
+  }
 
   const setBrushMode = (mode: DrawMode): void => {
     currentBrushMode = mode
@@ -335,7 +442,12 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     renderCategoryList()
   }
 
-  return { el, statusEl, setBrushMode, setDrawTool }
+  const layout = (): void => {
+    creationCompaction.update()
+    applyCategoryOverflow()
+  }
+
+  return { el, statusEl, setBrushMode, setDrawTool, layout }
 }
 
 const EYE_OPEN_SVG = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>'
