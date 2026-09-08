@@ -773,10 +773,57 @@ await populatedTodoSlot.locator(".oneday-todo-row").first().click({ button: "rig
 await populatedTodoSlot.screenshot({ path: path.join(out, "todo-edit-dark.png") })
 await page.locator("#host").screenshot({ path: path.join(out, "components-dark.png") })
 await page.locator(".habit-badge-contract").screenshot({ path: path.join(out, "habit-status-badges-dark.png") })
+// A narrow pane must keep every row title legible: the meta text yields
+// before the title drops below 4em, and both truncate instead of wrapping.
+const narrowRows = await page.evaluate(() => {
+  const read = (slot) => {
+    const previous = slot.style.width
+    // Slots animate width changes; measure the settled 200px layout.
+    slot.style.transition = "none"
+    slot.style.width = "200px"
+    // Rows replaced by an inline edit form earlier in the run have no box.
+    const rows = [...slot.querySelectorAll(".oneday-habit-row, .oneday-todo-row")].filter((row) => (row.querySelector(".oneday-habit-body, .oneday-todo-body")?.getBoundingClientRect().width ?? 0) > 0)
+    const result = rows.map((row) => {
+      const title = row.querySelector(".oneday-item-title")
+      const meta = row.querySelector(".oneday-item-meta")
+      const body = row.querySelector(".oneday-habit-body, .oneday-todo-body")
+      const titleRect = title.getBoundingClientRect()
+      const bodyRect = body.getBoundingClientRect()
+      return {
+        text: title.textContent,
+        titleWidth: titleRect.width,
+        titleMinWidth: Math.min(parseFloat(getComputedStyle(title).fontSize) * 4, bodyRect.width),
+        titleInsideBody: titleRect.left >= bodyRect.left - 0.5 && titleRect.right <= bodyRect.right + 0.5,
+        titleOverflow: getComputedStyle(title).textOverflow,
+        metaWidth: meta ? meta.getBoundingClientRect().width : 0,
+        metaTruncated: meta ? meta.scrollWidth > meta.clientWidth + 0.5 : false,
+        singleLine: titleRect.height <= parseFloat(getComputedStyle(title).fontSize) * 1.8,
+        rowHeight: row.getBoundingClientRect().height,
+      }
+    })
+    slot.style.width = previous
+    slot.style.transition = ""
+    return result
+  }
+  return {
+    habits: read(document.querySelector(".oneday-slot-habits")),
+    todos: read(document.querySelector(".oneday-slot-todos")),
+    wideHabitRowHeight: document.querySelector(".oneday-slot-habits .oneday-habit-row").getBoundingClientRect().height,
+  }
+})
 await browser.close()
 
 const near = (value, target, tolerance = 0.03) => Math.abs(value - target) <= tolerance
 const errors = []
+for (const row of [...narrowRows.habits, ...narrowRows.todos]) {
+  if (row.titleWidth < row.titleMinWidth - 0.5 || !row.titleInsideBody || row.titleOverflow !== "ellipsis" || !row.singleLine) {
+    errors.push("narrow row squeezed its title: " + JSON.stringify(row))
+  }
+  if (row.metaWidth > 0 && row.titleWidth <= row.titleMinWidth + 0.5 && !row.metaTruncated) {
+    errors.push("narrow row clipped the title before the meta text: " + JSON.stringify(row))
+  }
+}
+if (narrowRows.habits.some((row) => Math.abs(row.rowHeight - narrowRows.wideHabitRowHeight) > 0.5)) errors.push("narrow habit rows changed height: " + JSON.stringify(narrowRows.habits))
 if (state.slotCount !== 7) errors.push("expected seven component slots")
 if (!near(state.weeklyHabitRatio, 0.5)) errors.push("weekly habit progress must carry across days")
 if (!near(state.todoRatios[0], 0.5) || !near(state.todoRatios[1], 0.5)) errors.push("todo actual/estimate progress is wrong")

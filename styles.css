@@ -1657,7 +1657,10 @@
 }
 
 .oneday-habit-row {
-  grid-template-columns: 14px minmax(0, 1fr) auto;
+  /* The status badge keeps its natural width until the body would drop
+   * below 4em; past that the badge text truncates so the habit name stays
+   * legible in a narrow pane. */
+  grid-template-columns: 14px minmax(min(4em, 100%), 1fr) minmax(0, max-content);
   column-gap: 5px;
   height: calc(var(--oneday-compact-control-height) + 8px);
   min-height: calc(var(--oneday-compact-control-height) + 8px);
@@ -1800,7 +1803,11 @@ button.oneday-item-drag:active {
 .oneday-habit-body,
 .oneday-todo-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  /* The meta column may take its natural width, but never the title's last
+   * 4em: in a narrow pane the title stays legible (and truncates) while the
+   * meta text is what gets clipped. An `auto` right column would claim the
+   * full row first and squeeze the title to nothing. */
+  grid-template-columns: minmax(min(4em, 100%), 1fr) minmax(0, max-content);
   align-items: center;
   min-width: 0;
   gap: 2px 6px;
@@ -1911,9 +1918,17 @@ button.oneday-item-drag:active {
   font-size: 11px;
   line-height: 1;
   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
   pointer-events: none;
   cursor: default;
   user-select: none;
+}
+
+.oneday-item-status > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .oneday-habit-row.is-complete .oneday-item-status {
