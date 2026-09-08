@@ -10,7 +10,8 @@ import { Entry, TimelineDoc } from "../core/types"
 import { hashTypeColor } from "../core/type-colors"
 import { relatedTextColor } from "../core/contrast"
 import { formatClock, formatHours, durationMinutes } from "../core/duration"
-import { AXIS_PAD_TOP, AXIS_PAD_BOTTOM, LABEL_W, TRACK_PAD, inlineFontSize } from "../core/geometry"
+import { AXIS_PAD_TOP, AXIS_PAD_BOTTOM, LABEL_W, TRACK_PAD, inlineFontSize, SVG_LABEL_MAX_FONT_PX } from "../core/geometry"
+import { estimateTextWidth, isWideGlyph, TextMeasurer, wrapTextToWidth } from "../core/text-wrap"
 
 export interface RenderOptions {
   /** type -> css color (D2). Unknown types fall back to FALLBACK_COLOR. */
@@ -30,6 +31,12 @@ export interface RenderOptions {
   sideLaneWidth?: number
   /** 视图：全部 / 只看记录 / 只看计划（yyt 2026-08-17） */
   view?: "all" | "actual" | "plan"
+  /**
+   * Rendered pixel width of note copy at the note font (`.oneday-note`).
+   * Hosts with a canvas pass `measureText`; omitted, notes wrap on a
+   * script-aware estimate (CJK one em, Latin about half).
+   */
+  measureNote?: TextMeasurer
 }
 
 export const FALLBACK_COLOR = "#bdbdbd"
@@ -48,6 +55,8 @@ const MIN_INLINE_LABEL_H = 30
 const MIN_INLINE_LABEL_W = 56
 /** Tall enough to also show the note inside the block. */
 const MIN_NOTE_H = 32
+/** `.oneday-note` size: `--oneday-font-svg-label` = caption − 2px. */
+export const NOTE_FONT_PX = SVG_LABEL_MAX_FONT_PX - 2
 /** Right lane reserved for side labels & annotations (M4: no more clipping). */
 export const SIDE_LANE_W = 112
 /** Narrowest lane that still fits a readable label; below it the lane hides. */
@@ -77,11 +86,6 @@ export function fitSideLaneWidth(availableWidth: number, baseWidth: number): num
   if (lane >= SIDE_LANE_W) return Math.min(lane, MAX_SIDE_LANE_BUDGET)
   if (lane >= MIN_SIDE_LANE_W) return lane
   return 0
-}
-
-function isWideGlyph(ch: string): boolean {
-  const code = ch.codePointAt(0) ?? 0
-  return code > 0x2e7f && !(code >= 0xff61 && code <= 0xff9f)
 }
 
 /** Estimated rendered width of lane text (upper bound, see glyph constants). */
@@ -199,19 +203,14 @@ function placeActual(actual: Entry[], trackX: number, trackW: number): Placed[] 
   return placed
 }
 
-/** 长备注按宽度贪心换行（yyt：字多直接多行，放不下才截断）。 */
-function wrapNote(text: string, blockW: number, maxLines: number): string[] {
-  const perLine = Math.max(3, Math.floor((blockW - LABEL_INSET_X * 2) / 8.5))
-  const lines: string[] = []
-  let rest = text
-  while (rest.length > 0 && lines.length < maxLines) {
-    lines.push(rest.slice(0, perLine))
-    rest = rest.slice(perLine)
-  }
-  if (rest.length > 0 && lines.length > 0) {
-    lines[lines.length - 1] = lines[lines.length - 1].slice(0, -1) + "…"
-  }
-  return lines
+/**
+ * 长备注按实测宽度贪心换行（yyt：字多直接多行，放不下才截断）。
+ * The block's inset is applied here so both plan and record blocks wrap
+ * against the same text box.
+ */
+function wrapNote(text: string, blockW: number, maxLines: number, measure: TextMeasurer): string[] {
+  const maxWidth = Math.max(NOTE_FONT_PX * 2, blockW - LABEL_INSET_X * 2)
+  return wrapTextToWidth(text, maxWidth, maxLines, measure)
 }
 
 /** Side labels must stay inside the svg: cap length. */
@@ -238,6 +237,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   const laneW = Math.min(SIDE_LANE_W, laneBudget ?? SIDE_LANE_W)
   const width = baseWidth + laneW
   const laneX = trackX + trackW + 4
+  const measureNote = opts.measureNote ?? ((text: string) => estimateTextWidth(text, NOTE_FONT_PX))
   const y = (min: number): number => PAD_TOP + ((min - doc.rangeStart) / 60) * hourHeight
   const axisBottom = PAD_TOP + ((doc.rangeEnd - doc.rangeStart) / 60) * hourHeight
 
@@ -292,7 +292,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
       const showNote = blockH >= MIN_NOTE_H && e.note
       if (showNote) {
         const maxNoteLines = Math.max(1, Math.floor((blockH - LABEL_INSET_Y * 2 - fs) / 11))
-        const noteLines = wrapNote(e.note ?? "", blockW, maxNoteLines)
+        const noteLines = wrapNote(e.note ?? "", blockW, maxNoteLines, measureNote)
         const totalH = fs + noteLines.length * 11
         const startY = yy + GAP_X / 2 + (blockH - totalH) / 2
         parts.push(
@@ -336,7 +336,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     if (canTwoLine) {
       // 长备注多行：时长加粗居中在上，备注小字换行在下（放不下才省略号）
       const maxNoteLines = Math.max(1, Math.floor((hh - LABEL_INSET_Y * 2 - fs) / 11))
-      const noteLines = wrapNote(e.note ?? "", p.w, maxNoteLines)
+      const noteLines = wrapNote(e.note ?? "", p.w, maxNoteLines, measureNote)
       const totalH = fs + noteLines.length * 11
       const startY = yy + (hh - totalH) / 2
       parts.push(

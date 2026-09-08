@@ -4225,3 +4225,11 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
   .oneday-quote-settings-footer { align-items: stretch; flex-direction: column; }
   .oneday-quote-settings-primary-actions { justify-content: flex-end; }
 }
+
+/* Off-screen probe that resolves the note font for canvas measurement. */
+.oneday-note-measure-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  font-size: var(--oneday-font-svg-label);
+}

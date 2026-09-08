@@ -14,6 +14,7 @@ import { TimelineDoc } from "../core/types"
 import { statsByType } from "../core/stats"
 import { formatHours } from "../core/duration"
 import { fitSideLaneWidth, renderTimelineSvg, RenderOptions, SIDE_LANE_W } from "./svg-builder"
+import type { TextMeasurer } from "../core/text-wrap"
 import { hashTypeColor } from "../core/type-colors"
 import { t } from "../i18n"
 import { relatedTextColor } from "../core/contrast"
@@ -319,6 +320,29 @@ function attachSideLaneFit(
   observer.observe(svgHolder)
 }
 
+/**
+ * Measure note copy with the host's real font so wrapping matches what the
+ * SVG paints. The probe resolves the theme's `--oneday-font-svg-label`
+ * (custom properties are not resolved by getComputedStyle) and the inherited
+ * family; without a canvas or a laid-out probe the builder's estimate wins.
+ */
+function createNoteMeasurer(container: HTMLElement): TextMeasurer | undefined {
+  const dom = container.ownerDocument
+  const domWindow = dom.defaultView
+  if (!domWindow) return undefined
+  const canvas = dom.createElement("canvas")
+  const context = canvas.getContext?.("2d")
+  if (!context) return undefined
+  const probe = container.createEl("span", { cls: "oneday-note-measure-probe" })
+  const style = domWindow.getComputedStyle(probe)
+  const fontPx = Number.parseFloat(style.fontSize)
+  const family = style.fontFamily
+  probe.remove()
+  if (!Number.isFinite(fontPx) || fontPx <= 0 || !family) return undefined
+  context.font = `${fontPx}px ${family}`
+  return (text) => context.measureText(text).width
+}
+
 export function renderTimelineInto(
   el: HTMLElement,
   doc: TimelineDoc,
@@ -327,6 +351,8 @@ export function renderTimelineInto(
 ): HTMLElement {
   const container = el.createDiv({ cls: "oneday-container" })
   const domWindow = container.ownerDocument.defaultView
+  const measureNote = opts.measureNote ?? createNoteMeasurer(container)
+  if (measureNote) opts = { ...opts, measureNote }
 
   const baseWidth = doc.width ?? opts.width ?? 200
   const texts = doc.texts ?? []
