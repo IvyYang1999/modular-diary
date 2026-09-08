@@ -315,6 +315,9 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
 
   // Actual blocks: overlapping ones split into side-by-side columns (并列日程,
   // calendar-style; yyt 2026-08-17). Plans do not participate in columns.
+  // Blocks that carry inline copy are remembered so a time-point line can
+  // skip them instead of striking through their duration/note text.
+  const inlineTextBlocks: Array<{ x: number; w: number; y: number; h: number }> = []
   for (const p of placeActual(entries.filter((e) => !e.plan), trackX, trackW)) {
     const e = p.entry
     const color = opts.typeColors[e.type] ?? hashTypeColor(e.type)
@@ -333,6 +336,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     const fsCombined = e.note ? inlineFontSize(labelWidth, hh, combined) : 0
     const fs = inlineFontSize(labelWidth, hh, label)
     const canTwoLine = Boolean(e.note) && hh >= MIN_NOTE_H && fs > 0
+    if (canTwoLine || (e.note && fsCombined > 0) || fs > 0) inlineTextBlocks.push({ x: p.x, w: p.w, y: yy, h: hh })
     if (canTwoLine) {
       // 长备注多行：时长加粗居中在上，备注小字换行在下（放不下才省略号）
       const maxNoteLines = Math.max(1, Math.floor((hh - LABEL_INSET_Y * 2 - fs) / 11))
@@ -381,10 +385,27 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     const markerY = y(marker.timeMin) + (index - (count - 1) / 2) * 7
     const color = (opts.markerTypeColors ?? opts.typeColors)[marker.type ?? ""] ?? hashTypeColor(marker.type ?? "")
     const cls = `oneday-marker${marker.plan ? " oneday-marker-plan" : ""}`
+    // The visible line is painted only across the gaps between blocks that
+    // show text at this height, so it never strikes through a label; the hit
+    // line, the endpoint dots and the lane label still describe the full row.
+    const covered = inlineTextBlocks
+      .filter((block) => markerY >= block.y && markerY <= block.y + block.h)
+      .map((block) => [block.x, block.x + block.w] as [number, number])
+      .sort((a, b) => a[0] - b[0])
+    const segments: Array<[number, number]> = []
+    let cursor = trackX
+    for (const [start, end] of covered) {
+      if (start > cursor) segments.push([cursor, start])
+      cursor = Math.max(cursor, end)
+    }
+    if (cursor < trackX + trackW) segments.push([cursor, trackX + trackW])
+    const lineParts = segments
+      .map(([x1, x2]) => `<line class="oneday-marker-line" x1="${x1}" y1="${markerY}" x2="${x2}" y2="${markerY}" stroke="${escapeXml(color)}"/>`)
+      .join("")
     parts.push(
       `<g class="${cls}" data-line="${marker.line}" data-type="${escapeXml(marker.type ?? "")}" data-time-min="${marker.timeMin}" data-marker-y="${markerY}">` +
       `<line class="oneday-marker-hit" x1="${trackX}" y1="${markerY}" x2="${trackX + trackW}" y2="${markerY}" stroke="transparent" stroke-width="6"/>` +
-      `<line class="oneday-marker-line" x1="${trackX}" y1="${markerY}" x2="${trackX + trackW}" y2="${markerY}" stroke="${escapeXml(color)}"/>` +
+      lineParts +
       `<circle class="oneday-marker-dot" cx="${trackX}" cy="${markerY}" r="2.5" fill="${escapeXml(color)}"/>` +
       `<circle class="oneday-marker-dot" cx="${trackX + trackW}" cy="${markerY}" r="2.5" fill="${escapeXml(color)}"/>` +
       `</g>`

@@ -184,6 +184,34 @@ describe("note visibility (yyt 2026-08-17: 备注必须看得见)", () => {
   })
 })
 
+describe("time-point lines and block text", () => {
+  it("keeps a full-width line when no block with text sits under it", () => {
+    const svg = svgOf("@12:00 [deadline] 交周报")
+    const lines = [...svg.matchAll(/<line class="oneday-marker-line" x1="([\d.]+)" y1="[\d.]+" x2="([\d.]+)"/g)]
+    expect(lines).toHaveLength(1)
+    expect(Number(lines[0][1])).toBe(36)
+    expect(Number(lines[0][2])).toBe(194)
+  })
+
+  it("only paints the line beside a block that shows text at that height", () => {
+    const svg = svgOf("09:00-12:00 math 整理笔记\n@10:30 [deadline] 交周报")
+    const lines = [...svg.matchAll(/<line class="oneday-marker-line" x1="([\d.]+)" y1="[\d.]+" x2="([\d.]+)"/g)]
+    // Two stubs: axis → block edge and block edge → lane (2px gutters).
+    expect(lines).toHaveLength(2)
+    expect(Number(lines[0][2])).toBe(38)
+    expect(Number(lines[1][1])).toBe(192)
+    // The hit line and both endpoint dots still span the full row.
+    expect(svg).toMatch(/oneday-marker-hit" x1="36" y1="[\d.]+" x2="194"/)
+    expect(svg.match(/oneday-marker-dot/g)).toHaveLength(2)
+  })
+
+  it("crosses the gap between two parallel columns", () => {
+    const svg = svgOf("09:00-12:00 math 线代\n09:00-12:00 micro 微观\n@10:30 [deadline] 交周报")
+    const lines = [...svg.matchAll(/<line class="oneday-marker-line" x1="([\d.]+)" y1="[\d.]+" x2="([\d.]+)"/g)]
+    expect(lines).toHaveLength(3)
+  })
+})
+
 describe("label lane (M4)", () => {
   it("widens the svg by the side lane so labels are not clipped", () => {
     const svg = svgOf("17:00-17:30 meal 晚饭")
