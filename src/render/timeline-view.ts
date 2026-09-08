@@ -38,6 +38,18 @@ export interface TimelineViewOptions extends RenderOptions {
 
 const TEXT_EDITOR_FLUSH_EVENT = "oneday:text-editor-flush"
 
+/**
+ * Fixed chrome the plugin mounts around the SVG inside the timeline slot. The
+ * default slot height must reserve it, otherwise the last hours of the range
+ * are only reachable through the holder's internal scroll. Mirrors styles.css:
+ *   slot border 1 + 1 and --oneday-slot-padding-block 8 + 8       = 18
+ *   .oneday-timeline-topbar: 26px compact control + 2px padding
+ *     + 1px border on both sides (32) + 2px margin-bottom          = 34
+ *   .oneday-draw-status: 14px + 2px margin top/bottom              = 18
+ * The mount-smoke contract measures the real DOM against this value.
+ */
+export const TIMELINE_SLOT_CHROME_H = 70
+
 interface TextEditorFlushEvent extends Event {
   waitUntil?: (promise: Promise<void>) => void
 }
@@ -274,10 +286,11 @@ export function renderTimelineInto(
 
   // 网格布局（yyt 2026-08-17：组件手柄拖拽移动+缩放、自动吸附+重力压实）：
   // 12 列 x 20px 行，组件几何存 dataset，交互由 main 接 attachGridInteract
-  // 时间轴默认行数取 SVG 实际高度（含标注车道撑高），避免底部截断
+  // 时间轴默认行数取 SVG 实际高度（含标注车道撑高）加上顶栏/状态行等固定
+  // 外壳，避免底部最后一两个小时被 .oneday-svg-holder 的内部滚动吞掉
   const timelineSvg = renderTimelineSvg(doc, { ...opts, width: baseWidth })
   const svgHeight = Number(/<svg[^>]*height="([\d.]+)"/.exec(timelineSvg)?.[1] ?? 800)
-  const timelineRows = Math.ceil(svgHeight / GRID_ROW_H)
+  const timelineRows = Math.ceil((svgHeight + TIMELINE_SLOT_CHROME_H) / GRID_ROW_H)
   const stats = statsByType(doc.entries)
   const emptyStatsRows = stats.length === 0 && doc.errors.length === 0 ? 2 : 1
   const pristine = texts.length === 0 && doc.entries.length === 0 && doc.annotations.length === 0 && doc.errors.length === 0

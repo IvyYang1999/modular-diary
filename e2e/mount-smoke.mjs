@@ -25,7 +25,8 @@ import { attachWidthHandle } from "${path.join(here, "../src/edit/width-handle")
 import { attachBlockResize } from "${path.join(here, "../src/edit/block-resize")}"
 import { openTimePopover } from "${path.join(here, "../src/edit/time-popover")}"
 import { buildTimelineDateControl } from "${path.join(here, "../src/edit/date-control")}"
-import { buildToolbar } from "${path.join(here, "../src/edit/toolbar")}"
+import { buildLayerToggles, buildToolbar } from "${path.join(here, "../src/edit/toolbar")}"
+import { TIMELINE_SLOT_CHROME_H } from "${path.join(here, "../src/render/timeline-view")}"
 import { captureViewportAnchor, restoreViewportAnchor } from "${path.join(here, "../src/edit/viewport-anchor")}"
 import { captureInternalScroll, restoreInternalScroll, stabilizeInternalScroll } from "${path.join(here, "../src/edit/internal-scroll")}"
 
@@ -256,6 +257,58 @@ window.__mountEmptyState = () => {
     noPaletteBody.style.height = String(gridRows(items) * GRID_ROW_H) + "px"
   }
   attachGridInteract(noPaletteBody, () => {})
+}
+
+// Production mounts a date/layer topbar above the SVG holder and the draw
+// status line below it (main.ts). The default timeline slot height must
+// reserve that chrome so the whole range is visible without internal scroll.
+window.__mountDefaultTimelineFixture = (hostWidth) => {
+  document.querySelector("#default-timeline-fixture")?.remove()
+  const host = document.createElement("div")
+  host.id = "default-timeline-fixture"
+  host.style.width = hostWidth + "px"
+  document.body.appendChild(host)
+  const fixtureDoc = parseTimeline("date: 2026-08-18\\nrange: 7-23\\n---\\n09:15-12:15 math 李林线代\\n22:21-22:51 meal 健身\\n@21:40 [wake] 头晕，脑力低，提前收工\\n===\\n明日 to do")
+  const container = renderTimelineInto(host, fixtureDoc, {
+    typeColors: { math: "#7fd4c1", meal: "#f5a3b7" },
+    markerTypeColors: { wake: "#6f8cff" },
+  }, {
+    renderMarkdown: (target, text) => { target.textContent = text },
+    onSave: () => {},
+  })
+  const toolbar = buildToolbar({
+    typeColors: { math: "#7fd4c1", meal: "#f5a3b7" }, hiddenTypes: [], activeType: "math", brushMode: "actual",
+    onBrushModeChange: () => {}, onSelect: () => {}, onHide: () => {}, onShow: () => {}, onAddNew: () => {},
+  })
+  container.querySelector(".oneday-slot-toolbar").appendChild(toolbar.el)
+  const timelineSlot = container.querySelector(".oneday-slot-timeline")
+  timelineSlot.appendChild(toolbar.statusEl)
+  const topbar = document.createElement("div")
+  topbar.className = "oneday-timeline-topbar"
+  topbar.appendChild(buildTimelineDateControl(container, "2026-08-18", "周二", () => {}))
+  topbar.appendChild(buildLayerToggles({ actual: true, plan: true }, () => {}))
+  timelineSlot.prepend(topbar)
+  attachGridInteract(container.querySelector(".oneday-body"), () => {})
+  const holder = timelineSlot.querySelector(".oneday-svg-holder")
+  const hours = [...timelineSlot.querySelectorAll("text.oneday-hour")]
+  const lastHour = hours[hours.length - 1]
+  const holderRect = holder.getBoundingClientRect()
+  const svg = timelineSlot.querySelector("svg.oneday-svg")
+  const chrome = timelineSlot.getBoundingClientRect().height - holderRect.height
+  return {
+    slotRows: Number(timelineSlot.dataset.h),
+    slotHeight: timelineSlot.getBoundingClientRect().height,
+    svgHeight: Number(svg.getAttribute("height")),
+    chrome,
+    chromeAllowance: TIMELINE_SLOT_CHROME_H,
+    holderClientHeight: holder.clientHeight,
+    holderScrollHeight: holder.scrollHeight,
+    holderScrollTop: holder.scrollTop,
+    lastHourLabel: lastHour.textContent,
+    lastHourBottom: lastHour.getBoundingClientRect().bottom,
+    holderBottom: holderRect.bottom,
+    lastHourVisible: lastHour.getBoundingClientRect().bottom <= holderRect.bottom + 0.5,
+  }
 }
 
 window.__mountToolbarAlignmentFixtures = () => {
@@ -1697,6 +1750,11 @@ const emptyResponsive = await page.evaluate(async () => {
   }
 })
 await page.locator("#empty-host").screenshot({ path: path.join(out, "empty-narrow-dark.png") })
+const defaultTimeline = {}
+for (const hostWidth of [900, 480]) {
+  defaultTimeline[hostWidth] = await page.evaluate((width) => window.__mountDefaultTimelineFixture(width), hostWidth)
+  await page.locator("#default-timeline-fixture .oneday-slot-timeline").screenshot({ path: path.join(out, `default-timeline-${hostWidth}.png`) })
+}
 await browser.close()
 console.log(JSON.stringify({ ...state, verticalRhythm, viewportAnchor }, null, 2))
 if (!state.ok) { console.error("MOUNT THREW"); process.exit(1) }
@@ -1851,4 +1909,14 @@ if (textEditScroll.slotOverflowY !== "hidden" || textEditScroll.paneOverflowY !=
 if (textEditScroll.handleBackgrounds.some((color) => color !== "rgba(0, 0, 0, 0)")) { console.error("TEXT HANDLE BECAME VISIBLE", textEditScroll); process.exit(1) }
 if (textWindowBlurSave.saves.length !== 1 || textWindowBlurSave.saves[0].index !== 0 || textWindowBlurSave.saves[0].text !== textWindowBlurSave.expected || !textWindowBlurSave.expected.endsWith("末尾继续编辑")) { console.error("TEXT WINDOW BLUR DID NOT FLUSH LATEST CONTENT", textWindowBlurSave); process.exit(1) }
 if (quickInputStyle.shadow !== "none" || quickInputStyle.borderColor !== "rgb(90, 80, 220)") { console.error("QUICK INPUT SHADOW/FOCUS REGRESSED", quickInputStyle); process.exit(1) }
+for (const [hostWidth, state] of Object.entries(defaultTimeline)) {
+  if (
+    state.lastHourLabel !== "23"
+    || !state.lastHourVisible
+    || state.holderScrollHeight > state.holderClientHeight + 0.5
+    || state.holderScrollTop !== 0
+    || Math.abs(state.chrome - state.chromeAllowance) > 0.5
+    || state.slotRows * 20 < state.svgHeight + state.chrome
+  ) { console.error("DEFAULT TIMELINE SLOT CLIPS THE END OF THE RANGE @" + hostWidth, state); process.exit(1) }
+}
 console.log("OK mount smoke passed")
