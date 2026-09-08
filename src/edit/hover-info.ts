@@ -47,14 +47,21 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
     container.querySelectorAll(".is-hover").forEach((el) => el.classList.remove("is-hover"))
   }
 
-  svg.addEventListener("pointerover", (e: PointerEvent) => {
-    const markerLine = Number((e.target as Element | null)?.closest<SVGElement>("[data-line]")?.dataset.line)
+  const hideTooltip = (): void => {
+    tooltip.style.display = "none"
+    tooltip.setAttribute("aria-hidden", "true")
+    clearPairing()
+  }
+
+  /** Show pairing + tooltip for the object under the pointer or with focus. */
+  const showInfo = (target: Element | null): boolean => {
+    const markerLine = Number(target?.closest<SVGElement>("[data-line]")?.dataset.line)
     const markerTarget = Number.isFinite(markerLine)
       ? svg.querySelector<SVGGElement>(`g.oneday-marker[data-line="${markerLine}"]`)
       : null
     if (markerTarget) {
       const marker = doc.annotations.find((item) => item.line === Number(markerTarget.dataset.line) && item.type)
-      if (!marker?.type) return
+      if (!marker?.type) return false
       clearPairing()
       container.querySelectorAll(`[data-line="${marker.line}"]`).forEach((el) => el.classList.add("is-hover"))
       tooltip.replaceChildren()
@@ -73,16 +80,16 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
       }
       tooltip.style.display = "block"
       tooltip.setAttribute("aria-hidden", "false")
-      return
+      return true
     }
-    const target = (e.target as Element | null)?.closest("rect.oneday-block") as SVGRectElement | null
-    if (!target) return
-    const line = Number(target.dataset.line)
+    const block = target?.closest("rect.oneday-block") as SVGRectElement | null
+    if (!block) return false
+    const line = Number(block.dataset.line)
     const entry = doc.entries.find((it) => it.line === line)
-    if (!entry) return
+    if (!entry) return false
 
     clearPairing()
-    target.classList.add("is-hover")
+    block.classList.add("is-hover")
     container
       .querySelectorAll(`.oneday-svg [data-line="${line}"]:not(rect)`)
       .forEach((el) => el.classList.add("is-hover"))
@@ -104,6 +111,25 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
     }
     tooltip.style.display = "block"
     tooltip.setAttribute("aria-hidden", "false")
+    return true
+  }
+
+  svg.addEventListener("pointerover", (e: PointerEvent) => {
+    showInfo(e.target as Element | null)
+  })
+
+  // Keyboard focus gets the same pairing and tooltip, docked beside the
+  // object because there is no pointer to follow.
+  svg.addEventListener("focusin", (e: FocusEvent) => {
+    const target = e.target as Element | null
+    if (!showInfo(target)) return
+    const rect = container.getBoundingClientRect()
+    const box = (target as Element).getBoundingClientRect()
+    tooltip.style.left = `${box.right - rect.left + 8}px`
+    tooltip.style.top = `${box.top - rect.top}px`
+  })
+  svg.addEventListener("focusout", (e: FocusEvent) => {
+    if ((e.target as Element | null)?.closest("rect.oneday-block, g.oneday-marker")) hideTooltip()
   })
 
   svg.addEventListener("pointermove", (e: PointerEvent) => {
@@ -116,9 +142,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
   svg.addEventListener("pointerout", (e: PointerEvent) => {
     const line = Number((e.target as Element | null)?.closest<SVGElement>("[data-line]")?.dataset.line)
     if ((e.target as Element | null)?.closest("rect.oneday-block, g.oneday-marker") || doc.annotations.some((item) => item.line === line && item.type)) {
-      tooltip.style.display = "none"
-      tooltip.setAttribute("aria-hidden", "true")
-      clearPairing()
+      hideTooltip()
     }
   })
 }

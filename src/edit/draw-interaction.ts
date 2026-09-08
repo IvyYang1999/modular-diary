@@ -14,6 +14,7 @@ import { darkThemeBlockFill, relatedTextColor } from "../core/contrast"
 import { t } from "../i18n"
 import { setPointerInteractionActive } from "./pointer-interaction"
 import { nativeControlOwnsTimelineDelete } from "./undo-routing"
+import { attachTimelineKeyboardNavigation, timelineObjectCenter, timelineObjectFromEvent } from "./timeline-keyboard"
 
 export interface DrawDeps {
   hourHeight: number
@@ -1142,6 +1143,28 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     activateEditOwner()
     syncEditVisual()
     deps.onEditNote(line)
+  })
+
+  // Keyboard reach (P2-17): a focused block opens its context menu with
+  // Enter/Space, anchored to the block instead of the pointer; Delete removes
+  // it; arrows walk between blocks and time points. The document-level
+  // Escape/Delete router keeps owning the selected (editing) state.
+  attachTimelineKeyboardNavigation(svg)
+  svg.addEventListener("keydown", (e: KeyboardEvent) => {
+    const hit = timelineObjectFromEvent(e)
+    if (!hit?.matches("rect.oneday-block")) return
+    const line = Number(hit.dataset.line)
+    if (!Number.isInteger(line)) return
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      e.stopPropagation()
+      const center = timelineObjectCenter(hit)
+      deps.onBlockMenu(line, center.x, center.y)
+    } else if ((e.key === "Delete" || e.key === "Backspace") && deps.getEditingLine() === null) {
+      e.preventDefault()
+      e.stopPropagation()
+      void deleteEntry(line)
+    }
   })
 
   svg.addEventListener("contextmenu", (e: MouseEvent) => {

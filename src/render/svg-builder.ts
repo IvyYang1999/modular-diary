@@ -9,7 +9,7 @@
 import { Entry, TimelineDoc } from "../core/types"
 import { hashTypeColor } from "../core/type-colors"
 import { darkThemeBlockFill, relatedTextColor } from "../core/contrast"
-import { formatClock, formatHours, durationMinutes } from "../core/duration"
+import { formatClock24, formatHours, durationMinutes } from "../core/duration"
 import { AXIS_PAD_TOP, AXIS_PAD_BOTTOM, LABEL_W, TRACK_PAD, inlineFontSize, SVG_LABEL_MAX_FONT_PX } from "../core/geometry"
 import { estimateTextWidth, isWideGlyph, TextMeasurer, wrapTextToWidth } from "../core/text-wrap"
 
@@ -224,6 +224,21 @@ function wrapNote(text: string, blockW: number, maxLines: number, measure: TextM
   return wrapTextToWidth(text, maxWidth, maxLines, measure)
 }
 
+/**
+ * Blocks and time points are keyboard-reachable objects: Tab lands on them,
+ * Enter/Space opens their menu and arrows walk between them (see
+ * edit/timeline-keyboard.ts). The label mirrors the source line.
+ */
+function focusAttrs(label: string): string {
+  return ` tabindex="0" role="button" aria-label="${escapeXml(label)}"`
+}
+
+function entryLabel(e: Entry): string {
+  const start = formatClock24(e.startMin)
+  const end = formatClock24(e.endMin)
+  return `${e.plan ? "plan " : ""}${start}-${end} ${e.type}${e.note ? ` ${e.note}` : ""}`
+}
+
 /** Side labels must stay inside the svg: cap length. */
 function truncate(text: string, max = 12): string {
   return text.length > max ? text.slice(0, max - 1) + "…" : text
@@ -288,7 +303,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     const yy = y(e.startMin)
     const hh = Math.max(2, y(e.endMin) - yy)
     parts.push(
-      `<rect class="oneday-block oneday-plan" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${trackX + GAP_X}" y="${yy + GAP_X / 2}" width="${trackW - GAP_X * 2}" height="${hh - GAP_X}" rx="3" fill="${escapeXml(color)}" fill-opacity="${PLAN_OPACITY}" stroke="${escapeXml(color)}" stroke-opacity="0.7" stroke-width="1"></rect>` +
+      `<rect class="oneday-block oneday-plan" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${trackX + GAP_X}" y="${yy + GAP_X / 2}" width="${trackW - GAP_X * 2}" height="${hh - GAP_X}" rx="3" fill="${escapeXml(color)}" fill-opacity="${PLAN_OPACITY}" stroke="${escapeXml(color)}" stroke-opacity="0.7" stroke-width="1"${focusAttrs(entryLabel(e))}></rect>` +
         `<rect pointer-events="none" class="oneday-plan-hatch" data-line="${e.line}" x="${trackX + GAP_X}" y="${yy + GAP_X / 2}" width="${trackW - GAP_X * 2}" height="${hh - GAP_X}" rx="3" fill="url(#${hatchId})"/>`
     )
     // plan 块也显示时长/备注（yyt 2026-08-17），样式淡一档
@@ -340,7 +355,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     // precomputed here and CSS picks the pair that matches the theme.
     const copyStyle = `--oneday-block-text-light:${relatedTextColor(color)};--oneday-block-text-dark:${relatedTextColor(darkThemeBlockFill(color))}`
     parts.push(
-      `<rect class="oneday-block" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${p.x}" y="${yy}" width="${p.w}" height="${hh}" rx="3" fill="${escapeXml(color)}" fill-opacity="${BLOCK_OPACITY}" style="--oneday-block-color:${escapeXml(color)}"></rect>`
+      `<rect class="oneday-block" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${p.x}" y="${yy}" width="${p.w}" height="${hh}" rx="3" fill="${escapeXml(color)}" fill-opacity="${BLOCK_OPACITY}" style="--oneday-block-color:${escapeXml(color)}"${focusAttrs(entryLabel(e))}></rect>`
     )
     const label = formatHours(durationMinutes(e.startMin, e.endMin))
     // 备注排版（yyt 2026-08-17）：短备注与时长同行；长备注且块够高 ->
@@ -418,7 +433,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
       .map(([x1, x2]) => `<line class="oneday-marker-line" x1="${x1}" y1="${markerY}" x2="${x2}" y2="${markerY}" stroke="${escapeXml(color)}"/>`)
       .join("")
     parts.push(
-      `<g class="${cls}" data-line="${marker.line}" data-type="${escapeXml(marker.type ?? "")}" data-time-min="${marker.timeMin}" data-marker-y="${markerY}">` +
+      `<g class="${cls}" data-line="${marker.line}" data-type="${escapeXml(marker.type ?? "")}" data-time-min="${marker.timeMin}" data-marker-y="${markerY}"${focusAttrs(`${marker.plan ? "plan " : ""}@${formatClock24(marker.timeMin)} ${marker.type ?? ""}${marker.text ? ` ${marker.text}` : ""}`)}>` +
       `<line class="oneday-marker-hit" x1="${trackX}" y1="${markerY}" x2="${trackX + trackW}" y2="${markerY}" stroke="transparent" stroke-width="6"/>` +
       lineParts +
       `<circle class="oneday-marker-dot" cx="${trackX}" cy="${markerY}" r="2.5" fill="${escapeXml(color)}"/>` +

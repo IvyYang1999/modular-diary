@@ -736,13 +736,28 @@
   vector-effect: non-scaling-stroke;
 }
 
-.oneday-svg .oneday-marker:is(.is-hover, .is-focus, .is-edit-target) .oneday-marker-line {
+.oneday-svg .oneday-marker:is(.is-hover, .is-focus, .is-edit-target) .oneday-marker-line,
+.oneday-svg .oneday-marker:focus-visible .oneday-marker-line {
   stroke-width: 2.5;
 }
 
-.oneday-svg .oneday-marker.is-edit-target .oneday-marker-dot {
+.oneday-svg .oneday-marker.is-edit-target .oneday-marker-dot,
+.oneday-svg .oneday-marker:focus-visible .oneday-marker-dot {
   stroke: var(--text-accent);
   stroke-width: 1.5;
+}
+
+/* Keyboard focus on a block or time point looks exactly like its selected
+   state; the browser outline is replaced by that stroke. */
+.oneday-svg :is(rect.oneday-block, g.oneday-marker):focus {
+  outline: none;
+}
+
+.oneday-svg rect.oneday-block:focus-visible {
+  stroke: var(--text-accent);
+  stroke-width: 2;
+  stroke-opacity: 1;
+  vector-effect: non-scaling-stroke;
 }
 
 .oneday-svg .is-focus.oneday-note,

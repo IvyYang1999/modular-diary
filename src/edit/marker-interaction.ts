@@ -3,6 +3,7 @@ import { formatMarkerLine } from "../core/format"
 import { minutesFromY, snapMinutes, SNAP_MINUTES, yFromMinutes } from "../core/geometry"
 import { setPointerInteractionActive } from "./pointer-interaction"
 import { nativeControlOwnsTimelineDelete } from "./undo-routing"
+import { attachTimelineKeyboardNavigation, timelineObjectCenter, timelineObjectFromEvent } from "./timeline-keyboard"
 
 export interface MarkerInteractionDeps {
   hourHeight: number
@@ -281,6 +282,25 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
     if (!hit) return
     e.preventDefault(); e.stopImmediatePropagation()
     deps.onMenu(Number(hit.dataset.line), e.clientX, e.clientY)
+  })
+  // Keyboard reach (P2-17): Enter/Space opens the marker menu at the marker,
+  // Delete removes an unselected focused marker; arrows are shared.
+  attachTimelineKeyboardNavigation(svg)
+  svg.addEventListener("keydown", (e: KeyboardEvent) => {
+    const hit = timelineObjectFromEvent(e)
+    if (!hit?.matches("g.oneday-marker")) return
+    const line = Number(hit.dataset.line)
+    if (!Number.isInteger(line)) return
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      e.stopPropagation()
+      const center = timelineObjectCenter(hit)
+      deps.onMenu(line, center.x, center.y)
+    } else if ((e.key === "Delete" || e.key === "Backspace") && deps.getEditingLine() === null) {
+      e.preventDefault()
+      e.stopPropagation()
+      deps.onDelete(line)
+    }
   })
   svg.addEventListener("oneday-marker-sync-edit", () => {
     activateMarkerOwner()
