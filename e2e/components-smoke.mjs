@@ -176,6 +176,19 @@ renderTodosInto(createSlot("todos", 210), [
   onMenu: (item, _x, _y, edit) => { window.__events.push("todo-menu:" + item.id); edit() },
   onMove: (id, index) => window.__events.push("todo-move:" + id + ":" + index),
 })
+// Progress-track contract: a todo with no recorded time paints no track at
+// all (a zero-width bar on a full-width rail reads as a divider), while a
+// todo with progress keeps the quiet flat track.
+const todoProgressFixture = document.body.createDiv({ cls: "todo-progress-contract" })
+todoProgressFixture.style.cssText = "position:absolute;left:480px;top:140px;width:360px"
+renderTodosInto(todoProgressFixture, [
+  { id: "progress-none", title: "还没开始", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 60, actualMinutes: 0 },
+  { id: "progress-half", title: "做了一半", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 60, actualMinutes: 30 },
+  { id: "progress-open", title: "没有预估", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 0, actualMinutes: 30 },
+], {
+  categories: Object.keys(colors), typeColors: colors, view: { groupBy: "none", sortBy: "manual" },
+  onAdd: () => {}, onEdit: () => {}, onGroupMenu: () => {}, onSortMenu: () => {}, onToggle: () => {}, onMenu: () => {}, onMove: () => {},
+})
 renderHabitsInto(createSlot("habits", 96), [], {
   typeColors: colors, onEdit: () => window.__events.push("empty-habit-edit"), onMenu: () => {}, onMove: () => {},
 })
@@ -429,7 +442,8 @@ const state = await page.evaluate(() => {
     todoMoreCount: defaultTodoSlot.querySelectorAll(".oneday-todo-row .oneday-item-more").length,
     todoGroupCount: defaultTodoSlot.querySelectorAll(".oneday-todo-group").length,
     todoRowsDraggable: todoRows.map((todo) => todo.draggable),
-    todoHandleCount: document.querySelectorAll(".oneday-todo-drag").length,
+    // Slot-mounted todo rows only; the progress-contract fixture is not a slot.
+    todoHandleCount: document.querySelectorAll(".oneday-slot .oneday-todo-drag").length,
     todoHandleOpacity: getComputedStyle(todoHandle).opacity,
     todoHandleDraggable: todoHandle.draggable,
     todoHandleCursor: getComputedStyle(todoHandle).cursor,
@@ -805,10 +819,17 @@ const narrowRows = await page.evaluate(() => {
     slot.style.transition = ""
     return result
   }
+  const progressRows = [...document.querySelectorAll(".todo-progress-contract .oneday-todo-row")].map((row) => ({
+    title: row.querySelector(".oneday-item-title")?.textContent,
+    tracks: row.querySelectorAll(".oneday-item-progress").length,
+    barRatio: (() => { const bar = row.querySelector(".oneday-item-progress-bar"); return bar ? bar.getBoundingClientRect().width / bar.parentElement.getBoundingClientRect().width : null })(),
+    height: row.getBoundingClientRect().height,
+  }))
   return {
     habits: read(document.querySelector(".oneday-slot-habits")),
     todos: read(document.querySelector(".oneday-slot-todos")),
     wideHabitRowHeight: document.querySelector(".oneday-slot-habits .oneday-habit-row").getBoundingClientRect().height,
+    progressRows,
   }
 })
 await browser.close()
@@ -824,6 +845,10 @@ for (const row of [...narrowRows.habits, ...narrowRows.todos]) {
   }
 }
 if (narrowRows.habits.some((row) => Math.abs(row.rowHeight - narrowRows.wideHabitRowHeight) > 0.5)) errors.push("narrow habit rows changed height: " + JSON.stringify(narrowRows.habits))
+const [noProgress, halfProgress, noEstimate] = narrowRows.progressRows
+if (!noProgress || noProgress.tracks !== 0 || !halfProgress || halfProgress.tracks !== 1 || !near(halfProgress.barRatio, 0.5) || !noEstimate || noEstimate.tracks !== 0) {
+  errors.push("todo progress track must appear only once there is progress: " + JSON.stringify(narrowRows.progressRows))
+}
 if (state.slotCount !== 7) errors.push("expected seven component slots")
 if (!near(state.weeklyHabitRatio, 0.5)) errors.push("weekly habit progress must carry across days")
 if (!near(state.todoRatios[0], 0.5) || !near(state.todoRatios[1], 0.5)) errors.push("todo actual/estimate progress is wrong")

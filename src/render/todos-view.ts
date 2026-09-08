@@ -298,7 +298,10 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     body.createEl("span", { cls: "oneday-item-title", text: item.title })
     const metaParts = [item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) })].filter(Boolean)
     body.createEl("span", { cls: "oneday-item-meta", text: metaParts.join(" · ") })
-    if (item.estimateMinutes > 0) {
+    // A zero-progress track is just a full-width grey underline that reads
+    // as a row divider; quiet flat rows only paint the track once there is
+    // progress to show.
+    if (item.estimateMinutes > 0 && item.actualMinutes > 0) {
       const track = body.createDiv({ cls: "oneday-item-progress" })
       const bar = track.createDiv({ cls: "oneday-item-progress-bar" })
       bar.style.width = `${Math.min(100, item.actualMinutes / item.estimateMinutes * 100)}%`
