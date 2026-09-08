@@ -269,7 +269,11 @@ const state = await page.evaluate(() => {
   const selectedThemes = [...document.querySelectorAll("#settings .oneday-quote-theme-grid button")]
     .filter((button) => button.getAttribute("aria-checked") === "true")
     .map((button) => button.dataset.theme)
+  const editButton = document.querySelector("#populated .oneday-component-icon-button")
+  const editIcon = editButton.querySelector("svg")
   return {
+    editButtonHeight: editButton.getBoundingClientRect().height,
+    editIconSize: [editIcon.getBoundingClientRect().width, editIcon.getBoundingClientRect().height],
     events: window.__events,
     quoteEventLeaks: window.__quoteEventLeaks,
     saves: window.__saves,
@@ -315,6 +319,9 @@ await browser.close()
 
 const errors = []
 if (state.quoteText !== "我们先塑造习惯，然后习惯塑造我们。" || state.author !== "— John Dryden") errors.push("quote copy or attribution is missing")
+// The quote header pencil is the same 22px action with a 14px glyph as the
+// Habit and Todo header actions, not a 24px icon of its own.
+if (state.editButtonHeight !== 22 || state.editIconSize.join("x") !== "14x14") errors.push(`quote header action diverged from the component header tier (${state.editButtonHeight}px, icon ${state.editIconSize.join("x")})`)
 if (state.semantics.join("|") !== "FIGURE|BLOCKQUOTE|FIGCAPTION") errors.push("quote card lost its semantic figure structure")
 if (state.events.join("|") !== "next|next|edit|empty-edit") errors.push("card cycling and focused editing are not independently reachable")
 if (state.quoteEventLeaks.length || quoteScrollBeforeClick <= 0 || quoteScrollAfterClick !== quoteScrollBeforeClick || quoteScrollAfterKeyboard !== quoteScrollBeforeClick) errors.push(`quote card interaction leaks into the editor host or changes its scroll position (before=${quoteScrollBeforeClick}, click=${quoteScrollAfterClick}, keyboard=${quoteScrollAfterKeyboard}, leaks=${state.quoteEventLeaks.join("|")})`)
