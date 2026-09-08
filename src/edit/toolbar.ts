@@ -6,6 +6,7 @@
 
 import { labelCustomMenu, showCustomMenu } from "./custom-menu"
 import { t } from "../i18n"
+import { attachRowCompaction, CREATION_ROW_COMPACTION } from "./row-compaction"
 import type { TimelineDrawTool } from "../core/types"
 
 export type DrawMode = "actual" | "plan"
@@ -145,6 +146,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     symbol.className = `oneday-tool-symbol is-${tool}`
     symbol.setAttribute("aria-hidden", "true")
     const copy = dom.createElement("span")
+    copy.className = "oneday-tool-copy"
     copy.textContent = label
     btn.append(symbol, copy)
     btn.setAttribute("aria-label", t("selectDrawTool", { name: label }))
@@ -199,6 +201,9 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     deps.onBrushModeChange(currentBrushMode)
   })
   planGroup.appendChild(planToggle)
+  // The first row never wraps and categories never rise into it; when the
+  // pane is too narrow for the copy, tools and then Plan mode go icon-only.
+  attachRowCompaction(creationControls, CREATION_ROW_COMPACTION)
 
   const renderCategoryList = (): void => {
     categoryList.replaceChildren()

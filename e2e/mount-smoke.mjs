@@ -26,6 +26,7 @@ import { attachBlockResize } from "${path.join(here, "../src/edit/block-resize")
 import { openTimePopover } from "${path.join(here, "../src/edit/time-popover")}"
 import { buildTimelineDateControl } from "${path.join(here, "../src/edit/date-control")}"
 import { buildLayerToggles, buildToolbar } from "${path.join(here, "../src/edit/toolbar")}"
+import { attachRowCompaction, TIMELINE_TOPBAR_COMPACTION } from "${path.join(here, "../src/edit/row-compaction")}"
 import { TIMELINE_SLOT_CHROME_H } from "${path.join(here, "../src/render/timeline-view")}"
 import { defaultComponentSlot, HABITS_EMPTY_ROWS } from "${path.join(here, "../src/core/grid-layout")}"
 import { captureViewportAnchor, restoreViewportAnchor } from "${path.join(here, "../src/edit/viewport-anchor")}"
@@ -300,10 +301,26 @@ window.__mountDefaultTimelineFixture = async (hostWidth) => {
   topbar.appendChild(buildTimelineDateControl(container, "2026-08-18", "周二", () => {}))
   topbar.appendChild(buildLayerToggles({ actual: true, plan: true }, () => {}))
   timelineSlot.prepend(topbar)
+  attachRowCompaction(topbar, TIMELINE_TOPBAR_COMPACTION)
   attachGridInteract(container.querySelector(".oneday-body"), () => {})
   // Stats labels move outside short bars one frame after mount.
   await new Promise(requestAnimationFrame)
   await new Promise(requestAnimationFrame)
+  const topbarRect = topbar.getBoundingClientRect()
+  const layerGroup = topbar.querySelector(".oneday-view-toggle")
+  const layerButtons = [...topbar.querySelectorAll(".oneday-layer-btn")]
+  const dateControl = topbar.querySelector(".oneday-timeline-date-control")
+  const topbarState = {
+    height: topbarRect.height,
+    singleLine: layerButtons.every((button) => Math.abs((button.getBoundingClientRect().top + button.getBoundingClientRect().height / 2) - (dateControl.getBoundingClientRect().top + dateControl.getBoundingClientRect().height / 2)) <= 0.5),
+    layerClipped: layerGroup.getBoundingClientRect().right > timelineSlot.getBoundingClientRect().right - parseFloat(getComputedStyle(timelineSlot).paddingRight) + 0.5,
+    compaction: topbar.dataset.compaction,
+    labelsVisible: layerButtons.map((button) => [...button.querySelectorAll("span:not(.oneday-eye)")].some((span) => span.getBoundingClientRect().width > 0)),
+    eyesVisible: layerButtons.map((button) => button.querySelector(".oneday-eye svg")?.getBoundingClientRect().width > 0),
+    ariaLabels: layerButtons.map((button) => button.getAttribute("aria-label")),
+    dateHeight: dateControl.getBoundingClientRect().height,
+    layerButtonHeight: layerButtons[0].getBoundingClientRect().height,
+  }
   const statsSlot = container.querySelector(".oneday-slot-stats")
   const statsRect = statsSlot.getBoundingClientRect()
   const statLabels = [...statsSlot.querySelectorAll(".oneday-stat-hours")].map((label) => {
@@ -326,6 +343,7 @@ window.__mountDefaultTimelineFixture = async (hostWidth) => {
     return [id, { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }]
   }))
   return {
+    topbar: topbarState,
     statLabels,
     statsScrollsHorizontally: statsSlot.scrollWidth > statsSlot.clientWidth,
     timelineRect: { top: timelineRect.top, bottom: timelineRect.bottom, left: timelineRect.left, right: timelineRect.right },
@@ -2023,6 +2041,24 @@ for (const [hostWidth, state] of Object.entries(defaultTimeline)) {
     }
   }
   if (state.bodyBottom > state.timelineRect.bottom + 1 || Math.abs(state.hostWidth - Number(hostWidth)) > 1) { console.error("DEFAULT COMPONENTS GREW THE BLOCK PAST THE TIMELINE @" + hostWidth, state); process.exit(1) }
+  // The topbar stays one line at every width (its height is part of the
+  // chrome constant); a narrow slot keeps the eye icons and accessible
+  // names but drops the layer copy instead of clipping the group. The date
+  // control and the layer buttons share the compact control height.
+  const topbar = state.topbar
+  const expectCompact = Number(hostWidth) <= 480
+  // A 260px pane leaves the half-width timeline slot narrower than its own
+  // 200px track; the slot already scrolls horizontally there, so only the
+  // one-line/compaction contract applies below 480px.
+  if (
+    (Number(hostWidth) >= 480 && topbar.layerClipped) || !topbar.singleLine
+    || topbar.compaction !== (expectCompact ? "1" : "0")
+    || topbar.labelsVisible.some((visible) => visible === expectCompact)
+    || topbar.eyesVisible.some((visible) => !visible)
+    || topbar.ariaLabels.some((label) => !label || !label.includes("图层"))
+    || Math.abs(topbar.dateHeight - topbar.layerButtonHeight) > 0.5
+    || Math.abs(topbar.height - defaultTimeline[900].topbar.height) > 0.5
+  ) { console.error("TIMELINE TOPBAR CLIPPED OR WRAPPED IN A NARROW SLOT @" + hostWidth, topbar); process.exit(1) }
   // Every stats number stays readable inside its slot, even in a 260px pane
   // where the track is far too short for an inline label.
   if (state.statLabels.length !== 2 || state.statLabels.some((label) => !label.visible) || state.statsScrollsHorizontally) { console.error("STATS LABEL CLIPPED @" + hostWidth, state.statLabels); process.exit(1) }

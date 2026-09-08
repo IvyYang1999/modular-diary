@@ -407,6 +407,9 @@
   flex-flow: column nowrap;
   align-items: stretch;
   justify-content: safe center;
+  /* The toolbar is bounded by its host, never by its widest row: the
+   * creation row measures itself against this width and compacts to fit. */
+  width: 100%;
 }
 
 .oneday-slot-toolbar > .oneday-toolbar.has-category-rows {
@@ -421,7 +424,18 @@
   align-items: center;
   gap: var(--oneday-control-gap);
   width: 100%;
-  min-width: max-content;
+  min-width: 0;
+}
+
+/* Nothing on the first row may shrink or truncate: the row is measured at
+ * its natural width and compacted (attachRowCompaction) until it fits. */
+.oneday-creation-controls > * {
+  flex-shrink: 0;
+}
+
+.oneday-creation-controls.is-compact-tools .oneday-tool-copy,
+.oneday-creation-controls.is-compact-plan .oneday-plan-mode-label {
+  display: none;
 }
 
 .oneday-category-list {
@@ -2732,10 +2746,19 @@ button.oneday-item-drag:active {
 .oneday-timeline-topbar {
   display: flex;
   flex: 0 0 auto;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--size-4-2, 8px);
   width: 100%;
+  min-width: 0;
   margin-bottom: 2px;
+}
+
+/* Narrow slots keep the topbar on one line (its height is part of the slot
+ * chrome constant): the layer toggles keep only their eye icons, and their
+ * accessible names still say which layer each one shows or hides. */
+.oneday-timeline-topbar.is-compact-labels .oneday-layer-btn > span:not(.oneday-eye) {
+  display: none;
 }
 
 .oneday-timeline-topbar > button.oneday-timeline-date-control {

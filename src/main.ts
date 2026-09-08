@@ -20,6 +20,7 @@ import { attachWidthHandle } from "./edit/width-handle"
 import { openNotePopover } from "./edit/note-popover"
 import { openPointTimePopover, openTimePopover } from "./edit/time-popover"
 import { buildTimelineDateControl } from "./edit/date-control"
+import { attachRowCompaction, TIMELINE_TOPBAR_COMPACTION } from "./edit/row-compaction"
 import { SIDE_LANE_W } from "./render/svg-builder"
 import { showActionMenuAtPoint } from "./edit/custom-menu"
 import { MountedTimelineRegistry } from "./render/mounted-timeline-registry"
@@ -848,6 +849,8 @@ export default class OnedayPlugin extends Plugin {
           toolbar.setBrushMode(this.drawMode)
         }, dom))
         timelineSlot.prepend(topbar)
+        // 窄槽位：图层开关退化为纯图标，顶栏永不换行（chrome 高度保持常量）。
+        attachRowCompaction(topbar, TIMELINE_TOPBAR_COMPACTION)
       }
 
       const habitsSlot = container.querySelector<HTMLElement>(".oneday-slot-habits")

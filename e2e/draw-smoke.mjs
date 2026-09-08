@@ -1793,6 +1793,9 @@ if (extend.length !== 0) {
 // visual edge hot zone on this 18px-high block.
 await page.keyboard.press("Escape")
 const exactBlock = page.locator('rect.oneday-block[data-line="1"]')
+// Toolbar rows above the timeline compact instead of widening the page, so
+// the block's viewport position depends on wrapping; bring it into view first.
+await exactBlock.scrollIntoViewIfNeeded()
 const exactBlockBox = await exactBlock.boundingBox()
 await page.mouse.click(exactBlockBox.x + 5, exactBlockBox.y + exactBlockBox.height / 2)
 const spansBeforeDblclick = await page.evaluate(() => window.__span.length)
@@ -2422,5 +2425,48 @@ if (!narrowCreationControls.sameRow || !narrowCreationControls.orderedWithoutOve
   console.error("narrow creation toolbar lost its approved hierarchy", narrowCreationControls); process.exit(1)
 }
 await page.locator(".oneday-toolbar").first().screenshot({ path: path.join(out, "toolbar-tool-mode-narrow-light.png") })
+// A split pane too narrow for the copy keeps the whole first row visible:
+// geometry buttons go icon-only, then Plan mode keeps only its switch. Every
+// control keeps its accessible name, and widening restores the copy.
+const readCompaction = () => page.evaluate(() => {
+  const toolbar = document.querySelector(".oneday-toolbar")
+  const controls = toolbar.querySelector(".oneday-creation-controls")
+  const rect = controls.getBoundingClientRect()
+  const plan = toolbar.querySelector(".oneday-plan-mode-toggle").getBoundingClientRect()
+  const toolButtons = [...toolbar.querySelectorAll(".oneday-tool-toggle .oneday-mode-btn")]
+  return {
+    compaction: controls.dataset.compaction,
+    overflows: controls.scrollWidth > controls.clientWidth,
+    planRightInset: rect.right - plan.right,
+    toolCopyVisible: toolButtons.map((button) => button.querySelector(".oneday-tool-copy").getBoundingClientRect().width > 0),
+    toolSymbolVisible: toolButtons.map((button) => button.querySelector(".oneday-tool-symbol").getBoundingClientRect().width > 0),
+    toolLabels: toolButtons.map((button) => button.getAttribute("aria-label")),
+    planLabelVisible: toolbar.querySelector(".oneday-plan-mode-label").getBoundingClientRect().width > 0,
+    planLabel: toolbar.querySelector(".oneday-plan-mode-toggle").getAttribute("aria-label"),
+    categoriesBelow: toolbar.querySelector(".oneday-category-list").getBoundingClientRect().top > rect.bottom,
+  }
+})
+await page.evaluate(() => { document.querySelector("#app").style.width = "250px" })
+await page.waitForTimeout(80)
+const compactTools = await readCompaction()
+await page.evaluate(() => { document.querySelector("#app").style.width = "205px" })
+await page.waitForTimeout(80)
+const compactPlan = await readCompaction()
+await page.locator(".oneday-toolbar").first().screenshot({ path: path.join(out, "toolbar-tool-mode-compact-light.png") })
+await page.evaluate(() => { document.querySelector("#app").style.width = "780px" })
+await page.waitForTimeout(80)
+const restoredControls = await readCompaction()
+if (
+  compactTools.compaction !== "1" || compactTools.overflows || Math.abs(compactTools.planRightInset) > 0.5
+  || compactTools.toolCopyVisible.some(Boolean) || compactTools.toolSymbolVisible.some((visible) => !visible) || !compactTools.planLabelVisible
+  || compactTools.toolLabels.some((label) => !label?.startsWith("使用")) || compactTools.planLabel !== "计划模式" || !compactTools.categoriesBelow
+) { console.error("narrow creation row did not compact its geometry copy", compactTools); process.exit(1) }
+if (
+  compactPlan.compaction !== "2" || compactPlan.overflows || Math.abs(compactPlan.planRightInset) > 0.5
+  || compactPlan.toolCopyVisible.some(Boolean) || compactPlan.planLabelVisible || compactPlan.planLabel !== "计划模式" || !compactPlan.categoriesBelow
+) { console.error("very narrow creation row did not compact Plan mode", compactPlan); process.exit(1) }
+if (restoredControls.compaction !== "0" || restoredControls.toolCopyVisible.some((visible) => !visible) || !restoredControls.planLabelVisible) {
+  console.error("widening did not restore the creation row copy", restoredControls); process.exit(1)
+}
 await browser.close()
 console.log("OK draw smoke passed")
