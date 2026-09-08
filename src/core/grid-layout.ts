@@ -248,12 +248,16 @@ export function resolveGrid(
 ): GridItem[] {
   const wantTextIds = Array.from({ length: textCount }, (_, i) => (i === 0 ? "text" : `text${i + 1}`))
   const base = parsed ?? defaultGrid(textCount, side, timelineRows, statsRows, pristine)
-  // 隐藏槽位剔除；文本槽位数量与文本区数量对齐
-  let items = base.filter((it) => !hiddenSlots.includes(it.id) && (!isTextSlot(it.id) || wantTextIds.includes(it.id)))
+  // 隐藏槽位剔除；文本槽位数量与文本区数量对齐。先把已有槽位压实，再把缺失的
+  // 槽位接在真正的底部：否则默认栅格里仍挂在时间轴栏下方的统计/对话框会在压实
+  // 时晚于新组件落进文字栏，让新组件插到统计和对话框上面。
+  let items = compactGrid(resolveOverlaps(
+    base.filter((it) => !hiddenSlots.includes(it.id) && (!isTextSlot(it.id) || wantTextIds.includes(it.id))).map(clampItem)
+  ))
   const present = new Set(items.map((it) => it.id))
   const required: SlotId[] = [...wantTextIds, ...CORE_SLOT_IDS, ...extraSlots.map((item) => item.id)]
     .filter((id) => !hiddenSlots.includes(id))
-  let maxY = items.reduce((m, it) => Math.max(m, it.y + it.h), 0)
+  let maxY = gridRows(items)
   for (const id of required) {
     if (present.has(id)) continue
     const d = defaultGrid(textCount, side, timelineRows, statsRows, pristine).find((it) => it.id === id)

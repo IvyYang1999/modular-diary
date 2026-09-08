@@ -123,6 +123,15 @@ describe("optional habit and todo components", () => {
       expect(slot.y + slot.h).toBeLessThanOrEqual(timeline.y + timeline.h)
     }
     expect(gridRows(items)).toBe(timeline.y + timeline.h)
+    // They fill the space left below text, stats and dialog rather than
+    // wedging between them.
+    const dialog = items.find((item) => item.id === "dialog")!
+    const stats = items.find((item) => item.id === "stats")!
+    const habits = items.find((item) => item.id === "habits")!
+    expect(stats.x).toBe(0)
+    expect(dialog.x).toBe(0)
+    expect(habits.y).toBeGreaterThanOrEqual(dialog.y + dialog.h)
+    expect(items.find((item) => item.id === "todos")!.y).toBeGreaterThanOrEqual(habits.y + habits.h)
   })
 
   it("mirrors the component column when the rail is on the left", () => {
