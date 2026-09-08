@@ -450,6 +450,7 @@ export function renderTimelineInto(
         if (label.offsetWidth + 10 > bar.clientWidth) {
           label.classList.add("oneday-stat-hours-out")
           label.style.color = ""
+          barWrap.classList.add("is-label-out")
           barWrap.appendChild(label)
         }
       })

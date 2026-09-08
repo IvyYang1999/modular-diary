@@ -263,7 +263,7 @@ window.__mountEmptyState = () => {
 // Production mounts a date/layer topbar above the SVG holder and the draw
 // status line below it (main.ts). The default timeline slot height must
 // reserve that chrome so the whole range is visible without internal scroll.
-window.__mountDefaultTimelineFixture = (hostWidth) => {
+window.__mountDefaultTimelineFixture = async (hostWidth) => {
   document.querySelector("#default-timeline-fixture")?.remove()
   // renderTimelineInto forces the host itself to 100%, so the viewport
   // width lives on a wrapper like Obsidian's editor pane.
@@ -273,7 +273,7 @@ window.__mountDefaultTimelineFixture = (hostWidth) => {
   document.body.appendChild(pane)
   const host = document.createElement("div")
   pane.appendChild(host)
-  const fixtureDoc = parseTimeline("date: 2026-08-18\\nrange: 7-23\\n---\\n09:15-12:15 math 李林线代\\n22:21-22:51 meal 健身\\n@21:40 [wake] 头晕，脑力低，提前收工\\n===\\n明日 to do")
+  const fixtureDoc = parseTimeline("date: 2026-08-18\\nrange: 7-23\\n---\\n09:15-12:15 math 李林线代\\n22:16-22:51 meal 健身\\n@21:40 [wake] 头晕，脑力低，提前收工\\n===\\n明日 to do")
   const container = renderTimelineInto(host, fixtureDoc, {
     typeColors: { math: "#7fd4c1", meal: "#f5a3b7" },
     markerTypeColors: { wake: "#6f8cff" },
@@ -301,6 +301,19 @@ window.__mountDefaultTimelineFixture = (hostWidth) => {
   topbar.appendChild(buildLayerToggles({ actual: true, plan: true }, () => {}))
   timelineSlot.prepend(topbar)
   attachGridInteract(container.querySelector(".oneday-body"), () => {})
+  // Stats labels move outside short bars one frame after mount.
+  await new Promise(requestAnimationFrame)
+  await new Promise(requestAnimationFrame)
+  const statsSlot = container.querySelector(".oneday-slot-stats")
+  const statsRect = statsSlot.getBoundingClientRect()
+  const statLabels = [...statsSlot.querySelectorAll(".oneday-stat-hours")].map((label) => {
+    const rect = label.getBoundingClientRect()
+    // getBoundingClientRect ignores clipping: an overflow-hidden track is the
+    // real visible box for a label that lives inside it.
+    const wrap = label.closest(".oneday-stat-bar-wrap")
+    const clip = getComputedStyle(wrap).overflow === "visible" ? statsRect : wrap.getBoundingClientRect()
+    return { text: label.textContent, out: label.classList.contains("oneday-stat-hours-out"), width: rect.width, visible: rect.width > 0 && rect.left >= clip.left - 0.5 && rect.right <= clip.right + 0.5 }
+  })
   const holder = timelineSlot.querySelector(".oneday-svg-holder")
   const hours = [...timelineSlot.querySelectorAll("text.oneday-hour")]
   const lastHour = hours[hours.length - 1]
@@ -313,6 +326,8 @@ window.__mountDefaultTimelineFixture = (hostWidth) => {
     return [id, { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }]
   }))
   return {
+    statLabels,
+    statsScrollsHorizontally: statsSlot.scrollWidth > statsSlot.clientWidth,
     timelineRect: { top: timelineRect.top, bottom: timelineRect.bottom, left: timelineRect.left, right: timelineRect.right },
     bodyBottom: container.querySelector(".oneday-body").getBoundingClientRect().bottom,
     hostWidth: host.getBoundingClientRect().width,
@@ -1829,7 +1844,7 @@ const emptyResponsive = await page.evaluate(async () => {
 })
 await page.locator("#empty-host").screenshot({ path: path.join(out, "empty-narrow-dark.png") })
 const defaultTimeline = {}
-for (const hostWidth of [900, 480]) {
+for (const hostWidth of [900, 480, 260]) {
   defaultTimeline[hostWidth] = await page.evaluate((width) => window.__mountDefaultTimelineFixture(width), hostWidth)
   await page.locator("#default-timeline-fixture .oneday-slot-timeline").screenshot({ path: path.join(out, `default-timeline-${hostWidth}.png`) })
 }
@@ -1838,7 +1853,7 @@ await page.evaluate(() => { document.querySelector("#narrow-lane-fixture").style
 await page.waitForTimeout(80)
 await page.locator("#narrow-lane-fixture .oneday-slot-timeline").screenshot({ path: path.join(out, "narrow-lane-300.png") })
 await browser.close()
-console.log(JSON.stringify({ ...state, verticalRhythm, viewportAnchor, narrowLane }, null, 2))
+console.log(JSON.stringify({ ...state, verticalRhythm, viewportAnchor, narrowLane, defaultTimeline }, null, 2))
 if (!state.ok) { console.error("MOUNT THREW"); process.exit(1) }
 if (
   Math.abs(viewportAnchor.afterTop - viewportAnchor.beforeTop) > 0.5
@@ -2008,6 +2023,9 @@ for (const [hostWidth, state] of Object.entries(defaultTimeline)) {
     }
   }
   if (state.bodyBottom > state.timelineRect.bottom + 1 || Math.abs(state.hostWidth - Number(hostWidth)) > 1) { console.error("DEFAULT COMPONENTS GREW THE BLOCK PAST THE TIMELINE @" + hostWidth, state); process.exit(1) }
+  // Every stats number stays readable inside its slot, even in a 260px pane
+  // where the track is far too short for an inline label.
+  if (state.statLabels.length !== 2 || state.statLabels.some((label) => !label.visible) || state.statsScrollsHorizontally) { console.error("STATS LABEL CLIPPED @" + hostWidth, state.statLabels); process.exit(1) }
 }
 for (const [name, lane] of Object.entries(narrowLane)) {
   const fits = lane.holderScrollWidth <= lane.holderClientWidth + 0.5 && lane.svgWidth <= lane.holderClientWidth + 0.5

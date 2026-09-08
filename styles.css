@@ -3250,11 +3250,24 @@ button.oneday-plan-mode-toggle:focus-visible {
   height: 100%;
   border-radius: var(--oneday-radius-data);
   display: flex;
+  /* 百分比宽度只是 flex 基准：标签外置后柱子让出标签需要的空间，
+     数字永远完整地留在轨道里，而不是被 wrap 的 overflow 裁掉。 */
+  flex: 0 1 auto;
   align-items: center;
   justify-content: flex-end;
   padding-right: 4px;
   min-width: 24px;
   overflow: visible; /* 标签实测外置前不被裁 */
+}
+
+/* 极窄轨道：短柱的最小宽度也要给外置标签让位；实在放不下时标签可以
+   越过轨道右缘进入槽位的 content-inset，但绝不被裁成半个数字。 */
+.oneday-stat-bar-wrap.is-label-out {
+  overflow: visible;
+}
+
+.oneday-stat-bar-wrap.is-label-out .oneday-stat-bar {
+  min-width: 6px;
 }
 
 .oneday-stat-hours {
@@ -3282,8 +3295,10 @@ button.oneday-plan-mode-toggle:focus-visible {
 
 .oneday-stat-hours-out {
   color: var(--text-normal) !important;
+  flex: 0 0 auto;
   margin-left: 5px;
   padding-right: 0;
+  white-space: nowrap;
 }
 
 /* 冻结态：文字也置灰 */
