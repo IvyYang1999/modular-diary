@@ -1,3 +1,28 @@
+/*
+ * Type scale. Block text uses three sizes derived from Obsidian's smaller
+ * UI size so a theme that changes its base scales the block with it:
+ *   body    = --font-ui-smaller           (12px by default: titles, inputs, menus)
+ *   caption = body - 1px                  (11px: controls, badges, status lines)
+ *   micro   = body - 2px                  (10px: meta, hour labels, bar values)
+ * SVG labels keep one derived pixel size (body - 3px = 9px) because their
+ * wrapping is computed from that value; the largest inline SVG label is the
+ * caption size (SVG_LABEL_MAX_FONT_PX in core/geometry.ts).
+ * Floating Oneday surfaces mount on body, outside the block, so they carry
+ * the same scale.
+ */
+.oneday-container,
+.oneday-toolbar-menu,
+.oneday-tooltip,
+.oneday-note-popover,
+.oneday-time-popover,
+.oneday-date-popover,
+.oneday-schedule-drag-ghost {
+  --oneday-font-body: var(--font-ui-smaller, 12px);
+  --oneday-font-caption: calc(var(--oneday-font-body) - 1px);
+  --oneday-font-micro: calc(var(--oneday-font-body) - 2px);
+  --oneday-font-svg-label: calc(var(--oneday-font-body) - 3px);
+}
+
 .oneday-container {
   /*
    * Oneday micro design system.
@@ -40,7 +65,7 @@
   --oneday-compact-control-height: calc(var(--input-height, 30px) - var(--size-4-1, 4px));
   --oneday-toolbar-control-height: var(--oneday-compact-control-height);
   /* Creation, Habit and Todo headers share one information tier. */
-  --oneday-component-title-font-size: 12px;
+  --oneday-component-title-font-size: var(--oneday-font-body);
   /* Thin semantic strokes remain perceptually louder than filled blocks at
    * the same alpha. Focus mode therefore uses a quieter stroke-layer alpha
    * while filled surfaces keep the standard frozen-layer alpha. */
@@ -102,7 +127,7 @@
 }
 
 .oneday-svg .oneday-hour {
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   fill: var(--text-muted);
   font-family: var(--font-monospace);
 }
@@ -119,7 +144,7 @@
 .oneday-svg .oneday-span-preview-label-text {
   fill: var(--text-accent);
   font-family: var(--font-monospace);
-  font-size: 9px;
+  font-size: var(--oneday-font-svg-label);
   font-weight: 600;
 }
 
@@ -147,7 +172,7 @@
 .oneday-svg .oneday-precision-hint-text {
   fill: var(--text-muted);
   font-family: var(--font-interface);
-  font-size: 8px;
+  font-size: calc(var(--oneday-font-svg-label) - 1px);
   font-weight: 500;
   opacity: 0.62;
 }
@@ -157,25 +182,25 @@
 }
 
 .oneday-svg .oneday-duration {
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   fill: var(--text-normal);
   font-weight: 600;
   pointer-events: none;
 }
 
 .oneday-svg .oneday-duration.oneday-thin {
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   fill: var(--text-muted);
 }
 
 .oneday-svg .oneday-note {
-  font-size: 9px;
+  font-size: var(--oneday-font-svg-label);
   fill: var(--text-muted);
   pointer-events: none;
 }
 
 .oneday-svg .oneday-anno {
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   fill: var(--text-accent);
 }
 
@@ -204,7 +229,7 @@
 
 .oneday-svg .oneday-marker-label {
   fill: var(--text-normal);
-  font-size: 9px;
+  font-size: var(--oneday-font-svg-label);
   font-weight: 500;
 }
 
@@ -234,7 +259,7 @@
   justify-content: safe center;
   gap: 2px;
   font-family: var(--font-text);
-  font-size: 13px;
+  font-size: var(--font-ui-small, 13px);
   color: var(--text-normal);
 }
 
@@ -298,7 +323,7 @@
   position: absolute;
   left: 18px;
   color: currentColor;
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   font-weight: var(--font-medium, 500);
   white-space: nowrap;
 }
@@ -308,7 +333,7 @@
 
 .oneday-timeline-onboarding-copy {
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -334,14 +359,14 @@
 .oneday-stats-empty-label {
   min-width: 0;
   max-width: 100%;
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .oneday-errors {
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   color: var(--text-error);
   border-left: 2px solid var(--text-error);
   padding-left: 6px;
@@ -362,7 +387,7 @@
  * a theme that deliberately targets the block can still layer on top. */
 .oneday-container .oneday-dialog-input {
   width: 100%;
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   padding: 6px 10px;
   resize: none;
   overflow: hidden;
@@ -380,7 +405,7 @@
 }
 
 .oneday-dialog-status {
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -527,7 +552,7 @@
 }
 
 .oneday-toolbar-empty-label {
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -538,7 +563,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--oneday-control-gap);
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   padding: 1px var(--oneday-control-padding-x);
   border-radius: var(--oneday-radius-control);
   border: 1px solid transparent;
@@ -566,7 +591,7 @@
 
 .oneday-draw-status {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   color: var(--text-muted);
   height: 14px;
   overflow: hidden;
@@ -630,7 +655,7 @@
   border-radius: var(--radius-m, 8px);
   padding: 6px 10px;
   box-shadow: var(--shadow-s);
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   max-width: 240px;
 }
 
@@ -641,7 +666,7 @@
 
 .oneday-tooltip-type {
   color: var(--text-accent);
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
 }
 
 .oneday-tooltip-note {
@@ -700,7 +725,7 @@
 }
 
 .oneday-mode-btn {
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   padding: 1px 10px;
   border: none;
   background: var(--background-secondary);
@@ -743,7 +768,7 @@
   border: none;
   background: none;
   color: var(--text-normal);
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   line-height: 1.4;
   cursor: pointer;
   box-shadow: none;
@@ -1574,7 +1599,7 @@
   min-height: 100%;
   box-sizing: border-box;
   color: var(--text-normal);
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   line-height: 1.25;
 }
 
@@ -1855,7 +1880,7 @@ button.oneday-item-drag:active {
 
 .oneday-item-meta {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1928,7 +1953,7 @@ button.oneday-item-drag:active {
 
 .oneday-svg .oneday-schedule-preview text {
   fill: var(--text-normal);
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   font-weight: var(--font-medium, 500);
 }
 
@@ -1943,7 +1968,7 @@ button.oneday-item-drag:active {
   border-radius: var(--oneday-radius-control);
   background: var(--oneday-surface-control);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   line-height: 1;
   white-space: nowrap;
   min-width: 0;
@@ -1987,7 +2012,7 @@ button.oneday-item-drag:active {
   display: block;
   padding: 5px 0 2px;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   font-weight: var(--font-semibold, 600);
   line-height: 1;
 }
@@ -2006,7 +2031,7 @@ button.oneday-item-drag:active {
   margin: 0;
   padding: 0 4px;
   color: var(--text-error);
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   line-height: 1.25;
 }
 
@@ -2041,7 +2066,7 @@ button.oneday-item-drag:active {
   min-height: 26px;
   padding-block: 0;
   border-radius: var(--oneday-radius-control);
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
 }
 
 .oneday-todo-estimate-field {
@@ -2075,7 +2100,7 @@ button.oneday-item-drag:active {
   background-color: transparent;
   box-shadow: none;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   line-height: 1;
 }
 
@@ -2715,7 +2740,7 @@ button.oneday-item-drag:active {
 
 .oneday-svg .oneday-range-step-button-text {
   fill: var(--text-muted);
-  font-size: 8px;
+  font-size: calc(var(--oneday-font-svg-label) - 1px);
   font-weight: 500;
 }
 
@@ -2774,7 +2799,7 @@ button.oneday-item-drag:active {
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   color: var(--text-muted);
   pointer-events: none;
   animation: oneday-pulse 1s ease-in-out infinite;
@@ -2821,7 +2846,7 @@ button.oneday-item-drag:active {
   border-radius: var(--oneday-radius-control);
   background: transparent;
   box-shadow: none;
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   color: var(--text-muted);
   font-family: var(--font-monospace);
   line-height: 1;
@@ -2863,7 +2888,7 @@ button.oneday-item-drag:active {
 .oneday-date-picker-title {
   flex: 1;
   color: var(--text-normal);
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   font-weight: var(--font-semibold, 600);
   text-align: center;
 }
@@ -2902,7 +2927,7 @@ button.oneday-item-drag:active {
 
 .oneday-date-picker-weekdays span {
   color: var(--text-faint);
-  font-size: 9px;
+  font-size: var(--oneday-font-svg-label);
   line-height: 18px;
   text-align: center;
 }
@@ -2918,7 +2943,7 @@ button.oneday-item-drag:active {
   background: transparent;
   box-shadow: none;
   color: var(--text-normal);
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   line-height: 1;
 }
 
@@ -3018,7 +3043,7 @@ button.oneday-item-drag:active {
 
 .oneday-note-popover input {
   width: 160px;
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   border: none;
   background: transparent;
   box-shadow: none;
@@ -3152,7 +3177,7 @@ button.oneday-plan-mode-toggle:focus-visible {
 }
 
 .oneday-plan-mode-label {
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   line-height: 1;
   white-space: nowrap;
 }
@@ -3168,7 +3193,7 @@ button.oneday-plan-mode-toggle:focus-visible {
 /* 快速记录：未配置 API 引导 */
 
 .oneday-dialog-needskey {
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   color: var(--text-muted);
   display: flex;
   align-items: center;
@@ -3192,7 +3217,7 @@ button.oneday-plan-mode-toggle:focus-visible {
   border-radius: var(--oneday-radius-control);
   background: var(--oneday-surface-control);
   color: var(--text-accent);
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   font-weight: var(--font-medium, 500);
   line-height: 1;
   white-space: nowrap;
@@ -3305,7 +3330,7 @@ button.oneday-plan-mode-toggle:focus-visible {
   border-left: 2px dashed var(--text-accent);
   z-index: 12;
   pointer-events: none;
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   color: var(--text-accent);
   padding-left: 3px;
 }
@@ -3321,7 +3346,7 @@ button.oneday-plan-mode-toggle:focus-visible {
 /* 开关前缀标签（新增为 / 显示） */
 
 .oneday-toggle-label {
-  font-size: 11px;
+  font-size: var(--oneday-font-caption);
   color: var(--text-muted);
   align-self: center;
   /* 相邻控件间距统一由 toolbar 的 gap token 管理，避免重复叠加。 */
@@ -3355,7 +3380,7 @@ button.oneday-plan-mode-toggle:focus-visible {
 .oneday-stat-type {
   flex-shrink: 0;
   min-width: 42px;
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   color: var(--text-normal);
 }
 
@@ -3394,7 +3419,7 @@ button.oneday-plan-mode-toggle:focus-visible {
 }
 
 .oneday-stat-hours {
-  font-size: 10px;
+  font-size: var(--oneday-font-micro);
   font-weight: 600;
   /* 颜色由 JS 派生（relatedTextColor），不需要 blend hack */
 }
@@ -3480,7 +3505,7 @@ button.oneday-plan-mode-toggle:focus-visible {
 .oneday-time-popover input {
   width: 52px;
   font-family: var(--font-monospace);
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
   border: none;
   background: transparent;
   box-shadow: none;
@@ -3787,7 +3812,7 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
 .oneday-daily-quote-body figcaption {
   margin-top: 10px;
   color: color-mix(in srgb, currentColor 68%, transparent);
-  font-size: 12px;
+  font-size: var(--oneday-font-body);
 }
 
 .oneday-daily-quote-card.font-serif { font-family: ui-serif, "Songti SC", "Noto Serif CJK SC", Georgia, serif; }

@@ -31,10 +31,17 @@ export function snapMinutes(min: number, snap = SNAP_MINUTES): number {
  * 时长永远居中，字号自适应). Returns 0 when the block is too small for
  * any readable label (caller falls back to the side lane).
  */
+/**
+ * Largest inline SVG label size, in px. Mirrors `--oneday-font-caption`
+ * (12px `--font-ui-smaller` minus 1px) in styles.css; SVG labels are sized
+ * numerically because their fit is computed before layout.
+ */
+export const SVG_LABEL_MAX_FONT_PX = 11
+
 export function inlineFontSize(w: number, h: number, text: string): number {
   const byWidth = (w - 4) / (text.length * 0.58)
   const byHeight = h * 0.55
-  const size = Math.min(11, byWidth, byHeight)
+  const size = Math.min(SVG_LABEL_MAX_FONT_PX, byWidth, byHeight)
   if (size < 4.5) return 0
   return Math.floor(size * 2) / 2
 }
