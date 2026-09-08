@@ -36,7 +36,7 @@ await esbuild.build({
 })
 
 const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
-fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><style>${css}</style></head><body><main class="oneday-container"><div class="underlay">visual timeline underlay</div></main><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
+fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><style>${css}</style></head><body><main class="oneday-container"><div class="oneday-block-scroll underlay">visual timeline underlay</div></main><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 920, height: 620 }, deviceScaleFactor: 1 })
@@ -73,14 +73,41 @@ const initial = await page.evaluate(() => {
     value: textarea.value,
     focused: document.activeElement === textarea,
     fullWidth: Math.abs((c.width - 8) - o.width) <= 1,
-    fullHeight: Math.abs((c.height - 8) - o.height) <= 1,
+    topAnchored: Math.abs(o.top - (c.top + 4)) <= 1,
+    // A three-line draft is content-sized: the 320px floor, not the block.
+    floorHeight: Math.abs(o.height - 320) <= 1 && o.height < c.height - 8,
+    textareaScrolls: textarea.scrollHeight > textarea.clientHeight + 1,
     underlayCovered: getComputedStyle(overlay).backgroundColor !== "rgba(0, 0, 0, 0)",
+    underlayInert: getComputedStyle(container.querySelector(".oneday-block-scroll")).pointerEvents === "none",
   }
 })
-if (JSON.stringify(initial.fences) !== JSON.stringify(["```timeline", "```"]) || !initial.value.includes("09:00-10:00") || !initial.focused || !initial.fullWidth || !initial.fullHeight || !initial.underlayCovered) {
-  console.error("source mode did not own the complete block viewport", initial); process.exit(1)
+if (JSON.stringify(initial.fences) !== JSON.stringify(["```timeline", "```"]) || !initial.value.includes("09:00-10:00") || !initial.focused || !initial.fullWidth || !initial.topAnchored || !initial.floorHeight || initial.textareaScrolls || !initial.underlayCovered || !initial.underlayInert) {
+  console.error("source mode plane is not top-anchored and content-sized", initial); process.exit(1)
 }
 await page.screenshot({ path: path.join(out, "source-mode-dark.png") })
+
+// A long draft grows the plane up to the block height, then scrolls inside
+// the editor instead of pushing the footer out of the block.
+const longDraft = await page.evaluate(() => {
+  const textarea = document.querySelector(".oneday-source-textarea")
+  const lines = Array.from({ length: 40 }, (_, index) => `${String(9 + Math.floor(index / 4)).padStart(2, "0")}:${String((index % 4) * 15).padStart(2, "0")}-${String(9 + Math.floor((index + 1) / 4)).padStart(2, "0")}:${String(((index + 1) % 4) * 15).padStart(2, "0")} develop 第${index + 1}行`)
+  textarea.value = "date: 2026-08-24\n---\n" + lines.join("\n")
+  textarea.dispatchEvent(new Event("input", { bubbles: true }))
+  const container = document.querySelector(".oneday-container")
+  const overlay = document.querySelector(".oneday-source-mode")
+  const footer = document.querySelector(".oneday-source-footer")
+  const c = container.getBoundingClientRect()
+  const o = overlay.getBoundingClientRect()
+  return {
+    fillsBlock: Math.abs((c.height - 8) - o.height) <= 1,
+    footerInside: footer.getBoundingClientRect().bottom <= o.bottom + 0.5,
+    textareaScrolls: textarea.scrollHeight > textarea.clientHeight + 1,
+    overlayScrolls: overlay.scrollHeight > overlay.clientHeight + 1,
+  }
+})
+if (!longDraft.fillsBlock || !longDraft.footerInside || !longDraft.textareaScrolls || longDraft.overlayScrolls) {
+  console.error("long source draft did not stay inside the block with an internal scroller", longDraft); process.exit(1)
+}
 
 await page.evaluate(() => {
   const textarea = document.querySelector(".oneday-source-textarea")

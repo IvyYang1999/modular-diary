@@ -132,9 +132,17 @@ export function mountSourceMode(
     }
   }
 
+  // The plane is content-sized: the textarea reports its natural height and
+  // the overlay's CSS min/max-height clamp it to [320px, block height]. When
+  // the clamp wins, the textarea shrinks and scrolls inside the editor.
+  const fitEditor = (): void => {
+    textarea.style.height = "0px"
+    textarea.style.height = `${textarea.scrollHeight}px`
+  }
   textarea.addEventListener("input", () => {
     deps.onDraftChange(textarea.value)
     validate()
+    fitEditor()
   })
   textarea.addEventListener("keydown", (event: KeyboardEvent) => {
     if (event.isComposing) return
@@ -152,6 +160,7 @@ export function mountSourceMode(
   overlay.append(header, editor, footer)
   container.appendChild(overlay)
   validate()
+  fitEditor()
   textarea.focus({ preventScroll: true })
   return overlay
 }
