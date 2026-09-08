@@ -1282,6 +1282,52 @@
   min-width: 0;
 }
 
+/* A large workbench (the Daily quote designer) folds behind one native
+ * disclosure on the global page; the component's pencil opens it expanded. */
+.oneday-settings-collapsible > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--oneday-settings-gap-xs);
+  min-height: var(--oneday-settings-control-height);
+  padding: 0 var(--oneday-settings-gap-sm);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--button-radius, 5px);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small, 13px);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.oneday-settings-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.oneday-settings-collapsible > summary::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin: 0 var(--oneday-settings-gap-xs) 0 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.oneday-settings-collapsible[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.oneday-settings-collapsible > summary:hover,
+.oneday-settings-collapsible[open] > summary {
+  color: var(--text-normal);
+  border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
+}
+
+.oneday-settings-collapsible[open] > summary {
+  margin-bottom: var(--oneday-settings-gap-md);
+}
+
 .oneday-settings-add-rule {
   appearance: none;
   -webkit-appearance: none;

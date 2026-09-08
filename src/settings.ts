@@ -82,6 +82,46 @@ export class OnedaySettingTab extends PluginSettingTab {
     containerEl.addClass("oneday-settings-tab")
     containerEl.createEl("h2", { text: tr("settingsTitle") })
 
+    const timelineSection = containerEl.createDiv({ cls: "oneday-settings-section" })
+    timelineSection.dataset.settingsSection = "timeline"
+    timelineSection.createEl("h3", { text: tr("timelineSettingsHeading") })
+    timelineSection.createEl("p", { text: tr("timelineSettingsDescription"), cls: "setting-item-description" })
+    const timelineSettingsEl = timelineSection.createDiv({ cls: "oneday-settings-section-editor" })
+
+    new Setting(timelineSettingsEl)
+      .setName(tr("defaultRange"))
+      .setDesc(tr("defaultRangeDescription"))
+      .addText((t) =>
+        t.setValue(String(this.plugin.settings.rangeStartHour)).onChange(async (v) => {
+          const n = Number(v)
+          if (Number.isInteger(n) && n >= 0 && n <= 23 && n < this.plugin.settings.rangeEndHour) {
+            this.plugin.settings.rangeStartHour = n
+            await this.plugin.saveSettings({ rerender: true })
+          }
+        })
+      )
+      .addText((t) =>
+        t.setValue(String(this.plugin.settings.rangeEndHour)).onChange(async (v) => {
+          const n = Number(v)
+          if (Number.isInteger(n) && n >= 1 && n <= 24 && n > this.plugin.settings.rangeStartHour) {
+            this.plugin.settings.rangeEndHour = n
+            await this.plugin.saveSettings({ rerender: true })
+          }
+        })
+      )
+
+    new Setting(timelineSettingsEl)
+      .setName(tr("hourHeight"))
+      .addText((t) =>
+        t.setValue(String(this.plugin.settings.hourHeight)).onChange(async (v) => {
+          const n = Number(v)
+          if (Number.isFinite(n) && n >= 24 && n <= 200) {
+            this.plugin.settings.hourHeight = n
+            await this.plugin.saveSettings({ rerender: true })
+          }
+        })
+      )
+
     for (const [scope, heading, description] of [
       ["span", tr("spanCategoriesHeading"), tr("spanCategoriesDescription")],
       ["marker", tr("markerCategoriesHeading"), tr("markerCategoriesDescription")],
@@ -98,23 +138,6 @@ export class OnedaySettingTab extends PluginSettingTab {
     habitSection.createEl("h3", { text: tr("habitsHeading") })
     habitSection.createEl("p", { text: tr("habitsDescription"), cls: "setting-item-description" })
     renderHabitSettings(habitSection.createDiv({ cls: "oneday-settings-section-editor" }), this.plugin)
-
-    const quoteSection = containerEl.createDiv({ cls: "oneday-settings-section" })
-    quoteSection.dataset.settingsSection = "daily-quotes"
-    quoteSection.createEl("h3", { text: tr("dailyQuoteSettings") })
-    quoteSection.createEl("p", { text: tr("dailyQuoteSettingsDescription"), cls: "setting-item-description" })
-    renderDailyQuoteSettings(
-      quoteSection.createDiv({ cls: "oneday-settings-section-editor" }),
-      this.plugin,
-      {
-        appearance: this.plugin.settings.dailyQuoteDefaults,
-        scope: "defaults",
-        onApply: async (appearance) => {
-          this.plugin.settings.dailyQuoteDefaults = appearance
-          await this.plugin.saveSettings({ rerender: true })
-        },
-      }
-    )
 
     const weeklyTodoSection = containerEl.createDiv({ cls: "oneday-settings-section" })
     weeklyTodoSection.dataset.settingsSection = "todo-rules"
@@ -163,49 +186,36 @@ export class OnedaySettingTab extends PluginSettingTab {
     }
     renderWeeklyTodos()
 
-    const timelineSection = containerEl.createDiv({ cls: "oneday-settings-section" })
-    timelineSection.dataset.settingsSection = "timeline"
-    timelineSection.createEl("h3", { text: tr("timelineSettingsHeading") })
-    timelineSection.createEl("p", { text: tr("timelineSettingsDescription"), cls: "setting-item-description" })
-    const timelineSettingsEl = timelineSection.createDiv({ cls: "oneday-settings-section-editor" })
+    // The designer is an 800px workbench; on the global page it stays folded
+    // behind one disclosure and renders on first open. The component pencil
+    // opens the same renderer expanded inside DailyQuoteSettingsModal.
+    const quoteSection = containerEl.createDiv({ cls: "oneday-settings-section" })
+    quoteSection.dataset.settingsSection = "daily-quotes"
+    quoteSection.createEl("h3", { text: tr("dailyQuoteSettings") })
+    quoteSection.createEl("p", { text: tr("dailyQuoteSettingsDescription"), cls: "setting-item-description" })
+    const quoteDetails = quoteSection.createEl("details", { cls: "oneday-settings-collapsible" })
+    quoteDetails.createEl("summary", { text: tr("quoteDesignerToggle") })
+    const quoteEditor = quoteDetails.createDiv({ cls: "oneday-settings-section-editor" })
+    let quoteRendered = false
+    quoteDetails.addEventListener("toggle", () => {
+      if (!quoteDetails.open || quoteRendered) return
+      quoteRendered = true
+      renderDailyQuoteSettings(quoteEditor, this.plugin, {
+        appearance: this.plugin.settings.dailyQuoteDefaults,
+        scope: "defaults",
+        onApply: async (appearance) => {
+          this.plugin.settings.dailyQuoteDefaults = appearance
+          await this.plugin.saveSettings({ rerender: true })
+        },
+      })
+    })
 
-    new Setting(timelineSettingsEl)
-      .setName(tr("defaultRange"))
-      .setDesc(tr("defaultRangeDescription"))
-      .addText((t) =>
-        t.setValue(String(this.plugin.settings.rangeStartHour)).onChange(async (v) => {
-          const n = Number(v)
-          if (Number.isInteger(n) && n >= 0 && n <= 23 && n < this.plugin.settings.rangeEndHour) {
-            this.plugin.settings.rangeStartHour = n
-            await this.plugin.saveSettings({ rerender: true })
-          }
-        })
-      )
-      .addText((t) =>
-        t.setValue(String(this.plugin.settings.rangeEndHour)).onChange(async (v) => {
-          const n = Number(v)
-          if (Number.isInteger(n) && n >= 1 && n <= 24 && n > this.plugin.settings.rangeStartHour) {
-            this.plugin.settings.rangeEndHour = n
-            await this.plugin.saveSettings({ rerender: true })
-          }
-        })
-      )
+    const captureSection = containerEl.createDiv({ cls: "oneday-settings-section" })
+    captureSection.dataset.settingsSection = "natural-language"
+    captureSection.createEl("h3", { text: tr("naturalLanguageHeading") })
+    const captureEl = captureSection.createDiv({ cls: "oneday-settings-section-editor" })
 
-    new Setting(timelineSettingsEl)
-      .setName(tr("hourHeight"))
-      .addText((t) =>
-        t.setValue(String(this.plugin.settings.hourHeight)).onChange(async (v) => {
-          const n = Number(v)
-          if (Number.isFinite(n) && n >= 24 && n <= 200) {
-            this.plugin.settings.hourHeight = n
-            await this.plugin.saveSettings({ rerender: true })
-          }
-        })
-      )
-
-    containerEl.createEl("h3", { text: tr("naturalLanguageHeading") })
-
-    new Setting(containerEl)
+    new Setting(captureEl)
       .setName(tr("backend"))
       .setDesc(tr("backendDescription"))
       .addDropdown((d) =>
@@ -219,7 +229,7 @@ export class OnedaySettingTab extends PluginSettingTab {
           })
       )
 
-    new Setting(containerEl)
+    new Setting(captureEl)
       .setName(tr("apiProtocol"))
       .setDesc(tr("apiProtocolDescription"))
       .addDropdown((d) =>
@@ -233,7 +243,7 @@ export class OnedaySettingTab extends PluginSettingTab {
           })
       )
 
-    new Setting(containerEl)
+    new Setting(captureEl)
       .setName("API Key")
       .setDesc(tr("apiKeyDescription"))
       .addText((t) => {
@@ -246,7 +256,7 @@ export class OnedaySettingTab extends PluginSettingTab {
           })
       })
 
-    new Setting(containerEl)
+    new Setting(captureEl)
       .setName("Base URL")
       .setDesc(tr("baseUrlDescription"))
       .addText((t) =>
@@ -256,7 +266,7 @@ export class OnedaySettingTab extends PluginSettingTab {
         })
       )
 
-    new Setting(containerEl)
+    new Setting(captureEl)
       .setName(tr("model"))
       .setDesc(tr("modelDescription"))
       .addText((t) =>
