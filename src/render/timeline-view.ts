@@ -445,15 +445,40 @@ export function renderTimelineInto(
       bar.style.width = `${pct}%`
       // 先放柱内，挂载后实测：装不下就挪柱外（百分比阈值对不上像素，yyt 2026-08-19）
       const label = bar.createEl("span", { cls: "oneday-stat-hours", text: formatHours(st.minutes) })
-      label.style.color = relatedTextColor(color)
-      domWindow?.requestAnimationFrame(() => {
-        if (label.offsetWidth + 10 > bar.clientWidth) {
+      const insideColor = relatedTextColor(color)
+      label.style.color = insideColor
+      // 实测要在最终布局上做，而且要能双向迁移：字体回退、槽位缩放都会改变
+      // 柱宽（Linux 上字体度量与 macOS 不同，一次 rAF 不够）。
+      const placeLabel = (): void => {
+        const isOut = label.classList.contains("oneday-stat-hours-out")
+        // 外置后柱子会为标签让位而变窄；判断“能否回柱内”要用柱子在轨道里的
+        // 名义宽度（百分比 × 轨道宽），而不是让位后的实际宽度。
+        const insideWidth = isOut ? (barWrap.clientWidth * pct) / 100 : bar.clientWidth
+        const fits = label.offsetWidth + 10 <= insideWidth
+        if (!isOut && !fits) {
           label.classList.add("oneday-stat-hours-out")
           label.style.color = ""
           barWrap.classList.add("is-label-out")
           barWrap.appendChild(label)
+        } else if (isOut && fits) {
+          label.classList.remove("oneday-stat-hours-out")
+          label.style.color = insideColor
+          barWrap.classList.remove("is-label-out")
+          bar.appendChild(label)
         }
-      })
+      }
+      domWindow?.requestAnimationFrame(placeLabel)
+      const ResizeObserverCtor = domWindow?.ResizeObserver
+      if (ResizeObserverCtor) {
+        const observer = new ResizeObserverCtor(() => {
+          if (!barWrap.isConnected) {
+            observer.disconnect()
+            return
+          }
+          placeLabel()
+        })
+        observer.observe(barWrap)
+      }
     }
   } else if (statsSlot && doc.errors.length === 0) {
     const empty = statsSlot.createDiv({ cls: "oneday-stats-empty" })
