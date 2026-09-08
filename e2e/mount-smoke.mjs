@@ -27,6 +27,7 @@ import { openTimePopover } from "${path.join(here, "../src/edit/time-popover")}"
 import { buildTimelineDateControl } from "${path.join(here, "../src/edit/date-control")}"
 import { buildLayerToggles, buildToolbar } from "${path.join(here, "../src/edit/toolbar")}"
 import { TIMELINE_SLOT_CHROME_H } from "${path.join(here, "../src/render/timeline-view")}"
+import { defaultComponentSlot, HABITS_EMPTY_ROWS } from "${path.join(here, "../src/core/grid-layout")}"
 import { captureViewportAnchor, restoreViewportAnchor } from "${path.join(here, "../src/edit/viewport-anchor")}"
 import { captureInternalScroll, restoreInternalScroll, stabilizeInternalScroll } from "${path.join(here, "../src/edit/internal-scroll")}"
 
@@ -264,14 +265,25 @@ window.__mountEmptyState = () => {
 // reserve that chrome so the whole range is visible without internal scroll.
 window.__mountDefaultTimelineFixture = (hostWidth) => {
   document.querySelector("#default-timeline-fixture")?.remove()
+  // renderTimelineInto forces the host itself to 100%, so the viewport
+  // width lives on a wrapper like Obsidian's editor pane.
+  const pane = document.createElement("div")
+  pane.id = "default-timeline-fixture"
+  pane.style.width = hostWidth + "px"
+  document.body.appendChild(pane)
   const host = document.createElement("div")
-  host.id = "default-timeline-fixture"
-  host.style.width = hostWidth + "px"
-  document.body.appendChild(host)
+  pane.appendChild(host)
   const fixtureDoc = parseTimeline("date: 2026-08-18\\nrange: 7-23\\n---\\n09:15-12:15 math 李林线代\\n22:21-22:51 meal 健身\\n@21:40 [wake] 头晕，脑力低，提前收工\\n===\\n明日 to do")
   const container = renderTimelineInto(host, fixtureDoc, {
     typeColors: { math: "#7fd4c1", meal: "#f5a3b7" },
     markerTypeColors: { wake: "#6f8cff" },
+    // The same optional components main.ts requests for a day with habits,
+    // todos and a daily quote.
+    extraSlots: [
+      defaultComponentSlot("habits", Math.max(HABITS_EMPTY_ROWS, 3 * 2 + 2), fixtureDoc.side),
+      defaultComponentSlot("todos", Math.max(5, 3 * 2 + 3), fixtureDoc.side),
+      defaultComponentSlot("quote", 8, fixtureDoc.side),
+    ],
   }, {
     renderMarkdown: (target, text) => { target.textContent = text },
     onSave: () => {},
@@ -295,7 +307,16 @@ window.__mountDefaultTimelineFixture = (hostWidth) => {
   const holderRect = holder.getBoundingClientRect()
   const svg = timelineSlot.querySelector("svg.oneday-svg")
   const chrome = timelineSlot.getBoundingClientRect().height - holderRect.height
+  const timelineRect = timelineSlot.getBoundingClientRect()
+  const components = Object.fromEntries(["habits", "todos", "quote"].map((id) => {
+    const rect = container.querySelector(".oneday-slot-" + id).getBoundingClientRect()
+    return [id, { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }]
+  }))
   return {
+    timelineRect: { top: timelineRect.top, bottom: timelineRect.bottom, left: timelineRect.left, right: timelineRect.right },
+    bodyBottom: container.querySelector(".oneday-body").getBoundingClientRect().bottom,
+    hostWidth: host.getBoundingClientRect().width,
+    components,
     slotRows: Number(timelineSlot.dataset.h),
     slotHeight: timelineSlot.getBoundingClientRect().height,
     svgHeight: Number(svg.getAttribute("height")),
@@ -1918,5 +1939,13 @@ for (const [hostWidth, state] of Object.entries(defaultTimeline)) {
     || Math.abs(state.chrome - state.chromeAllowance) > 0.5
     || state.slotRows * 20 < state.svgHeight + state.chrome
   ) { console.error("DEFAULT TIMELINE SLOT CLIPS THE END OF THE RANGE @" + hostWidth, state); process.exit(1) }
+  // Newly requested components belong beside the timeline in the text
+  // column, never stacked under the whole timeline.
+  for (const [id, rect] of Object.entries(state.components)) {
+    if (rect.top >= state.timelineRect.bottom - 1 || rect.right > state.timelineRect.left + 1 || rect.bottom > state.timelineRect.bottom + 1) {
+      console.error("DEFAULT COMPONENT " + id + " LANDED BELOW THE TIMELINE @" + hostWidth, state); process.exit(1)
+    }
+  }
+  if (state.bodyBottom > state.timelineRect.bottom + 1 || Math.abs(state.hostWidth - Number(hostWidth)) > 1) { console.error("DEFAULT COMPONENTS GREW THE BLOCK PAST THE TIMELINE @" + hostWidth, state); process.exit(1) }
 }
 console.log("OK mount smoke passed")

@@ -14,7 +14,7 @@ import { attachMarkerInteraction } from "./edit/marker-interaction"
 import { showBlockMenu, showMarkerMenu } from "./edit/block-menu"
 import { attachHoverInfo, toggleBlockFocus } from "./edit/hover-info"
 import { applyGridToBody, attachGridInteract } from "./edit/grid-interact"
-import { compactGrid, GRID_COLS, GRID_ROW_H, gridRows, GridItem, HABITS_EMPTY_ROWS, MAX_GRID_COLS, serializeLayoutHeader } from "./core/grid-layout"
+import { compactGrid, defaultComponentSlot, GRID_COLS, GRID_ROW_H, gridRows, GridItem, HABITS_EMPTY_ROWS, MAX_GRID_COLS, serializeLayoutHeader } from "./core/grid-layout"
 import { inferDate, insertTimelineBlock } from "./insert"
 import { attachWidthHandle } from "./edit/width-handle"
 import { openNotePopover } from "./edit/note-popover"
@@ -482,12 +482,12 @@ export default class OnedayPlugin extends Plugin {
       const layoutHas = (id: string): boolean => Boolean(doc.layout?.some((item) => item.id === id))
       const extraSlots: GridItem[] = []
       if (dueHabits.length > 0 || layoutHas("habits")) {
-        extraSlots.push({ id: "habits", x: 0, y: 0, w: 7, h: Math.max(HABITS_EMPTY_ROWS, dueHabits.length * 2 + 2) })
+        extraSlots.push(defaultComponentSlot("habits", Math.max(HABITS_EMPTY_ROWS, dueHabits.length * 2 + 2), doc.side))
       }
       if (doc.todos.length > 0 || dueWeeklyTodos.length > 0 || layoutHas("todos")) {
-        extraSlots.push({ id: "todos", x: 0, y: 0, w: 7, h: Math.max(5, (doc.todos.length + dueWeeklyTodos.length) * 2 + 3) })
+        extraSlots.push(defaultComponentSlot("todos", Math.max(5, (doc.todos.length + dueWeeklyTodos.length) * 2 + 3), doc.side))
       }
-      if (layoutHas("quote")) extraSlots.push({ id: "quote", x: 0, y: 0, w: 7, h: 8 })
+      if (layoutHas("quote")) extraSlots.push(defaultComponentSlot("quote", 8, doc.side))
       const textBlockKey = this.mutationBlockKey(el, ctx)
       const blockIdentity: BlockIdentity<object> = {
         owner: textBlockKey.owner,
@@ -1655,8 +1655,12 @@ export default class OnedayPlugin extends Plugin {
     const items = parsed.layout ? [...parsed.layout] : []
     if (items.some((item) => item.id === id)) return out
     const maxY = items.reduce((value, item) => Math.max(value, item.y + item.h), 0)
-    items.push({ id, x: 0, y: maxY, w: 7, h: id === "habits" ? HABITS_EMPTY_ROWS : 8 })
-    return setHeaderValue(out, "layout", serializeLayoutHeader(compactGrid(items, id)))
+    // Append below everything, then let gravity pull the six-column slot into
+    // the first free space of its column instead of pinning it under the
+    // timeline. Rendering re-runs the same compaction, so this is what the
+    // user would see anyway.
+    items.push({ ...defaultComponentSlot(id, id === "habits" ? HABITS_EMPTY_ROWS : 8, parsed.side), y: maxY })
+    return setHeaderValue(out, "layout", serializeLayoutHeader(compactGrid(items)))
   }
 
   private setDailyQuoteHeaders(source: string, quote: DailyQuoteDefinition | null, appearance: DailyQuoteAppearance): string {

@@ -11,6 +11,13 @@ export const MAX_GRID_COLS = 120
 export const GRID_ROW_H = 20
 /** Header + one real habit row: empty CTA previews the post-create footprint. */
 export const HABITS_EMPTY_ROWS = 4
+/**
+ * Optional components (habits/todos/quote) share the six-column width of the
+ * text column and the toolbar/timeline rail. A wider default would collide
+ * with the timeline column and get pushed below the whole timeline, leaving
+ * the text column empty for dozens of rows.
+ */
+export const COMPONENT_SLOT_COLS = 6
 
 export type SlotId = string // 核心: toolbar|timeline|stats|dialog；文本框: text, text2, text3…
 export const CORE_SLOT_IDS = ["toolbar", "timeline", "stats", "dialog"] as const
@@ -30,6 +37,15 @@ export interface GridItem {
   y: number
   w: number
   h: number
+}
+
+/**
+ * Default footprint for an optional component: it starts in the text column
+ * (the column opposite the toolbar/timeline rail) so gravity compaction lands
+ * it in the free space below the text, stats and dialog slots.
+ */
+export function defaultComponentSlot(id: SlotId, h: number, side?: "left" | "right"): GridItem {
+  return { id, x: side === "left" ? GRID_COLS - COMPONENT_SLOT_COLS : 0, y: 0, w: COMPONENT_SLOT_COLS, h: Math.max(1, h) }
 }
 
 const TOKEN_RE = /^([a-z][a-z0-9]*)@(\d+),(\d+),(\d+),(\d+)$/

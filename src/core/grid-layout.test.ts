@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  clampItem, compactGrid, compactGridVertically, defaultGrid, gridColumns, gridRows, HABITS_EMPTY_ROWS, overlaps, parseLayoutHeader, resolveGrid,
+  clampItem, compactGrid, compactGridVertically, COMPONENT_SLOT_COLS, defaultComponentSlot, defaultGrid, gridColumns, gridRows, HABITS_EMPTY_ROWS, overlaps, parseLayoutHeader, resolveGrid,
   resolveHorizontalOverlaps, resolveOverlaps, serializeLayoutHeader,
 } from "./grid-layout"
 
@@ -103,6 +103,37 @@ describe("optional habit and todo components", () => {
       { id: "quote", x: 0, y: 0, w: 7, h: 8 },
     ])
     expect(withQuote.find((item) => item.id === "quote")).toMatchObject({ w: 7, h: 8 })
+  })
+
+  it("lands default components in the text column beside the timeline, not below it", () => {
+    // Text/stats/dialog occupy columns 0-5, the toolbar/timeline rail 6-11.
+    // A component wider than six columns would collide with the rail and be
+    // pushed under a ~45-row timeline, leaving the left column empty.
+    expect(COMPONENT_SLOT_COLS).toBe(6)
+    const items = resolveGrid(null, 1, undefined, 45, [], 1, false, [
+      defaultComponentSlot("habits", HABITS_EMPTY_ROWS),
+      defaultComponentSlot("todos", 5),
+      defaultComponentSlot("quote", 8),
+    ])
+    const timeline = items.find((item) => item.id === "timeline")!
+    expect(timeline).toMatchObject({ x: 6, w: 6 })
+    for (const id of ["habits", "todos", "quote"]) {
+      const slot = items.find((item) => item.id === id)!
+      expect(slot.x + slot.w).toBeLessThanOrEqual(timeline.x)
+      expect(slot.y + slot.h).toBeLessThanOrEqual(timeline.y + timeline.h)
+    }
+    expect(gridRows(items)).toBe(timeline.y + timeline.h)
+  })
+
+  it("mirrors the component column when the rail is on the left", () => {
+    const items = resolveGrid(null, 1, "left", 45, [], 1, false, [
+      defaultComponentSlot("habits", HABITS_EMPTY_ROWS, "left"),
+    ])
+    const timeline = items.find((item) => item.id === "timeline")!
+    const habits = items.find((item) => item.id === "habits")!
+    expect(timeline).toMatchObject({ x: 0, w: 6 })
+    expect(habits.x).toBeGreaterThanOrEqual(timeline.x + timeline.w)
+    expect(habits.y + habits.h).toBeLessThanOrEqual(timeline.y + timeline.h)
   })
 })
 
