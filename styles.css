@@ -357,23 +357,26 @@
   position: relative;
 }
 
-.oneday-dialog-input {
+/* Scoped under the block instead of `!important`: Obsidian's own textarea
+ * chrome (input shadow, focus ring) is out-styled by specificity alone, so
+ * a theme that deliberately targets the block can still layer on top. */
+.oneday-container .oneday-dialog-input {
   width: 100%;
   font-size: 12px;
   padding: 6px 10px;
   resize: none;
   overflow: hidden;
   line-height: 1.5;
-  box-shadow: none !important;
-  outline: none !important;
-  border: 1px solid var(--background-modifier-border) !important;
+  box-shadow: none;
+  outline: none;
+  border: 1px solid var(--background-modifier-border);
 }
 
-.oneday-dialog-input:focus,
-.oneday-dialog-input:focus-visible {
-  box-shadow: none !important;
-  outline: none !important;
-  border-color: var(--background-modifier-border-focus) !important;
+.oneday-container .oneday-dialog-input:focus,
+.oneday-container .oneday-dialog-input:focus-visible {
+  box-shadow: none;
+  outline: none;
+  border-color: var(--background-modifier-border-focus);
 }
 
 .oneday-dialog-status {
@@ -3173,11 +3176,40 @@ button.oneday-plan-mode-toggle:focus-visible {
   flex-wrap: wrap;
 }
 
-.oneday-dialog-needskey button {
-  font-size: 12px;
-  padding: 2px 10px;
-  cursor: pointer;
+/* The setup link is a block-level compact control (same height and neutral
+ * surface as highlighters, accent text), not Obsidian's 30px shadowed
+ * default button. */
+.oneday-container .oneday-dialog-needskey button {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--oneday-compact-control-height);
+  min-height: var(--oneday-compact-control-height);
+  padding: 0 var(--oneday-control-padding-x);
+  border: 0;
   border-radius: var(--oneday-radius-control);
+  background: var(--oneday-surface-control);
+  color: var(--text-accent);
+  font-size: 12px;
+  font-weight: var(--font-medium, 500);
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.oneday-container .oneday-dialog-needskey button:hover,
+.oneday-container .oneday-dialog-needskey button:focus-visible {
+  background: var(--background-modifier-hover);
+  color: var(--text-accent);
+  box-shadow: none;
+}
+
+.oneday-container .oneday-dialog-needskey button:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 1px;
 }
 
 

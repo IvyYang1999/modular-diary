@@ -53,10 +53,27 @@ HTMLElement.prototype.empty = function () { this.replaceChildren() }
 window.createDiv = function (opts = {}) { return document.body.createDiv(opts) }
 window.__stabilizeInternalScroll = stabilizeInternalScroll
 
+// Mirrors dialog.ts: the quick input and the needs-key hint live in a
+// .oneday-dialog inside the block, which is the scope their CSS relies on.
+const dialogFixture = document.createElement("div")
+dialogFixture.className = "oneday-container"
+dialogFixture.id = "dialog-style-fixture"
+const dialogBox = document.createElement("div")
+dialogBox.className = "oneday-dialog"
 const quickInput = document.createElement("textarea")
 quickInput.className = "oneday-dialog-input"
 quickInput.setAttribute("aria-label", "快速记录测试")
-document.body.appendChild(quickInput)
+const needsKey = document.createElement("div")
+needsKey.className = "oneday-dialog-needskey"
+const needsKeyCopy = document.createElement("span")
+needsKeyCopy.textContent = "快速记录需要先配置模型 API。"
+const needsKeyButton = document.createElement("button")
+needsKeyButton.type = "button"
+needsKeyButton.textContent = "去设置填写 API Key"
+needsKey.append(needsKeyCopy, needsKeyButton)
+dialogBox.append(quickInput, needsKey)
+dialogFixture.appendChild(dialogBox)
+document.body.appendChild(dialogFixture)
 
 const retryPane = document.createElement("div")
 retryPane.id = "failed-save-retry-pane"
@@ -1705,7 +1722,22 @@ const quickInputStyle = await page.evaluate(() => {
   const input = document.querySelector('[aria-label="快速记录测试"]')
   input.focus()
   const style = getComputedStyle(input)
-  return { shadow: style.boxShadow, borderColor: style.borderColor }
+  const setup = document.querySelector("#dialog-style-fixture .oneday-dialog-needskey button")
+  const setupStyle = getComputedStyle(setup)
+  const reference = document.createElement("button")
+  reference.className = "oneday-swatch"
+  const referenceToolbar = document.createElement("div")
+  referenceToolbar.className = "oneday-toolbar"
+  referenceToolbar.appendChild(reference)
+  document.querySelector("#dialog-style-fixture").appendChild(referenceToolbar)
+  const compactHeight = reference.getBoundingClientRect().height
+  referenceToolbar.remove()
+  return {
+    shadow: style.boxShadow,
+    borderColor: style.borderColor,
+    important: [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]).filter((rule) => rule.selectorText?.includes(".oneday-dialog-input")).map((rule) => rule.cssText).filter((text) => text.includes("!important")).length,
+    setup: { height: setup.getBoundingClientRect().height, compactHeight, shadow: setupStyle.boxShadow, color: setupStyle.color, accent: getComputedStyle(setup).getPropertyValue("--text-accent").trim() },
+  }
 })
 const toolbarAlignment = await page.evaluate(() => {
   window.__mountToolbarAlignmentFixtures()
@@ -2032,7 +2064,10 @@ if (textEditScroll.before <= 0 || textEditScroll.after < textEditScroll.before -
 if (textEditScroll.slotOverflowY !== "hidden" || textEditScroll.paneOverflowY !== "auto" || textEditScroll.slotScrollTop !== 0 || textEditScroll.handleDelta > 1) { console.error("TEXT HANDLES SCROLLED WITH CONTENT", textEditScroll); process.exit(1) }
 if (textEditScroll.handleBackgrounds.some((color) => color !== "rgba(0, 0, 0, 0)")) { console.error("TEXT HANDLE BECAME VISIBLE", textEditScroll); process.exit(1) }
 if (textWindowBlurSave.saves.length !== 1 || textWindowBlurSave.saves[0].index !== 0 || textWindowBlurSave.saves[0].text !== textWindowBlurSave.expected || !textWindowBlurSave.expected.endsWith("末尾继续编辑")) { console.error("TEXT WINDOW BLUR DID NOT FLUSH LATEST CONTENT", textWindowBlurSave); process.exit(1) }
-if (quickInputStyle.shadow !== "none" || quickInputStyle.borderColor !== "rgb(90, 80, 220)") { console.error("QUICK INPUT SHADOW/FOCUS REGRESSED", quickInputStyle); process.exit(1) }
+if (quickInputStyle.shadow !== "none" || quickInputStyle.borderColor !== "rgb(90, 80, 220)" || quickInputStyle.important !== 0) { console.error("QUICK INPUT SHADOW/FOCUS REGRESSED", quickInputStyle); process.exit(1) }
+// The needs-key setup action is a compact block control: highlighter
+// height, no Obsidian button shadow, accent text.
+if (Math.abs(quickInputStyle.setup.height - quickInputStyle.setup.compactHeight) > 0.5 || quickInputStyle.setup.shadow !== "none" || quickInputStyle.setup.color === "rgb(0, 0, 0)") { console.error("NEEDS-KEY ACTION IS NOT A COMPACT BLOCK CONTROL", quickInputStyle.setup); process.exit(1) }
 for (const [hostWidth, state] of Object.entries(defaultTimeline)) {
   if (
     state.lastHourLabel !== "23"
