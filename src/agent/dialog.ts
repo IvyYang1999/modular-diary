@@ -11,6 +11,7 @@ import { runEntryAgent } from "./runner"
 import { runEntryAgentApi } from "./direct-runner"
 import { obsidianTransport } from "./obsidian-transport"
 import { currentLocale, t } from "../i18n"
+import { setIcon } from "obsidian"
 
 export interface DialogDeps {
   settings: OnedaySettings
@@ -29,14 +30,19 @@ export function attachDialog(container: HTMLElement, doc: TimelineDoc, deps: Dia
   const needsKey = deps.settings.dialogBackend === "api" && deps.settings.apiKey.trim() === ""
   if (needsKey) {
     const hint = box.createDiv({ cls: "oneday-dialog-needskey" })
+    // Decorative Lucide glyph instead of a text "✦": the copy carries the meaning.
+    setIcon(hint.createSpan({ cls: "oneday-dialog-icon", attr: { "aria-hidden": "true" } }), "sparkles")
     hint.createEl("span", { text: t("quickRecordNeedsApi") })
     const btn = hint.createEl("button", { text: t("configureApiKey"), attr: { type: "button" } })
     btn.addEventListener("click", () => deps.openSettings())
     return
   }
 
-  // 自动增高的多行输入（yyt：多事件时内容长）
-  const input = box.createEl("textarea", {
+  // 自动增高的多行输入（yyt：多事件时内容长）。左侧的 sparkles 只是装饰，
+  // 占位文字自己说明用途。
+  const inputRow = box.createDiv({ cls: "oneday-dialog-input-row" })
+  setIcon(inputRow.createSpan({ cls: "oneday-dialog-icon", attr: { "aria-hidden": "true" } }), "sparkles")
+  const input = inputRow.createEl("textarea", {
     cls: "oneday-dialog-input",
     attr: { placeholder: t("quickRecordPlaceholder"), rows: "1", "aria-label": t("quickRecord") },
   }) as unknown as HTMLInputElement
@@ -48,7 +54,7 @@ export function attachDialog(container: HTMLElement, doc: TimelineDoc, deps: Dia
   ta.addEventListener("input", fitInput)
   domWindow?.setTimeout(fitInput, 0)
   // loading 内联在输入行右侧（yyt：不占单独一行）
-  const loading = box.createEl("span", { cls: "oneday-dialog-loading", text: t("generating") })
+  const loading = inputRow.createEl("span", { cls: "oneday-dialog-loading", text: t("generating") })
   loading.setAttr("aria-hidden", "true")
   loading.style.display = "none"
   const status = box.createDiv({ cls: "oneday-dialog-status" })

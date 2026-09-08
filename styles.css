@@ -491,6 +491,39 @@
   border-color: var(--background-modifier-border-focus);
 }
 
+/* The quick-capture glyph is a Lucide icon, never a text "✦": it sits on
+ * the first line of the input (or beside the setup hint) and is aria-hidden. */
+.oneday-dialog-input-row {
+  position: relative;
+  width: 100%;
+}
+
+.oneday-dialog-input-row .oneday-dialog-input {
+  display: block;
+  padding-left: 30px;
+}
+
+.oneday-dialog-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.oneday-dialog-input-row .oneday-dialog-icon {
+  position: absolute;
+  left: 10px;
+  top: 6px;
+  height: calc(var(--oneday-font-body) * 1.5);
+}
+
+.oneday-dialog-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
 .oneday-dialog-status {
   font-size: var(--oneday-font-caption);
   color: var(--text-muted);
