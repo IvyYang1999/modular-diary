@@ -32,7 +32,10 @@ export function previewTimelineVisual(
   if (!live) return null
   const dom = live.ownerDocument
   const staging = dom.createElement("div")
-  staging.innerHTML = renderTimelineSvg(nextDoc, options)
+  // A narrow slot may have fitted the annotation lane; the preview keeps it.
+  const fittedLane = Number(live.getAttribute("data-side-lane"))
+  const sideLaneWidth = options.sideLaneWidth ?? (Number.isFinite(fittedLane) && live.hasAttribute("data-side-lane") ? fittedLane : undefined)
+  staging.innerHTML = renderTimelineSvg(nextDoc, { ...options, sideLaneWidth })
   const next = staging.querySelector<SVGSVGElement>("svg.oneday-svg")
   if (!next) return null
 

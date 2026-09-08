@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { yFromMinutes } from "../core/geometry"
 import { parseTimeline } from "../core/parser"
-import { renderTimelineSvg, FALLBACK_COLOR } from "./svg-builder"
+import { fitSideLaneWidth, MAX_SIDE_LANE_BUDGET, MIN_SIDE_LANE_W, renderTimelineSvg, FALLBACK_COLOR, SIDE_LANE_W, truncateLaneText } from "./svg-builder"
 
 const COLORS = { math: "#7fd4c1", sleep: "#e0e0e0" }
 
@@ -255,5 +255,62 @@ describe("M5b: single tooltip + tiny-column durations (yyt 2026-08-17)", () => {
     const small = [...svg.matchAll(/class="oneday-duration"[^>]*style="font-size:([\d.]+)px;fill:(?:#[0-9a-f]+|hsl\([^)]+\))"/g)].map((m) => Number(m[1]))
     expect(small.length).toBe(7)
     expect(Math.min(...small)).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
+describe("responsive annotation lane", () => {
+  const source = "range: 7-23\n---\n09:00-12:00 math\n@12:00 [deadline] 交周报交周报交周报交周报\n"
+  const options = { typeColors: COLORS, markerTypeColors: { deadline: "#ef5b72" }, width: 200 }
+
+  it("fits the lane to the space left beside the fixed track", () => {
+    expect(fitSideLaneWidth(600, 200)).toBe(MAX_SIDE_LANE_BUDGET)
+    expect(fitSideLaneWidth(200 + SIDE_LANE_W + 20, 200)).toBe(SIDE_LANE_W + 20)
+    expect(fitSideLaneWidth(200 + SIDE_LANE_W, 200)).toBe(SIDE_LANE_W)
+    expect(fitSideLaneWidth(280, 200)).toBe(80)
+    expect(fitSideLaneWidth(200 + MIN_SIDE_LANE_W, 200)).toBe(MIN_SIDE_LANE_W)
+    expect(fitSideLaneWidth(200 + MIN_SIDE_LANE_W - 1, 200)).toBe(0)
+    expect(fitSideLaneWidth(120, 200)).toBe(0)
+    // Unmeasured panes keep the full lane instead of guessing.
+    expect(fitSideLaneWidth(0, 200)).toBe(SIDE_LANE_W)
+    expect(fitSideLaneWidth(Number.NaN, 200)).toBe(SIDE_LANE_W)
+  })
+
+  it("renders the full lane by default inside one replaceable group", () => {
+    const svg = renderTimelineSvg(parseTimeline(source), options)
+    expect(svg).toContain(`width="${200 + SIDE_LANE_W}"`)
+    expect(svg).not.toContain("data-side-lane")
+    expect(svg).toMatch(/<g class="oneday-side-lane" data-lane-width="112">.*oneday-marker-label.*<\/g>/)
+    expect(svg).toContain(">交周报交周报交周报交周报</text>")
+  })
+
+  it("estimates CJK glyphs wider than latin ones when truncating", () => {
+    expect(truncateLaneText("交周报", 40)).toBe("交周报")
+    expect(truncateLaneText("交周报交周报", 40)).toBe("交周报…")
+    expect(truncateLaneText("weekly report", 40)).toBe("weekl…")
+  })
+
+  it("narrows the SVG frame and truncates labels for a shrunken lane", () => {
+    const svg = renderTimelineSvg(parseTimeline(source), { ...options, sideLaneWidth: 64 })
+    expect(svg).toContain(`width="264"`)
+    expect(svg).toContain(`viewBox="0 0 264 `)
+    expect(svg).toContain(`data-side-lane="64"`)
+    expect(svg).toContain(">交周报交…</text>")
+    const bg = /class="oneday-marker-label-bg"[^>]*width="([\d.]+)"/.exec(svg)
+    expect(Number(bg?.[1])).toBeLessThanOrEqual(64 - 8)
+    // Slack beyond the frame lets the wide-pane label keep its full text.
+    const roomy = renderTimelineSvg(parseTimeline(source), { ...options, sideLaneWidth: 400 })
+    expect(roomy).toContain(`width="${200 + SIDE_LANE_W}"`)
+    expect(roomy).toContain(`data-side-lane="${MAX_SIDE_LANE_BUDGET}"`)
+    expect(roomy).toContain(">交周报交周报交周报交周报</text>")
+  })
+
+  it("hides the lane at width 0 while keeping the markers and the SVG height", () => {
+    const full = renderTimelineSvg(parseTimeline(source), options)
+    const hidden = renderTimelineSvg(parseTimeline(source), { ...options, sideLaneWidth: 0 })
+    expect(hidden).toContain(`width="200"`)
+    expect(hidden).toContain('<g class="oneday-side-lane" data-lane-width="0"></g>')
+    expect(hidden).not.toContain("oneday-marker-label")
+    expect(hidden).toContain('class="oneday-marker"')
+    expect(/height="([\d.]+)"/.exec(hidden)?.[1]).toBe(/height="([\d.]+)"/.exec(full)?.[1])
   })
 })

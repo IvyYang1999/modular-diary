@@ -21,6 +21,13 @@ export interface RenderOptions {
   hourHeight?: number
   /** total svg width, default 200 */
   width?: number
+  /**
+   * Horizontal budget for the right annotation lane, from fitSideLaneWidth.
+   * The lane frame never exceeds SIDE_LANE_W, but labels may use slack up to
+   * the budget; below MIN_SIDE_LANE_W (0) the lane hides and hover tooltips
+   * carry the labels. Omitted: unmeasured, legacy character-based layout.
+   */
+  sideLaneWidth?: number
   /** 视图：全部 / 只看记录 / 只看计划（yyt 2026-08-17） */
   view?: "all" | "actual" | "plan"
 }
@@ -43,6 +50,61 @@ const MIN_INLINE_LABEL_W = 56
 const MIN_NOTE_H = 32
 /** Right lane reserved for side labels & annotations (M4: no more clipping). */
 export const SIDE_LANE_W = 112
+/** Narrowest lane that still fits a readable label; below it the lane hides. */
+export const MIN_SIDE_LANE_W = 56
+/**
+ * Labels are capped at 14 characters, so any budget beyond this renders the
+ * same lane; capping it keeps wide-pane resizes from re-rendering.
+ */
+export const MAX_SIDE_LANE_BUDGET = SIDE_LANE_W + 48
+/** Estimated advance per label character used to size the marker pills. */
+const SIDE_LANE_CHAR_W = 8
+/**
+ * Upper-bound glyph advances for the lane's 9-10px text: CJK/full-width
+ * glyphs are one em, everything else about 0.6em.
+ */
+const LANE_WIDE_GLYPH_W = 10
+const LANE_NARROW_GLYPH_W = 6
+
+/**
+ * Lane budget that fits the available content width of the scroll pane next
+ * to a fixed track. The track keeps its authored width; only the lane gives
+ * way. Unknown (unmeasured) widths keep the full lane.
+ */
+export function fitSideLaneWidth(availableWidth: number, baseWidth: number): number {
+  if (!Number.isFinite(availableWidth) || availableWidth <= 0) return SIDE_LANE_W
+  const lane = Math.floor(availableWidth - baseWidth)
+  if (lane >= SIDE_LANE_W) return Math.min(lane, MAX_SIDE_LANE_BUDGET)
+  if (lane >= MIN_SIDE_LANE_W) return lane
+  return 0
+}
+
+function isWideGlyph(ch: string): boolean {
+  const code = ch.codePointAt(0) ?? 0
+  return code > 0x2e7f && !(code >= 0xff61 && code <= 0xff9f)
+}
+
+/** Estimated rendered width of lane text (upper bound, see glyph constants). */
+export function estimateLaneTextWidth(text: string): number {
+  let width = 0
+  for (const ch of text) width += isWideGlyph(ch) ? LANE_WIDE_GLYPH_W : LANE_NARROW_GLYPH_W
+  return width
+}
+
+/** Greedy truncation to an estimated pixel budget, ending in an ellipsis. */
+export function truncateLaneText(text: string, maxWidth: number): string {
+  if (estimateLaneTextWidth(text) <= maxWidth) return text
+  const glyphs = Array.from(text)
+  let width = LANE_WIDE_GLYPH_W // the ellipsis
+  let kept = 0
+  for (const ch of glyphs) {
+    const advance = isWideGlyph(ch) ? LANE_WIDE_GLYPH_W : LANE_NARROW_GLYPH_W
+    if (width + advance > maxWidth) break
+    width += advance
+    kept += 1
+  }
+  return glyphs.slice(0, Math.max(1, kept)).join("") + "…"
+}
 /** Vertical row height used by the side-label collision avoidance. */
 const SIDE_LINE_H = 13
 
@@ -169,7 +231,12 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   const trackX = LABEL_W
   const trackW = baseWidth - LABEL_W - TRACK_PAD
   // M4: dedicated right lane for side labels & annotations (no clipping).
-  const width = baseWidth + SIDE_LANE_W
+  // Narrow slots shrink or hide the lane; the track never moves.
+  const laneBudget = opts.sideLaneWidth !== undefined && Number.isFinite(opts.sideLaneWidth)
+    ? Math.max(0, Math.min(MAX_SIDE_LANE_BUDGET, Math.floor(opts.sideLaneWidth)))
+    : undefined
+  const laneW = Math.min(SIDE_LANE_W, laneBudget ?? SIDE_LANE_W)
+  const width = baseWidth + laneW
   const laneX = trackX + trackW + 4
   const y = (min: number): number => PAD_TOP + ((min - doc.rangeStart) / 60) * hourHeight
   const axisBottom = PAD_TOP + ((doc.rangeEnd - doc.rangeStart) / 60) * hourHeight
@@ -338,32 +405,45 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   }
 
   const placedSide = layoutSideItems(sideItems)
-  for (const it of placedSide) {
+  const laneParts: string[] = []
+  for (const it of (laneW > 0 ? placedSide : [])) {
+    // Measured panes cap labels to the pixel budget left beside the track;
+    // the unmeasured first paint keeps the per-item character cap.
+    const text = laneBudget !== undefined
+      ? truncateLaneText(it.text, laneBudget - (it.markerColor ? 12 : 6))
+      : it.text
     if (it.anchorX !== undefined) {
       // 标注 ↔ 色块列的对应关系线；CSS 控制非常驻（避让偏移/focus 时才可见）
       const cls = it.displaced ? "oneday-side-leader is-displaced" : "oneday-side-leader"
-      parts.push(
+      laneParts.push(
         `<line class="${cls}" data-line="${it.dataLine ?? ""}" x1="${it.anchorX}" y1="${it.naturalY}" x2="${laneX - 2}" y2="${it.y}"/>`
       )
     } else if (it.displaced) {
-      parts.push(
+      laneParts.push(
         `<line class="oneday-side-leader" x1="${trackX + trackW}" y1="${it.naturalY}" x2="${laneX - 2}" y2="${it.y}"/>`
       )
     }
     const dataAttr = it.dataLine !== undefined ? ` data-line="${it.dataLine}"` : ""
     if (it.markerColor) {
-      const labelW = Math.min(SIDE_LANE_W - 8, Math.max(36, it.text.length * 8 + 14))
+      const labelW = Math.min(laneW - 8, Math.max(36, text.length * SIDE_LANE_CHAR_W + 14))
       const opacity = it.markerPlan ? 0.08 : 0.14
-      parts.push(
+      laneParts.push(
         `<rect pointer-events="all" class="oneday-marker-label-bg${it.markerPlan ? " oneday-marker-plan-label" : ""}"${dataAttr} x="${laneX - 2}" y="${it.y - 7}" width="${labelW}" height="14" rx="4" fill="${escapeXml(it.markerColor)}" fill-opacity="${opacity}" stroke="${escapeXml(it.markerColor)}" stroke-opacity="0.55"/>`
       )
     }
-    parts.push(`<text pointer-events="none" class="${it.cls}"${dataAttr} x="${laneX + (it.markerColor ? 4 : 0)}" y="${it.y + 3}">${escapeXml(it.text)}</text>`)
+    laneParts.push(`<text pointer-events="none" class="${it.cls}"${dataAttr} x="${laneX + (it.markerColor ? 4 : 0)}" y="${it.y + 3}">${escapeXml(text)}</text>`)
   }
+  // The lane is one replaceable group so a slot resize can swap only the
+  // labels while the track, blocks, markers and interaction-owned nodes stay.
+  parts.push(`<g class="oneday-side-lane" data-lane-width="${laneW}">${laneParts.join("")}</g>`)
 
+  // Height follows the full label layout even when the lane is hidden, so a
+  // narrow slot never oscillates between "lane hidden" and "lane shown"
+  // through its own scrollbar.
   const lastSideBottom = placedSide.length > 0 ? placedSide[placedSide.length - 1].y + SIDE_LINE_H / 2 : 0
   const height = Math.max(axisBottom, lastSideBottom) + PAD_BOTTOM
 
-  const out = [`<svg xmlns="http://www.w3.org/2000/svg" class="oneday-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`, ...parts, "</svg>"]
+  const laneAttr = laneBudget !== undefined ? ` data-side-lane="${laneBudget}"` : ""
+  const out = [`<svg xmlns="http://www.w3.org/2000/svg" class="oneday-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" data-base-width="${baseWidth}"${laneAttr}>`, ...parts, "</svg>"]
   return out.join("")
 }

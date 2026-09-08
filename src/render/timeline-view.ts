@@ -13,7 +13,7 @@ export interface TextPaneDeps {
 import { TimelineDoc } from "../core/types"
 import { statsByType } from "../core/stats"
 import { formatHours } from "../core/duration"
-import { renderTimelineSvg, RenderOptions, SIDE_LANE_W } from "./svg-builder"
+import { fitSideLaneWidth, renderTimelineSvg, RenderOptions, SIDE_LANE_W } from "./svg-builder"
 import { hashTypeColor } from "../core/type-colors"
 import { t } from "../i18n"
 import { relatedTextColor } from "../core/contrast"
@@ -268,6 +268,57 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
   if (deps.initialDraft?.editing) edit(deps.initialDraft, deps.initialDraft.shouldFocus)
 }
 
+/**
+ * Keep the SVG's annotation lane inside the scroll pane's content width. The
+ * track keeps its authored width; only the `.oneday-side-lane` group and the
+ * SVG frame are swapped, so interaction-owned nodes (range buttons, edit
+ * edges, ghosts) and the track node survive a slot resize. Runs once the pane
+ * has a measurable box and again whenever it resizes.
+ */
+function attachSideLaneFit(
+  svgHolder: HTMLElement,
+  doc: TimelineDoc,
+  opts: RenderOptions,
+  baseWidth: number,
+): void {
+  const dom = svgHolder.ownerDocument
+  const domWindow = dom.defaultView
+  const fit = (): void => {
+    const live = svgHolder.querySelector<SVGSVGElement>("svg.oneday-svg")
+    if (!live) return
+    const available = svgHolder.clientWidth
+    if (available <= 0) return
+    const lane = fitSideLaneWidth(available, baseWidth)
+    if (live.getAttribute("data-side-lane") === String(lane)) return
+    const staging = dom.createElement("div")
+    staging.innerHTML = renderTimelineSvg(doc, { ...opts, width: baseWidth, sideLaneWidth: lane })
+    const next = staging.querySelector<SVGSVGElement>("svg.oneday-svg")
+    const nextLane = next?.querySelector("g.oneday-side-lane")
+    const liveLane = live.querySelector("g.oneday-side-lane")
+    if (!next || !nextLane || !liveLane) return
+    for (const name of ["width", "height", "viewBox", "data-side-lane"]) {
+      const value = next.getAttribute(name)
+      if (value === null) live.removeAttribute(name)
+      else live.setAttribute(name, value)
+    }
+    liveLane.replaceWith(nextLane.cloneNode(true))
+    // Edit/focus visuals classify lane nodes by data-line; let the owning
+    // interaction rebuild that state on the fresh group.
+    live.dispatchEvent(new (domWindow?.CustomEvent ?? CustomEvent)("oneday-sync-edit-visual"))
+  }
+  fit()
+  const ResizeObserverCtor = domWindow?.ResizeObserver
+  if (!ResizeObserverCtor) return
+  const observer = new ResizeObserverCtor(() => {
+    if (!svgHolder.isConnected) {
+      observer.disconnect()
+      return
+    }
+    fit()
+  })
+  observer.observe(svgHolder)
+}
+
 export function renderTimelineInto(
   el: HTMLElement,
   doc: TimelineDoc,
@@ -315,6 +366,7 @@ export function renderTimelineInto(
     if (it.id === "timeline") {
       const svgHolder = slot.createDiv({ cls: "oneday-svg-holder" })
       svgHolder.innerHTML = timelineSvg
+      attachSideLaneFit(svgHolder, doc, opts, baseWidth)
       if (
         opts.showTimelineOnboarding
         && (Object.keys(opts.typeColors).length > 0 || Object.keys(opts.markerTypeColors ?? {}).length > 0)

@@ -332,6 +332,63 @@ window.__mountDefaultTimelineFixture = (hostWidth) => {
   }
 }
 
+// A narrow slot (split pane / sidebar) must not push the annotation lane
+// into a horizontal scroll. The lane gives way; the track keeps its width.
+window.__mountNarrowLaneFixture = async () => {
+  document.querySelector("#narrow-lane-fixture")?.remove()
+  const pane = document.createElement("div")
+  pane.id = "narrow-lane-fixture"
+  pane.style.width = "300px"
+  document.body.appendChild(pane)
+  const host = document.createElement("div")
+  pane.appendChild(host)
+  const laneDoc = parseTimeline("date: 2026-08-18\\nrange: 7-23\\nlayout: timeline@0,0,12,45 toolbar@0,45,12,3 stats@0,48,12,1 dialog@0,49,12,4\\n---\\n09:15-12:15 math 李林线代\\n12:15-12:20 meal 短块备注很长很长很长\\n@12:00 [deadline] 交周报交周报交周报\\n@21:40 [wake] 头晕，脑力低，提前收工\\n")
+  const container = renderTimelineInto(host, laneDoc, {
+    typeColors: { math: "#7fd4c1", meal: "#f5a3b7" },
+    markerTypeColors: { deadline: "#ef5b72", wake: "#6f8cff" },
+    width: 200,
+  }, {
+    renderMarkdown: (target, text) => { target.textContent = text },
+    onSave: () => {},
+  })
+  attachWidthHandle(container, 200, () => {})
+  const holder = container.querySelector(".oneday-svg-holder")
+  const measure = () => {
+    const svg = holder.querySelector("svg.oneday-svg")
+    const holderRect = holder.getBoundingClientRect()
+    const labels = [...holder.querySelectorAll("text.oneday-marker-label, text.oneday-side, text.oneday-thin")]
+    const track = holder.querySelector("rect.oneday-track")
+    const widthHandle = holder.querySelector(".oneday-width-handle")
+    return {
+      holderClientWidth: holder.clientWidth,
+      holderScrollWidth: holder.scrollWidth,
+      svgWidth: Number(svg.getAttribute("width")),
+      viewBoxWidth: Number(svg.getAttribute("viewBox").split(" ")[2]),
+      lane: Number(svg.getAttribute("data-side-lane")),
+      laneGroupWidth: Number(holder.querySelector("g.oneday-side-lane").getAttribute("data-lane-width")),
+      trackWidth: Number(track.getAttribute("width")),
+      markerCount: holder.querySelectorAll("g.oneday-marker").length,
+      labelCount: labels.length,
+      labelsClipped: labels.filter((label) => label.getBoundingClientRect().right > holderRect.right + 0.5).length,
+      widthHandleDelta: widthHandle ? Math.abs(widthHandle.getBoundingClientRect().left + widthHandle.getBoundingClientRect().width / 2 - track.getBoundingClientRect().right) : null,
+      trackConnected: track.isConnected,
+    }
+  }
+  const settle = async () => { for (let i = 0; i < 3; i++) await new Promise(requestAnimationFrame) }
+  await settle()
+  const narrow = measure()
+  pane.style.width = "600px"
+  await settle()
+  const wide = measure()
+  pane.style.width = "236px"
+  await settle()
+  const tight = measure()
+  pane.style.width = "600px"
+  await settle()
+  const restored = measure()
+  return { narrow, wide, tight, restored }
+}
+
 window.__mountToolbarAlignmentFixtures = () => {
   document.querySelector("#toolbar-alignment-fixtures")?.remove()
   const fixture = document.createElement("div")
@@ -1776,8 +1833,12 @@ for (const hostWidth of [900, 480]) {
   defaultTimeline[hostWidth] = await page.evaluate((width) => window.__mountDefaultTimelineFixture(width), hostWidth)
   await page.locator("#default-timeline-fixture .oneday-slot-timeline").screenshot({ path: path.join(out, `default-timeline-${hostWidth}.png`) })
 }
+const narrowLane = await page.evaluate(() => window.__mountNarrowLaneFixture())
+await page.evaluate(() => { document.querySelector("#narrow-lane-fixture").style.width = "300px" })
+await page.waitForTimeout(80)
+await page.locator("#narrow-lane-fixture .oneday-slot-timeline").screenshot({ path: path.join(out, "narrow-lane-300.png") })
 await browser.close()
-console.log(JSON.stringify({ ...state, verticalRhythm, viewportAnchor }, null, 2))
+console.log(JSON.stringify({ ...state, verticalRhythm, viewportAnchor, narrowLane }, null, 2))
 if (!state.ok) { console.error("MOUNT THREW"); process.exit(1) }
 if (
   Math.abs(viewportAnchor.afterTop - viewportAnchor.beforeTop) > 0.5
@@ -1948,4 +2009,15 @@ for (const [hostWidth, state] of Object.entries(defaultTimeline)) {
   }
   if (state.bodyBottom > state.timelineRect.bottom + 1 || Math.abs(state.hostWidth - Number(hostWidth)) > 1) { console.error("DEFAULT COMPONENTS GREW THE BLOCK PAST THE TIMELINE @" + hostWidth, state); process.exit(1) }
 }
+for (const [name, lane] of Object.entries(narrowLane)) {
+  const fits = lane.holderScrollWidth <= lane.holderClientWidth + 0.5 && lane.svgWidth <= lane.holderClientWidth + 0.5
+  if (!fits || lane.viewBoxWidth !== lane.svgWidth || Math.min(112, lane.lane) !== lane.laneGroupWidth || lane.trackWidth !== 200 - 36 - 6 || lane.labelsClipped > 0 || lane.markerCount !== 2 || !lane.trackConnected || lane.widthHandleDelta === null || lane.widthHandleDelta > 1) {
+    console.error("TIMELINE LANE OVERFLOWS A NARROW SLOT (" + name + ")", narrowLane); process.exit(1)
+  }
+}
+// 300px pane: the lane shrinks (>= 56px) but every label stays; 600px: full
+// lane; 236px: the track alone fits, so the lane hides and hover owns labels.
+if (narrowLane.narrow.lane < 56 || narrowLane.narrow.lane >= 112 || narrowLane.narrow.labelCount !== 3) { console.error("NARROW LANE DID NOT SHRINK IN PLACE", narrowLane); process.exit(1) }
+if (narrowLane.wide.lane < 112 || narrowLane.wide.svgWidth !== 312 || narrowLane.wide.labelCount !== 3 || narrowLane.restored.lane !== narrowLane.wide.lane || narrowLane.restored.labelCount !== 3) { console.error("LANE DID NOT RESTORE ON WIDEN", narrowLane); process.exit(1) }
+if (narrowLane.tight.lane !== 0 || narrowLane.tight.labelCount !== 0 || narrowLane.tight.svgWidth !== 200) { console.error("TIGHT SLOT KEPT AN OVERFLOWING LANE", narrowLane); process.exit(1) }
 console.log("OK mount smoke passed")
