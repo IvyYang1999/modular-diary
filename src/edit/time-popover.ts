@@ -1,5 +1,64 @@
 import { trackAnchor } from "./popover-anchor"
-import { t } from "../i18n"
+import { MessageKey, t } from "../i18n"
+
+const CLOCK_PATTERN = /^(\d{1,2}):(\d{2})$/
+
+/** Parse "H:MM"/"HH:MM" into minutes; null when the copy is not a clock. */
+export function parseClockInput(value: string): number | null {
+  const match = CLOCK_PATTERN.exec(value.trim())
+  if (!match) return null
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (hour > 29 || minute > 59) return null
+  return hour * 60 + minute
+}
+
+/**
+ * Why a start/end pair cannot be saved, as an i18n key, or null when valid.
+ * Equal times cannot describe a span; the parser would otherwise wrap the
+ * end to the next day and silently produce a 24-hour block.
+ */
+export function spanInputProblem(start: string, end: string): { key: MessageKey; field: "start" | "end" } | null {
+  const startMin = parseClockInput(start)
+  const endMin = parseClockInput(end)
+  if (startMin === null) return { key: "invalidStart", field: "start" }
+  if (endMin === null) return { key: "invalidEnd", field: "end" }
+  if (startMin === endMin) return { key: "durationTooShort", field: "end" }
+  return null
+}
+
+/**
+ * Invalid input must not fail silently: mark the field, shake it (unless the
+ * user prefers reduced motion; CSS handles that) and say why in the popover.
+ */
+function flagInvalid(pop: HTMLElement, input: HTMLInputElement, message: string): void {
+  const dom = pop.ownerDocument
+  input.setAttribute("aria-invalid", "true")
+  input.classList.remove("is-invalid")
+  // Restart the shake even when the same field was already flagged.
+  void input.offsetWidth
+  input.classList.add("is-invalid")
+  let error = pop.querySelector<HTMLElement>(".oneday-time-popover-error")
+  if (!error) {
+    error = dom.createElement("div")
+    error.className = "oneday-time-popover-error"
+    error.setAttribute("role", "alert")
+    pop.appendChild(error)
+  }
+  error.textContent = message
+  pop.classList.add("has-error")
+  input.focus()
+  input.select()
+}
+
+function clearInvalid(pop: HTMLElement, input: HTMLInputElement): void {
+  input.removeAttribute("aria-invalid")
+  input.classList.remove("is-invalid")
+  if (!pop.querySelector('[aria-invalid="true"]')) {
+    pop.querySelector(".oneday-time-popover-error")?.remove()
+    pop.classList.remove("has-error")
+  }
+}
 /**
  * Precise time editor: small popover with start/end inputs (HH:MM free
  * typing) docked at the block's right edge — the typing-precision
@@ -34,7 +93,10 @@ export function openTimePopover(
   end.setAttribute("aria-label", t("endTime"))
   end.value = initial.end
   end.placeholder = "HH:MM"
-  pop.append(start, dash, end)
+  const row = dom.createElement("div")
+  row.className = "oneday-time-popover-row"
+  row.append(start, dash, end)
+  pop.appendChild(row)
 
   // fixed + body 挂载：脱离槽位裁剪；跟随锚点滚动（yyt 2026-08-19）
   const place = (r: { x: number; width: number; y: number; height: number }): void => {
@@ -48,16 +110,20 @@ export function openTimePopover(
   dom.body.appendChild(pop)
   const stopTracking = trackAnchor(pop, anchorEl, place)
 
-  const valid = (v: string): boolean => /^\d{1,2}:\d{2}$/.test(v.trim())
   let done = false
   const finish = (save: boolean): void => {
     if (done) return
-    if (save && valid(start.value) && valid(end.value)) {
+    if (save) {
+      const problem = spanInputProblem(start.value, end.value)
+      if (problem) {
+        flagInvalid(pop, problem.field === "start" ? start : end, t(problem.key))
+        return
+      }
       done = true
       stopTracking()
       pop.remove()
       onSave(start.value.trim(), end.value.trim())
-    } else if (!save) {
+    } else {
       done = true
       stopTracking()
       pop.remove()
@@ -70,6 +136,7 @@ export function openTimePopover(
     if (t !== start && t !== end) e.preventDefault()
   })
   for (const input of [start, end]) {
+    input.addEventListener("input", () => clearInvalid(pop, input))
     input.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault()
@@ -115,7 +182,10 @@ export function openPointTimePopover(
   input.value = initial
   input.placeholder = "HH:MM"
   input.setAttribute("aria-label", t("markerTime"))
-  pop.appendChild(input)
+  const row = dom.createElement("div")
+  row.className = "oneday-time-popover-row"
+  row.appendChild(input)
+  pop.appendChild(row)
   const place = (rect: { x: number; width: number; y: number; height: number }): void => {
     pop.style.left = `${rect.x + rect.width + 6}px`
     pop.style.top = `${rect.y + rect.height / 2 - 14}px`
@@ -130,16 +200,18 @@ export function openPointTimePopover(
   const finish = (save: boolean): void => {
     if (done) return
     if (save) {
-      const match = /^(\d{1,2}):(\d{2})$/.exec(input.value.trim())
-      const hour = Number(match?.[1])
-      const minute = Number(match?.[2])
-      if (!match || hour > 23 || minute > 59) return
+      const minutes = parseClockInput(input.value)
+      if (minutes === null || minutes >= 24 * 60) {
+        flagInvalid(pop, input, t("invalidTime"))
+        return
+      }
     }
     done = true
     stopTracking()
     pop.remove()
     if (save) onSave(input.value.trim())
   }
+  input.addEventListener("input", () => clearInvalid(pop, input))
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault()

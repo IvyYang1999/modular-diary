@@ -1534,7 +1534,26 @@ const timeEndFocus = await page.evaluate(() => ({
   activeLabel: document.activeElement?.getAttribute("aria-label"),
   saved: window.__timeSaved.length,
 }))
+// Invalid copy never fails silently: the field is flagged, the popover says
+// why and stays open; correcting the field clears the flag before saving.
+await page.locator('input[aria-label="结束时间"]').fill("12:xx")
+await page.locator('input[aria-label="结束时间"]').press("Enter")
+const timeInvalid = await page.evaluate(() => {
+  const pop = document.querySelector(".oneday-time-popover")
+  const end = pop?.querySelector('input[aria-label="结束时间"]')
+  return {
+    popover: Boolean(pop),
+    invalid: end?.getAttribute("aria-invalid"),
+    ring: end ? getComputedStyle(end).boxShadow !== "none" : false,
+    message: pop?.querySelector(".oneday-time-popover-error")?.textContent ?? null,
+    saved: window.__timeSaved.length,
+  }
+})
 await page.locator('input[aria-label="结束时间"]').fill("12:45")
+const timeInvalidCleared = await page.evaluate(() => ({
+  invalid: document.querySelector('.oneday-time-popover input[aria-label="结束时间"]')?.getAttribute("aria-invalid") ?? null,
+  message: document.querySelector(".oneday-time-popover-error")?.textContent ?? null,
+}))
 await page.locator('input[aria-label="结束时间"]').press("Enter")
 const timeCommitted = await page.evaluate(() => ({
   popover: Boolean(document.querySelector(".oneday-time-popover")),
@@ -2084,6 +2103,8 @@ if (mobileEditing.handle.display === "none" || mobileEditing.handle.w < 20) { co
 if (mobileEditing.width.display === "none" || mobileEditing.width.w < 20) { console.error("MOBILE WIDTH HANDLE TOO SMALL", mobileEditing); process.exit(1) }
 if (mobileEditing.block.display === "none" || mobileEditing.block.w < 20 || mobileEditing.blockCorner.w < 32 || mobileEditing.blockCorner.h < 32) { console.error("MOBILE BLOCK RESIZE HANDLE TOO SMALL", mobileEditing); process.exit(1) }
 if (!timeEndFocus.popover || timeEndFocus.activeLabel !== "结束时间" || timeEndFocus.saved !== 0) { console.error("TIME END INPUT DISMISSED", timeEndFocus); process.exit(1) }
+if (!timeInvalid.popover || timeInvalid.invalid !== "true" || !timeInvalid.ring || timeInvalid.message !== "end 时间格式应为 HH:MM" || timeInvalid.saved !== 0) { console.error("INVALID TIME WAS SILENT", timeInvalid); process.exit(1) }
+if (timeInvalidCleared.invalid !== null || timeInvalidCleared.message !== null) { console.error("INVALID FLAG SURVIVED CORRECTION", timeInvalidCleared); process.exit(1) }
 if (timeCommitted.popover || timeCommitted.saved.length !== 1 || timeCommitted.saved[0].end !== "12:45") { console.error("TIME EDIT DID NOT COMMIT", timeCommitted); process.exit(1) }
 if (dateRestStyle.missing || dateRestStyle.background !== "rgba(0, 0, 0, 0)" || dateRestStyle.controlWidth >= dateRestStyle.topbarWidth * 0.75 || dateRestStyle.gap < 6) { console.error("DATE CONTROL REST LAYOUT REGRESSED", dateRestStyle); process.exit(1) }
 if (dateHoverBackground === dateRestStyle.background) { console.error("DATE CONTROL HAS NO HOVER AFFORDANCE", { dateRestStyle, dateHoverBackground }); process.exit(1) }

@@ -3681,6 +3681,13 @@ button.oneday-plan-mode-toggle:focus-visible {
   box-shadow: var(--shadow-s);
   padding: 4px;
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.oneday-time-popover-row {
+  display: flex;
   align-items: center;
   gap: 4px;
 }
@@ -3698,6 +3705,35 @@ button.oneday-plan-mode-toggle:focus-visible {
 
 .oneday-time-popover span {
   color: var(--text-muted);
+}
+
+/* Invalid input is never silent: red ring, a short shake, and the reason. */
+.oneday-time-popover input[aria-invalid="true"] {
+  box-shadow: inset 0 0 0 1px var(--text-error, #e93147);
+  border-radius: var(--oneday-radius-control);
+}
+
+.oneday-time-popover input.is-invalid {
+  animation: oneday-shake 0.3s ease-in-out;
+}
+
+.oneday-time-popover-error {
+  padding: 0 4px 2px;
+  font-size: var(--oneday-font-caption);
+  color: var(--text-error, #e93147);
+  white-space: nowrap;
+}
+
+@keyframes oneday-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oneday-time-popover input.is-invalid {
+    animation: none;
+  }
 }
 
 /* 统一键盘焦点，不依赖主题是否给自定义按钮补样式。 */
