@@ -328,6 +328,28 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     if (statusEl) statusEl.textContent = text
   }
 
+  /**
+   * SVG paints in document order, so a record being resized or moved over a
+   * later record is covered by that record's duration/note copy. Once a
+   * gesture really starts, lift the entry's in-track visuals to the top of
+   * the paint order (below the transparent edge overlays). Plans stay behind
+   * records by design and lane nodes stay in their group; the next Markdown
+   * remount restores canonical order.
+   */
+  const raiseEntryVisuals = (line: number): void => {
+    const rect = svg.querySelector<SVGRectElement>(`rect.oneday-block[data-line="${line}"]`)
+    if (!rect || rect.classList.contains("oneday-plan")) return
+    const firstEdge = svg.querySelector(".oneday-edit-edge")
+    // Re-inserting the focused rect drops keyboard focus; hand it back so a
+    // click-started gesture does not leave focus on the scroll pane.
+    const hadFocus = dom.activeElement === rect
+    svg.querySelectorAll<SVGElement>(`[data-line="${line}"]`).forEach((node) => {
+      if (node.classList.contains("oneday-edit-edge") || node.closest("g.oneday-side-lane")) return
+      svg.insertBefore(node, firstEdge)
+    })
+    if (hadFocus) rect.focus({ preventScroll: true })
+  }
+
   const removeGhost = (): void => {
     ghost?.remove()
     ghostHatch?.remove()
@@ -724,6 +746,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
         const dy = e.clientY - editDrag.pointerStartY
         if (Math.hypot(dx, dy) < EDIT_DRAG_THRESHOLD_PX) return
         editDrag.moved = true
+        raiseEntryVisuals(editDrag.line)
       }
       const cur = clampMin(snapInteractionMin(minutesFromY(toLocalY(e.clientY), doc.rangeStart, deps.hourHeight)))
       const { mode, grabOffsetMin } = editDrag
