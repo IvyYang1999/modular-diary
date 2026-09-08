@@ -749,6 +749,7 @@
 
 /* Keyboard focus on a block or time point looks exactly like its selected
    state; the browser outline is replaced by that stroke. */
+.oneday-svg:focus,
 .oneday-svg :is(rect.oneday-block, g.oneday-marker):focus {
   outline: none;
 }

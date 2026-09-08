@@ -496,6 +496,9 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   const height = Math.max(axisBottom, lastSideBottom) + PAD_BOTTOM
 
   const laneAttr = laneBudget !== undefined ? ` data-side-lane="${laneBudget}"` : ""
-  const out = [`<svg xmlns="http://www.w3.org/2000/svg" class="oneday-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" data-base-width="${baseWidth}"${laneAttr}>`, ...parts, "</svg>"]
+  // The root is not a tab stop of its own (its blocks and points are), but
+  // it may take focus from a press on a non-focusable overlay without
+  // showing a ring; CSS suppresses the outline.
+  const out = [`<svg xmlns="http://www.w3.org/2000/svg" class="oneday-svg" tabindex="-1" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" data-base-width="${baseWidth}"${laneAttr}>`, ...parts, "</svg>"]
   return out.join("")
 }
