@@ -982,7 +982,7 @@ const state = await page.evaluate(() => ({
       centerDelta: Math.abs(hr.left + hr.width / 2 - tr.right),
       topDelta: Math.abs(hr.top - tr.top),
       bottomDelta: Math.abs(hr.bottom - tr.bottom),
-      opacity: cs.opacity,
+      cueOpacity: getComputedStyle(handle, "::after").opacity,
       background: cs.backgroundColor,
       width: hr.width,
     }
@@ -1286,7 +1286,7 @@ const blockResize = await page.evaluate(async () => {
     outerScrollLeft: container.scrollLeft,
     outerScrollTop: container.scrollTop,
     handleDelta: Math.max(Math.abs(hr0.left - hr1.left), Math.abs(hr0.top - hr1.top)),
-    handleOpacity: getComputedStyle(handle).opacity,
+    handleBackground: getComputedStyle(handle).backgroundColor,
     commits: window.__blockSizes,
     events: window.__blockResizeEvents,
   }
@@ -1332,11 +1332,43 @@ await page.evaluate(async () => {
   await new Promise(requestAnimationFrame)
 })
 
+// Rest = no handle. Hovering the timeline slot reveals a faint cue on the
+// track's right edge; hovering the handle itself makes the cue solid. The
+// hit box never paints a background of its own.
+await page.mouse.move(1, 1)
 const widthHandle = page.locator(".oneday-width-handle")
+const widthHandleRest = await widthHandle.evaluate((handle) => ({
+  cueOpacity: getComputedStyle(handle, "::after").opacity,
+  background: getComputedStyle(handle).backgroundColor,
+}))
+const timelineSlotBox = await widthHandle.evaluate((handle) => {
+  const rect = handle.closest(".oneday-slot").getBoundingClientRect()
+  return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+})
+await page.mouse.move(timelineSlotBox.x + timelineSlotBox.width * 0.3, timelineSlotBox.y + timelineSlotBox.height * 0.6)
+const widthHandleSlotHover = await widthHandle.evaluate((handle) => ({
+  cueOpacity: Number(getComputedStyle(handle, "::after").opacity),
+  background: getComputedStyle(handle).backgroundColor,
+}))
+// The same timeline hover also reveals the slot's corner brackets and the
+// ±1 hour buttons at low alpha; the block viewport corner shows while the
+// pointer is anywhere inside the block. Edge lines wait for their own hover.
+const hoverCues = await widthHandle.evaluate((handle) => {
+  const slot = handle.closest(".oneday-slot")
+  const container = handle.closest(".oneday-container")
+  const alpha = (el, pseudo) => (el ? Number(getComputedStyle(el, pseudo).opacity) : -1)
+  return {
+    corner: alpha(slot.querySelector(".oneday-handle-se"), "::after"),
+    cornerBackground: getComputedStyle(slot.querySelector(".oneday-handle-se")).backgroundColor,
+    edge: alpha(slot.querySelector(".oneday-handle-e"), "::after"),
+    blockCorner: alpha(container.querySelector(".oneday-block-resize-se"), "::after"),
+    blockEdge: alpha(container.querySelector(".oneday-block-resize-e"), "::after"),
+  }
+})
 await widthHandle.hover()
 const widthHandleHover = await widthHandle.evaluate((handle) => {
   const cs = getComputedStyle(handle)
-  return { opacity: cs.opacity, background: cs.backgroundColor }
+  return { cueOpacity: getComputedStyle(handle, "::after").opacity, background: cs.backgroundColor }
 })
 const widthHandleBox = await widthHandle.boundingBox()
 if (!widthHandleBox) { console.error("WIDTH HANDLE HAS NO BOX"); process.exit(1) }
@@ -1353,7 +1385,8 @@ const widthDrag = await page.evaluate(() => {
   return {
     topDelta: Math.abs(pr.top - tr.top),
     bottomDelta: Math.abs(pr.bottom - tr.bottom),
-    handleOpacity: getComputedStyle(handle).opacity,
+    handleBackground: getComputedStyle(handle).backgroundColor,
+    cueOpacity: getComputedStyle(handle, "::after").opacity,
   }
 })
 await page.mouse.up()
@@ -2019,7 +2052,7 @@ if (
   Math.abs(blockResize.embedRight - blockGeometryBefore.embedRight) > 1 ||
   blockGeometryBefore.containerRight - blockResize.containerRight < 170 ||
   blockResize.handleDelta > 1 ||
-  blockResize.handleOpacity !== "0" ||
+  blockResize.handleBackground !== "rgba(0, 0, 0, 0)" ||
   blockResize.commits.length !== 1 ||
   Math.abs(blockResize.commits[0].canvasWidth - blockGeometryBefore.bodyW) > 1 ||
   blockResize.events[0] !== "start" ||
@@ -2034,9 +2067,11 @@ if (process.env.ONEDAY_SMOKE_CLASSIC_SCROLLBARS) console.log("outerInsets", JSON
 if (Object.values(state.outerInsets).slice(0, 4).some((gap) => Math.abs(gap - 4) > 0.5)) { console.error("BLOCK OUTER INSETS ARE NOT UNIFORM", state.outerInsets); process.exit(1) }
 if (Math.abs(state.outerInsets.containerWidth - state.outerInsets.bodyWidth - 8) > 1) { console.error("BLOCK HORIZONTAL INSET CHANGED TOTAL WIDTH", state.outerInsets); process.exit(1) }
 if (state.widthHandle.centerDelta > 1 || state.widthHandle.topDelta > 1 || state.widthHandle.bottomDelta > 1 || state.widthHandle.width > 3.1) { console.error("WIDTH HANDLE MISALIGNED", state.widthHandle); process.exit(1) }
-if (state.widthHandle.opacity !== "0" || state.widthHandle.background !== "rgba(0, 0, 0, 0)") { console.error("WIDTH HANDLE VISIBLE AT REST", state.widthHandle); process.exit(1) }
-if (widthHandleHover.opacity !== "0" || widthHandleHover.background !== "rgba(0, 0, 0, 0)") { console.error("WIDTH HANDLE VISIBLE ON HOVER", widthHandleHover); process.exit(1) }
-if (!widthDrag || widthDrag.topDelta > 1 || widthDrag.bottomDelta > 1 || widthDrag.handleOpacity !== "0") { console.error("WIDTH PREVIEW MISALIGNED", widthDrag); process.exit(1) }
+if (state.widthHandle.background !== "rgba(0, 0, 0, 0)" || widthHandleRest.cueOpacity !== "0" || widthHandleRest.background !== "rgba(0, 0, 0, 0)") { console.error("WIDTH HANDLE VISIBLE AT REST", { state: state.widthHandle, widthHandleRest }); process.exit(1) }
+if (!(widthHandleSlotHover.cueOpacity > 0 && widthHandleSlotHover.cueOpacity < 1) || widthHandleSlotHover.background !== "rgba(0, 0, 0, 0)") { console.error("WIDTH HANDLE CUE MISSING ON TIMELINE HOVER", widthHandleSlotHover); process.exit(1) }
+if (widthHandleHover.cueOpacity !== "1" || widthHandleHover.background !== "rgba(0, 0, 0, 0)") { console.error("WIDTH HANDLE CUE NOT SOLID ON HANDLE HOVER", widthHandleHover); process.exit(1) }
+if (!(hoverCues.corner > 0 && hoverCues.corner < 1) || hoverCues.cornerBackground !== "rgba(0, 0, 0, 0)" || hoverCues.edge !== 0 || !(hoverCues.blockCorner > 0 && hoverCues.blockCorner < 1) || hoverCues.blockEdge !== 0) { console.error("HOVER CUES REGRESSED", hoverCues); process.exit(1) }
+if (!widthDrag || widthDrag.topDelta > 1 || widthDrag.bottomDelta > 1 || widthDrag.handleBackground !== "rgba(0, 0, 0, 0)" || widthDrag.cueOpacity !== "1") { console.error("WIDTH PREVIEW MISALIGNED", widthDrag); process.exit(1) }
 if (timelineInternalScroll.missing || timelineInternalScroll.paneScrollTop <= 0 || timelineInternalScroll.paneScrollLeft <= 0 || timelineInternalScroll.slotScrollTop !== 0 || timelineInternalScroll.slotScrollLeft !== 0 || timelineInternalScroll.slotOverflowY !== "hidden" || timelineInternalScroll.paneOverflowY !== "auto") { console.error("TIMELINE CONTENT IS NOT THE SCROLLER", timelineInternalScroll); process.exit(1) }
 if (timelineInternalScroll.westDelta > 1 || timelineInternalScroll.eastDelta > 1 || timelineInternalScroll.handleDelta > 1) { console.error("TIMELINE GRID HANDLES MOVED WITH CONTENT", timelineInternalScroll); process.exit(1) }
 if (timelineInternalScroll.handleBackgrounds.some((color) => color !== "rgba(0, 0, 0, 0)")) { console.error("TIMELINE GRID HANDLE BECAME VISIBLE", timelineInternalScroll); process.exit(1) }
