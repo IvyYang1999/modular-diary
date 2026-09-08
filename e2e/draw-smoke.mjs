@@ -657,6 +657,9 @@ const setTheme = async (dark) => page.evaluate((isDark) => {
   root.setProperty("--text-accent", isDark ? "rgb(166, 126, 255)" : "rgb(127, 85, 255)")
   root.setProperty("--interactive-accent", isDark ? "rgb(166, 126, 255)" : "rgb(127, 85, 255)")
   document.body.style.background = isDark ? "rgb(30, 30, 30)" : "rgb(245, 245, 245)"
+  // Obsidian scopes its dark theme with this body class; theme-aware rules
+  // (frozen alphas, record fill blending) key off it.
+  document.body.classList.toggle("theme-dark", isDark)
 }, dark)
 await setTheme(false)
 await page.waitForSelector("svg.oneday-svg")
@@ -1292,7 +1295,7 @@ if (
   || !editLayerState.frozenMarker
   || editLayerState.frozenMarkerOpacity !== "0.16"
   || editLayerState.frozenMarkerFilter !== "grayscale(0.65)"
-  || editLayerState.frozenMarkerLabelOpacity !== "0.3"
+  || editLayerState.frozenMarkerLabelOpacity !== "0.6"
   || editLayerState.frozenMarkerLabelBgOpacity !== "0.3"
   || JSON.stringify(editLayerState.edgeHandles) !== JSON.stringify([
     { edge: "top", line: 0, cursor: "ns-resize", pointerEvents: "all" },
@@ -1309,7 +1312,8 @@ const darkFrozenMarkerState = await page.evaluate(() => ({
   label: getComputedStyle(document.querySelector('text.oneday-marker-label[data-line="4"]')).opacity,
   labelBg: getComputedStyle(document.querySelector('rect.oneday-marker-label-bg[data-line="4"]')).opacity,
 }))
-if (JSON.stringify(darkFrozenMarkerState) !== JSON.stringify({ marker: "0.16", markerFilter: "grayscale(0.65)", label: "0.3", labelBg: "0.3" })) {
+// Dark pages freeze fills at 45% and copy at 80%; strokes keep their alpha.
+if (JSON.stringify(darkFrozenMarkerState) !== JSON.stringify({ marker: "0.16", markerFilter: "grayscale(0.65)", label: "0.8", labelBg: "0.45" })) {
   console.error("dark-theme time point did not share the selected-span freeze layer", darkFrozenMarkerState); process.exit(1)
 }
 await page.locator("svg.oneday-svg").screenshot({ path: path.join(out, "record-focus-freezes-time-point-dark.png") })

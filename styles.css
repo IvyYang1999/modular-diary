@@ -71,6 +71,8 @@
    * while filled surfaces keep the standard frozen-layer alpha. */
   --oneday-focus-frozen-opacity: 0.3;
   --oneday-focus-frozen-stroke-opacity: 0.16;
+  /* Frozen copy stays readable: only the fill drops to the frozen alpha. */
+  --oneday-focus-frozen-text-opacity: 0.6;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -84,6 +86,15 @@
   border-radius: var(--oneday-radius-surface);
   /* 产品可缩放边界属于 Oneday viewport，而不是占满编辑器整行的 CM6 外壳。 */
   box-shadow: inset 0 0 0 1px var(--background-modifier-border);
+}
+
+/*
+ * Dark pages need a higher frozen alpha: a 30% pastel over near-black turns
+ * into mud and its derived dark copy disappears with it.
+ */
+.theme-dark .oneday-container {
+  --oneday-focus-frozen-opacity: 0.45;
+  --oneday-focus-frozen-text-opacity: 0.8;
 }
 
 /* Aria-hidden visual handoff across an Obsidian-owned processor remount. */
@@ -3478,10 +3489,10 @@ button.oneday-plan-mode-toggle:focus-visible {
   white-space: nowrap;
 }
 
-/* 冻结态：文字也置灰 */
+/* 冻结态：文字跟着变淡，但保持可读（只降 fill 不降到文字不可读） */
 
 .oneday-svg text.is-frozen {
-  opacity: 0.3;
+  opacity: var(--oneday-focus-frozen-text-opacity);
 }
 
 /* 文字区跳变：渲染态首段抹平上边距（与编辑态 textarea 对齐） */
