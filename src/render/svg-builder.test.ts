@@ -212,6 +212,19 @@ describe("time-point lines and block text", () => {
   })
 })
 
+describe("hairline blocks (P2-21)", () => {
+  it("keeps a resting leader from a five-minute block to its lane label", () => {
+    const svg = svgOf("13:00-13:05 math 五分钟\n13:10-13:15 micro 五分钟二")
+    const thinLeaders = svg.match(/oneday-side-leader[^"]*is-thin/g) ?? []
+    expect(thinLeaders).toHaveLength(2)
+  })
+
+  it("does not mark leaders of blocks that are merely short", () => {
+    const svg = svgOf("17:00-17:30 meal 晚饭吃太多", COLORS, 60)
+    expect(svg).not.toMatch(/is-thin/)
+  })
+})
+
 describe("label lane (M4)", () => {
   it("widens the svg by the side lane so labels are not clipped", () => {
     const svg = svgOf("17:00-17:30 meal 晚饭")

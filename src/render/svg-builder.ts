@@ -55,6 +55,12 @@ const MIN_INLINE_LABEL_H = 30
 const MIN_INLINE_LABEL_W = 56
 /** Tall enough to also show the note inside the block. */
 const MIN_NOTE_H = 32
+/**
+ * Below this height a record is a hairline whose only copy lives in the lane;
+ * its leader stays visible at rest so several stacked hairlines can be told
+ * apart (hover/selection still deepen it).
+ */
+export const THIN_LEADER_H = 12
 /** `.oneday-note` size: `--oneday-font-svg-label` = caption − 2px. */
 export const NOTE_FONT_PX = SVG_LABEL_MAX_FONT_PX - 2
 /** Right lane reserved for side labels & annotations (M4: no more clipping). */
@@ -133,6 +139,8 @@ export interface SideItem {
   /** Categorized point marker label. */
   markerColor?: string
   markerPlan?: boolean
+  /** Hairline block: the leader is painted at rest, not only on hover. */
+  thin?: boolean
 }
 
 export interface PlacedSideItem extends SideItem {
@@ -366,7 +374,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     } else {
       // 极端小块：时长(+备注)去标注车道
       const side = e.note ? `${label} · ${truncate(e.note, 14)}` : label
-      sideItems.push({ naturalY: yy + hh / 2, text: side, cls: "oneday-duration oneday-thin", dataLine: e.line, anchorX: p.x + p.w })
+      sideItems.push({ naturalY: yy + hh / 2, text: side, cls: "oneday-duration oneday-thin", dataLine: e.line, anchorX: p.x + p.w, thin: hh < THIN_LEADER_H })
     }
   }
 
@@ -435,7 +443,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
       : it.text
     if (it.anchorX !== undefined) {
       // 标注 ↔ 色块列的对应关系线；CSS 控制非常驻（避让偏移/focus 时才可见）
-      const cls = it.displaced ? "oneday-side-leader is-displaced" : "oneday-side-leader"
+      const cls = `oneday-side-leader${it.displaced ? " is-displaced" : ""}${it.thin ? " is-thin" : ""}`
       laneParts.push(
         `<line class="${cls}" data-line="${it.dataLine ?? ""}" x1="${it.anchorX}" y1="${it.naturalY}" x2="${laneX - 2}" y2="${it.y}"/>`
       )

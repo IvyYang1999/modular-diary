@@ -638,7 +638,13 @@
   stroke-width: 0.6;
 }
 
-/* 避让偏移的连线也不常驻（yyt 2026-08-17），只保留 class 供测试断言 */
+/* 避让偏移的连线也不常驻（yyt 2026-08-17），只保留 class 供测试断言。
+   例外：薄到只剩一条线的块（< 12px）常驻一根低 alpha 的 leader，否则车道里
+   挤在一起的几条标签对不上是哪条线；hover/选中时按下方规则加深。 */
+.oneday-svg .oneday-side-leader.is-thin {
+  display: inline;
+  stroke-opacity: 0.55;
+}
 
 .oneday-svg .oneday-note.oneday-side {
   fill: var(--text-muted);
