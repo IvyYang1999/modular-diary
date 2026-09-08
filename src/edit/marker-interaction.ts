@@ -1,5 +1,6 @@
 import { TimelineDoc } from "../core/types"
 import { formatMarkerLine } from "../core/format"
+import { t } from "../i18n"
 import { minutesFromY, snapMinutes, SNAP_MINUTES, yFromMinutes } from "../core/geometry"
 import { setPointerInteractionActive } from "./pointer-interaction"
 import { nativeControlOwnsTimelineDelete } from "./undo-routing"
@@ -72,6 +73,10 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
   const track = svg?.querySelector<SVGRectElement>("rect.oneday-track")
   if (!svg || !track) return
   const dom = svg.ownerDocument
+  const statusEl = container.querySelector<HTMLElement>(".oneday-draw-status")
+  const setStatus = (text: string): void => {
+    if (statusEl) statusEl.textContent = text
+  }
   const svgWidth = Number(svg.getAttribute("width"))
   const trackX = Number(track.getAttribute("x"))
   const trackW = Number(track.getAttribute("width"))
@@ -234,8 +239,13 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
       return
     }
     if (e.pointerId !== pointerId) return
+    const wasMoved = moved
     moved ||= Math.abs(e.clientY - startY) >= MOVE_THRESHOLD
     currentMin = snapped(e)
+    // A drag with the time-point tool is a span gesture in the wrong tool.
+    // It still places the point where the pointer is released, but the
+    // status line says so instead of leaving the drag unexplained.
+    if (moved && !wasMoved && movingLine === null && ghost) setStatus(t("markerToolDragHint"))
     if (movingLine !== null) {
       setMovePreview(
         movingLine,
@@ -255,6 +265,7 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
     }
     ghost?.remove(); ghost = null
     movingLine = null; moved = false; pointerId = null
+    setStatus("")
     setPointerInteractionActive(container, false)
   }
   svg.addEventListener("pointerup", (e) => finish(e, false))
