@@ -2767,7 +2767,11 @@ button.oneday-item-drag:active {
   align-items: center;
   flex: 0 0 auto;
   width: auto;
-  min-height: 24px;
+  box-sizing: border-box;
+  /* Same tier as the layer buttons beside it: Obsidian's button
+   * --input-height would make it the only 30px control on the row. */
+  height: var(--oneday-compact-control-height);
+  min-height: var(--oneday-compact-control-height);
   margin: 0;
   padding: 0 4px;
   border: 1px solid transparent;
