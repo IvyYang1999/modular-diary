@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { contrastRatio, parseColor, readableTextColor, relatedTextColor } from "./contrast"
+import { contrastRatio, darkThemeBlockFill, mixColors, parseColor, readableTextColor, relatedTextColor } from "./contrast"
 
 describe("contrast", () => {
   it("parses hex and hsl", () => {
@@ -27,5 +27,23 @@ describe("relatedTextColor (派生文字色)", () => {
   it("灰色底 -> 中性黑白", () => {
     expect(relatedTextColor("#cccccc")).toBe("#1a1a1a")
     expect(relatedTextColor("#333333")).toBe("#ffffff")
+  })
+})
+
+describe("dark-theme block fill", () => {
+  it("blends the page background into the highlighter color", () => {
+    expect(mixColors("#ffffff", "#000000", 0.5)).toBe("#808080")
+    expect(darkThemeBlockFill("#d9d9d9")).toBe("#b0b0b0")
+  })
+
+  it("keeps the derived copy readable on the blended fill", () => {
+    for (const color of ["#d9d9d9", "#7fd4c1", "#9bd17b", "#f6c667", "#f5a3b7", "#c8b6e2", "hsl(210 62% 62%)"]) {
+      const fill = darkThemeBlockFill(color)
+      expect(contrastRatio(relatedTextColor(fill), fill)).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it("passes unparsable colors through unchanged", () => {
+    expect(darkThemeBlockFill("tomato")).toBe("tomato")
   })
 })

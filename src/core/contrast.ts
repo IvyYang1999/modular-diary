@@ -86,3 +86,31 @@ export function relatedTextColor(bgColor: string): string {
   }
   return dark ? "#1a1a1a" : "#ffffff"
 }
+
+function toHex(rgb: [number, number, number]): string {
+  return "#" + rgb.map((c) => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, "0")).join("")
+}
+
+/** sRGB mix of `weight` × a with (1 − weight) × b; unparsable input returns a. */
+export function mixColors(a: string, b: string, weight: number): string {
+  const ra = parseColor(a)
+  const rb = parseColor(b)
+  if (!ra || !rb) return a
+  const w = Math.min(1, Math.max(0, weight))
+  return toHex([0, 1, 2].map((i) => ra[i] * w + rb[i] * (1 - w)) as [number, number, number])
+}
+
+/**
+ * Dark-theme block fill. Highlighter colors are chosen for a light page; on a
+ * dark page a light neutral such as the default `sleep` gray becomes the
+ * brightest surface on the axis. Blending 22% of the page background into
+ * every record fill keeps category identity while removing the glow. The
+ * mounted CSS blends with the live `--background-primary`; this approximation
+ * with Obsidian's default dark page only drives the derived copy color.
+ */
+export const DARK_BLOCK_BACKGROUND = "#1e1e1e"
+export const DARK_BLOCK_FILL_WEIGHT = 0.78
+
+export function darkThemeBlockFill(color: string): string {
+  return mixColors(color, DARK_BLOCK_BACKGROUND, DARK_BLOCK_FILL_WEIGHT)
+}

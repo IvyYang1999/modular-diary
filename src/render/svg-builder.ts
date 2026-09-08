@@ -8,7 +8,7 @@
  */
 import { Entry, TimelineDoc } from "../core/types"
 import { hashTypeColor } from "../core/type-colors"
-import { relatedTextColor } from "../core/contrast"
+import { darkThemeBlockFill, relatedTextColor } from "../core/contrast"
 import { formatClock, formatHours, durationMinutes } from "../core/duration"
 import { AXIS_PAD_TOP, AXIS_PAD_BOTTOM, LABEL_W, TRACK_PAD, inlineFontSize, SVG_LABEL_MAX_FONT_PX } from "../core/geometry"
 import { estimateTextWidth, isWideGlyph, TextMeasurer, wrapTextToWidth } from "../core/text-wrap"
@@ -332,8 +332,12 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     // 纵向每块自身内缩 x/2（yyt 规范：相邻块间隙=x，不挤压不累计）
     const yy = y(e.startMin) + GAP_X / 2
     const hh = Math.max(2, y(e.endMin) - y(e.startMin) - GAP_X)
+    // Record copy is colored from the fill it sits on. The dark theme blends
+    // the page into every record fill (styles.css), so both variants are
+    // precomputed here and CSS picks the pair that matches the theme.
+    const copyStyle = `--oneday-block-text-light:${relatedTextColor(color)};--oneday-block-text-dark:${relatedTextColor(darkThemeBlockFill(color))}`
     parts.push(
-      `<rect class="oneday-block" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${p.x}" y="${yy}" width="${p.w}" height="${hh}" rx="3" fill="${escapeXml(color)}" fill-opacity="${BLOCK_OPACITY}"></rect>`
+      `<rect class="oneday-block" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${p.x}" y="${yy}" width="${p.w}" height="${hh}" rx="3" fill="${escapeXml(color)}" fill-opacity="${BLOCK_OPACITY}" style="--oneday-block-color:${escapeXml(color)}"></rect>`
     )
     const label = formatHours(durationMinutes(e.startMin, e.endMin))
     // 备注排版（yyt 2026-08-17）：短备注与时长同行；长备注且块够高 ->
@@ -352,20 +356,20 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
       const totalH = fs + noteLines.length * 11
       const startY = yy + (hh - totalH) / 2
       parts.push(
-        `<text pointer-events="none" class="oneday-duration" data-line="${e.line}" style="font-size:${fs}px;fill:${relatedTextColor(color)}" x="${p.x + p.w / 2}" y="${startY + fs - 2}" text-anchor="middle">${label}</text>`
+        `<text pointer-events="none" class="oneday-duration" data-line="${e.line}" style="font-size:${fs}px;${copyStyle}" x="${p.x + p.w / 2}" y="${startY + fs - 2}" text-anchor="middle">${label}</text>`
       )
       noteLines.forEach((ln, i) => {
         parts.push(
-          `<text pointer-events="none" class="oneday-note" data-line="${e.line}" style="fill:${relatedTextColor(color)}" x="${p.x + p.w / 2}" y="${startY + fs + 11 * (i + 1)}" text-anchor="middle">${escapeXml(ln)}</text>`
+          `<text pointer-events="none" class="oneday-note" data-line="${e.line}" style="${copyStyle}" x="${p.x + p.w / 2}" y="${startY + fs + 11 * (i + 1)}" text-anchor="middle">${escapeXml(ln)}</text>`
         )
       })
     } else if (e.note && fsCombined > 0) {
       parts.push(
-        `<text pointer-events="none" class="oneday-duration" data-line="${e.line}" style="font-size:${fsCombined}px;fill:${relatedTextColor(color)}" x="${p.x + p.w / 2}" y="${yy + hh / 2 + fsCombined / 2 - 1.5}" text-anchor="middle">${escapeXml(combined)}</text>`
+        `<text pointer-events="none" class="oneday-duration" data-line="${e.line}" style="font-size:${fsCombined}px;${copyStyle}" x="${p.x + p.w / 2}" y="${yy + hh / 2 + fsCombined / 2 - 1.5}" text-anchor="middle">${escapeXml(combined)}</text>`
       )
     } else if (fs > 0) {
       parts.push(
-        `<text pointer-events="none" class="oneday-duration" data-line="${e.line}" style="font-size:${fs}px;fill:${relatedTextColor(color)}" x="${p.x + p.w / 2}" y="${yy + hh / 2 + fs / 2 - 1.5}" text-anchor="middle">${label}</text>`
+        `<text pointer-events="none" class="oneday-duration" data-line="${e.line}" style="font-size:${fs}px;${copyStyle}" x="${p.x + p.w / 2}" y="${yy + hh / 2 + fs / 2 - 1.5}" text-anchor="middle">${label}</text>`
       )
       if (e.note) {
         // 实在放不进 -> 右侧标注车道

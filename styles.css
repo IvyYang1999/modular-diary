@@ -183,7 +183,8 @@
 
 .oneday-svg .oneday-duration {
   font-size: var(--oneday-font-caption);
-  fill: var(--text-normal);
+  /* Record copy carries its fill-derived color as custom properties. */
+  fill: var(--oneday-block-text-light, var(--text-normal));
   font-weight: 600;
   pointer-events: none;
 }
@@ -195,8 +196,27 @@
 
 .oneday-svg .oneday-note {
   font-size: var(--oneday-font-svg-label);
-  fill: var(--text-muted);
+  fill: var(--oneday-block-text-light, var(--text-muted));
   pointer-events: none;
+}
+
+/*
+ * Dark theme: highlighter colors are chosen for a light page, so a light
+ * neutral (the default sleep gray) would be the brightest surface on the
+ * axis. Blend 22% of the page into every record fill and switch the copy to
+ * the color derived from that blended fill (svg-builder computes both).
+ * Plans keep their 12% tint and the swatches keep the identity color.
+ */
+.theme-dark .oneday-svg rect.oneday-block:not(.oneday-plan) {
+  fill: color-mix(in srgb, var(--oneday-block-color) 78%, var(--background-primary));
+}
+
+.theme-dark .oneday-svg .oneday-duration {
+  fill: var(--oneday-block-text-dark, var(--oneday-block-text-light, var(--text-normal)));
+}
+
+.theme-dark .oneday-svg .oneday-note {
+  fill: var(--oneday-block-text-dark, var(--oneday-block-text-light, var(--text-muted)));
 }
 
 .oneday-svg .oneday-anno {

@@ -5,7 +5,7 @@ import { fitSideLaneWidth, MAX_SIDE_LANE_BUDGET, MIN_SIDE_LANE_W, renderTimeline
 
 const COLORS = { math: "#7fd4c1", sleep: "#e0e0e0" }
 
-function svgOf(source: string, colors = COLORS, width?: number): string {
+function svgOf(source: string, colors: Record<string, string> = COLORS, width?: number): string {
   return renderTimelineSvg(parseTimeline(source), { typeColors: colors, width })
 }
 
@@ -41,7 +41,7 @@ describe("renderTimelineSvg", () => {
   it("keeps the duration centered with adaptive font even for thin blocks (yyt 2026-08-17)", () => {
     const svg = svgOf("17:00-17:30 math") // 30min -> 24px tall
     expect(svg).not.toContain("oneday-duration oneday-thin")
-    expect(svg).toMatch(/<text pointer-events="none" class="oneday-duration"[^>]*style="font-size:([\d.]+)px;fill:(?:#[0-9a-f]+|hsl\([^)]+\))"[^>]*>0.5h<\/text>/)
+    expect(svg).toMatch(/<text pointer-events="none" class="oneday-duration"[^>]*style="font-size:([\d.]+)px;--oneday-block-text-light:(?:#[0-9a-f]+|hsl\([^)]+\));--oneday-block-text-dark:(?:#[0-9a-f]+|hsl\([^)]+\))"[^>]*>0.5h<\/text>/)
   })
 
   it("separates duration and note in tall blocks so the note can wrap within the inset", () => {
@@ -212,6 +212,14 @@ describe("time-point lines and block text", () => {
   })
 })
 
+describe("theme-aware record fill (P2-5)", () => {
+  it("exposes the highlighter color and both copy colors for CSS to pick per theme", () => {
+    const svg = svgOf("09:00-12:00 sleep 睡懒觉了", { sleep: "#d9d9d9" })
+    expect(svg).toMatch(/<rect class="oneday-block"[^>]*fill="#d9d9d9"[^>]*style="--oneday-block-color:#d9d9d9"/)
+    expect(svg).toMatch(/class="oneday-note"[^>]*--oneday-block-text-light:#1a1a1a;--oneday-block-text-dark:#1a1a1a/)
+  })
+})
+
 describe("hairline blocks (P2-21)", () => {
   it("keeps a resting leader from a five-minute block to its lane label", () => {
     const svg = svgOf("13:00-13:05 math 五分钟\n13:10-13:15 micro 五分钟二")
@@ -293,7 +301,7 @@ describe("M5b: single tooltip + tiny-column durations (yyt 2026-08-17)", () => {
     const svg = svgOf(src)
     // 7 columns -> w≈20px; durations must be inline (side lane carries notes only)
     expect(svg).not.toContain("oneday-duration oneday-thin")
-    const small = [...svg.matchAll(/class="oneday-duration"[^>]*style="font-size:([\d.]+)px;fill:(?:#[0-9a-f]+|hsl\([^)]+\))"/g)].map((m) => Number(m[1]))
+    const small = [...svg.matchAll(/class="oneday-duration"[^>]*style="font-size:([\d.]+)px;--oneday-block-text-light:(?:#[0-9a-f]+|hsl\([^)]+\));--oneday-block-text-dark:(?:#[0-9a-f]+|hsl\([^)]+\))"/g)].map((m) => Number(m[1]))
     expect(small.length).toBe(7)
     expect(Math.min(...small)).toBeGreaterThanOrEqual(4.5)
   })

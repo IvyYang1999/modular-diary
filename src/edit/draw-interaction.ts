@@ -10,7 +10,7 @@ import { TimelineDoc } from "../core/types"
 import { formatClock, formatHours } from "../core/duration"
 import { formatEntryLine } from "../core/format"
 import { AXIS_PAD_TOP, minutesFromY, snapMinutes, SNAP_MINUTES, yFromMinutes } from "../core/geometry"
-import { relatedTextColor } from "../core/contrast"
+import { darkThemeBlockFill, relatedTextColor } from "../core/contrast"
 import { t } from "../i18n"
 import { setPointerInteractionActive } from "./pointer-interaction"
 import { nativeControlOwnsTimelineDelete } from "./undo-routing"
@@ -641,6 +641,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     ghost.setAttribute("width", String(trackW - 4))
     ghost.setAttribute("rx", "3")
     ghost.setAttribute("fill", deps.typeColor(activeType))
+    ghost.style.setProperty("--oneday-block-color", deps.typeColor(activeType))
     svg.appendChild(ghost)
     const plan = deps.getMode() === "plan"
     if (plan) {
@@ -681,7 +682,11 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     // The optimistic block can remain on screen until Markdown remounts. Use
     // the same category-derived copy color as the canonical SVG builder now,
     // rather than briefly showing the generic muted/overlay-looking label.
-    if (!plan) ghostDuration.style.fill = relatedTextColor(deps.typeColor(activeType))
+    if (!plan) {
+      const color = deps.typeColor(activeType)
+      ghostDuration.style.setProperty("--oneday-block-text-light", relatedTextColor(color))
+      ghostDuration.style.setProperty("--oneday-block-text-dark", relatedTextColor(darkThemeBlockFill(color)))
+    }
     svg.appendChild(ghostDuration)
     updateGhost(dragStartMin, dragStartMin)
   })
