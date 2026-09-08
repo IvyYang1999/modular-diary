@@ -1637,10 +1637,28 @@ const contextStyle = await page.locator(".oneday-ctx-menu").evaluate((menu) => {
     itemPaddingLeft: parseFloat(itemStyle.paddingLeft),
     labelledBy: menu.getAttribute("aria-labelledby"),
     ariaLabel: menu.getAttribute("aria-label"),
+    // Same skin as Obsidian's `.menu-item`: font-ui-small (13px fallback),
+    // normal weight, content-driven height instead of the 30px button height.
+    itemFontSize: itemStyle.fontSize,
+    itemFontWeight: itemStyle.fontWeight,
+    itemHeight: item.getBoundingClientRect().height,
+    menuFontSize: menuStyle.fontSize,
+    menuPadding: parseFloat(menuStyle.paddingTop),
   }
 })
 if (contextStyle.radius < 6 || contextStyle.itemRadius < 4 || contextStyle.itemPaddingLeft < 8 || !contextStyle.labelledBy || contextStyle.ariaLabel !== null) {
   console.error("swatch menu visual/accessibility contract regressed", contextStyle); process.exit(1)
+}
+if (contextStyle.itemFontSize !== "13px" || contextStyle.menuFontSize !== "13px" || contextStyle.itemFontWeight !== "400" || contextStyle.itemHeight >= 30 || contextStyle.menuPadding < 6) {
+  console.error("custom menu does not share Obsidian's native menu skin", contextStyle); process.exit(1)
+}
+// Keyboard parity with Obsidian's Menu: the first arrow enters the menu, Escape closes it.
+await page.keyboard.press("ArrowDown")
+const contextKeyboard = await page.evaluate(() => ({
+  focused: document.activeElement?.closest(".oneday-ctx-menu") !== null && document.activeElement?.getAttribute("role") === "menuitem",
+}))
+if (!contextKeyboard.focused) {
+  console.error("ArrowDown did not move focus into the custom menu", contextKeyboard); process.exit(1)
 }
 await page.locator('.oneday-ctx-menu .oneday-add-item:has-text("隐藏")').click()
 await page.locator(".oneday-add").click()

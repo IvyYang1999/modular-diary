@@ -75,8 +75,30 @@ export function showCustomMenu(
     const target = e.target as Node | null
     if (target && !menu.contains(target) && (!anchor || !anchor.contains(target))) close()
   }
+  // Same keyboard model as Obsidian's Menu: arrows walk the items, Home/End
+  // jump, Escape closes. Enter/Space activate the focused button natively.
   const onKeyDown = (e: KeyboardEvent): void => {
-    if (e.key === "Escape") close()
+    if (e.key === "Escape") {
+      close()
+      return
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return
+    const items = Array.from(menu.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([aria-disabled="true"])'))
+    if (items.length === 0) return
+    const active = dom.activeElement
+    const current = active instanceof HTMLElement ? items.indexOf(active) : -1
+    if (current === -1 && !menu.contains(active)) {
+      // Focus lives outside the menu (pointer-opened): first arrow enters it.
+      if (e.key === "ArrowUp" || e.key === "End") items[items.length - 1].focus()
+      else items[0].focus()
+      e.preventDefault()
+      return
+    }
+    e.preventDefault()
+    const next = e.key === "Home" ? 0
+      : e.key === "End" ? items.length - 1
+      : (current + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length
+    items[next].focus()
   }
   dom.addEventListener("pointerdown", onPointerDown, true)
   dom.addEventListener("keydown", onKeyDown, true)
