@@ -244,7 +244,8 @@ describe("label lane (M4)", () => {
     const svg = svgOf("17:00-17:15 meal 晚饭\n17:15-17:30 english 单词", COLORS, 60)
     const leaders = svg.match(/oneday-side-leader/g) ?? []
     expect(leaders.length).toBeGreaterThanOrEqual(1)
-    const ys = [...svg.matchAll(/oneday-(?:note oneday-side|duration oneday-thin)"[^>]*x="58" y="([\d.]+)"/g)].map((m) => Number(m[1]))
+    // Hairline labels step 8px into the lane (laneX 58 → 66) so their resting leader has a run.
+    const ys = [...svg.matchAll(/oneday-(?:note oneday-side|duration oneday-thin)"[^>]*x="66" y="([\d.]+)"/g)].map((m) => Number(m[1]))
     expect(ys).toHaveLength(2)
     expect(Math.abs(ys[1] - ys[0])).toBeGreaterThanOrEqual(13)
   })

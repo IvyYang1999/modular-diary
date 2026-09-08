@@ -58,9 +58,12 @@ const MIN_NOTE_H = 32
 /**
  * Below this height a record is a hairline whose only copy lives in the lane;
  * its leader stays visible at rest so several stacked hairlines can be told
- * apart (hover/selection still deepen it).
+ * apart (hover/selection still deepen it). The label steps right by
+ * THIN_LABEL_INDENT so the leader has a readable run into the lane instead of
+ * ending inside the 6px gutter.
  */
 export const THIN_LEADER_H = 12
+const THIN_LABEL_INDENT = 8
 /** `.oneday-note` size: `--oneday-font-svg-label` = caption − 2px. */
 export const NOTE_FONT_PX = SVG_LABEL_MAX_FONT_PX - 2
 /** Right lane reserved for side labels & annotations (M4: no more clipping). */
@@ -442,14 +445,15 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   for (const it of (laneW > 0 ? placedSide : [])) {
     // Measured panes cap labels to the pixel budget left beside the track;
     // the unmeasured first paint keeps the per-item character cap.
+    const indent = it.thin ? THIN_LABEL_INDENT : 0
     const text = laneBudget !== undefined
-      ? truncateLaneText(it.text, laneBudget - (it.markerColor ? 12 : 6))
+      ? truncateLaneText(it.text, laneBudget - (it.markerColor ? 12 : 6) - indent)
       : it.text
     if (it.anchorX !== undefined) {
       // 标注 ↔ 色块列的对应关系线；CSS 控制非常驻（避让偏移/focus 时才可见）
       const cls = `oneday-side-leader${it.displaced ? " is-displaced" : ""}${it.thin ? " is-thin" : ""}`
       laneParts.push(
-        `<line class="${cls}" data-line="${it.dataLine ?? ""}" x1="${it.anchorX}" y1="${it.naturalY}" x2="${laneX - 2}" y2="${it.y}"/>`
+        `<line class="${cls}" data-line="${it.dataLine ?? ""}" x1="${it.anchorX}" y1="${it.naturalY}" x2="${laneX - 2 + indent}" y2="${it.y}"/>`
       )
     } else if (it.displaced) {
       laneParts.push(
@@ -464,7 +468,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
         `<rect pointer-events="all" class="oneday-marker-label-bg${it.markerPlan ? " oneday-marker-plan-label" : ""}"${dataAttr} x="${laneX - 2}" y="${it.y - 7}" width="${labelW}" height="14" rx="4" fill="${escapeXml(it.markerColor)}" fill-opacity="${opacity}" stroke="${escapeXml(it.markerColor)}" stroke-opacity="0.55"/>`
       )
     }
-    laneParts.push(`<text pointer-events="none" class="${it.cls}"${dataAttr} x="${laneX + (it.markerColor ? 4 : 0)}" y="${it.y + 3}">${escapeXml(text)}</text>`)
+    laneParts.push(`<text pointer-events="none" class="${it.cls}"${dataAttr} x="${laneX + (it.markerColor ? 4 : 0) + indent}" y="${it.y + 3}">${escapeXml(text)}</text>`)
   }
   // The lane is one replaceable group so a slot resize can swap only the
   // labels while the track, blocks, markers and interaction-owned nodes stay.
