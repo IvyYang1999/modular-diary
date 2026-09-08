@@ -251,6 +251,7 @@ window.__mountEmptyState = () => {
   const noPaletteContainer = renderTimelineInto(noPaletteHost, emptyDoc, {
     typeColors: {},
     showTimelineOnboarding: true,
+    onAddFirstCategory: () => { window.__addFirstFromTimeline = (window.__addFirstFromTimeline ?? 0) + 1 },
   })
   const emptyToolbar = buildToolbar({
     typeColors: {}, hiddenTypes: [], activeType: "", brushMode: "actual",
@@ -1860,6 +1861,24 @@ const emptyState = await page.evaluate(() => {
     timelineNearStart: Boolean(hintRect && trackRect && hintRect.top > trackRect.top && hintRect.top - trackRect.top < trackRect.height / 4),
     persistentTimelineGuideCount: document.querySelectorAll("#persistent-empty-host .oneday-timeline-onboarding").length,
     noPaletteTimelineGuideCount: document.querySelectorAll("#no-palette-timeline-host .oneday-timeline-onboarding").length,
+    // With no category at all the track carries one centred prompt that
+    // opens the category editor like the toolbar's "Add first category".
+    noPaletteTimelinePrompt: (() => {
+      const prompt = document.querySelector("#no-palette-timeline-host button.oneday-timeline-empty")
+      const track = document.querySelector("#no-palette-timeline-host rect.oneday-track")
+      if (!prompt || !track) return null
+      const p = prompt.getBoundingClientRect()
+      const t = track.getBoundingClientRect()
+      const before = window.__addFirstFromTimeline ?? 0
+      prompt.click()
+      return {
+        label: prompt.getAttribute("aria-label"),
+        insideTrack: p.left >= t.left && p.right <= t.right && p.top >= t.top && p.bottom <= t.bottom,
+        borderStyle: getComputedStyle(prompt).borderStyle,
+        clicked: (window.__addFirstFromTimeline ?? 0) - before,
+        populatedCount: document.querySelectorAll("#host button.oneday-timeline-empty").length,
+      }
+    })(),
     zeroToolbarFillsSlot: Boolean(zeroToolbarShellRect && zeroToolbarSlot && (() => {
       const style = getComputedStyle(zeroToolbarSlot)
       const width = zeroToolbarSlot.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
@@ -1996,7 +2015,7 @@ if (
   console.error("SHARED SLOT VERTICAL RHYTHM REGRESSED", verticalRhythm)
   process.exit(1)
 }
-if (emptyState.timelineStart !== "起点" || emptyState.timelineEnd !== "终点" || emptyState.timelineCopy !== "从起点拖到终点" || emptyState.timelinePointerEvents !== "none" || !emptyState.timelineInsideTrack || !emptyState.timelineNearStart || emptyState.persistentTimelineGuideCount !== 0 || emptyState.noPaletteTimelineGuideCount !== 0 || !emptyState.narrowGuideInsideTrack || !emptyState.zeroToolbarFillsSlot || !emptyState.zeroToolbarButtonClearsSouthHandle || !emptyState.zeroToolbarKeepsNormalShell || emptyState.zeroToolbarSlotRows < 4) { console.error("TIMELINE/FIRST-CATEGORY EMPTY STATE REGRESSED", emptyState); process.exit(1) }
+if (emptyState.timelineStart !== "起点" || emptyState.timelineEnd !== "终点" || emptyState.timelineCopy !== "从起点拖到终点" || emptyState.timelinePointerEvents !== "none" || !emptyState.timelineInsideTrack || !emptyState.timelineNearStart || emptyState.persistentTimelineGuideCount !== 0 || emptyState.noPaletteTimelineGuideCount !== 0 || emptyState.noPaletteTimelinePrompt?.label !== "添加第一个分类" || !emptyState.noPaletteTimelinePrompt.insideTrack || emptyState.noPaletteTimelinePrompt.borderStyle !== "dashed" || emptyState.noPaletteTimelinePrompt.clicked !== 1 || emptyState.noPaletteTimelinePrompt.populatedCount !== 0 || !emptyState.narrowGuideInsideTrack || !emptyState.zeroToolbarFillsSlot || !emptyState.zeroToolbarButtonClearsSouthHandle || !emptyState.zeroToolbarKeepsNormalShell || emptyState.zeroToolbarSlotRows < 4) { console.error("TIMELINE/FIRST-CATEGORY EMPTY STATE REGRESSED", emptyState); process.exit(1) }
 if (emptyState.statsLabel !== "创建记录后，这里会显示用时分布" || emptyState.statsSlotBorderStyle !== "dashed" || emptyState.statsInnerBorderStyle !== "none" || !emptyState.statsFits || !emptyState.statsFillsSlot || !emptyState.statsSlotOwnsBorder || emptyState.legacyStatsChildren !== 0) { console.error("STATS EMPTY STATE REGRESSED", emptyState); process.exit(1) }
 if (!emptyState.statsGripNotch || emptyState.statsGripNotch.content === "none" || emptyState.statsGripNotch.width < emptyState.statsGripNotch.gripWidth + 6 || emptyState.statsGripNotch.height < emptyState.statsGripNotch.gripHeight + 6 || emptyState.statsGripNotch.background === "rgba(0, 0, 0, 0)" || emptyState.statsGripNotch.opacity !== "0") { console.error("EMPTY STATE GRIP LOST ITS BORDER CLEARANCE", emptyState.statsGripNotch); process.exit(1) }
 if (statsEmptyHover.slotBorderStyle !== "dashed" || statsEmptyHover.innerBorderStyle !== "none" || statsEmptyHover.notchOpacity !== "1" || zeroToolbarEmptyHover.slotBorderStyle !== "solid" || zeroToolbarEmptyHover.buttonBorderStyle !== "none") { console.error("EMPTY STATE HOVER CREATED A SECOND BORDER", { statsEmptyHover, zeroToolbarEmptyHover }); process.exit(1) }

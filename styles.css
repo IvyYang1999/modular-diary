@@ -370,6 +370,62 @@
   text-overflow: ellipsis;
 }
 
+/*
+ * No category yet: the track itself carries the prompt. Same family as the
+ * Stats empty state (dashed, faint), but it is a real button because it opens
+ * the category editor exactly like the toolbar's "Add first category".
+ */
+.oneday-container button.oneday-timeline-empty {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  height: auto;
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: var(--oneday-radius-surface);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-faint, var(--text-muted));
+  font-family: var(--font-text);
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.oneday-container button.oneday-timeline-empty:hover {
+  border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+
+.oneday-container button.oneday-timeline-empty:focus-visible {
+  border-color: var(--background-modifier-border-focus, var(--interactive-accent));
+}
+
+.oneday-timeline-empty-title {
+  font-size: var(--oneday-font-caption);
+  font-weight: var(--font-medium, 500);
+  color: var(--text-muted);
+}
+
+.oneday-timeline-empty-copy {
+  max-width: 100%;
+  font-size: var(--oneday-font-micro);
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .oneday-stats-empty {
   width: 100%;
   height: 100%;

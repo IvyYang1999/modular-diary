@@ -33,6 +33,12 @@ interface InlineEditorDeps {
 export interface TimelineViewOptions extends RenderOptions {
   /** 仅给真正的新用户展示一次的时间轴拖拽引导。 */
   showTimelineOnboarding?: boolean
+  /**
+   * No span or point category exists yet. An empty track then carries one
+   * centred prompt that opens the same category editor as the toolbar's
+   * "Add first category"; it disappears with the first category or entry.
+   */
+  onAddFirstCategory?: () => void
   /** Optional product components requested for this date/block. */
   extraSlots?: GridItem[]
 }
@@ -393,6 +399,33 @@ export function renderTimelineInto(
       const svgHolder = slot.createDiv({ cls: "oneday-svg-holder" })
       svgHolder.innerHTML = timelineSvg
       attachSideLaneFit(svgHolder, doc, opts, baseWidth)
+      const noCategories = Object.keys(opts.typeColors).length === 0
+        && Object.keys(opts.markerTypeColors ?? {}).length === 0
+      if (noCategories && doc.entries.length === 0 && doc.annotations.length === 0 && doc.errors.length === 0) {
+        // Same visual family as the Stats empty state (dashed, faint copy),
+        // sized to the real track so it reads as "this track is waiting".
+        const empty = svgHolder.createEl("button", { cls: "oneday-timeline-empty", attr: { type: "button" } })
+        empty.setAttribute("aria-label", t("addFirstCategory"))
+        empty.createEl("span", { cls: "oneday-timeline-empty-title", text: t("addFirstCategory") })
+        empty.createEl("span", { cls: "oneday-timeline-empty-copy", text: t("timelineNeedsCategory") })
+        const track = svgHolder.querySelector<SVGRectElement>("rect.oneday-track")
+        const trackX = Number(track?.getAttribute("x"))
+        const trackY = Number(track?.getAttribute("y"))
+        const trackW = Number(track?.getAttribute("width"))
+        const trackH = Number(track?.getAttribute("height"))
+        if ([trackX, trackY, trackW, trackH].every(Number.isFinite)) {
+          const inset = 8
+          const height = Math.min(64, Math.max(40, trackH - inset * 2))
+          empty.style.left = `${trackX + inset}px`
+          empty.style.top = `${trackY + Math.max(inset, (trackH - height) / 2)}px`
+          empty.style.width = `${Math.max(1, trackW - inset * 2)}px`
+          empty.style.height = `${height}px`
+        }
+        empty.addEventListener("click", (event) => {
+          event.stopPropagation()
+          opts.onAddFirstCategory?.()
+        })
+      }
       if (
         opts.showTimelineOnboarding
         && (Object.keys(opts.typeColors).length > 0 || Object.keys(opts.markerTypeColors ?? {}).length > 0)

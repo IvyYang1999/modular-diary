@@ -522,6 +522,7 @@ export default class OnedayPlugin extends Plugin {
           width: this.settings.width,
           showTimelineOnboarding,
           extraSlots,
+          onAddFirstCategory: () => this.openCategorySettings(this.drawTool),
         },
         {
           renderMarkdown: (host, text) => {
