@@ -99,34 +99,62 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
     const l1 = dom.createElement("div")
     l1.className = "oneday-tooltip-time"
     l1.textContent = time
-    const l2 = dom.createElement("div")
-    l2.className = "oneday-tooltip-type"
-    l2.textContent = (entry.plan ? t("planPrefix") : "") + entry.type
-    tooltip.append(l1, l2)
-    if (entry.note) {
-      const l3 = dom.createElement("div")
-      l3.className = "oneday-tooltip-note"
-      l3.textContent = entry.note
-      tooltip.appendChild(l3)
+    tooltip.appendChild(l1)
+    // When the block already shows its note inline, the tooltip only adds
+    // what the block cannot: the exact start/end. Everything else would
+    // repeat copy that sits right under the pointer.
+    const noteInline = Boolean(entry.note) && Boolean(
+      svg.querySelector(`text.oneday-note[data-line="${line}"]:not(.oneday-side)`)
+      ?? Array.from(svg.querySelectorAll<SVGTextElement>(`text.oneday-duration[data-line="${line}"]:not(.oneday-thin)`))
+        .find((label) => (label.textContent ?? "").includes(" · "))
+    )
+    if (!noteInline) {
+      const l2 = dom.createElement("div")
+      l2.className = "oneday-tooltip-type"
+      l2.textContent = (entry.plan ? t("planPrefix") : "") + entry.type
+      tooltip.appendChild(l2)
+      if (entry.note) {
+        const l3 = dom.createElement("div")
+        l3.className = "oneday-tooltip-note"
+        l3.textContent = entry.note
+        tooltip.appendChild(l3)
+      }
     }
     tooltip.style.display = "block"
     tooltip.setAttribute("aria-hidden", "false")
     return true
   }
 
+  /**
+   * The tooltip sits above and to the left of the pointer so it never
+   * covers the object's own lane label to the right; it flips below the
+   * pointer only when there is no room above.
+   */
+  const placeAtPointer = (clientX: number, clientY: number): void => {
+    const rect = container.getBoundingClientRect()
+    const width = tooltip.offsetWidth
+    const height = tooltip.offsetHeight
+    const left = Math.max(4, clientX - rect.left - width - 12)
+    let top = clientY - rect.top - height - 10
+    if (top < 4) top = clientY - rect.top + 14
+    tooltip.style.left = `${left}px`
+    tooltip.style.top = `${top}px`
+  }
+
   svg.addEventListener("pointerover", (e: PointerEvent) => {
-    showInfo(e.target as Element | null)
+    if (showInfo(e.target as Element | null)) placeAtPointer(e.clientX, e.clientY)
   })
 
-  // Keyboard focus gets the same pairing and tooltip, docked beside the
-  // object because there is no pointer to follow.
+  // Keyboard focus gets the same pairing and tooltip, docked under the
+  // object's left edge (inside the track, clear of the lane) because there
+  // is no pointer to follow.
   svg.addEventListener("focusin", (e: FocusEvent) => {
     const target = e.target as Element | null
     if (!showInfo(target)) return
     const rect = container.getBoundingClientRect()
     const box = (target as Element).getBoundingClientRect()
-    tooltip.style.left = `${box.right - rect.left + 8}px`
-    tooltip.style.top = `${box.top - rect.top}px`
+    tooltip.style.left = `${box.left - rect.left + 6}px`
+    tooltip.style.top = `${box.bottom - rect.top + 6}px`
   })
   svg.addEventListener("focusout", (e: FocusEvent) => {
     if ((e.target as Element | null)?.closest("rect.oneday-block, g.oneday-marker")) hideTooltip()
@@ -134,9 +162,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
 
   svg.addEventListener("pointermove", (e: PointerEvent) => {
     if (tooltip.style.display === "none") return
-    const rect = container.getBoundingClientRect()
-    tooltip.style.left = `${e.clientX - rect.left + 12}px`
-    tooltip.style.top = `${e.clientY - rect.top + 10}px`
+    placeAtPointer(e.clientX, e.clientY)
   })
 
   svg.addEventListener("pointerout", (e: PointerEvent) => {

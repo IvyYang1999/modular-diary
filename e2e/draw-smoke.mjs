@@ -1184,6 +1184,16 @@ const tooltipText = await page.locator(".oneday-tooltip").innerText()
 if (!tooltipText.includes("07:00") || !tooltipText.includes("1h") || !tooltipText.includes("sleep")) {
   console.error("tooltip mismatch:", tooltipText); process.exit(1)
 }
+// The tooltip sits above-left of the pointer so it never covers the lane
+// label to the right of the hovered object.
+const tooltipPlacement = await page.evaluate(() => {
+  const tooltip = document.querySelector(".oneday-tooltip").getBoundingClientRect()
+  const lane = document.querySelector("svg.oneday-svg g.oneday-side-lane").getBoundingClientRect()
+  return { tooltipRight: tooltip.right, laneLeft: lane.left, tooltipBottom: tooltip.bottom }
+})
+if (tooltipPlacement.tooltipRight > tooltipPlacement.laneLeft || tooltipPlacement.tooltipBottom > yFor(455)) {
+  console.error("tooltip covered the lane or the pointer", tooltipPlacement); process.exit(1)
+}
 await page.evaluate(() => window.__mountAfterMidnightHover())
 const overnightBlock = page.locator("#after-midnight-hover rect.oneday-block")
 const overnightBox = await overnightBlock.boundingBox()
@@ -1193,6 +1203,16 @@ await page.waitForSelector("#after-midnight-hover .oneday-tooltip", { state: "vi
 const overnightTooltip = await page.locator("#after-midnight-hover .oneday-tooltip").innerText()
 if (!overnightTooltip.includes("次日 02:30 – 03:15") || overnightTooltip.includes("26:30") || overnightTooltip.includes("27:15")) {
   console.error("after-midnight tooltip leaked monotonic coordinates:", overnightTooltip); process.exit(1)
+}
+// A block that already shows its note inline gets only the exact times and
+// duration; the type and note are not repeated under the pointer.
+const inlineNoteTooltip = await page.evaluate(() => {
+  const lines = [...document.querySelector("#after-midnight-hover .oneday-tooltip").children].map((node) => node.textContent)
+  const inline = Boolean(document.querySelector('#after-midnight-hover text.oneday-note:not(.oneday-side), #after-midnight-hover text.oneday-duration:not(.oneday-thin)'))
+  return { lines, inline }
+})
+if (!inlineNoteTooltip.inline || inlineNoteTooltip.lines.length !== 1 || inlineNoteTooltip.lines[0] !== overnightTooltip.trim()) {
+  console.error("tooltip repeated copy that is already inside the block", inlineNoteTooltip); process.exit(1)
 }
 await page.locator("#after-midnight-hover .oneday-tooltip").screenshot({ path: path.join(out, "after-midnight-tooltip.png") })
 await page.locator("#after-midnight-hover").evaluate((element) => element.remove())
