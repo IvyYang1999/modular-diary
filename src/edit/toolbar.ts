@@ -34,6 +34,13 @@ export interface ToolbarDeps {
   onShow: (type: string) => void
   /** Open the global palette settings to create another highlighter. */
   onAddNew: () => void
+  /**
+   * Folding is opt-in (yyt 2026-09-09): every category shows by default; the
+   * user may collapse the list to MAX_CATEGORY_ROWS rows and the choice is
+   * remembered globally by the host.
+   */
+  categoriesCollapsed?: boolean
+  onCategoriesCollapsedChange?: (collapsed: boolean) => void
   /** DOM realm that owns this toolbar (Obsidian pop-out safe). */
   domDocument?: Document
 }
@@ -56,6 +63,7 @@ export interface ToolbarHandle {
 export const MAX_CATEGORY_ROWS = 2
 
 const CHEVRON_SVG = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>'
+const CHEVRON_UP_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>'
 const PLUS_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
 
 /** Right-click menu on a swatch, anchored to the swatch itself. */
@@ -312,6 +320,18 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
       })
       menu.appendChild(item)
     }
+    // Same edge-to-edge separator treatment as the manage menu's "add new" row.
+    const expandItem = dom.createElement("button")
+    expandItem.type = "button"
+    expandItem.className = "oneday-add-item oneday-add-new oneday-category-expand"
+    expandItem.setAttribute("role", "menuitem")
+    expandItem.innerHTML = CHEVRON_SVG
+    expandItem.appendChild(dom.createTextNode(t("expandAllCategories")))
+    expandItem.addEventListener("click", () => {
+      close()
+      setCategoriesCollapsed(false)
+    })
+    menu.appendChild(expandItem)
     moreBtn.setAttribute("aria-expanded", "true")
     close = showCustomMenu(menu, { anchor: moreBtn }, () => moreBtn.setAttribute("aria-expanded", "false"))
     menu.querySelector<HTMLButtonElement>(".oneday-add-item")?.focus()
@@ -373,6 +393,19 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     })
   }
     categoryList.appendChild(addBtn)
+
+  // Opt-in fold: shown only while the expanded list runs past MAX_CATEGORY_ROWS.
+  const foldBtn = dom.createElement("button")
+  foldBtn.type = "button"
+  foldBtn.className = "oneday-swatch oneday-category-fold"
+  foldBtn.hidden = true
+  foldBtn.innerHTML = CHEVRON_UP_SVG
+  foldBtn.setAttribute("aria-label", t("collapseCategories"))
+  foldBtn.addEventListener("click", (e) => {
+    e.stopPropagation()
+    setCategoriesCollapsed(true)
+  })
+  categoryList.appendChild(foldBtn)
     applyCategoryOverflow()
   }
 
@@ -381,12 +414,22 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
    * The active category is never folded, so the visible set is the leading
    * categories plus the active one; "More (n)" reports what is folded.
    */
+  let categoriesCollapsed = deps.categoriesCollapsed ?? false
+  const setCategoriesCollapsed = (collapsed: boolean): void => {
+    if (categoriesCollapsed === collapsed) return
+    categoriesCollapsed = collapsed
+    deps.onCategoriesCollapsedChange?.(collapsed)
+    applyCategoryOverflow()
+  }
   const applyCategoryOverflow = (): void => {
     const swatches = Array.from(categoryList.querySelectorAll<HTMLButtonElement>(".oneday-swatch[data-type]"))
     const moreBtn = categoryList.querySelector<HTMLButtonElement>(".oneday-category-more")
+    const foldBtn = categoryList.querySelector<HTMLButtonElement>(".oneday-category-fold")
     for (const swatch of swatches) swatch.classList.remove("is-overflowed")
     if (moreBtn) moreBtn.hidden = true
+    if (foldBtn) foldBtn.hidden = true
     categoryList.dataset.foldedCategories = "0"
+    categoryList.dataset.categoriesCollapsed = categoriesCollapsed ? "1" : "0"
     if (!moreBtn || swatches.length === 0 || categoryList.clientWidth === 0) return
     const rowCount = (): number => {
       const tops = new Set<number>()
@@ -397,6 +440,11 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
       return tops.size
     }
     if (rowCount() <= MAX_CATEGORY_ROWS) return
+    if (!categoriesCollapsed) {
+      // Expanded by default: only offer the fold, never force it.
+      if (foldBtn) foldBtn.hidden = false
+      return
+    }
     moreBtn.hidden = false
     let folded = 0
     for (let index = swatches.length - 1; index >= 0 && rowCount() > MAX_CATEGORY_ROWS; index -= 1) {

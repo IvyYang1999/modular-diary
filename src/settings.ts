@@ -37,6 +37,8 @@ export interface OnedaySettings {
   templateHasText?: boolean
   /** 新用户时间轴拖拽引导是否已经展示过（全局一次） */
   timelineOnboardingSeen: boolean
+  /** Toolbar category list folded to two rows (opt-in, yyt 2026-09-09). */
+  categoriesCollapsed: boolean
   /** Global recurring habit rules projected into matching daily blocks. */
   habits: HabitDefinition[]
   /** Weekly cumulative Todo goals shown every day until the weekly quota is reached. */
@@ -62,6 +64,7 @@ export const DEFAULT_SETTINGS: OnedaySettings = {
   baseUrl: "https://open.bigmodel.cn/api/paas/v4",
   model: "glm-4.5-air",
   timelineOnboardingSeen: false,
+  categoriesCollapsed: false,
   habits: [],
   weeklyTodos: [],
   dailyQuotes: [],

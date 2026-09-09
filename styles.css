@@ -989,7 +989,8 @@
   height: var(--icon-s, 16px);
 }
 
-.oneday-add {
+.oneday-add,
+.oneday-category-fold {
   min-width: 28px;
   min-height: 24px;
   justify-content: center;
@@ -998,7 +999,8 @@
   box-shadow: none;
 }
 
-.oneday-add:hover {
+.oneday-add:hover,
+.oneday-category-fold:hover {
   color: var(--text-normal);
   background: var(--background-modifier-hover);
 }
@@ -1028,7 +1030,8 @@
   height: 12px;
 }
 
-.oneday-add svg {
+.oneday-add svg,
+.oneday-category-fold svg {
   width: 14px;
   height: 14px;
 }

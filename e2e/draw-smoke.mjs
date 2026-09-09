@@ -223,6 +223,8 @@ window.__mountManyCategories = (width) => {
     onHide: () => {},
     onShow: () => {},
     onAddNew: () => {},
+    categoriesCollapsed: window.__manyCollapsed ?? false,
+    onCategoriesCollapsedChange: (collapsed) => { window.__manyCollapsed = collapsed },
   })
   slot.appendChild(many.el)
   return many
@@ -1726,11 +1728,22 @@ const readManyCategories = () => page.evaluate(() => {
     moreLast: visible.at(-1)?.classList.contains("oneday-add") && visible.at(-2) === more,
     active: list.querySelector(".oneday-swatch[data-type].is-active")?.dataset.type,
     listHeight: list.getBoundingClientRect().height,
+    foldVisible: (() => { const fold = list.querySelector(".oneday-category-fold"); return Boolean(fold) && !fold.hidden && fold.getBoundingClientRect().width > 0 })(),
+    collapsed: list.dataset.categoriesCollapsed,
   }
 })
-await page.evaluate(() => window.__mountManyCategories(300))
-// Folding is measured by a ResizeObserver once the list has a laid-out width.
+// Folding is opt-in (yyt 2026-09-09): by default every category is shown, and
+// a narrow pane merely offers a "collapse" button after the "+".
+await page.evaluate(() => { window.__manyCollapsed = false; window.__mountManyCategories(300) })
 await page.waitForTimeout(80)
+const manyExpanded = await readManyCategories()
+if (manyExpanded.rows <= 2 || manyExpanded.folded !== 0 || manyExpanded.moreVisible || !manyExpanded.foldVisible || manyExpanded.visibleSwatches.length !== 21 || manyExpanded.collapsed !== "0") {
+  console.error("categories must stay expanded until the user folds them", manyExpanded); process.exit(1)
+}
+await page.locator("#many-categories-slot").screenshot({ path: path.join(out, "toolbar-many-categories-expanded.png") })
+await page.locator("#many-categories-slot .oneday-category-fold").click()
+await page.waitForTimeout(80)
+if (await page.evaluate(() => window.__manyCollapsed) !== true) { console.error("fold button did not persist the preference"); process.exit(1) }
 const manyNarrow = await readManyCategories()
 if (manyNarrow.rows !== 2 || manyNarrow.folded < 5 || !manyNarrow.moreVisible || !manyNarrow.moreLast || !manyNarrow.moreFocusable
   || manyNarrow.moreLabel !== `更多 (${manyNarrow.folded})` || manyNarrow.moreAria !== `显示其余 ${manyNarrow.folded} 个分类`
@@ -1743,13 +1756,14 @@ const foldedMenu = await page.evaluate(() => {
   const menu = document.querySelector(".oneday-add-menu")
   return {
     open: Boolean(menu),
-    items: [...(menu?.querySelectorAll('.oneday-add-item[role="menuitem"]') ?? [])].map((item) => item.textContent),
+    items: [...(menu?.querySelectorAll('.oneday-add-item[role="menuitem"]:not(.oneday-category-expand)') ?? [])].map((item) => item.textContent),
+    expandItem: menu?.querySelector(".oneday-category-expand")?.textContent ?? null,
     focusedInMenu: menu?.contains(document.activeElement) ?? false,
     expanded: document.querySelector("#many-categories-slot .oneday-category-more").getAttribute("aria-expanded"),
   }
 })
 const lastName = "出门"
-if (!foldedMenu.open || foldedMenu.items.length !== manyNarrow.folded || foldedMenu.items.at(-1) !== lastName || !foldedMenu.focusedInMenu || foldedMenu.expanded !== "true") {
+if (!foldedMenu.open || foldedMenu.items.length !== manyNarrow.folded || foldedMenu.items.at(-1) !== lastName || !foldedMenu.focusedInMenu || foldedMenu.expanded !== "true" || foldedMenu.expandItem !== "展开全部分类") {
   console.error("More menu did not list the folded categories", foldedMenu); process.exit(1)
 }
 await page.locator('.oneday-add-menu .oneday-add-item:has-text("出门")').click()
@@ -1759,6 +1773,17 @@ if (manyAfterPick.rows !== 2 || manyAfterPick.active !== lastName || !manyAfterP
   || manyAfterPick.folded !== manyNarrow.folded || await page.locator(".oneday-add-menu").count() !== 0) {
   console.error("picking a folded category did not surface it as the active swatch", { manyAfterPick, pickedSelected }); process.exit(1)
 }
+// The More menu's last entry expands the palette again and clears the preference.
+await page.locator("#many-categories-slot .oneday-category-more").click()
+await page.locator(".oneday-add-menu .oneday-category-expand").click()
+await page.waitForTimeout(80)
+const manyReexpanded = await readManyCategories()
+if (manyReexpanded.folded !== 0 || manyReexpanded.moreVisible || manyReexpanded.visibleSwatches.length !== 21 || await page.evaluate(() => window.__manyCollapsed) !== false) {
+  console.error("expand-all did not restore the full palette", manyReexpanded); process.exit(1)
+}
+// Fold once more so widening is checked against the collapsed preference.
+await page.locator("#many-categories-slot .oneday-category-fold").click()
+await page.waitForTimeout(80)
 await page.evaluate(() => { document.querySelector("#many-categories-slot").style.width = "1400px" })
 await page.waitForTimeout(80)
 const manyWide = await readManyCategories()

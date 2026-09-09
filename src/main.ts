@@ -817,6 +817,11 @@ export default class OnedayPlugin extends Plugin {
           void this.applyBlockTransform(el, ctx, source, (s) => removeHiddenType(s, type, this.drawTool))
         },
         onAddNew: () => this.openCategorySettings(this.drawTool),
+        categoriesCollapsed: this.settings.categoriesCollapsed,
+        onCategoriesCollapsedChange: (collapsed) => {
+          this.settings.categoriesCollapsed = collapsed
+          void this.saveSettings()
+        },
         domDocument: dom,
       })
       // 填槽：工具栏/状态行/对话框各就各位（插槽位置由 layout 决定）
