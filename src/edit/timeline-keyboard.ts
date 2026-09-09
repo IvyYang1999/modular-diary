@@ -68,6 +68,6 @@ export function attachTimelineKeyboardNavigation(svg: SVGSVGElement): void {
     if (!next) return
     event.preventDefault()
     event.stopPropagation()
-    next.focus()
+    next.focus({ preventScroll: true })
   })
 }

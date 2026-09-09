@@ -134,6 +134,23 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
   // Prevent native selection at the source so a drag cannot leave hour labels
   // and block text highlighted when Chromium briefly loses pointer capture.
   svg.addEventListener("selectstart", (event) => event.preventDefault())
+  // A mouse press must not move focus into the SVG: blocks are Tab-focusable,
+  // but inside CodeMirror a focus change under the widget triggers the editor's
+  // own scroll restoration (page jumped to the top on every create/edit,
+  // yyt 2026-09-09). preventDefault on mousedown keeps focus where it was
+  // while pointer capture, clicks and double-clicks keep working.
+  svg.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    // preventDefault also cancels the blur a click would normally cause. The
+    // block's own inputs (todo form, quick capture, text pane) rely on that
+    // blur to commit drafts and to release the deferred refresh, so blur them
+    // explicitly (any block in the note; the click would have blurred them
+    // too). CodeMirror's own content element keeps focus, so the editor never
+    // sees a focus change.
+    const active = dom.activeElement as HTMLElement | null
+    if (active && active !== dom.body && !active.classList.contains("cm-content") && !svg.contains(active)) active.blur()
+  })
 
   const activateEditOwner = (): void => {
     dom.querySelectorAll<SVGSVGElement>('[data-oneday-edit-owner-active="1"]').forEach((candidate) => {
