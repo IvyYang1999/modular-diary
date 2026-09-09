@@ -7,14 +7,15 @@ describe("transactionScrollSnapshot", () => {
     viewport: { top: 240 },
   }
 
-  it("lets CodeMirror own the outer viewport by default", () => {
-    const result = transactionScrollSnapshot(snapshot, true)
-    expect(result.internal).toBe(snapshot.internal)
-    expect(result.viewport).toBeNull()
+  it("keeps the DOM anchor by default, even for CodeMirror-backed writes", () => {
+    expect(transactionScrollSnapshot(snapshot, true)).toBe(snapshot)
+    expect(transactionScrollSnapshot(snapshot, true, "dom")).toBe(snapshot)
   })
 
-  it("keeps the DOM anchor for a Markdown widget remount", () => {
-    expect(transactionScrollSnapshot(snapshot, true, "dom")).toBe(snapshot)
+  it("hands the outer viewport to CodeMirror only when asked", () => {
+    const result = transactionScrollSnapshot(snapshot, true, "codemirror")
+    expect(result.internal).toBe(snapshot.internal)
+    expect(result.viewport).toBeNull()
   })
 
   it("keeps the DOM anchor when CodeMirror is unavailable", () => {

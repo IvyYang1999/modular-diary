@@ -85,6 +85,23 @@ export function stabilizeViewportAnchor(
   anchor.scroller.addEventListener("pointerdown", stop, { passive: true })
   anchor.scroller.addEventListener("touchstart", stop, { passive: true })
   dom.addEventListener("keydown", stop)
-  requestId = domWindow.requestAnimationFrame(tick)
+  // Order matters: CodeMirror schedules its measure from a MutationObserver
+  // on the editor content, which fires in the microtask after this render
+  // task. A frame requested right here would run *before* that measure and
+  // see nothing to correct, leaving the wrong scroll position to paint for a
+  // frame. Registering our frame from a MutationObserver created now (so it
+  // is notified after CodeMirror's) puts the correction after the measure in
+  // the same frame, before paint. Falls back to a plain frame elsewhere.
+  const MutationObserverCtor = domWindow.MutationObserver
+  if (MutationObserverCtor && container.isConnected) {
+    const observer = new MutationObserverCtor(() => {
+      observer.disconnect()
+      if (!cancelled) requestId = domWindow.requestAnimationFrame(tick)
+    })
+    observer.observe(container, { attributes: true, attributeFilter: ["data-oneday-anchor"] })
+    container.dataset.onedayAnchor = String(Date.now())
+  } else {
+    requestId = domWindow.requestAnimationFrame(tick)
+  }
   return stop
 }

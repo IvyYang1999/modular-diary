@@ -1986,9 +1986,10 @@ export default class OnedayPlugin extends Plugin {
       const to = { line: location.lineEnd, ch: 0 }
       const replacement = body + "\n"
       const codeMirrorWrite = prepareCodeMirrorReplacement(view, replacement, from, to)
+      // Keep the DOM viewport anchor for CodeMirror writes too: the widget
+      // remount that follows makes CodeMirror re-anchor below the block (see
+      // scroll-authority.ts).
       const transactionSnapshot = snapshot
-        ? (codeMirrorWrite ? { ...snapshot, viewport: null } : snapshot)
-        : null
 
       try {
         if (transactionSnapshot) {
@@ -2073,9 +2074,8 @@ export default class OnedayPlugin extends Plugin {
       const to = { line: section.lineEnd, ch: 0 }
       const replacement = body + "\n"
       const codeMirrorWrite = prepareCodeMirrorReplacement(view, replacement, from, to)
-      // When the source pane owns this write, CodeMirror's scrollSnapshot
-      // effect is the sole outer-viewport authority. Keep nested Oneday
-      // scrollers, but do not run a competing DOM viewport correction.
+      // The block's DOM anchor owns the outer viewport through the remount
+      // (default "dom"); see scroll-authority.ts for the CodeMirror failure.
       const transactionSnapshot = transactionScrollSnapshot(
         snapshot,
         Boolean(codeMirrorWrite),
