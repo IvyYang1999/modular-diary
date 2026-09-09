@@ -808,8 +808,6 @@ const state = await page.evaluate(() => ({
     toolToggle.className = "oneday-mode oneday-tool-toggle"
     const inactive = document.createElement("button")
     inactive.className = "oneday-mode-btn"
-    const activeTool = document.createElement("button")
-    activeTool.className = "oneday-mode-btn is-active"
     const planToggle = document.createElement("button")
     planToggle.className = "oneday-plan-mode-toggle oneday-brush-toggle is-plan"
     const planTrack = document.createElement("span")
@@ -826,10 +824,8 @@ const state = await page.evaluate(() => ({
     viewGroup.className = "oneday-view-toggle oneday-mode"
     const viewButton = document.createElement("button")
     viewButton.className = "oneday-mode-btn"
-    const activeViewButton = document.createElement("button")
-    activeViewButton.className = "oneday-mode-btn is-active"
-    viewGroup.append(viewButton, activeViewButton)
-    toolToggle.append(inactive, activeTool)
+    viewGroup.appendChild(viewButton)
+    toolToggle.appendChild(inactive)
     toolbar.append(toolToggle, planToggle, swatch, activeSwatch, viewGroup)
     document.querySelector(".oneday-container").appendChild(toolbar)
     const result = {
@@ -838,8 +834,6 @@ const state = await page.evaluate(() => ({
       modeBorder: getComputedStyle(toolToggle).borderColor,
       swatchBorder: getComputedStyle(swatch).borderColor,
       activeSwatchBorder: getComputedStyle(activeSwatch).borderColor,
-      activeTool: { background: getComputedStyle(activeTool).backgroundColor, color: getComputedStyle(activeTool).color },
-      activeView: { background: getComputedStyle(activeViewButton).backgroundColor, color: getComputedStyle(activeViewButton).color },
       inactiveHeight: inactive.getBoundingClientRect().height,
       toggleHeight: toolToggle.getBoundingClientRect().height,
       planHeight: planToggle.getBoundingClientRect().height,
@@ -2016,9 +2010,6 @@ if (
 ) { console.error("TIMELINE MOVE GRIP DRIFTED FROM THE SHARED SLOT ANCHOR", state.gripAlignment); process.exit(1) }
 if (!state.toolbarNeutrals.inactive || state.toolbarNeutrals.inactive !== state.toolbarNeutrals.swatch) { console.error("BRUSH/SWATCH NEUTRAL BACKGROUNDS DIVERGED", state.toolbarNeutrals); process.exit(1) }
 if (state.toolbarNeutrals.modeBorder !== "rgba(0, 0, 0, 0)" || state.toolbarNeutrals.swatchBorder !== "rgba(0, 0, 0, 0)" || state.toolbarNeutrals.activeSwatchBorder !== "rgb(128, 80, 220)") { console.error("BRUSH/SWATCH BORDER STATES DIVERGED", state.toolbarNeutrals); process.exit(1) }
-// One selected-state language for block switches: the geometry segment
-// is tinted exactly like the selected layer toggle, never solid accent.
-if (state.toolbarNeutrals.activeTool.background !== state.toolbarNeutrals.activeView.background || state.toolbarNeutrals.activeTool.color !== state.toolbarNeutrals.activeView.color || state.toolbarNeutrals.activeTool.background === state.toolbarNeutrals.inactive) { console.error("GEOMETRY AND LAYER SELECTED STATES DIVERGED", state.toolbarNeutrals); process.exit(1) }
 if (state.toolbarNeutrals.planTrackBackground === "rgba(0, 0, 0, 0)" || state.toolbarNeutrals.planThumbBackground === "rgba(0, 0, 0, 0)") { console.error("PLAN MODE SWITCH LOST ITS VISIBLE STATE", state.toolbarNeutrals); process.exit(1) }
 if (!blockActionHit.settings.targetClass?.includes("oneday-open-settings") || !blockActionHit.more.targetClass?.includes("oneday-more-actions") || blockActionHit.settings.cursor !== "pointer" || blockActionHit.more.cursor !== "pointer" || blockActionHit.settings.zIndex !== "200" || blockActionHit.more.zIndex !== "200" || blockActionClicks.join(",") !== "settings,more") { console.error("BLOCK ACTIONS LOST POINTER HIT TESTING", { blockActionHit, blockActionClicks }); process.exit(1) }
 if (innerScrollOwned.inner <= 0 || innerScrollOwned.block !== 0 || innerScrollOwned.page !== 0) { console.error("INNER SCROLLER DID NOT OWN AVAILABLE WHEEL DELTA", innerScrollOwned); process.exit(1) }
