@@ -150,7 +150,10 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
 
   const trackX = Number(track.getAttribute("x"))
   const trackW = Number(track.getAttribute("width"))
-  const svgWidth = Number(svg.getAttribute("width"))
+  // Read live: the annotation-lane fit rewrites width/viewBox after mount, and a
+  // stale width turns the pointer→minutes scale away from 1 (blocks land below
+  // the cursor, yyt 2026-09-09).
+  const svgWidth = (): number => Number(svg.getAttribute("width")) || svg.viewBox.baseVal.width
 
   let dragOriginTop = 0
   let dragScale = 1
@@ -214,7 +217,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     const target = eventTarget?.closest("rect.oneday-block")
     if (target !== editing) return null
     const rect0 = svg.getBoundingClientRect()
-    const localY = (e.clientY - rect0.top) * (svgWidth / rect0.width)
+    const localY = (e.clientY - rect0.top) * (svgWidth() / rect0.width)
     const top = Number(editing.getAttribute("y"))
     const height = Number(editing.getAttribute("height"))
     const bottom = top + height
@@ -232,7 +235,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
   ): boolean => {
     const rect0 = svg.getBoundingClientRect()
     dragOriginTop = rect0.top
-    dragScale = svgWidth / rect0.width
+    dragScale = svgWidth() / rect0.width
     const localY0 = toLocalY(e.clientY)
     const line = Number(editing.dataset.line)
     const entry = doc.entries.find((it) => it.line === line)
@@ -651,7 +654,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     dragging = true
     const rect = svg.getBoundingClientRect()
     dragOriginTop = rect.top
-    dragScale = svgWidth / rect.width
+    dragScale = svgWidth() / rect.width
     dragStartRawMin = minutesFromY(toLocalY(e.clientY), doc.rangeStart, deps.hourHeight)
     dragStartMin = clampMin(snapInteractionMin(dragStartRawMin))
     svg.setPointerCapture(e.pointerId)
@@ -797,7 +800,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       const hoveredBlock = target?.closest<SVGRectElement>("rect.oneday-block") ?? null
       let cursor = deps.getActiveType() ? "crosshair" : "default"
       const rect = svg.getBoundingClientRect()
-      const scale = svgWidth / rect.width
+      const scale = svgWidth() / rect.width
       const localY = (e.clientY - rect.top) * scale
       if (hoveredBlock) {
         const snapped = snapInteractionMin(minutesFromY(localY, doc.rangeStart, deps.hourHeight))
