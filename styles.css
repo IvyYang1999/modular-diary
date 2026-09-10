@@ -3993,30 +3993,51 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
   flex-wrap: wrap;
 }
 
-.oneday-quote-ink-dot {
-  width: 22px;
-  height: 22px;
-  min-height: 22px;
-  padding: 0;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  background: var(--c, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-normal) 18%, transparent);
+/* Obsidian styles `button:not(.clickable-icon)` (0,1,1); these selectors carry
+ * two classes so the chip, not the theme button, wins background and shadow. */
+.oneday-quote-settings .oneday-quote-ink-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--oneday-compact-control-height, 26px);
+  min-height: 0;
+  padding: 0 10px 0 8px;
+  border: 1.5px solid transparent;
+  border-radius: var(--button-radius, 6px);
+  background-color: color-mix(in srgb, var(--text-normal) 8%, var(--background-primary));
+  box-shadow: none;
+  color: var(--text-normal);
+  font-size: var(--font-ui-small, 13px);
+  line-height: 1;
   cursor: pointer;
 }
 
-.oneday-quote-ink-dot.is-none {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--background-modifier-border);
+.oneday-quote-settings .oneday-quote-ink-dot:hover {
+  background-color: color-mix(in srgb, var(--text-normal) 14%, var(--background-primary));
 }
 
-.oneday-quote-ink-dot.is-checked {
-  border-color: var(--text-normal);
+.oneday-quote-settings .oneday-quote-ink-dot.is-checked {
+  border-color: var(--interactive-accent);
+  background-color: var(--background-primary);
 }
 
-.oneday-quote-ink-dot:focus-visible {
+.oneday-quote-settings .oneday-quote-ink-dot:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 2px;
+}
+
+.oneday-quote-ink-mark {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-normal) 25%, transparent);
+  flex: none;
+}
+
+.oneday-quote-ink-dot.is-none .oneday-quote-ink-mark {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--text-muted);
 }
 
 .oneday-quote-status {

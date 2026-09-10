@@ -21,15 +21,19 @@ export function renderDailyQuoteSettings(container: HTMLElement, host: DailyQuot
   container.empty()
   container.classList.add("oneday-quote-settings")
   container.createEl("p", { cls: "setting-item-description oneday-quote-library-hint", text: t("quoteLibraryHint") })
+  // No aria-label here: Obsidian turns aria-label into a hover tooltip, which
+  // floated a stray "句库" bubble over the box. The hint above labels it.
+  const hint = container.querySelector<HTMLElement>(".oneday-quote-library-hint")!
+  hint.id = hint.id || `oneday-quote-hint-${Math.random().toString(36).slice(2, 8)}`
   const textarea = container.createEl("textarea", {
     cls: "oneday-quote-library",
-    attr: { rows: "6", spellcheck: "false", "aria-label": t("quoteLibrary"), placeholder: t("quoteLibraryPlaceholder") },
+    attr: { rows: "6", spellcheck: "false", "aria-labelledby": hint.id, placeholder: t("quoteLibraryPlaceholder") },
   })
   textarea.value = serializeQuoteLibrary(host.settings.dailyQuotes)
 
   const inkRow = container.createDiv({ cls: "oneday-quote-ink-row" })
   inkRow.createEl("span", { cls: "oneday-quote-ink-label", text: t("quoteInk") })
-  const dots = inkRow.createDiv({ cls: "oneday-quote-ink-dots", attr: { role: "radiogroup", "aria-label": t("quoteInk") } })
+  const dots = inkRow.createDiv({ cls: "oneday-quote-ink-dots", attr: { role: "radiogroup" } })
   const status = container.createDiv({ cls: "oneday-quote-status", attr: { "aria-live": "polite" } })
   container.createEl("p", { cls: "setting-item-description oneday-quote-save-hint", text: t("quoteSaveShortcut") })
 
@@ -55,11 +59,15 @@ export function renderDailyQuoteSettings(container: HTMLElement, host: DailyQuot
     ]
     for (const [name, label, color] of options) {
       const checked = host.settings.dailyQuoteInk === name
+      // Same vocabulary as the toolbar palette: a colour dot with the
+      // category name, the chosen one ringed in the accent colour.
       const dot = dots.createEl("button", {
         cls: `oneday-quote-ink-dot${checked ? " is-checked" : ""}${name ? "" : " is-none"}`,
-        attr: { type: "button", role: "radio", "aria-checked": String(checked), "aria-label": label },
+        attr: { type: "button", role: "radio", "aria-checked": String(checked) },
       })
-      if (color) dot.style.setProperty("--c", color)
+      const mark = dot.createSpan({ cls: "oneday-quote-ink-mark" })
+      if (color) mark.style.setProperty("--c", color)
+      dot.createSpan({ cls: "oneday-quote-ink-name", text: label })
       dot.addEventListener("click", () => {
         if (host.settings.dailyQuoteInk === name) return
         host.settings.dailyQuoteInk = name

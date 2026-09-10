@@ -134,7 +134,8 @@ const read = () => page.evaluate(() => {
     titleFont: getComputedStyle(document.querySelector("#own-ink .oneday-component-title")).fontSize,
     dateA: window.__quoteForDate("2026-09-10"), dateAAgain: window.__quoteForDate("2026-09-10"),
     library: document.querySelector("#settings textarea.oneday-quote-library")?.value,
-    dots: [...document.querySelectorAll("#settings .oneday-quote-ink-dot")].map((d) => ({ label: d.getAttribute("aria-label"), checked: d.getAttribute("aria-checked") })),
+    dots: [...document.querySelectorAll("#settings .oneday-quote-ink-dot")].map((d) => ({ label: d.querySelector(".oneday-quote-ink-name")?.textContent, checked: d.getAttribute("aria-checked"), mark: getComputedStyle(d.querySelector(".oneday-quote-ink-mark")).backgroundColor, chipBg: getComputedStyle(d).backgroundColor })),
+    libraryTooltip: document.querySelector("#settings textarea.oneday-quote-library")?.getAttribute("aria-label"),
     designerLeftovers: document.querySelectorAll(".oneday-quote-theme-grid, .oneday-quote-designer, .oneday-quote-settings-tabs, input[type=range]").length,
   }
 })
@@ -165,9 +166,9 @@ const afterEdit = await page.evaluate(() => ({
   status: document.querySelector("#settings .oneday-quote-status")?.textContent,
 }))
 // Picking a dot changes the global ink and saves.
-await page.locator('#settings .oneday-quote-ink-dot[aria-label="开发"]').click()
+await page.locator('#settings .oneday-quote-ink-dot', { hasText: "开发" }).click()
 await page.waitForTimeout(30)
-const afterDot = await page.evaluate(() => ({ ink: window.__settings.dailyQuoteInk, saves: window.__saves, checked: document.querySelector("#settings .oneday-quote-ink-dot[aria-checked=true]")?.getAttribute("aria-label") }))
+const afterDot = await page.evaluate(() => ({ ink: window.__settings.dailyQuoteInk, saves: window.__saves, checked: document.querySelector("#settings .oneday-quote-ink-dot[aria-checked=true] .oneday-quote-ink-name")?.textContent }))
 await page.locator("#settings").screenshot({ path: path.join(out, "daily-quote-library.png") })
 // Cmd/Ctrl+Enter saves; a failed save keeps the draft and says so.
 await page.evaluate(() => { window.__failNextSave = true })
@@ -191,7 +192,10 @@ if (light.empty.cta !== "添加第一句话" || light.empty.hasText) errors.push
 if (light.pencils.length !== 4 || light.pencils.some((label) => label !== "编辑每日一句")) errors.push("every slot has one labelled pencil")
 if (light.dateA !== light.dateAAgain) errors.push("the sentence of a date is deterministic")
 if (light.library !== "我们先塑造习惯，然后习惯塑造我们。 —— John Dryden #阅读\n今天也要留一点时间给自己。") errors.push("the library serializes one sentence per line: " + JSON.stringify(light.library))
-if (light.dots.map((d) => d.label).join() !== "不着色,阅读,运动,开发" || light.dots.find((d) => d.checked === "true")?.label !== "运动") errors.push("ink dots list the span palette with the global ink checked: " + JSON.stringify(light.dots))
+if (light.dots.map((d) => d.label).join() !== "不着色,阅读,运动,开发" || light.dots.find((d) => d.checked === "true")?.label !== "运动") errors.push("ink chips list the span palette by name with the global ink checked: " + JSON.stringify(light.dots))
+// The colour must survive Obsidian's own `button:not(.clickable-icon)` rule: the mark carries the palette colour.
+if (light.dots[1].mark !== "rgb(155, 209, 123)" || light.dots[0].mark !== "rgba(0, 0, 0, 0)") errors.push("ink marks must show the palette colour: " + JSON.stringify(light.dots.map((d) => d.mark)))
+if (light.libraryTooltip) errors.push("the library box must not carry an aria-label tooltip")
 if (light.designerLeftovers !== 0) errors.push("no designer controls remain")
 if (events.join() !== "edit:#own-ink,edit:#empty") errors.push("only the pencil and the empty CTA open the editor: " + events.join())
 if (afterEdit.saves !== 1 || afterEdit.quotes.length !== 3 || afterEdit.quotes[0].id !== "one" || afterEdit.quotes[1].id !== "two" || afterEdit.quotes[2].text !== "成效的关键时刻：13 天，坚持下去。" || afterEdit.quotes[2].author !== "自己" || afterEdit.quotes[2].ink !== "开发" || afterEdit.status !== "已保存") errors.push("leaving the box parses the library, keeps ids and saves once: " + JSON.stringify(afterEdit))
