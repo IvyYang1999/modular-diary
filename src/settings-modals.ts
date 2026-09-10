@@ -3,8 +3,6 @@ import type OnedayPlugin from "./main"
 import { t } from "./i18n"
 import { renderCategorySettings, renderHabitSettings } from "./settings-editors"
 import type { TimelineDrawTool } from "./core/types"
-import type { DailyQuoteAppearance, DailyQuoteDefinition } from "./core/daily-quotes"
-import { applyDailyQuoteAppearanceToCurrentAndFuture } from "./core/daily-quotes"
 import { renderDailyQuoteSettings } from "./daily-quote-settings"
 
 abstract class FocusedSettingsModal extends Modal {
@@ -62,31 +60,10 @@ export class HabitSettingsModal extends FocusedSettingsModal {
 }
 
 export class DailyQuoteSettingsModal extends FocusedSettingsModal {
-  constructor(
-    app: App,
-    plugin: OnedayPlugin,
-    private readonly appearance: DailyQuoteAppearance,
-    private readonly previewQuote: DailyQuoteDefinition | null,
-    private readonly onAppearanceChange: (value: DailyQuoteAppearance) => void | Promise<void>
-  ) { super(app, plugin) }
-
   onOpen(): void {
     const editor = this.prepare(t("dailyQuoteSettings"), t("dailyQuoteSettingsDescription"))
-    renderDailyQuoteSettings(editor, this.plugin, {
-      appearance: this.appearance,
-      previewQuote: this.previewQuote,
-      scope: "block-and-defaults",
-      onApply: async (value) => {
-        await applyDailyQuoteAppearanceToCurrentAndFuture(
-          this.plugin.settings,
-          value,
-          this.onAppearanceChange,
-          () => this.plugin.saveSettings()
-        )
-        this.close()
-      },
-      onCancel: () => this.close(),
-    })
+    renderDailyQuoteSettings(editor, this.plugin)
+    editor.querySelector<HTMLTextAreaElement>("textarea")?.focus({ preventScroll: true })
   }
 
   onClose(): void { this.contentEl.empty() }

@@ -1241,27 +1241,6 @@
   min-width: 0;
 }
 
-/* A large workbench (the Daily quote designer) folds behind one native
- * disclosure on the global page; the component's pencil opens it expanded. */
-.oneday-settings-collapsible > summary {
-  display: flex;
-  align-items: center;
-  gap: var(--oneday-settings-gap-xs);
-  min-height: var(--oneday-settings-control-height);
-  padding: 0 var(--oneday-settings-gap-sm);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--button-radius, 5px);
-  color: var(--text-muted);
-  font-size: var(--font-ui-small, 13px);
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-}
-
-.oneday-settings-collapsible > summary::-webkit-details-marker {
-  display: none;
-}
-
 .oneday-settings-collapsible > summary::before {
   content: "";
   flex: 0 0 auto;
@@ -3884,25 +3863,39 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
   height: 32px;
 }
 
-/* Daily Quote — an editorial card anchored by a small timeline cursor. */
+/* Daily Quote — a quiet line on a highlighter-tinted slot (2026-09-10).
+ * The slot carries the colour; the sentence uses the block's body type. */
 .oneday-slot-quote {
   overflow: hidden;
+}
+
+.oneday-slot-quote.has-ink {
+  background: color-mix(in srgb, var(--oneday-quote-ink) 26%, var(--background-primary));
+}
+
+.theme-dark .oneday-slot-quote.has-ink {
+  background: color-mix(in srgb, var(--oneday-quote-ink) 32%, var(--background-primary));
 }
 
 .oneday-daily-quote {
   display: flex;
   flex-direction: column;
-  gap: var(--size-4-2, 8px);
-  height: 100%;
-  min-height: 0;
+  gap: var(--oneday-control-gap);
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .oneday-daily-quote .oneday-component-header {
-  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--oneday-control-gap);
+  min-height: var(--oneday-icon-button-size);
 }
 
-/* Same box and glyph size as the Habit/Todo header actions: one component
- * header tier, one pencil size. */
+.oneday-daily-quote .oneday-component-title {
+  flex: 1 1 auto;
+}
+
 .oneday-component-icon-button {
   display: inline-grid;
   place-items: center;
@@ -3923,127 +3916,27 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
   height: 14px;
 }
 
-.oneday-daily-quote-card {
-  --oneday-quote-bg: var(--oneday-surface-control);
-  --oneday-quote-text: var(--text-normal);
-  --oneday-quote-accent: var(--interactive-accent);
-  --oneday-quote-font-size: 20px;
-  --oneday-quote-overlay: .28;
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 78px;
-  margin: 0;
-  padding: clamp(16px, 4%, 28px);
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--oneday-quote-accent) 25%, var(--background-modifier-border));
-  border-radius: var(--oneday-radius-surface);
-  background-color: var(--oneday-quote-bg);
-  background-size: cover;
-  background-position: center;
-  color: var(--oneday-quote-text);
-  cursor: pointer;
-  box-sizing: border-box;
-  transition: border-color .12s ease, transform .12s ease;
-}
-
-.oneday-daily-quote-card:hover,
-.oneday-daily-quote-card:focus-visible {
-  border-color: var(--oneday-quote-accent);
-}
-
-.oneday-daily-quote-card:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--oneday-quote-accent) 55%, transparent);
-  outline-offset: 2px;
-}
-
-.oneday-daily-quote-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--oneday-quote-accent) 10%, transparent), transparent 58%);
-  pointer-events: none;
-}
-
-.oneday-daily-quote-media {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.oneday-daily-quote-media > img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform-origin: center;
-}
-
-.oneday-daily-quote-image-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgb(0 0 0 / var(--oneday-quote-overlay));
-}
-
-.oneday-daily-quote-cursor {
-  display: flex;
-  align-items: center;
-  width: 26px;
-  margin-right: 14px;
-  flex: 0 0 auto;
-}
-
-.oneday-daily-quote-cursor::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--oneday-quote-accent);
-}
-
-.oneday-daily-quote-cursor span {
-  width: 18px;
-  height: 1px;
-  background: var(--oneday-quote-accent);
-}
-
 .oneday-daily-quote-body {
-  display: flex;
-  flex: 1 1 auto;
+  padding: 0 2px 2px;
   min-width: 0;
-  flex-direction: column;
-  justify-content: center;
 }
 
-.oneday-daily-quote-body blockquote {
+.oneday-daily-quote-text {
   margin: 0;
-  padding: 0;
-  border: 0;
-  color: inherit;
-  font-size: var(--oneday-quote-font-size);
-  line-height: 1.55;
-  font-weight: 560;
-  text-wrap: balance;
+  font-size: var(--font-ui-small, 13px);
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--text-normal);
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.oneday-daily-quote-body blockquote.is-long { font-size: calc(var(--oneday-quote-font-size) * .86); }
-.oneday-daily-quote-body blockquote.is-very-long { font-size: calc(var(--oneday-quote-font-size) * .72); }
-
-.oneday-daily-quote-body figcaption {
-  margin-top: 10px;
-  color: color-mix(in srgb, currentColor 68%, transparent);
-  font-size: var(--oneday-font-body);
+.oneday-daily-quote-author {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--oneday-font-caption);
+  color: var(--text-muted);
 }
-
-.oneday-daily-quote-card.font-serif { font-family: ui-serif, "Songti SC", "Noto Serif CJK SC", Georgia, serif; }
-.oneday-daily-quote-card.font-mono { font-family: var(--font-monospace); }
-.oneday-daily-quote-card.layout-center { text-align: center; }
-.oneday-daily-quote-card.layout-center .oneday-daily-quote-cursor { display: none; }
-.oneday-daily-quote-card.layout-editorial .oneday-daily-quote-cursor { align-self: flex-start; margin-top: .55em; }
 
 .oneday-daily-quote-empty {
   display: flex;
@@ -4062,389 +3955,74 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
 .oneday-daily-quote-empty:hover { border-color: var(--interactive-accent); color: var(--text-normal); }
 .oneday-daily-quote-empty-icon { display: inline-flex; }
 
-/* Daily Quote settings: split design workbench and compact quote library. */
+/* Daily Quote settings: the library is plain text, the tint is one row of dots. */
 .oneday-quote-settings {
-  --oneday-radius-control: var(--button-radius, 6px);
-  --oneday-radius-surface: var(--oneday-radius-control);
-  --oneday-surface-control: color-mix(in srgb, var(--text-normal) 10%, var(--background-primary));
   display: flex;
   flex-direction: column;
-  gap: var(--oneday-settings-gap-md, 16px);
+  gap: var(--oneday-settings-gap-sm, 8px);
   min-width: 0;
 }
 
-.oneday-settings-modal.oneday-quote-settings,
-.oneday-settings-modal:has(.oneday-quote-settings) {
-  width: min(920px, calc(100vw - 32px));
-  max-width: 920px;
+.oneday-quote-settings .oneday-quote-library-hint,
+.oneday-quote-settings .oneday-quote-save-hint {
+  margin: 0;
+}
+
+.oneday-quote-library {
+  width: 100%;
+  min-height: 132px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: var(--font-ui-small, 13px);
+  line-height: 1.7;
   box-sizing: border-box;
 }
 
-.oneday-quote-settings-status {
-  min-height: 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  text-align: right;
-}
-.oneday-quote-settings-status:empty { display: none; }
-.oneday-quote-settings-status.is-error { color: var(--text-error); }
-
-.oneday-quote-settings-tabs {
-  display: inline-flex;
-  align-self: flex-start;
-  padding: 3px;
-  border-radius: var(--oneday-radius-control);
-  background: var(--background-modifier-hover);
-}
-
-.oneday-quote-settings-tabs button {
-  min-height: var(--oneday-settings-control-height, 34px);
-  padding: 5px 14px;
-  border: 0;
-  border-radius: calc(var(--oneday-radius-control) - 2px);
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-muted);
-}
-.oneday-quote-settings-tabs button[aria-selected="true"] {
-  background: var(--background-primary);
-  color: var(--text-normal);
-}
-
-.oneday-quote-designer {
-  display: grid;
-  grid-template-columns: minmax(340px, 400px) minmax(320px, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.oneday-quote-design-panel {
+.oneday-quote-ink-row {
   display: flex;
-  flex-direction: column;
-  gap: 24px;
-  min-width: 0;
+  align-items: center;
+  gap: var(--oneday-settings-gap-sm, 8px);
+  flex-wrap: wrap;
+  font-size: var(--font-ui-small, 13px);
+  color: var(--text-muted);
 }
-.oneday-quote-design-section {
-  padding: 0;
-  border: 0;
-}
-.oneday-quote-design-section h4,
-.oneday-quote-preview-panel > h4 { margin: 0 0 10px; font-size: 13px; }
 
-.oneday-quote-preview-panel {
-  position: sticky;
-  top: 0;
-  min-width: 0;
+.oneday-quote-ink-dots {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
-.oneday-quote-settings-preview { min-height: 238px; }
-.oneday-quote-settings-preview .oneday-daily-quote-card {
-  min-height: 238px;
-  cursor: default;
+
+.oneday-quote-ink-dot {
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--c, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-normal) 18%, transparent);
+  cursor: pointer;
 }
-.oneday-quote-settings-preview .oneday-daily-quote-card.is-cropping {
-  cursor: grab;
+
+.oneday-quote-ink-dot.is-none {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--background-modifier-border);
+}
+
+.oneday-quote-ink-dot.is-checked {
+  border-color: var(--text-normal);
+}
+
+.oneday-quote-ink-dot:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 2px;
 }
-.oneday-quote-settings-preview .oneday-daily-quote-card.is-cropping:active { cursor: grabbing; }
 
-.oneday-quote-theme-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.oneday-quote-theme-grid button {
-  appearance: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-height: 54px;
-  padding: 6px 4px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-normal);
-}
-
-.oneday-quote-theme-grid button:hover { background: var(--background-modifier-hover); }
-.oneday-quote-theme-grid button[aria-checked="true"] {
-  border-color: var(--interactive-accent);
-  background: color-mix(in srgb, var(--interactive-accent) 9%, transparent);
-  color: var(--text-accent, var(--interactive-accent));
-}
-.oneday-quote-theme-swatch { width: 20px; height: 20px; border-radius: 6px; background: var(--background-modifier-hover); }
-.oneday-quote-theme-swatch.theme-paper { background: #f4efe5; }
-.oneday-quote-theme-swatch.theme-midnight { background: #201d2e; }
-.oneday-quote-theme-swatch.theme-aurora { background: #e6f4ef; }
-.oneday-quote-theme-swatch.theme-photo { background: #52677d; }
-
-.oneday-quote-settings-controls {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 12px;
-}
-.oneday-quote-settings-controls > .oneday-quote-setting-field.is-font-size { grid-column: 1 / -1; }
-
-.oneday-quote-setting-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.oneday-quote-setting-field > label { color: var(--text-muted); font-size: 12px; }
-.oneday-quote-setting-field :is(input, select) {
-  width: 100%;
-  min-width: 0;
-  min-height: var(--input-height, 30px);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--input-radius, var(--oneday-radius-control));
-  background: var(--background-modifier-form-field, var(--background-primary));
-  color: var(--text-normal);
-  box-sizing: border-box;
-}
-.oneday-quote-setting-field textarea {
-  width: 100%;
-  min-height: 72px;
-  resize: vertical;
-  box-sizing: border-box;
-}
-.oneday-quote-setting-field :is(input, select):focus {
-  border-color: var(--interactive-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
-  outline: none;
-}
-.oneday-quote-color-control { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 6px; }
-.oneday-quote-color-control input[type="color"] { width: 38px; padding: 3px; }
-
-.oneday-quote-file-input { display: none; }
-.oneday-quote-media-editor {
-  display: flex;
-  min-height: 92px;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 10px;
-  border: 1px dashed var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
-  outline: none;
-  box-sizing: border-box;
-}
-.oneday-quote-media-editor:is(:focus-visible, .is-dragover) {
-  border-color: var(--interactive-accent);
-  background: color-mix(in srgb, var(--interactive-accent) 7%, transparent);
-}
-.oneday-quote-media-empty {
-  display: grid;
-  justify-items: center;
-  gap: 3px;
+.oneday-quote-status {
+  min-height: 1.2em;
+  font-size: var(--font-ui-smaller, 12px);
   color: var(--text-muted);
-  text-align: center;
-}
-.oneday-quote-media-empty strong { color: var(--text-normal); font-size: 13px; }
-.oneday-quote-media-empty span:last-child { font-size: 12px; }
-.oneday-quote-media-icon { display: inline-flex; }
-.oneday-quote-media-icon svg { width: 20px; height: 20px; }
-.oneday-quote-media-thumb {
-  width: 92px;
-  height: 66px;
-  overflow: hidden;
-  border-radius: var(--oneday-radius-control);
-  background: var(--background-secondary);
-  flex: 0 0 auto;
-}
-.oneday-quote-media-thumb img { width: 100%; height: 100%; object-fit: cover; transform-origin: center; }
-.oneday-quote-media-tools,
-.oneday-quote-media-sources,
-.oneday-quote-url-row,
-.oneday-quote-crop-buttons,
-.oneday-quote-settings-primary-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-.oneday-quote-media-sources { margin-top: 8px; }
-.oneday-quote-media-sources :is(button, select),
-.oneday-quote-media-tools button,
-.oneday-quote-url-row button,
-.oneday-quote-crop-buttons button,
-.oneday-quote-settings-footer button,
-.oneday-quote-library-editor-actions button {
-  min-height: 36px;
-}
-.oneday-quote-media-tools .is-destructive,
-.oneday-quote-icon-button.is-destructive { color: var(--text-error); }
-.oneday-quote-url-source { margin-top: 8px; }
-.oneday-quote-url-source summary,
-.oneday-quote-advanced summary { color: var(--text-muted); cursor: pointer; }
-.oneday-quote-url-row { margin-top: 8px; }
-.oneday-quote-url-row input { flex: 1 1 220px; min-width: 0; }
-.oneday-quote-range { display: grid; grid-template-columns: minmax(0, 1fr) 56px; align-items: center; gap: 8px; }
-.oneday-quote-range output { color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; }
-
-.oneday-quote-crop-actions {
-  display: none;
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
-}
-.oneday-quote-crop-actions.is-visible { display: grid; gap: 10px; }
-.oneday-quote-advanced { padding-top: 0; }
-.oneday-quote-advanced[open] summary { margin-bottom: 12px; }
-
-.oneday-quote-settings-footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 12px;
-  border-top: 1px solid var(--background-modifier-border);
-}
-
-.oneday-quote-library-header { display: flex; align-items: center; gap: 12px; }
-.oneday-quote-library-header > div:first-child { flex: 1 1 auto; }
-.oneday-quote-library-header h4 { margin: 0; }
-.oneday-quote-library-header p { margin: 0; color: var(--text-muted); font-size: 12px; }
-.oneday-quote-library-list { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
-.oneday-quote-library-row {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px;
-  min-height: 48px;
-  padding: 5px 2px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
-  box-sizing: border-box;
-}
-.oneday-quote-library-row:hover { background: var(--background-modifier-hover); }
-.oneday-quote-library-grip {
-  appearance: none;
-  display: inline-flex;
-  width: 24px;
-  height: 32px;
-  min-height: 32px;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-faint);
-  cursor: grab;
-  touch-action: none;
-}
-.oneday-quote-library-grip:hover,
-.oneday-quote-library-grip:focus-visible { background: transparent; color: var(--text-normal); }
-.oneday-quote-library-grip:active { cursor: grabbing; }
-.oneday-quote-library-grip svg { width: 15px; height: 15px; }
-.oneday-quote-library-summary { display: flex; flex-direction: column; min-width: 0; }
-.oneday-quote-library-summary strong,
-.oneday-quote-library-summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.oneday-quote-library-summary span { color: var(--text-muted); font-size: 12px; }
-.oneday-quote-library-actions {
-  display: flex;
-  opacity: 0;
-  pointer-events: none;
-}
-.oneday-quote-library-row:is(:hover, :focus-within) .oneday-quote-library-actions {
-  opacity: 1;
-  pointer-events: auto;
-}
-.oneday-quote-library-row.is-dragging {
-  margin: 0;
-  background: var(--background-primary);
-  box-shadow: var(--shadow-s);
-  cursor: grabbing;
-  opacity: .96;
-  will-change: transform;
-}
-.oneday-quote-library-placeholder {
-  border: 1px dashed var(--interactive-accent);
-  border-radius: var(--oneday-radius-control);
-  background: color-mix(in srgb, var(--interactive-accent) 7%, transparent);
-  box-sizing: border-box;
-}
-.oneday-quote-icon-button {
-  display: inline-grid;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-muted);
-}
-.oneday-quote-icon-button:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
-.oneday-quote-library-editor {
-  display: none;
-  grid-column: 2 / -1;
-  grid-template-columns: minmax(0, 2fr) minmax(140px, 1fr);
-  gap: 10px;
-  padding: 8px 0;
-}
-.oneday-quote-library-row.is-editing .oneday-quote-library-editor { display: grid; }
-.oneday-quote-library-editor-actions { grid-column: 1 / -1; justify-content: flex-end; }
-.oneday-quote-composer {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(140px, 1fr);
-  gap: 10px;
-  margin-top: 12px;
-  padding: 14px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
-}
-.oneday-quote-composer h5 { grid-column: 1 / -1; margin: 0; }
-.oneday-quote-library-undo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: var(--oneday-radius-control);
-  background: var(--background-modifier-hover);
-}
-.oneday-quote-add {
-  appearance: none;
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: auto;
-  min-height: 38px;
-  padding: 4px 10px;
-  border: 1px dashed var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
-  background: transparent;
-  color: var(--text-muted);
-  box-shadow: none;
-  white-space: nowrap;
-}
-.oneday-quote-add:hover { border-color: var(--background-modifier-border-hover, var(--background-modifier-border)); color: var(--text-normal); }
-.oneday-quote-add svg,
-.oneday-quote-icon-button svg { width: 16px; height: 16px; }
-
-@media (max-width: 760px) {
-  .oneday-settings-modal.oneday-quote-settings,
-  .oneday-settings-modal:has(.oneday-quote-settings) { width: calc(100vw - 20px); }
-  .oneday-quote-designer { grid-template-columns: minmax(0, 1fr); gap: 18px; }
-  .oneday-quote-preview-panel { position: static; order: -1; }
-  .oneday-quote-settings-preview,
-  .oneday-quote-settings-preview .oneday-daily-quote-card { min-height: 180px; }
-  .oneday-quote-settings-controls,
-  .oneday-quote-library-editor,
-  .oneday-quote-composer { grid-template-columns: 1fr; }
-  .oneday-quote-library-editor-actions,
-  .oneday-quote-composer h5 { grid-column: 1; }
-  .oneday-quote-library-actions .oneday-quote-icon-button { width: 36px; height: 36px; min-height: 36px; }
-  .oneday-quote-library-header { align-items: flex-start; flex-direction: column; gap: 2px; }
-  .oneday-quote-theme-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .oneday-quote-settings-footer { align-items: stretch; flex-direction: column; }
-  .oneday-quote-settings-primary-actions { justify-content: flex-end; }
 }
 
 /* Off-screen probe that resolves the note font for canvas measurement. */

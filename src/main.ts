@@ -59,14 +59,9 @@ import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics } from "./core/
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
 import { renderDailyQuoteInto } from "./render/daily-quote-view"
-import {
-  nextDailyQuote,
-  normalizeDailyQuoteAppearance,
-  normalizeDailyQuoteDefinition,
-  resolveDailyQuote,
-  type DailyQuoteAppearance,
-  type DailyQuoteDefinition,
-} from "./core/daily-quotes"
+import { dailyQuoteForDate, normalizeDailyQuoteDefinition, resolveQuoteInk } from "./core/daily-quotes"
+/** Quote slot default height: header + two lines of sentence + source, on the 20px grid. */
+const QUOTE_ROWS = 6
 import { createPointerRedrawGate } from "./edit/pointer-interaction"
 import { attachTimelineScheduleDrag } from "./edit/timeline-schedule-drag"
 import { buildTodoGroupMenuOptions, buildTodoSortMenuOptions } from "./edit/block-menu-model"
@@ -468,8 +463,7 @@ export default class OnedayPlugin extends Plugin {
       }
       const showTimelineOnboarding = onboardingDecision === "show"
       const dateStr = this.blockDate(doc, ctx.sourcePath)
-      const quoteAppearance = normalizeDailyQuoteAppearance({ ...this.settings.dailyQuoteDefaults, ...doc.dailyQuote.appearance })
-      const selectedQuote = resolveDailyQuote(this.settings.dailyQuotes, dateStr ?? "", doc.dailyQuote)
+      const selectedQuote = dailyQuoteForDate(this.settings.dailyQuotes, dateStr ?? "")
       const dueHabits = dateStr ? orderedHabits(this.settings.habits
         .filter((habit) => isHabitDue(habit, dateStr) && !doc.habitSkips.includes(habit.id))) : []
       const dueWeeklyTodos = dateStr ? this.settings.weeklyTodos
@@ -488,7 +482,7 @@ export default class OnedayPlugin extends Plugin {
       if (doc.todos.length > 0 || dueWeeklyTodos.length > 0 || layoutHas("todos")) {
         extraSlots.push(defaultComponentSlot("todos", Math.max(5, (doc.todos.length + dueWeeklyTodos.length) * 2 + 3), doc.side))
       }
-      if (layoutHas("quote")) extraSlots.push(defaultComponentSlot("quote", 8, doc.side))
+      if (layoutHas("quote")) extraSlots.push(defaultComponentSlot("quote", QUOTE_ROWS, doc.side))
       const textBlockKey = this.mutationBlockKey(el, ctx)
       const blockIdentity: BlockIdentity<object> = {
         owner: textBlockKey.owner,
@@ -650,14 +644,7 @@ export default class OnedayPlugin extends Plugin {
         ] as const) {
           if (container.querySelector(`.oneday-slot-${slotId}`) || doc.hiddenSlots.includes(slotId)) continue
           menu.addItem((item) => item.setTitle(label).setIcon(icon).setSection("components").onClick(() => {
-            void this.applyBlockTransform(el, ctx, source, (value) => {
-              let out = this.addComponentSlot(value, doc, container, slotId)
-              if (slotId === "quote") {
-                const initial = resolveDailyQuote(this.settings.dailyQuotes, dateStr ?? "", { appearance: {} })
-                out = this.setDailyQuoteHeaders(out, initial, this.settings.dailyQuoteDefaults)
-              }
-              return out
-            })
+            void this.applyBlockTransform(el, ctx, source, (value) => this.addComponentSlot(value, doc, container, slotId))
           }))
         }
         // 隐藏组件恢复（off: 头）
@@ -1033,64 +1020,15 @@ export default class OnedayPlugin extends Plugin {
 
       const quoteSlot = container.querySelector<HTMLElement>(".oneday-slot-quote")
       if (quoteSlot) {
-        let currentQuote = selectedQuote
-        let currentAppearance = quoteAppearance
-
-        const commitQuote = async (
-          nextQuote: typeof currentQuote,
-          nextAppearance: typeof currentAppearance
-        ): Promise<void> => {
-          const previousQuote = currentQuote
-          const previousAppearance = currentAppearance
-          await this.applyBlockTransform(
-            el,
-            ctx,
-            source,
-            (value) => this.setDailyQuoteHeaders(value, nextQuote, nextAppearance),
-            {
-              // The quote widget is repainted in place before the Markdown
-              // processor remounts it. Preserve that visible DOM anchor;
-              // CodeMirror's document snapshot alone can otherwise reveal
-              // the top of a large rendered block after the remount.
-              outerViewportAuthority: "dom",
-              // Switching a sentence changes one self-contained slot. Avoid an
-              // eager full-Block teardown; the matching post-processor render
-              // remains authoritative once the Markdown transaction lands.
-              previewVisual: (newSource) => {
-                const rollbackSource = this.timelineVisuals.advance(el, newSource)
-                currentQuote = nextQuote
-                currentAppearance = nextAppearance
-                paintQuote()
-                return () => {
-                  rollbackSource?.()
-                  currentQuote = previousQuote
-                  currentAppearance = previousAppearance
-                  paintQuote()
-                }
-              },
-            }
-          )
-        }
-
-        const openEditor = (): void => new DailyQuoteSettingsModal(
-          this.app,
-          this,
-          currentAppearance,
-          currentQuote,
-          async (appearance) => commitQuote(currentQuote, appearance)
-        ).open()
-
-        const paintQuote = (): void => renderDailyQuoteInto(quoteSlot, currentQuote, currentAppearance, {
-          onNext: () => {
-            const next = nextDailyQuote(this.settings.dailyQuotes, currentQuote?.id)
-            if (!next) return openEditor()
-            void commitQuote(next, currentAppearance)
-          },
-          onEdit: openEditor,
-          resolveBackgroundImage: (value) => this.resolveDailyQuoteBackgroundImage(value),
+        // The sentence of the day and its tint come from settings only; the
+        // block source carries nothing about quotes (2026-09-10).
+        const inkColor = resolveQuoteInk(selectedQuote, this.settings.dailyQuoteInk, {
+          ...this.settings.spanRetiredTypeColors,
+          ...this.settings.spanTypeColors,
         })
-
-        paintQuote()
+        renderDailyQuoteInto(quoteSlot, selectedQuote, { inkColor }, {
+          onEdit: () => new DailyQuoteSettingsModal(this.app, this).open(),
+        })
       }
       const col = container.querySelector(".oneday-timeline-col")
       const body = container.querySelector<HTMLElement>(".oneday-body")
@@ -1670,62 +1608,8 @@ export default class OnedayPlugin extends Plugin {
     // the first free space of its column instead of pinning it under the
     // timeline. Rendering re-runs the same compaction, so this is what the
     // user would see anyway.
-    items.push({ ...defaultComponentSlot(id, id === "habits" ? HABITS_EMPTY_ROWS : 8, parsed.side), y: maxY })
+    items.push({ ...defaultComponentSlot(id, id === "habits" ? HABITS_EMPTY_ROWS : id === "quote" ? QUOTE_ROWS : 8, parsed.side), y: maxY })
     return setHeaderValue(out, "layout", serializeLayoutHeader(compactGrid(items)))
-  }
-
-  private setDailyQuoteHeaders(source: string, quote: DailyQuoteDefinition | null, appearance: DailyQuoteAppearance): string {
-    let out = source
-    if (quote) {
-      out = setHeaderValue(out, "quote", quote.id)
-      out = setHeaderValue(out, "quote-text", quote.text.replace(/\s+/g, " ").trim())
-      out = setHeaderValue(out, "quote-author", quote.author.replace(/\s+/g, " ").trim())
-    }
-    const normalized = normalizeDailyQuoteAppearance(appearance)
-    for (const [key, value] of [
-      ["quote-theme", normalized.theme], ["quote-layout", normalized.layout], ["quote-font", normalized.font],
-      ["quote-size", String(normalized.fontSize)], ["quote-bg", normalized.backgroundColor],
-      ["quote-text-color", normalized.textColor], ["quote-accent", normalized.accentColor],
-      ["quote-image", normalized.backgroundImage], ["quote-overlay", String(normalized.overlay)],
-      ["quote-image-x", String(normalized.imageFocalX)], ["quote-image-y", String(normalized.imageFocalY)],
-      ["quote-image-zoom", String(normalized.imageZoom)],
-    ] as const) out = value ? setHeaderValue(out, key, value) : removeHeaderValue(out, key)
-    return out
-  }
-
-  resolveDailyQuoteBackgroundImage(value: string): string {
-    if (/^https?:\/\//i.test(value)) return value
-    const file = this.app.vault.getAbstractFileByPath(value.replace(/^\/+/, ""))
-    return file instanceof TFile ? this.app.vault.getResourcePath(file) : ""
-  }
-
-  async importDailyQuoteBackgroundImage(file: File): Promise<string> {
-    if (!file.type.startsWith("image/")) throw new Error("not-image")
-    if (file.size > 15 * 1024 * 1024) throw new Error("image-too-large")
-    const directory = normalizePath(".oneday/assets/daily-quotes")
-    const parts = directory.split("/")
-    let current = ""
-    for (const part of parts) {
-      current = normalizePath(current ? `${current}/${part}` : part)
-      if (!this.app.vault.getAbstractFileByPath(current)) await this.app.vault.createFolder(current)
-    }
-    const fallbackExtension = file.type.split("/")[1]?.replace("jpeg", "jpg") || "png"
-    const original = file.name.trim() || `image.${fallbackExtension}`
-    const extension = original.includes(".") ? original.split(".").pop()!.toLowerCase() : fallbackExtension
-    const stem = original.replace(/\.[^.]+$/, "").replace(/[^\p{L}\p{N}_-]+/gu, "-").replace(/^-+|-+$/g, "") || "image"
-    let target = normalizePath(`${directory}/${Date.now().toString(36)}-${stem}.${extension}`)
-    let suffix = 2
-    while (this.app.vault.getAbstractFileByPath(target)) target = normalizePath(`${directory}/${Date.now().toString(36)}-${stem}-${suffix++}.${extension}`)
-    await this.app.vault.createBinary(target, await file.arrayBuffer())
-    return target
-  }
-
-  listDailyQuoteBackgroundImages(): { path: string; name: string }[] {
-    const supported = new Set(["png", "jpg", "jpeg", "webp", "gif", "avif", "svg"])
-    return this.app.vault.getFiles()
-      .filter((file) => supported.has(file.extension.toLowerCase()))
-      .map((file) => ({ path: file.path, name: file.basename }))
-      .sort((a, b) => a.name.localeCompare(b.name))
   }
 
   /** Grow slots whose content exceeds their grid height, then re-compact (display-only). */
@@ -2169,7 +2053,8 @@ export default class OnedayPlugin extends Plugin {
     const hasPersistedSettings = data !== null
     const needsCategoryMigration = Boolean(data && ("typeColors" in data || "retiredTypeColors" in data))
     const palettes = migrateCategoryPalettes(data)
-    const { typeColors: _legacyTypeColors, retiredTypeColors: _legacyRetiredTypeColors, ...current } = data ?? {}
+    // dailyQuoteDefaults: the retired card designer's appearance model (2026-09-10).
+    const { typeColors: _legacyTypeColors, retiredTypeColors: _legacyRetiredTypeColors, dailyQuoteDefaults: _legacyQuoteDefaults, ...current } = (data ?? {}) as NonNullable<typeof data> & { dailyQuoteDefaults?: unknown }
     this.settings = {
       ...DEFAULT_SETTINGS,
       ...current,
@@ -2181,7 +2066,7 @@ export default class OnedayPlugin extends Plugin {
         order: Number.isFinite(todo.order) ? todo.order : order,
       })),
       dailyQuotes: (data?.dailyQuotes ?? []).map((quote, order) => normalizeDailyQuoteDefinition(quote, order)),
-      dailyQuoteDefaults: normalizeDailyQuoteAppearance(data?.dailyQuoteDefaults),
+      dailyQuoteInk: typeof data?.dailyQuoteInk === "string" ? data.dailyQuoteInk : "",
       timelineOnboardingSeen: resolveTimelineOnboardingSeen(
         data?.timelineOnboardingSeen,
         hasPersistedSettings

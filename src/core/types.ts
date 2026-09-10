@@ -41,8 +41,6 @@ export interface TimelineDoc {
   todos: TodoItem[]
   /** Block-local presentation rule for the Todo component. */
   todoView: TodoViewConfig
-  /** Block-local Daily Quote selection, snapshot and appearance overrides. */
-  dailyQuote: import("./daily-quotes").DailyQuoteBlockState
 }
 
 export interface Entry {

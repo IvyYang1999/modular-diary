@@ -252,13 +252,14 @@ const state = await page.evaluate(() => {
     addWeeklyHeight: addWeekly?.getBoundingClientRect().height ?? 0,
     addWeeklyBackground: addWeekly ? getComputedStyle(addWeekly).backgroundColor : "",
     addWeeklyBorderStyle: addWeekly ? getComputedStyle(addWeekly).borderStyle : "",
-    quoteDetails: (() => {
-      const details = globalSettings.querySelector("[data-settings-section='daily-quotes'] > details.oneday-settings-collapsible")
+    quoteSection: (() => {
+      const section = globalSettings.querySelector("[data-settings-section='daily-quotes']")
       return {
-        present: Boolean(details), open: details?.open ?? null,
-        summary: details?.querySelector(":scope > summary")?.textContent ?? "",
-        renderedBeforeOpen: Boolean(details?.querySelector(".oneday-quote-settings-tabs")),
-        sectionHeight: globalSettings.querySelector("[data-settings-section='daily-quotes']")?.getBoundingClientRect().height ?? 0,
+        present: Boolean(section),
+        hasLibrary: Boolean(section?.querySelector("textarea.oneday-quote-library")),
+        hasInkDots: (section?.querySelectorAll(".oneday-quote-ink-dot").length ?? 0) > 1,
+        hasDesigner: Boolean(section?.querySelector(".oneday-quote-designer, .oneday-quote-settings-tabs, details")),
+        sectionHeight: section?.getBoundingClientRect().height ?? 0,
       }
     })(),
     timelineTop: timelineSettings.getBoundingClientRect().top - globalSettings.getBoundingClientRect().top,
@@ -275,14 +276,7 @@ await page.locator("#habits-en").screenshot({ path: path.join(out, "habits-en-li
 await page.locator("#categories").screenshot({ path: path.join(out, "categories-light.png") })
 await page.locator(".oneday-settings-modal").first().screenshot({ path: path.join(out, "categories-modal-marker-light.png") })
 await page.locator("#global-settings").screenshot({ path: path.join(out, "global-settings-610.png") })
-await page.locator("#global-settings [data-settings-section='daily-quotes'] > details > summary").click()
-// The `toggle` event is queued after `open` flips; the designer renders on that task.
-await page.waitForSelector("#global-settings [data-settings-section='daily-quotes'] .oneday-quote-designer", { timeout: 2000 }).catch(() => null)
-const quoteOpened = await page.locator("#global-settings [data-settings-section='daily-quotes'] > details").evaluate((details) => ({
-  open: details.open, rendered: Boolean(details.querySelector(".oneday-quote-settings-tabs")), designer: Boolean(details.querySelector(".oneday-quote-designer")),
-}))
-await page.locator("#global-settings [data-settings-section='daily-quotes']").screenshot({ path: path.join(out, "global-settings-quote-open.png") })
-await page.locator("#global-settings [data-settings-section='daily-quotes'] > details > summary").click()
+await page.locator("#global-settings [data-settings-section='daily-quotes']").screenshot({ path: path.join(out, "global-settings-quote.png") })
 await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="category"] select').hover()
 const categoryHoverBackground = await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="category"] select').evaluate((el) => getComputedStyle(el).backgroundColor)
 await page.evaluate(() => {
@@ -416,8 +410,7 @@ if (!state.globalHabitWithinRow) errors.push("global habit controls overflow the
 if (state.globalSectionGap < 20) errors.push("global settings sections have no stable vertical separation")
 if (state.globalSectionKeys.join("|") !== "timeline|span-categories|marker-categories|habits|todo-rules|daily-quotes|natural-language") errors.push("global settings must run timeline → categories → habits → todo rules → daily quotes → natural-language capture")
 if (state.timelineTop > 120) errors.push("timeline defaults must be the first thing on the global settings page")
-if (!state.quoteDetails.present || state.quoteDetails.open !== false || state.quoteDetails.renderedBeforeOpen || state.quoteDetails.summary !== "卡片设计与句库" || state.quoteDetails.sectionHeight > 200) errors.push("daily quote designer must stay folded (and unrendered) until its disclosure is opened")
-if (!quoteOpened.open || !quoteOpened.rendered || !quoteOpened.designer) errors.push("opening the daily quote disclosure must render the shared designer")
+if (!state.quoteSection.present || !state.quoteSection.hasLibrary || !state.quoteSection.hasInkDots || state.quoteSection.hasDesigner || state.quoteSection.sectionHeight > 420) errors.push("daily quote settings must be one textarea plus highlighter dots, no designer or disclosure")
 if (state.todoRulesHeading !== "待办规则" || state.timelineHeading !== "时间轴") errors.push("global todo and timeline sections need clear concept-level headings")
 if (state.weeklyLegacyHeadingCount !== 0) errors.push("weekly cumulative todos must not appear as a separate top-level product concept")
 if (state.addWeeklyLabel !== "添加每周目标" || state.addWeeklyHeight > 36 || state.addWeeklyBackground !== "rgba(0, 0, 0, 0)" || state.addWeeklyBorderStyle !== "dashed") errors.push("empty recurring todo rules must use one compact shared dashed add action")

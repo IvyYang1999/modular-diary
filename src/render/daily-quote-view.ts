@@ -1,11 +1,14 @@
 import { setIcon } from "obsidian"
-import type { DailyQuoteAppearance, DailyQuoteDefinition } from "../core/daily-quotes"
+import type { DailyQuoteDefinition } from "../core/daily-quotes"
 import { t } from "../i18n"
 
 export interface DailyQuoteViewDeps {
-  onNext: () => void
   onEdit: () => void
-  resolveBackgroundImage?: (value: string) => string
+}
+
+export interface DailyQuoteViewOptions {
+  /** Resolved highlighter colour for the slot background; null keeps it untinted. */
+  inkColor: string | null
 }
 
 /**
@@ -27,14 +30,27 @@ function bindEditorIsolatedClick(element: HTMLElement, action: () => void): void
   })
 }
 
+/**
+ * A quiet line, not a card: the slot itself carries the highlighter tint,
+ * the sentence sits in the block's body type, the source in caption type.
+ * The only action is the pencil (open the library); the sentence of the day
+ * is decided by the date, never by clicking.
+ */
 export function renderDailyQuoteInto(
   slot: HTMLElement,
   quote: DailyQuoteDefinition | null,
-  appearance: DailyQuoteAppearance,
+  options: DailyQuoteViewOptions,
   deps: DailyQuoteViewDeps
 ): void {
   slot.empty()
   slot.classList.add("oneday-quote-slot")
+  if (options.inkColor) {
+    slot.style.setProperty("--oneday-quote-ink", options.inkColor)
+    slot.classList.add("has-ink")
+  } else {
+    slot.style.removeProperty("--oneday-quote-ink")
+    slot.classList.remove("has-ink")
+  }
   const root = slot.createDiv({ cls: "oneday-daily-quote" })
   const header = root.createDiv({ cls: "oneday-component-header" })
   header.createEl("strong", { cls: "oneday-component-title", text: t("dailyQuote") })
@@ -56,40 +72,7 @@ export function renderDailyQuoteInto(
     return
   }
 
-  const card = root.createEl("figure", {
-    cls: `oneday-daily-quote-card theme-${appearance.theme} layout-${appearance.layout} font-${appearance.font}`,
-    attr: { tabindex: "0", role: "button", "aria-label": t("nextQuote") },
-  })
-  card.style.setProperty("--oneday-quote-font-size", `${appearance.fontSize}px`)
-  card.style.setProperty("--oneday-quote-overlay", String(appearance.overlay))
-  if (appearance.backgroundColor) card.style.setProperty("--oneday-quote-bg", appearance.backgroundColor)
-  if (appearance.textColor) card.style.setProperty("--oneday-quote-text", appearance.textColor)
-  if (appearance.accentColor) card.style.setProperty("--oneday-quote-accent", appearance.accentColor)
-  if (appearance.backgroundImage) {
-    const image = deps.resolveBackgroundImage?.(appearance.backgroundImage) ?? appearance.backgroundImage
-    if (image) appendQuoteMedia(card, image, appearance)
-  }
-  const cursor = card.createDiv({ cls: "oneday-daily-quote-cursor", attr: { "aria-hidden": "true" } })
-  cursor.createSpan()
-  const body = card.createDiv({ cls: "oneday-daily-quote-body" })
-  const text = body.createEl("blockquote", { text: quote.text })
-  text.classList.toggle("is-long", quote.text.length > 90)
-  text.classList.toggle("is-very-long", quote.text.length > 180)
-  if (quote.author.trim()) body.createEl("figcaption", { text: `— ${quote.author.trim()}` })
-  const next = (): void => deps.onNext()
-  bindEditorIsolatedClick(card, next)
-  card.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return
-    event.preventDefault()
-    event.stopPropagation()
-    next()
-  })
-}
-
-export function appendQuoteMedia(card: HTMLElement, source: string, appearance: DailyQuoteAppearance): void {
-  const media = card.createDiv({ cls: "oneday-daily-quote-media", attr: { "aria-hidden": "true" } })
-  const image = media.createEl("img", { attr: { src: source, alt: "", draggable: "false" } })
-  image.style.objectPosition = `${appearance.imageFocalX * 100}% ${appearance.imageFocalY * 100}%`
-  image.style.transform = `scale(${appearance.imageZoom})`
-  media.createDiv({ cls: "oneday-daily-quote-image-overlay" })
+  const body = root.createDiv({ cls: "oneday-daily-quote-body" })
+  body.createEl("p", { cls: "oneday-daily-quote-text", text: quote.text.trim() })
+  if (quote.author.trim()) body.createEl("span", { cls: "oneday-daily-quote-author", text: quote.author.trim() })
 }

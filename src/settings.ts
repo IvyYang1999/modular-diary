@@ -10,7 +10,7 @@ import { t as tr } from "./i18n"
 import type { HabitDefinition } from "./core/habits"
 import type { WeeklyTodoDefinition } from "./core/todos"
 import { renderCategorySettings, renderHabitSettings } from "./settings-editors"
-import { DEFAULT_DAILY_QUOTE_APPEARANCE, type DailyQuoteAppearance, type DailyQuoteDefinition } from "./core/daily-quotes"
+import type { DailyQuoteDefinition } from "./core/daily-quotes"
 import { renderDailyQuoteSettings } from "./daily-quote-settings"
 
 export type DialogBackend = "api" | "claude-cli"
@@ -45,8 +45,8 @@ export interface OnedaySettings {
   weeklyTodos: WeeklyTodoDefinition[]
   /** Global sentence library shared by every Daily Quote component. */
   dailyQuotes: DailyQuoteDefinition[]
-  /** Appearance copied into a new Daily Quote component. */
-  dailyQuoteDefaults: DailyQuoteAppearance
+  /** Span category whose colour tints quote slots by default ("" = untinted). */
+  dailyQuoteInk: string
 }
 
 export const DEFAULT_SETTINGS: OnedaySettings = {
@@ -68,7 +68,7 @@ export const DEFAULT_SETTINGS: OnedaySettings = {
   habits: [],
   weeklyTodos: [],
   dailyQuotes: [],
-  dailyQuoteDefaults: { ...DEFAULT_DAILY_QUOTE_APPEARANCE },
+  dailyQuoteInk: "",
 }
 
 const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -189,29 +189,11 @@ export class OnedaySettingTab extends PluginSettingTab {
     }
     renderWeeklyTodos()
 
-    // The designer is an 800px workbench; on the global page it stays folded
-    // behind one disclosure and renders on first open. The component pencil
-    // opens the same renderer expanded inside DailyQuoteSettingsModal.
     const quoteSection = containerEl.createDiv({ cls: "oneday-settings-section" })
     quoteSection.dataset.settingsSection = "daily-quotes"
     quoteSection.createEl("h3", { text: tr("dailyQuoteSettings") })
     quoteSection.createEl("p", { text: tr("dailyQuoteSettingsDescription"), cls: "setting-item-description" })
-    const quoteDetails = quoteSection.createEl("details", { cls: "oneday-settings-collapsible" })
-    quoteDetails.createEl("summary", { text: tr("quoteDesignerToggle") })
-    const quoteEditor = quoteDetails.createDiv({ cls: "oneday-settings-section-editor" })
-    let quoteRendered = false
-    quoteDetails.addEventListener("toggle", () => {
-      if (!quoteDetails.open || quoteRendered) return
-      quoteRendered = true
-      renderDailyQuoteSettings(quoteEditor, this.plugin, {
-        appearance: this.plugin.settings.dailyQuoteDefaults,
-        scope: "defaults",
-        onApply: async (appearance) => {
-          this.plugin.settings.dailyQuoteDefaults = appearance
-          await this.plugin.saveSettings({ rerender: true })
-        },
-      })
-    })
+    renderDailyQuoteSettings(quoteSection.createDiv({ cls: "oneday-settings-section-editor" }), this.plugin)
 
     const captureSection = containerEl.createDiv({ cls: "oneday-settings-section" })
     captureSection.dataset.settingsSection = "natural-language"

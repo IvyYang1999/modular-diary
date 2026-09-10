@@ -243,38 +243,19 @@ describe("off header (组件隐藏)", () => {
 })
 
 describe("daily quote metadata", () => {
-  it("restores the selected quote snapshot and card appearance from readable headers", () => {
+  it("ignores the retired card-designer headers without reporting errors", () => {
     const doc = parseTimeline([
       "quote: quote-1",
       "quote-text: 我们先塑造习惯，然后习惯塑造我们。",
       "quote-author: John Dryden",
       "quote-theme: midnight",
-      "quote-layout: center",
-      "quote-font: serif",
-      "quote-size: 24",
-      "quote-bg: #201d2e",
-      "quote-text-color: #f5f1ff",
-      "quote-accent: #a98aff",
-      "quote-image: assets/quote.jpg",
-      "quote-overlay: 0.4",
-      "quote-image-x: 0.25",
-      "quote-image-y: 0.75",
       "quote-image-zoom: 1.5",
       "---",
       "09:00-10:00 学习",
     ].join("\n"))
-    expect(doc.dailyQuote).toEqual({
-      quoteId: "quote-1",
-      text: "我们先塑造习惯，然后习惯塑造我们。",
-      author: "John Dryden",
-      appearance: {
-        theme: "midnight", layout: "center", font: "serif", fontSize: 24,
-        backgroundColor: "#201d2e", textColor: "#f5f1ff", accentColor: "#a98aff",
-        backgroundImage: "assets/quote.jpg", overlay: .4,
-        imageFocalX: .25, imageFocalY: .75, imageZoom: 1.5,
-      },
-    })
     expect(doc.errors).toEqual([])
+    expect(doc.entries).toHaveLength(1)
+    expect("dailyQuote" in doc).toBe(false)
   })
 })
 

@@ -74,7 +74,6 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     habitSkips: [],
     todos: [],
     todoView: { ...DEFAULT_TODO_VIEW },
-    dailyQuote: { appearance: {} },
     texts: [],
   }
 
@@ -310,21 +309,12 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
       return
     }
-    case "quote": doc.dailyQuote.quoteId = value; return
-    case "quote-text": doc.dailyQuote.text = value; return
-    case "quote-author": doc.dailyQuote.author = value; return
-    case "quote-theme": doc.dailyQuote.appearance.theme = value as import("./daily-quotes").DailyQuoteTheme; return
-    case "quote-layout": doc.dailyQuote.appearance.layout = value as import("./daily-quotes").DailyQuoteLayout; return
-    case "quote-font": doc.dailyQuote.appearance.font = value as import("./daily-quotes").DailyQuoteFont; return
-    case "quote-size": doc.dailyQuote.appearance.fontSize = Number(value); return
-    case "quote-bg": doc.dailyQuote.appearance.backgroundColor = value; return
-    case "quote-text-color": doc.dailyQuote.appearance.textColor = value; return
-    case "quote-accent": doc.dailyQuote.appearance.accentColor = value; return
-    case "quote-image": doc.dailyQuote.appearance.backgroundImage = value; return
-    case "quote-overlay": doc.dailyQuote.appearance.overlay = Number(value); return
-    case "quote-image-x": doc.dailyQuote.appearance.imageFocalX = Number(value); return
-    case "quote-image-y": doc.dailyQuote.appearance.imageFocalY = Number(value); return
-    case "quote-image-zoom": doc.dailyQuote.appearance.imageZoom = Number(value); return
+    // Legacy quote headers (card designer, retired 2026-09-10): the sentence
+    // and its look now live in settings only. Old notes stay error-free.
+    case "quote": case "quote-text": case "quote-author": case "quote-theme": case "quote-layout": case "quote-font":
+    case "quote-size": case "quote-bg": case "quote-text-color": case "quote-accent": case "quote-image":
+    case "quote-overlay": case "quote-image-x": case "quote-image-y": case "quote-image-zoom":
+      return
     default:
       doc.errors.push({ line, text: raw, reason: tr("unknownHeaderKey", { key }) })
   }
