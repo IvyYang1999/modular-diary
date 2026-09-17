@@ -2,17 +2,17 @@
 
 /**
  * Defaults for a fresh install only; saved palettes are never touched.
- * 2026-09-17: the pale tier (OKLCH L .86 C .09) of the five hues in the MD
- * mark, plus a warm neutral for sleep, so the product, its site and its logo
- * share one colour family. Saturated = identity, pale = ink on the timeline.
+ * 2026-09-17: the five hues of the MD mark at full strength, plus a warm
+ * neutral for sleep, so the product, its site and its logo are one colour
+ * family. Copy on these fills is white (see blockTextColor).
  */
 export const DEFAULT_TYPE_COLORS: Record<string, string> = {
-  math: "#afd5fe",
-  micro: "#c3dc9b",
-  english: "#f7c790",
-  sleep: "#dcdad4",
-  meal: "#febfb9",
-  misc: "#dec3ff",
+  math: "#53a3f2",
+  micro: "#a0c849",
+  english: "#f4a437",
+  sleep: "#cfccc4",
+  meal: "#f47b74",
+  misc: "#ae7ee2",
 }
 
 /** Parse "type: #hex" lines (blank lines and // comments ignored). */

@@ -17,7 +17,7 @@ import { fitSideLaneWidth, renderTimelineSvg, RenderOptions, SIDE_LANE_W } from 
 import type { TextMeasurer } from "../core/text-wrap"
 import { hashTypeColor } from "../core/type-colors"
 import { t } from "../i18n"
-import { relatedTextColor } from "../core/contrast"
+import { blockTextColor } from "../core/contrast"
 import { GRID_ROW_H, GridItem, gridRows, isTextSlot, resolveGrid } from "../core/grid-layout"
 import { applyGridToBody } from "../edit/grid-interact"
 import type { TextDraftState } from "../edit/text-draft"
@@ -539,7 +539,7 @@ export function renderTimelineInto(
       bar.style.width = `${pct}%`
       // 先放柱内，挂载后实测：装不下就挪柱外（百分比阈值对不上像素，yyt 2026-08-19）
       const label = bar.createEl("span", { cls: "modular-diary-stat-hours", text: formatHours(st.minutes) })
-      const insideColor = relatedTextColor(color)
+      const insideColor = blockTextColor(color)
       label.style.color = insideColor
       // 实测要在最终布局上做，而且要能双向迁移：字体回退、槽位缩放都会改变
       // 柱宽（Linux 上字体度量与 macOS 不同，一次 rAF 不够）。

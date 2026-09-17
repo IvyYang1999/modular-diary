@@ -8,7 +8,7 @@
  */
 import { Entry, TimelineDoc } from "../core/types"
 import { hashTypeColor } from "../core/type-colors"
-import { darkThemeBlockFill, relatedTextColor } from "../core/contrast"
+import { blockTextColor, darkBlockTextColor } from "../core/contrast"
 import { formatClock24, formatHours, durationMinutes } from "../core/duration"
 import { AXIS_PAD_TOP, AXIS_PAD_BOTTOM, LABEL_W, TRACK_PAD, inlineFontSize, SVG_LABEL_MAX_FONT_PX } from "../core/geometry"
 import { estimateTextWidth, isWideGlyph, TextMeasurer, wrapTextToWidth } from "../core/text-wrap"
@@ -353,7 +353,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     // Record copy is colored from the fill it sits on. The dark theme blends
     // the page into every record fill (styles.css), so both variants are
     // precomputed here and CSS picks the pair that matches the theme.
-    const copyStyle = `--modular-diary-block-text-light:${relatedTextColor(color)};--modular-diary-block-text-dark:${relatedTextColor(darkThemeBlockFill(color))}`
+    const copyStyle = `--modular-diary-block-text-light:${blockTextColor(color)};--modular-diary-block-text-dark:${darkBlockTextColor(color)}`
     parts.push(
       `<rect class="modular-diary-block" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${p.x}" y="${yy}" width="${p.w}" height="${hh}" rx="3" fill="${escapeXml(color)}" fill-opacity="${BLOCK_OPACITY}" style="--modular-diary-block-color:${escapeXml(color)}"${focusAttrs(entryLabel(e))}></rect>`
     )

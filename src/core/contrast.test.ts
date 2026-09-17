@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { contrastRatio, darkThemeBlockFill, mixColors, parseColor, readableTextColor, relatedTextColor } from "./contrast"
+import { blockTextColor, darkBlockTextColor, contrastRatio, isVividFill, darkThemeBlockFill, mixColors, parseColor, readableTextColor, relatedTextColor } from "./contrast"
 
 describe("contrast", () => {
   it("parses hex and hsl", () => {
@@ -45,5 +45,21 @@ describe("dark-theme block fill", () => {
 
   it("passes unparsable colors through unchanged", () => {
     expect(darkThemeBlockFill("tomato")).toBe("tomato")
+  })
+})
+
+describe("blockTextColor (vivid fills take white)", () => {
+  it("gives white copy to the five mark hues and their dark-theme fills", () => {
+    for (const color of ["#f47b74", "#f4a437", "#a0c849", "#53a3f2", "#ae7ee2"]) {
+      expect(blockTextColor(color)).toBe("#ffffff")
+      expect(darkBlockTextColor(color)).toBe("#ffffff")
+    }
+  })
+
+  it("keeps derived dark copy on pale, neutral and legacy highlighter fills", () => {
+    for (const color of ["#cfccc4", "#d9d9d9", "#afd5fe", "#7fd4c1", "#9bd17b", "#f6c667", "hsl(200 70% 80%)"]) {
+      expect(isVividFill(color)).toBe(false)
+      expect(contrastRatio(blockTextColor(color), color)).toBeGreaterThanOrEqual(4.5)
+    }
   })
 })

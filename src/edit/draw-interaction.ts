@@ -10,7 +10,7 @@ import { TimelineDoc } from "../core/types"
 import { formatClock, formatHours } from "../core/duration"
 import { formatEntryLine } from "../core/format"
 import { AXIS_PAD_TOP, minutesFromY, snapMinutes, SNAP_MINUTES, yFromMinutes } from "../core/geometry"
-import { darkThemeBlockFill, relatedTextColor } from "../core/contrast"
+import { blockTextColor, darkBlockTextColor } from "../core/contrast"
 import { t } from "../i18n"
 import { setPointerInteractionActive } from "./pointer-interaction"
 import { nativeControlOwnsTimelineDelete } from "./undo-routing"
@@ -727,8 +727,8 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     // rather than briefly showing the generic muted/overlay-looking label.
     if (!plan) {
       const color = deps.typeColor(activeType)
-      ghostDuration.style.setProperty("--modular-diary-block-text-light", relatedTextColor(color))
-      ghostDuration.style.setProperty("--modular-diary-block-text-dark", relatedTextColor(darkThemeBlockFill(color)))
+      ghostDuration.style.setProperty("--modular-diary-block-text-light", blockTextColor(color))
+      ghostDuration.style.setProperty("--modular-diary-block-text-dark", darkBlockTextColor(color))
     }
     svg.appendChild(ghostDuration)
     updateGhost(dragStartMin, dragStartMin)

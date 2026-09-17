@@ -87,6 +87,33 @@ export function relatedTextColor(bgColor: string): string {
   return dark ? "#1a1a1a" : "#ffffff"
 }
 
+/**
+ * Copy color for text drawn on a block (yyt 2026-09-17, "字可以用白色，咱应该有一套算法").
+ * Vivid mid-tones -- the five hues of the MD mark, most hashed category colors --
+ * take white, as colored buttons do everywhere: WCAG can never reach 4.5 with
+ * white there (1.9-3.1), yet dark copy on a saturated fill reads as mud.
+ * Pale, near-grey and dark fills keep the derived same-hue copy, which does
+ * guarantee 4.5. The cut is deliberate: saturation >= .45 and luminance < .52.
+ */
+export const VIVID_MIN_SATURATION = 0.45
+export const VIVID_MAX_LUMINANCE = 0.52
+
+export function isVividFill(bgColor: string): boolean {
+  const rgb = parseColor(bgColor)
+  const lum = relativeLuminance(bgColor)
+  if (!rgb || lum === null) return false
+  return rgbToHsl(...rgb)[1] >= VIVID_MIN_SATURATION && lum < VIVID_MAX_LUMINANCE
+}
+
+export function blockTextColor(bgColor: string): string {
+  return isVividFill(bgColor) ? "#ffffff" : relatedTextColor(bgColor)
+}
+
+/** Dark-theme copy: vividness is judged on the category color itself, not on the dimmed fill. */
+export function darkBlockTextColor(color: string): string {
+  return isVividFill(color) ? "#ffffff" : relatedTextColor(darkThemeBlockFill(color))
+}
+
 function toHex(rgb: [number, number, number]): string {
   return "#" + rgb.map((c) => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, "0")).join("")
 }
