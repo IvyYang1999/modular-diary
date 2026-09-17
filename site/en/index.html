@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Modular Diary · Make each day your own in Obsidian</title>
+<link rel="canonical" href="https://modular-diary.vercel.app/en/">
+<link rel="alternate" hreflang="zh-CN" href="https://modular-diary.vercel.app/">
+<link rel="alternate" hreflang="en" href="https://modular-diary.vercel.app/en/">
+<link rel="alternate" hreflang="x-default" href="https://modular-diary.vercel.app/">
+<meta name="description" content="Build your daily page in Obsidian with a visual timeline, to-dos, habits, quotes, and time stats. Rearrange the modules you need; everything stays in Markdown.">
+<meta property="og:title" content="Modular Diary · Make each day your own">
+<meta property="og:description" content="A daily timeline and rearrangeable modules for Obsidian. Your plans, notes and time blocks stay in Markdown.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://modular-diary.vercel.app/en/">
+<meta property="og:image" content="https://modular-diary.vercel.app/og-en.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/icon-32.png">
+<link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="rule" aria-hidden="true"><i style="background:var(--red)"></i><i style="background:var(--amber)"></i><i style="background:var(--green)"></i><i style="background:var(--blue)"></i><i style="background:var(--violet)"></i></div>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="#"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="12" width="7.5" height="40" rx="3.75" fill="#f47b74"/><rect x="13.5" y="12" width="7.5" height="20" rx="3.75" fill="#f4a437"/><rect x="23" y="12" width="7.5" height="40" rx="3.75" fill="#a0c849"/><rect x="35" y="12" width="7.5" height="40" rx="3.75" fill="#53a3f2"/><path d="M44.5 12h3a12 12 0 0 1 12 12v16a12 12 0 0 1-12 12h-3z" fill="#ae7ee2"/></svg>Modular Diary</a>
+  <nav aria-label="Main navigation"><a class="opt" href="#modules">Modules</a><a class="opt" href="#who">For whom</a><a href="#install">Install</a><a href="https://github.com/IvyYang1999/modular-diary" target="_blank" rel="noopener">GitHub</a><a class="lang" href="/" lang="zh-CN" hreflang="zh-CN" aria-label="切换到中文">中</a></nav>
+</div></header>
+
+<main>
+<section class="hero wrap">
+  <svg class="glyph" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="12" width="7.5" height="40" rx="3.75" fill="#f47b74"/><rect x="13.5" y="12" width="7.5" height="20" rx="3.75" fill="#f4a437"/><rect x="23" y="12" width="7.5" height="40" rx="3.75" fill="#a0c849"/><rect x="35" y="12" width="7.5" height="40" rx="3.75" fill="#53a3f2"/><path d="M44.5 12h3a12 12 0 0 1 12 12v16a12 12 0 0 1-12 12h-3z" fill="#ae7ee2"/></svg>
+  <h1 class="h1">One page for your day.<br><mark style="--m:var(--amber)">Make it yours.</mark></h1>
+  <p class="lead">Modular Diary turns an Obsidian note into a page you can arrange yourself: timeline, to-dos, habits, daily quote, and time stats. Choose what belongs. Draw a time block and your to-dos and habits update with it. The whole day lives in Markdown.</p>
+  <div class="cta">
+    <a class="btn" href="#install"><svg class="obs" fill="none" viewBox="0 0 512 512" aria-hidden="true"> <radialGradient id="obs-logo-bottom-left" cx="0" cy="0" gradientTransform="matrix(-59 -225 150 -39 161.4 470)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".4"/> <stop offset="1" stop-opacity=".1"/> </radialGradient> <radialGradient id="obs-logo-top-right" cx="0" cy="0" gradientTransform="matrix(50 -379 280 37 360 374.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".6"/> <stop offset="1" stop-color="#fff" stop-opacity=".1"/> </radialGradient> <radialGradient id="obs-logo-top-left" cx="0" cy="0" gradientTransform="matrix(69 -319 218 47 175.4 307)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".8"/> <stop offset="1" stop-color="#fff" stop-opacity=".4"/> </radialGradient> <radialGradient id="obs-logo-bottom-right" cx="0" cy="0" gradientTransform="matrix(-96 -163 187 -111 335.3 512.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".3"/> <stop offset="1" stop-opacity=".3"/> </radialGradient> <radialGradient id="obs-logo-top-edge" cx="0" cy="0" gradientTransform="matrix(-36 166 -112 -24 310 128.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity="0"/> <stop offset="1" stop-color="#fff" stop-opacity=".2"/> </radialGradient> <radialGradient id="obs-logo-left-edge" cx="0" cy="0" gradientTransform="matrix(88 89 -190 187 111 220.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".2"/> <stop offset="1" stop-color="#fff" stop-opacity=".4"/> </radialGradient> <radialGradient id="obs-logo-bottom-edge" cx="0" cy="0" gradientTransform="matrix(9 130 -276 20 215 284)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".2"/> <stop offset="1" stop-color="#fff" stop-opacity=".3"/> </radialGradient> <radialGradient id="obs-logo-middle-edge" cx="0" cy="0" gradientTransform="matrix(-198 -104 327 -623 400 399.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".2"/> <stop offset=".5" stop-color="#fff" stop-opacity=".2"/> <stop offset="1" stop-color="#fff" stop-opacity=".3"/> </radialGradient> <clipPath id="obs-clip"> <path d="M.2.2h512v512H.2z"/> </clipPath> <g clip-path="url(#obs-clip)"> <path d="M382.3 475.6c-3.1 23.4-26 41.6-48.7 35.3-32.4-8.9-69.9-22.8-103.6-25.4l-51.7-4a34 34 0 0 1-22-10.2l-89-91.7a34 34 0 0 1-6.7-37.7s55-121 57.1-127.3c2-6.3 9.6-61.2 14-90.6 1.2-7.9 5-15 11-20.3L248 8.9a34.1 34.1 0 0 1 49.6 4.3L386 125.6a37 37 0 0 1 7.6 22.4c0 21.3 1.8 65 13.6 93.2 11.5 27.3 32.5 57 43.5 71.5a17.3 17.3 0 0 1 1.3 19.2 1494 1494 0 0 1-44.8 70.6c-15 22.3-21.9 49.9-25 73.1z" fill="#6c31e3"/> <path d="M165.9 478.3c41.4-84 40.2-144.2 22.6-187-16.2-39.6-46.3-64.5-70-80-.6 2.3-1.3 4.4-2.2 6.5L60.6 342a34 34 0 0 0 6.6 37.7l89.1 91.7a34 34 0 0 0 9.6 7z" fill="url(#obs-logo-bottom-left)"/> <path d="M278.4 307.8c11.2 1.2 22.2 3.6 32.8 7.6 34 12.7 65 41.2 90.5 96.3 1.8-3.1 3.6-6.2 5.6-9.2a1536 1536 0 0 0 44.8-70.6 17 17 0 0 0-1.3-19.2c-11-14.6-32-44.2-43.5-71.5-11.8-28.2-13.5-72-13.6-93.2 0-8.1-2.6-16-7.6-22.4L297.6 13.2a34 34 0 0 0-1.5-1.7 96 96 0 0 1 2 54 198.3 198.3 0 0 1-17.6 41.3l-7.2 14.2a171 171 0 0 0-19.4 71c-1.2 29.4 4.8 66.4 24.5 115.8z" fill="url(#obs-logo-top-right)"/> <path d="M278.4 307.8c-19.7-49.4-25.8-86.4-24.5-115.9a171 171 0 0 1 19.4-71c2.3-4.8 4.8-9.5 7.2-14.1 7.1-13.9 14-27 17.6-41.4a96 96 0 0 0-2-54A34.1 34.1 0 0 0 248 9l-105.4 94.8a34.1 34.1 0 0 0-10.9 20.3l-12.8 85-.5 2.3c23.8 15.5 54 40.4 70.1 80a147 147 0 0 1 7.8 24.8c28-6.8 55.7-11 82.1-8.3z" fill="url(#obs-logo-top-left)"/> <path d="M333.6 511c22.7 6.2 45.6-12 48.7-35.4a187 187 0 0 1 19.4-63.9c-25.6-55-56.5-83.6-90.4-96.3-36-13.4-75.2-9-115 .7 8.9 40.4 3.6 93.3-30.4 162.2 4 1.8 8.1 3 12.5 3.3 0 0 24.4 2 53.6 4.1 29 2 72.4 17.1 101.6 25.2z" fill="url(#obs-logo-bottom-right)"/> <g clip-rule="evenodd" fill-rule="evenodd"> <path d="M254.1 190c-1.3 29.2 2.4 62.8 22.1 112.1l-6.2-.5c-17.7-51.5-21.5-78-20.2-107.6a174.7 174.7 0 0 1 20.4-72c2.4-4.9 8-14.1 10.5-18.8 7.1-13.7 11.9-21 16-33.6 5.7-17.5 4.5-25.9 3.8-34.1 4.6 29.9-12.7 56-25.7 82.4a177.1 177.1 0 0 0-20.7 72z" fill="url(#obs-logo-top-edge)"/> <path d="M194.3 293.4c2.4 5.4 4.6 9.8 6 16.5L195 311c-2.1-7.8-3.8-13.4-6.8-20-17.8-42-46.3-63.6-69.7-79.5 28.2 15.2 57.2 39 75.7 81.9z" fill="url(#obs-logo-left-edge)"/> <path d="M200.6 315.1c9.8 46-1.2 104.2-33.6 160.9 27.1-56.2 40.2-110.1 29.3-160z" fill="url(#obs-logo-bottom-edge)"/> <path d="M312.5 311c53.1 19.9 73.6 63.6 88.9 100-19-38.1-45.2-80.3-90.8-96-34.8-11.8-64.1-10.4-114.3 1l-1.1-5c53.2-12.1 81-13.5 117.3 0z" fill="url(#obs-logo-middle-edge)"/> </g> </g> </svg>Install for Obsidian</a>
+    <a class="link" href="#demo">Try the live demo ↓</a>
+  </div>
+
+  <div class="demo" id="demo" aria-label="Interactive plugin demo: toggle modules, rearrange them, and draw on the timeline">
+    <div class="bar"><i></i><i></i><i></i><span>2026-09-05.md</span>
+      <div class="tools"><button id="srcBtn" title="View this block's Markdown source">Source</button><button id="replay" title="Replay the demo">↻ Replay</button></div>
+    </div>
+    <div class="switch" id="switch" role="group" aria-label="Toggle modules"><span>Modules</span></div>
+    <div class="body" id="body">
+      <div class="mods" id="mods"></div>
+      <pre class="src" id="src" aria-live="polite"></pre>
+      <div class="tlcol">
+        <div class="tb" id="tb">
+          <div class="seg" id="seg" data-plan="0"><button class="on" data-mode="rec">Actual</button><button data-mode="plan">Plan</button></div>
+          <div id="pens" style="display:contents"></div>
+        </div>
+        <div class="tl" id="tl"></div>
+        <div class="status" id="status"></div>
+      </div>
+    </div>
+    <div class="pop" id="pop"><input id="popIn" placeholder="What happened in this block?" aria-label="Block note"></div>
+    <div class="menu" id="menu"></div>
+    <div class="toast" id="toast"></div>
+  </div>
+  <p class="undr">This is a live demo. Toggle the modules, drag their headings to reorder them, drop a to-do on the timeline to make a plan, or draw a block to record time.</p>
+</section>
+
+<section class="sec wrap" id="modules">
+  <h2><i style="--c:var(--red)"></i>Six modules. Use what fits.</h2>
+  <p class="lead">They all read and write the same Markdown block, so a change in one place shows up everywhere. Move, resize, or hide a module, and save your layout as the default for new notes.</p>
+  <div class="grid">
+    <article class="card"><div class="pic" id="picTimeline" style="padding:8px 12px"></div><h3><i style="--c:var(--blue)"></i>Timeline</h3><p>Pick a colour and drag to record a stretch of time. Its duration appears automatically. Hatched blocks are plans; solid blocks are what really happened.</p></article>
+    <article class="card"><div class="pic"><div class="r"><b style="--k:var(--k-mint)"></b><span>Draft chapter three</span><em>2.5h actual / 4h planned</em></div><div class="r"><b style="--k:var(--k-yellow)"></b><span>Study word list 5</span><em>45m planned</em></div></div><h3><i style="--c:var(--amber)"></i>To-dos</h3><p>Estimate a task, then drag it onto the timeline to make a plan. Afterwards, see how long it actually took.</p></article>
+    <article class="card"><div class="pic"><div class="r"><b style="--k:var(--k-lav)"></b><span>Exercise for 30 minutes</span><em class="ok">✓ Done</em></div><div class="r"><b style="--k:var(--k-green)"></b><span>Read 5 hours a week</span><em>3.5h / 5h this week</em></div></div><h3><i style="--c:var(--green)"></i>Habits</h3><p>Set a goal such as “exercise 30 minutes a day.” Once your timeline adds up to the target, it checks itself off.</p></article>
+    <article class="card"><div class="pic"><div class="q">The work that matters starts with showing up. Keep going.</div></div><h3><i style="--c:var(--violet)"></i>Daily quote</h3><p>See one line from your own quote list each day, on a background coloured like a highlighter. Add quotes one per line.</p></article>
+    <article class="card"><div class="pic"><div class="bars"><span>Writing</span><i style="--k:var(--k-mint);width:100%"></i><span>4h</span><span>Reading</span><i style="--k:var(--k-green);width:38%"></i><span>1.5h</span><span>Exercise</span><i style="--k:var(--k-lav);width:13%"></i><span>0.5h</span></div></div><h3><i style="--c:var(--red)"></i>Time stats</h3><p>See how much of today went to each kind of activity. No export or dashboard needed.</p></article>
+    <article class="card"><div class="pic"><div class="in"><span>Just ran for half an hour</span><u>Record</u></div><div class="r"><b style="--k:var(--k-lav)"></b><span>16:00–16:30 Exercise</span><em>Saved to note</em></div></div><h3><i style="--c:var(--ink)"></i>Quick capture</h3><p>Write “Just ran for half an hour” and it works out the time, category, and colour. This optional module uses your own model API key.</p></article>
+  </div>
+  <p class="also">There is also a <b>text</b> module for plain Markdown. Add as many as you need.</p>
+</section>
+
+<section class="sec wrap" id="who">
+  <h2><i style="--c:var(--green)"></i>For days you shape yourself</h2>
+  <p class="lead">When nobody sets your schedule, you need to see where your time goes. The same plugin can become a different page for each person.</p>
+  <div class="people" id="people"></div>
+  <p class="coda">It takes <b>a few drags a day</b>. After a week, you can see the shape of your time—and decide what to change.</p>
+</section>
+
+<section class="sec wrap" id="md">
+  <h2><i style="--c:var(--violet)"></i>Markdown is the source of truth</h2>
+  <p class="lead">The entire page is one <code>timeline</code> code block in your note. Actions in the interface write back to these lines, and edits to the lines show up in the interface.</p>
+  <div class="md">
+    <pre><i>```timeline</i>
+<i>date: 2026-09-05</i>
+<i>layout: text@0,0,6,4 todos@0,4,6,5 timeline@6,0,6,45</i>
+<em>todo:</em> id="t1" done=false estimate=240 title="Draft chapter three"
+<i>---</i>
+<em>plan</em> 09:00-12:00 Writing
+<b>09:15-11:45 Writing Draft chapter three [todo:t1]</b>
+11:45-12:30 Lunch
+<em>@13:10</em> Feeling tired; take a short walk
+<i>===</i>
+No messages until the writing is done.
+<i>```</i></pre>
+    <div>
+      <p class="pun">MD is Modular Diary.<br>It is also <code>.md</code>.</p>
+      <p>No database or sidecar files. Git can diff it, and your existing note sync can carry it. Even without the plugin, it is still readable text. Give the included skill to your agent and it can write entries too.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec install wrap" id="faq">
+  <h2><i style="--c:var(--blue)"></i>Frequently asked questions</h2>
+  <div class="qs">
+    <details open><summary>Where is my data stored?</summary><p>In a <code>timeline</code> code block inside your note. There is no database or sidecar file. Your notes can travel through iCloud, Git, or Obsidian Sync, and remain readable without the plugin. Habit rules, quotes, and category colours live in the plugin's global settings.</p></details>
+    <details><summary>Can I arrange the modules myself?</summary><p>Yes. Drag modules to reorder them, resize them from the edges, or hide them from the context menu. Add them back from “More.” The <code>layout</code> line stores the arrangement; you can also make it the default for new diary blocks.</p></details>
+    <details><summary>Do I need AI to use it?</summary><p>No. The timeline, to-dos, habits, quote, and stats work offline. Quick capture is optional. Without an API key it shows a setup prompt; you can hide the module altogether.</p></details>
+    <details><summary>Does it work on mobile?</summary><p>Yes. You can view and draw on the timeline in Obsidian mobile. Quick capture can use a model API on mobile; the local Claude CLI backend is desktop-only.</p></details>
+    <details><summary>How do categories and colours work?</summary><p>Set up a “category → colour” list in the plugin settings. Notes store category names, so changing a colour does not rewrite old entries.</p></details>
+    <details><summary>I used the old Oneday plugin. How do I migrate?</summary><p>The new plugin ID is <code>modular-diary</code>, so this is not an in-place update. Back up the old plugin folder and settings locally. Disable Oneday, install Modular Diary, privately copy the old <code>data.json</code> into the new plugin folder, then enable it. Do not enable both: they both handle <code>timeline</code> blocks. You will also need to remap hotkeys and custom CSS. <a class="link" href="https://github.com/IvyYang1999/modular-diary#readme" target="_blank" rel="noopener">Full migration guide</a>.</p></details>
+  </div>
+</section>
+
+<section class="closing wrap" id="install">
+  <div class="bars5" aria-hidden="true"><i style="--c:var(--red)"></i><i style="--c:var(--amber)"></i><i style="--c:var(--green)"></i><i style="--c:var(--blue)"></i><i style="--c:var(--violet)"></i></div>
+  <h2>Ready to build your day?</h2>
+  <p class="lead">A daily page, arranged your way.</p>
+  <a class="btn big" href="https://github.com/IvyYang1999/modular-diary/releases/latest" target="_blank" rel="noopener"><svg class="obs" fill="none" viewBox="0 0 512 512" aria-hidden="true"> <radialGradient id="obs2-logo-bottom-left" cx="0" cy="0" gradientTransform="matrix(-59 -225 150 -39 161.4 470)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".4"/> <stop offset="1" stop-opacity=".1"/> </radialGradient> <radialGradient id="obs2-logo-top-right" cx="0" cy="0" gradientTransform="matrix(50 -379 280 37 360 374.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".6"/> <stop offset="1" stop-color="#fff" stop-opacity=".1"/> </radialGradient> <radialGradient id="obs2-logo-top-left" cx="0" cy="0" gradientTransform="matrix(69 -319 218 47 175.4 307)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".8"/> <stop offset="1" stop-color="#fff" stop-opacity=".4"/> </radialGradient> <radialGradient id="obs2-logo-bottom-right" cx="0" cy="0" gradientTransform="matrix(-96 -163 187 -111 335.3 512.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".3"/> <stop offset="1" stop-opacity=".3"/> </radialGradient> <radialGradient id="obs2-logo-top-edge" cx="0" cy="0" gradientTransform="matrix(-36 166 -112 -24 310 128.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity="0"/> <stop offset="1" stop-color="#fff" stop-opacity=".2"/> </radialGradient> <radialGradient id="obs2-logo-left-edge" cx="0" cy="0" gradientTransform="matrix(88 89 -190 187 111 220.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".2"/> <stop offset="1" stop-color="#fff" stop-opacity=".4"/> </radialGradient> <radialGradient id="obs2-logo-bottom-edge" cx="0" cy="0" gradientTransform="matrix(9 130 -276 20 215 284)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".2"/> <stop offset="1" stop-color="#fff" stop-opacity=".3"/> </radialGradient> <radialGradient id="obs2-logo-middle-edge" cx="0" cy="0" gradientTransform="matrix(-198 -104 327 -623 400 399.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".2"/> <stop offset=".5" stop-color="#fff" stop-opacity=".2"/> <stop offset="1" stop-color="#fff" stop-opacity=".3"/> </radialGradient> <clipPath id="obs2-clip"> <path d="M.2.2h512v512H.2z"/> </clipPath> <g clip-path="url(#obs2-clip)"> <path d="M382.3 475.6c-3.1 23.4-26 41.6-48.7 35.3-32.4-8.9-69.9-22.8-103.6-25.4l-51.7-4a34 34 0 0 1-22-10.2l-89-91.7a34 34 0 0 1-6.7-37.7s55-121 57.1-127.3c2-6.3 9.6-61.2 14-90.6 1.2-7.9 5-15 11-20.3L248 8.9a34.1 34.1 0 0 1 49.6 4.3L386 125.6a37 37 0 0 1 7.6 22.4c0 21.3 1.8 65 13.6 93.2 11.5 27.3 32.5 57 43.5 71.5a17.3 17.3 0 0 1 1.3 19.2 1494 1494 0 0 1-44.8 70.6c-15 22.3-21.9 49.9-25 73.1z" fill="#6c31e3"/> <path d="M165.9 478.3c41.4-84 40.2-144.2 22.6-187-16.2-39.6-46.3-64.5-70-80-.6 2.3-1.3 4.4-2.2 6.5L60.6 342a34 34 0 0 0 6.6 37.7l89.1 91.7a34 34 0 0 0 9.6 7z" fill="url(#obs2-logo-bottom-left)"/> <path d="M278.4 307.8c11.2 1.2 22.2 3.6 32.8 7.6 34 12.7 65 41.2 90.5 96.3 1.8-3.1 3.6-6.2 5.6-9.2a1536 1536 0 0 0 44.8-70.6 17 17 0 0 0-1.3-19.2c-11-14.6-32-44.2-43.5-71.5-11.8-28.2-13.5-72-13.6-93.2 0-8.1-2.6-16-7.6-22.4L297.6 13.2a34 34 0 0 0-1.5-1.7 96 96 0 0 1 2 54 198.3 198.3 0 0 1-17.6 41.3l-7.2 14.2a171 171 0 0 0-19.4 71c-1.2 29.4 4.8 66.4 24.5 115.8z" fill="url(#obs2-logo-top-right)"/> <path d="M278.4 307.8c-19.7-49.4-25.8-86.4-24.5-115.9a171 171 0 0 1 19.4-71c2.3-4.8 4.8-9.5 7.2-14.1 7.1-13.9 14-27 17.6-41.4a96 96 0 0 0-2-54A34.1 34.1 0 0 0 248 9l-105.4 94.8a34.1 34.1 0 0 0-10.9 20.3l-12.8 85-.5 2.3c23.8 15.5 54 40.4 70.1 80a147 147 0 0 1 7.8 24.8c28-6.8 55.7-11 82.1-8.3z" fill="url(#obs2-logo-top-left)"/> <path d="M333.6 511c22.7 6.2 45.6-12 48.7-35.4a187 187 0 0 1 19.4-63.9c-25.6-55-56.5-83.6-90.4-96.3-36-13.4-75.2-9-115 .7 8.9 40.4 3.6 93.3-30.4 162.2 4 1.8 8.1 3 12.5 3.3 0 0 24.4 2 53.6 4.1 29 2 72.4 17.1 101.6 25.2z" fill="url(#obs2-logo-bottom-right)"/> <g clip-rule="evenodd" fill-rule="evenodd"> <path d="M254.1 190c-1.3 29.2 2.4 62.8 22.1 112.1l-6.2-.5c-17.7-51.5-21.5-78-20.2-107.6a174.7 174.7 0 0 1 20.4-72c2.4-4.9 8-14.1 10.5-18.8 7.1-13.7 11.9-21 16-33.6 5.7-17.5 4.5-25.9 3.8-34.1 4.6 29.9-12.7 56-25.7 82.4a177.1 177.1 0 0 0-20.7 72z" fill="url(#obs2-logo-top-edge)"/> <path d="M194.3 293.4c2.4 5.4 4.6 9.8 6 16.5L195 311c-2.1-7.8-3.8-13.4-6.8-20-17.8-42-46.3-63.6-69.7-79.5 28.2 15.2 57.2 39 75.7 81.9z" fill="url(#obs2-logo-left-edge)"/> <path d="M200.6 315.1c9.8 46-1.2 104.2-33.6 160.9 27.1-56.2 40.2-110.1 29.3-160z" fill="url(#obs2-logo-bottom-edge)"/> <path d="M312.5 311c53.1 19.9 73.6 63.6 88.9 100-19-38.1-45.2-80.3-90.8-96-34.8-11.8-64.1-10.4-114.3 1l-1.1-5c53.2-12.1 81-13.5 117.3 0z" fill="url(#obs2-logo-middle-edge)"/> </g> </g> </svg>Install for Obsidian</a>
+  <p class="spec">v0.2.0 · Free · Open source · Desktop and mobile · Obsidian 1.8.7+</p>
+  <p class="fine">Not yet listed in the Obsidian community directory. For now, the button opens the latest GitHub Release. <a class="link" href="https://github.com/IvyYang1999/modular-diary#install" target="_blank" rel="noopener">Installation instructions</a>.</p>
+</section>
+
+<section class="more wrap">
+  <div class="head"><h2>More Obsidian plugins from the same maker</h2><a class="link" href="https://yytyyf.com/en/" target="_blank" rel="noopener">All projects →</a></div>
+  <div class="rail">
+    <a class="pc" href="https://obsidian-inline-comments.vercel.app/" target="_blank" rel="noopener">
+      <div class="pc-body"><span class="ico" aria-hidden="true">@</span><h3 class="t">Agent Comments</h3><p class="d">Comment beside a sentence in your note and ask an agent to reply.</p><div class="pc-tags"><span class="st live">Available</span><span class="platform">Obsidian plugin</span></div></div>
+      <div class="pc-foot"><span>Explore Agent Comments</span><span aria-hidden="true">↗</span></div>
+    </a>
+    <a class="pc" href="https://obsidian-web-desk.vercel.app/" target="_blank" rel="noopener">
+      <div class="pc-body"><span class="ico" aria-hidden="true">🗂️</span><h3 class="t">NaviBoard</h3><p class="d">Arrange saved websites on a freeform canvas and use it as your start page.</p><div class="pc-tags"><span class="st live">Available</span><span class="platform">Obsidian plugin</span></div></div>
+      <div class="pc-foot"><span>Explore NaviBoard</span><span aria-hidden="true">↗</span></div>
+    </a>
+    <article class="pc">
+      <div class="pc-body"><span class="ico" aria-hidden="true">📓</span><h3 class="t">AI Diary</h3><p class="d">Turn what your AI helped you do today into a timeline.</p><div class="pc-tags"><span class="st">In development</span><span class="platform">Obsidian plugin</span></div></div>
+    </article>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">
+  <div class="me"><b>yytyyf</b><span>Modular Diary · MIT</span></div>
+  <div class="links">
+    <a href="https://yytyyf.com" target="_blank" rel="noopener">yytyyf.com</a>
+    <a href="https://github.com/IvyYang1999" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://x.com/ivyadams1999" target="_blank" rel="noopener">X</a>
+    <a href="https://www.xiaohongshu.com/user/profile/5a099fb94eacab47629e53bc" target="_blank" rel="noopener">Xiaohongshu</a>
+    <a href="mailto:ivyyang1999@gmail.com">Email</a>
+    <a href="https://github.com/IvyYang1999/modular-diary/issues" target="_blank" rel="noopener">Report an issue</a>
+  </div>
+</div></footer>
+
+<script src="/demo.js"></script>
+</body>
+</html>
