@@ -1,12 +1,18 @@
 /** Pure type->color config helpers (荧光笔色号, D2). Obsidian-free, unit-testable. */
 
+/**
+ * Defaults for a fresh install only; saved palettes are never touched.
+ * 2026-09-17: the pale tier (OKLCH L .86 C .09) of the five hues in the MD
+ * mark, plus a warm neutral for sleep, so the product, its site and its logo
+ * share one colour family. Saturated = identity, pale = ink on the timeline.
+ */
 export const DEFAULT_TYPE_COLORS: Record<string, string> = {
-  math: "#7fd4c1",
-  micro: "#9bd17b",
-  english: "#f6c667",
-  sleep: "#d9d9d9",
-  meal: "#f5a3b7",
-  misc: "#c8b6e2",
+  math: "#afd5fe",
+  micro: "#c3dc9b",
+  english: "#f7c790",
+  sleep: "#dcdad4",
+  meal: "#febfb9",
+  misc: "#dec3ff",
 }
 
 /** Parse "type: #hex" lines (blank lines and // comments ignored). */
