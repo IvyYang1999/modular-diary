@@ -22,9 +22,10 @@
   --bg:#fff; --bg-2:#f7f6f3; --ink:#1c1c1a; --ink-2:#55554f; --muted:#75756f; --line:#e9e9e5; --line-2:#d3d3cd;
   --red:#f47b74; --amber:#f4a437; --green:#a0c849; --blue:#53a3f2; --violet:#ae7ee2;
   --red-d:#c9443f; --amber-d:#a86a00; --green-d:#5f7d00; --blue-d:#1f78c8; --violet-d:#8450c0;
-  /* the product's own default highlighter inks — the demo never uses brand colours for blocks */
-  --k-mint:#7fd4c1; --k-green:#9bd17b; --k-yellow:#f6c667; --k-grey:#d9d9d9; --k-pink:#f5a3b7; --k-lav:#c8b6e2;
-  --obsidian:#7c6cf2;
+  /* One family: blocks use the pale tier of the same five hues (OKLCH L .86 C .09), plus a
+     neutral for sleep. Saturated = identity (modules, mark); pale = ink on the timeline. */
+  --k-mint:#afd5fe; --k-green:#c3dc9b; --k-yellow:#f7c790; --k-grey:#dcdad4; --k-pink:#febfb9; --k-lav:#dec3ff;
+  --obsidian:var(--violet-d);
   --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Noto Sans SC",system-ui,sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono","Cascadia Mono",Consolas,Menlo,monospace;
   --shadow:0 1px 2px rgba(20,20,10,.05),0 10px 30px rgba(20,20,10,.06);
@@ -42,6 +43,7 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .link{color:var(--ink-2);border-bottom:1px solid var(--line-2);transition:color .15s,border-color .15s}
 .link:hover{color:var(--ink);border-color:var(--ink)}
 .btn{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 24px;border-radius:12px;font-weight:600;font-size:16px;background:var(--ink);color:#fff;transition:transform .15s,box-shadow .15s}
+.btn .obs{width:20px;height:20px;flex:none;margin-left:-2px}
 .btn:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(28,28,26,.22)}
 :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 
@@ -95,7 +97,7 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .mod-text p{margin:0;font-size:13.5px;line-height:1.75;color:var(--ink-2)}
 .row{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;border-top:1px solid var(--line)}
 .row:first-of-type{border-top:0;padding-top:0}
-.row .dot{width:8px;height:8px;border-radius:50%;background:var(--k);flex:none}
+.row .dot{width:8px;height:8px;border-radius:50%;background:var(--k);flex:none;filter:saturate(1.6) brightness(.9)}
 .row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .m{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .row .badge{font-size:11.5px;padding:2px 8px;border-radius:10px;background:var(--bg-2);color:var(--muted);white-space:nowrap;transition:background .2s,color .2s}
@@ -103,7 +105,7 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .row.pulse .badge{animation:pulse .7s ease}
 @keyframes pulse{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
 .prog{height:3px;border-radius:2px;background:var(--bg-2);margin:-2px 0 4px 16px;overflow:hidden}
-.prog i{display:block;height:100%;background:var(--k);border-radius:2px;transition:width .3s}
+.prog i{display:block;height:100%;background:var(--k);border-radius:2px;transition:width .3s;filter:saturate(1.6) brightness(.9)}
 .todo{cursor:grab}
 .todo input{margin:0;accent-color:var(--ink)}
 .todo.done .t{text-decoration:line-through;color:var(--muted)}
@@ -113,7 +115,7 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .mod-quote span{display:block;margin-top:3px;font-size:11.5px;color:var(--ink-2)}
 .stats{display:grid;grid-template-columns:auto 1fr auto;gap:5px 8px;align-items:center;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .stats .meter{height:8px;border-radius:4px;background:var(--bg-2);overflow:hidden}
-.stats .meter i{display:block;height:100%;border-radius:4px;background:var(--k)}
+.stats .meter i{display:block;height:100%;border-radius:4px;background:var(--k);filter:saturate(1.5) brightness(.92)}
 .stats .hr{color:var(--muted);text-align:right}
 .qc{display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:4px 4px 4px 10px;background:var(--bg-2)}
 .qc.focus{border-color:var(--line-2);background:#fff}
@@ -132,7 +134,7 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .seg button.on{background:var(--obsidian);color:#fff}
 .seg[data-plan="1"] button.on{background:var(--ink-2)}
 .pen{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px 0 8px;border-radius:8px;background:var(--bg-2);font-size:13px;color:var(--ink-2);border:1.5px solid transparent}
-.pen i{width:10px;height:10px;border-radius:50%;background:var(--k);display:block}
+.pen i{width:10px;height:10px;border-radius:50%;background:var(--k);display:block;filter:saturate(1.6) brightness(.9)}
 .pen.on{border-color:var(--obsidian);color:var(--ink);background:#fff}
 .tl{position:relative;user-select:none;-webkit-user-select:none}
 .tl svg{display:block;touch-action:none;max-width:100%;height:auto;overflow:visible}
@@ -174,12 +176,12 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .card h3 i{width:18px;height:6px;border-radius:3px;background:var(--c)}
 .card p{margin:0 18px;font-size:14.5px;line-height:1.75;color:var(--ink-2)}
 .pic .r{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:7px;padding:5px 8px}
-.pic .r b{width:7px;height:7px;border-radius:50%;background:var(--k);flex:none}
+.pic .r b{width:7px;height:7px;border-radius:50%;background:var(--k);flex:none;filter:saturate(1.6) brightness(.9)}
 .pic .r span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pic .r em{font-style:normal;color:var(--muted);font-size:11px}
 .pic .ok{color:var(--green-d)!important}
 .pic .bars{display:grid;grid-template-columns:auto 1fr auto;gap:5px 7px;align-items:center}
-.pic .bars i{height:7px;border-radius:4px;background:var(--k)}
+.pic .bars i{height:7px;border-radius:4px;background:var(--k);filter:saturate(1.5) brightness(.92)}
 .pic .q{background:color-mix(in srgb,var(--k-mint) 34%,#fff);border-radius:8px;padding:10px 12px;font-weight:500;font-size:12.5px;line-height:1.55}
 .pic .in{background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--ink);display:flex;justify-content:space-between;gap:8px}
 .pic .in u{text-decoration:none;background:var(--ink);color:#fff;border-radius:5px;padding:0 8px;font-size:11px}
@@ -268,7 +270,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
   <h1 class="h1">一页日记，<br><mark style="--m:var(--amber)">拼</mark>成你要的样子</h1>
   <p class="lead">Modular Diary 把每天的笔记变成一块自己摆的面板：时间轴、待办、打卡、每日一句、用时统计，用哪个摆哪个。在时间轴上涂一段，打卡和待办自己跟着动。全部是笔记里的一段 Markdown。</p>
   <div class="cta">
-    <a class="btn" href="#install">安装到 Obsidian</a>
+    <a class="btn" href="#install"><svg class="obs" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.355 18.538a68.967 68.959 0 0 0 1.858-2.954.81.81 0 0 0-.062-.9c-.516-.685-1.504-2.075-2.042-3.362-.553-1.321-.636-3.375-.64-4.377a1.707 1.707 0 0 0-.358-1.05l-3.198-4.064a3.744 3.744 0 0 1-.076.543c-.106.503-.307 1.004-.536 1.5-.134.29-.29.6-.446.914l-.31.626c-.516 1.068-.997 2.227-1.132 3.59-.124 1.26.046 2.73.815 4.481.128.011.257.025.386.044a6.363 6.363 0 0 1 3.326 1.505c.916.79 1.744 1.922 2.415 3.5zM8.199 22.569c.073.012.146.02.22.02.78.024 2.095.092 3.16.29.87.16 2.593.64 4.01 1.055 1.083.316 2.198-.548 2.355-1.664.114-.814.33-1.735.725-2.58l-.01.005c-.67-1.87-1.522-3.078-2.416-3.849a5.295 5.295 0 0 0-2.778-1.257c-1.54-.216-2.952.19-3.84.45.532 2.218.368 4.829-1.425 7.531zM5.533 9.938c-.023.1-.056.197-.098.29L2.82 16.059a1.602 1.602 0 0 0 .313 1.772l4.116 4.24c2.103-3.101 1.796-6.02.836-8.3-.728-1.73-1.832-3.081-2.55-3.831zM9.32 14.01c.615-.183 1.606-.465 2.745-.534-.683-1.725-.848-3.233-.716-4.577.154-1.552.7-2.847 1.235-3.95.113-.235.223-.454.328-.664.149-.297.288-.577.419-.86.217-.47.379-.885.46-1.27.08-.38.08-.72-.014-1.043-.095-.325-.297-.675-.68-1.06a1.6 1.6 0 0 0-1.475.36l-4.95 4.452a1.602 1.602 0 0 0-.513.952l-.427 2.83c.672.59 2.328 2.316 3.335 4.711.09.21.175.43.253.653z"/></svg>安装到 Obsidian</a>
     <a class="link" href="#demo">先在下面摆一摆 ↓</a>
   </div>
 
@@ -395,7 +397,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
   const coarse = matchMedia('(pointer:coarse)').matches
   const NS = 'http://www.w3.org/2000/svg'
-  const TYPES = [['写作', '#7fd4c1'], ['阅读', '#9bd17b'], ['英语', '#f6c667'], ['睡觉', '#d9d9d9'], ['吃饭', '#f5a3b7'], ['运动', '#c8b6e2']]
+  const TYPES = [['写作', '#afd5fe'], ['阅读', '#c3dc9b'], ['英语', '#f7c790'], ['睡觉', '#dcdad4'], ['吃饭', '#febfb9'], ['运动', '#dec3ff']]
   const HEX = Object.fromEntries(TYPES)
   const R0 = 7, R1 = 23, SNAP = 15
   const fmt = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -420,8 +422,8 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
     const defs = el('defs', {}, svg)
     TYPES.forEach(([, hex], i) => {
       const p = el('pattern', { id: `${id}-${i}`, width: 6, height: 6, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, defs)
-      el('rect', { width: 6, height: 6, fill: hex, opacity: .16 }, p)
-      el('line', { x1: 0, y1: 0, x2: 0, y2: 6, stroke: hex, 'stroke-width': 1.6, opacity: .7 }, p)
+      el('rect', { width: 6, height: 6, fill: hex, opacity: .28 }, p)
+      el('line', { x1: 0, y1: 0, x2: 0, y2: 6, stroke: hex, 'stroke-width': 1.8, opacity: 1 }, p)
     })
   }
   const hatch = (id, t) => `url(#${id}-${TYPES.findIndex(([n]) => n === t)})`
