@@ -24,7 +24,7 @@
   --red-d:#c9443f; --amber-d:#a86a00; --green-d:#5f7d00; --blue-d:#1f78c8; --violet-d:#8450c0;
   /* One family: blocks use the pale tier of the same five hues (OKLCH L .86 C .09), plus a
      neutral for sleep. Saturated = identity (modules, mark); pale = ink on the timeline. */
-  --k-mint:#afd5fe; --k-green:#c3dc9b; --k-yellow:#f7c790; --k-grey:#dcdad4; --k-pink:#febfb9; --k-lav:#dec3ff;
+  --k-mint:#53a3f2; --k-green:#a0c849; --k-yellow:#f4a437; --k-grey:#cfccc4; --k-pink:#f47b74; --k-lav:#ae7ee2;
   --obsidian:var(--violet-d);
   --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Noto Sans SC",system-ui,sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono","Cascadia Mono",Consolas,Menlo,monospace;
@@ -98,7 +98,7 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .mod-text p{margin:0;font-size:13.5px;line-height:1.75;color:var(--ink-2)}
 .row{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;border-top:1px solid var(--line)}
 .row:first-of-type{border-top:0;padding-top:0}
-.row .dot{width:8px;height:8px;border-radius:50%;background:var(--k);flex:none;filter:saturate(1.6) brightness(.9)}
+.row .dot{width:8px;height:8px;border-radius:50%;background:var(--k);flex:none}
 .row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .m{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .row .badge{font-size:11.5px;padding:2px 8px;border-radius:10px;background:var(--bg-2);color:var(--muted);white-space:nowrap;transition:background .2s,color .2s}
@@ -106,7 +106,7 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .row.pulse .badge{animation:pulse .7s ease}
 @keyframes pulse{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
 .prog{height:3px;border-radius:2px;background:var(--bg-2);margin:-2px 0 4px 16px;overflow:hidden}
-.prog i{display:block;height:100%;background:var(--k);border-radius:2px;transition:width .3s;filter:saturate(1.6) brightness(.9)}
+.prog i{display:block;height:100%;background:var(--k);border-radius:2px;transition:width .3s}
 .todo{cursor:grab}
 .todo input{margin:0;accent-color:var(--ink)}
 .todo.done .t{text-decoration:line-through;color:var(--muted)}
@@ -116,7 +116,7 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .mod-quote span{display:block;margin-top:3px;font-size:11.5px;color:var(--ink-2)}
 .stats{display:grid;grid-template-columns:auto 1fr auto;gap:5px 8px;align-items:center;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .stats .meter{height:8px;border-radius:4px;background:var(--bg-2);overflow:hidden}
-.stats .meter i{display:block;height:100%;border-radius:4px;background:var(--k);filter:saturate(1.5) brightness(.92)}
+.stats .meter i{display:block;height:100%;border-radius:4px;background:var(--k)}
 .stats .hr{color:var(--muted);text-align:right}
 .qc{display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:4px 4px 4px 10px;background:var(--bg-2)}
 .qc.focus{border-color:var(--line-2);background:#fff}
@@ -135,7 +135,7 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .seg button.on{background:var(--obsidian);color:#fff}
 .seg[data-plan="1"] button.on{background:var(--ink-2)}
 .pen{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px 0 8px;border-radius:8px;background:var(--bg-2);font-size:13px;color:var(--ink-2);border:1.5px solid transparent}
-.pen i{width:10px;height:10px;border-radius:50%;background:var(--k);display:block;filter:saturate(1.6) brightness(.9)}
+.pen i{width:10px;height:10px;border-radius:50%;background:var(--k);display:block}
 .pen.on{border-color:var(--obsidian);color:var(--ink);background:#fff}
 .tl{position:relative;user-select:none;-webkit-user-select:none}
 .tl svg{display:block;touch-action:none;max-width:100%;height:auto;overflow:visible}
@@ -177,12 +177,12 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 .card h3 i{width:18px;height:6px;border-radius:3px;background:var(--c)}
 .card p{margin:0 18px;font-size:14.5px;line-height:1.75;color:var(--ink-2)}
 .pic .r{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:7px;padding:5px 8px}
-.pic .r b{width:7px;height:7px;border-radius:50%;background:var(--k);flex:none;filter:saturate(1.6) brightness(.9)}
+.pic .r b{width:7px;height:7px;border-radius:50%;background:var(--k);flex:none}
 .pic .r span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pic .r em{font-style:normal;color:var(--muted);font-size:11px}
 .pic .ok{color:var(--green-d)!important}
 .pic .bars{display:grid;grid-template-columns:auto 1fr auto;gap:5px 7px;align-items:center}
-.pic .bars i{height:7px;border-radius:4px;background:var(--k);filter:saturate(1.5) brightness(.92)}
+.pic .bars i{height:7px;border-radius:4px;background:var(--k)}
 .pic .q{background:color-mix(in srgb,var(--k-mint) 34%,#fff);border-radius:8px;padding:10px 12px;font-weight:500;font-size:12.5px;line-height:1.55}
 .pic .in{background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--ink);display:flex;justify-content:space-between;gap:8px}
 .pic .in u{text-decoration:none;background:var(--ink);color:#fff;border-radius:5px;padding:0 8px;font-size:11px}
@@ -220,13 +220,17 @@ h2 i{display:inline-block;width:22px;height:8px;border-radius:4px;background:var
 /* ── install ── */
 .install{text-align:center}
 .install .lead{margin:0 auto}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:840px;margin:36px auto 0;text-align:left}
-@media (max-width:700px){.steps{grid-template-columns:1fr}}
-.step{border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;font-size:14.5px;color:var(--ink-2);line-height:1.7}
-.step b{display:block;color:var(--ink);font-weight:600;margin-bottom:4px}
-.step code{white-space:nowrap}
+.closing{text-align:center;padding-top:96px;padding-bottom:104px}
+.closing .bars5{display:flex;justify-content:center;gap:6px;margin-bottom:28px}
+.closing .bars5 i{width:9px;height:34px;border-radius:5px;background:var(--c)}
+.closing .bars5 i:nth-child(2){height:17px}
+.closing h2{font-size:clamp(34px,5.4vw,56px);letter-spacing:-.03em;line-height:1.08;margin:0 0 14px;font-weight:600}
+.closing .lead{margin:0 auto 32px}
+.btn.big{height:58px;padding:0 30px 0 26px;font-size:18px;border-radius:16px}
+.btn.big .obs{width:28px;height:28px}
+.closing .fine{margin:12px auto 0;font-size:13.5px;color:var(--muted);max-width:560px}
 .spec{margin:22px auto 0;font-size:15px;color:var(--muted);max-width:680px}
-.qs{max-width:720px;margin:48px auto 0;border-top:1px solid var(--line);text-align:left}
+.qs{max-width:720px;margin:36px auto 0;border-top:1px solid var(--line);text-align:left}
 details{border-bottom:1px solid var(--line)}
 summary{list-style:none;cursor:pointer;overflow:hidden;padding:18px 0;font-size:17px;font-weight:500;display:flex;justify-content:space-between;align-items:center;gap:16px}
 summary::-webkit-details-marker{display:none}
@@ -346,15 +350,8 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
   </div>
 </section>
 
-<section class="sec install wrap" id="install">
-  <h2><i style="--c:var(--blue)"></i>两分钟装好</h2>
-  <p class="lead">还没上社区目录，先用 BRAT 装。三步，不用手动复制文件。</p>
-  <div class="steps">
-    <div class="step"><b>1 · 装 BRAT</b>Obsidian 设置 → 第三方插件 → 浏览，搜 <code>BRAT</code>，安装并启用。</div>
-    <div class="step"><b>2 · 加仓库</b>BRAT 设置里点「Add Beta plugin」，填 <code>IvyYang1999/modular-diary</code>。</div>
-    <div class="step"><b>3 · 启用</b>回到第三方插件列表启用 Modular Diary。在任何笔记里输入 <code>```timeline</code>，或用命令面板「插入 Modular Diary 时间轴」。</div>
-  </div>
-  <p class="spec">v0.2.0 · 免费 · 开源 · 桌面与手机 · Obsidian 1.8.7 以上 · 编辑与阅读视图都能用 · 快速记录需要你自己的模型 API Key（GLM / DeepSeek / OpenAI / Claude 都行）</p>
+<section class="sec install wrap" id="faq">
+  <h2><i style="--c:var(--blue)"></i>常见问题</h2>
   <div class="qs">
     <details open><summary>数据存在哪里？</summary><p>就在那篇笔记里，一个 <code>timeline</code> 代码块。没有数据库、没有附属文件。随 iCloud / Git / Obsidian Sync 一起走，没装插件的地方打开也能读。打卡规则、句库和荧光笔色表是全局设置，存在插件自己的配置里。</p></details>
     <details><summary>模块能自己摆吗？</summary><p>能。块里每个模块都可以拖动换位、拖边缘改大小、右键隐藏，从「更多」菜单里加回来。布局写在块头的 <code>layout</code> 一行里；摆顺手了可以「设为新块默认」，之后每篇新日记都是这个样子。</p></details>
@@ -363,6 +360,15 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
     <details><summary>颜色和分类怎么定？</summary><p>设置里维护一张「分类 → 颜色」表，这就是你的荧光笔色号。笔记里只写分类名，改颜色不会动历史记录。</p></details>
     <details><summary>已经装过旧版 Oneday，怎么迁移？</summary><p>新版的插件 ID 是 <code>modular-diary</code>，不是旧版的原位更新。先在本机备份旧插件目录和设置；关闭旧插件，安装新版后把旧目录的 <code>data.json</code> 私下复制到新目录，再启用新版。不要同时启用两份：它们都会接管 <code>timeline</code> 代码块。旧的快捷键和自定义 CSS 也需要重新对应。<a class="link" href="https://github.com/IvyYang1999/modular-diary#readme" target="_blank" rel="noopener">完整迁移步骤</a></p></details>
   </div>
+</section>
+
+<section class="closing wrap" id="install">
+  <div class="bars5" aria-hidden="true"><i style="--c:var(--red)"></i><i style="--c:var(--amber)"></i><i style="--c:var(--green)"></i><i style="--c:var(--blue)"></i><i style="--c:var(--violet)"></i></div>
+  <h2>Ready to build your day?</h2>
+  <p class="lead">一页日记，拼成你要的样子。</p>
+  <a class="btn big" href="https://github.com/IvyYang1999/modular-diary/releases/latest" target="_blank" rel="noopener"><svg class="obs" fill="none" viewBox="0 0 512 512" aria-hidden="true"> <radialGradient id="obs2-logo-bottom-left" cx="0" cy="0" gradientTransform="matrix(-59 -225 150 -39 161.4 470)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".4"/> <stop offset="1" stop-opacity=".1"/> </radialGradient> <radialGradient id="obs2-logo-top-right" cx="0" cy="0" gradientTransform="matrix(50 -379 280 37 360 374.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".6"/> <stop offset="1" stop-color="#fff" stop-opacity=".1"/> </radialGradient> <radialGradient id="obs2-logo-top-left" cx="0" cy="0" gradientTransform="matrix(69 -319 218 47 175.4 307)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".8"/> <stop offset="1" stop-color="#fff" stop-opacity=".4"/> </radialGradient> <radialGradient id="obs2-logo-bottom-right" cx="0" cy="0" gradientTransform="matrix(-96 -163 187 -111 335.3 512.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".3"/> <stop offset="1" stop-opacity=".3"/> </radialGradient> <radialGradient id="obs2-logo-top-edge" cx="0" cy="0" gradientTransform="matrix(-36 166 -112 -24 310 128.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity="0"/> <stop offset="1" stop-color="#fff" stop-opacity=".2"/> </radialGradient> <radialGradient id="obs2-logo-left-edge" cx="0" cy="0" gradientTransform="matrix(88 89 -190 187 111 220.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".2"/> <stop offset="1" stop-color="#fff" stop-opacity=".4"/> </radialGradient> <radialGradient id="obs2-logo-bottom-edge" cx="0" cy="0" gradientTransform="matrix(9 130 -276 20 215 284)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".2"/> <stop offset="1" stop-color="#fff" stop-opacity=".3"/> </radialGradient> <radialGradient id="obs2-logo-middle-edge" cx="0" cy="0" gradientTransform="matrix(-198 -104 327 -623 400 399.2)" gradientUnits="userSpaceOnUse" r="1"> <stop offset="0" stop-color="#fff" stop-opacity=".2"/> <stop offset=".5" stop-color="#fff" stop-opacity=".2"/> <stop offset="1" stop-color="#fff" stop-opacity=".3"/> </radialGradient> <clipPath id="obs2-clip"> <path d="M.2.2h512v512H.2z"/> </clipPath> <g clip-path="url(#obs2-clip)"> <path d="M382.3 475.6c-3.1 23.4-26 41.6-48.7 35.3-32.4-8.9-69.9-22.8-103.6-25.4l-51.7-4a34 34 0 0 1-22-10.2l-89-91.7a34 34 0 0 1-6.7-37.7s55-121 57.1-127.3c2-6.3 9.6-61.2 14-90.6 1.2-7.9 5-15 11-20.3L248 8.9a34.1 34.1 0 0 1 49.6 4.3L386 125.6a37 37 0 0 1 7.6 22.4c0 21.3 1.8 65 13.6 93.2 11.5 27.3 32.5 57 43.5 71.5a17.3 17.3 0 0 1 1.3 19.2 1494 1494 0 0 1-44.8 70.6c-15 22.3-21.9 49.9-25 73.1z" fill="#6c31e3"/> <path d="M165.9 478.3c41.4-84 40.2-144.2 22.6-187-16.2-39.6-46.3-64.5-70-80-.6 2.3-1.3 4.4-2.2 6.5L60.6 342a34 34 0 0 0 6.6 37.7l89.1 91.7a34 34 0 0 0 9.6 7z" fill="url(#obs2-logo-bottom-left)"/> <path d="M278.4 307.8c11.2 1.2 22.2 3.6 32.8 7.6 34 12.7 65 41.2 90.5 96.3 1.8-3.1 3.6-6.2 5.6-9.2a1536 1536 0 0 0 44.8-70.6 17 17 0 0 0-1.3-19.2c-11-14.6-32-44.2-43.5-71.5-11.8-28.2-13.5-72-13.6-93.2 0-8.1-2.6-16-7.6-22.4L297.6 13.2a34 34 0 0 0-1.5-1.7 96 96 0 0 1 2 54 198.3 198.3 0 0 1-17.6 41.3l-7.2 14.2a171 171 0 0 0-19.4 71c-1.2 29.4 4.8 66.4 24.5 115.8z" fill="url(#obs2-logo-top-right)"/> <path d="M278.4 307.8c-19.7-49.4-25.8-86.4-24.5-115.9a171 171 0 0 1 19.4-71c2.3-4.8 4.8-9.5 7.2-14.1 7.1-13.9 14-27 17.6-41.4a96 96 0 0 0-2-54A34.1 34.1 0 0 0 248 9l-105.4 94.8a34.1 34.1 0 0 0-10.9 20.3l-12.8 85-.5 2.3c23.8 15.5 54 40.4 70.1 80a147 147 0 0 1 7.8 24.8c28-6.8 55.7-11 82.1-8.3z" fill="url(#obs2-logo-top-left)"/> <path d="M333.6 511c22.7 6.2 45.6-12 48.7-35.4a187 187 0 0 1 19.4-63.9c-25.6-55-56.5-83.6-90.4-96.3-36-13.4-75.2-9-115 .7 8.9 40.4 3.6 93.3-30.4 162.2 4 1.8 8.1 3 12.5 3.3 0 0 24.4 2 53.6 4.1 29 2 72.4 17.1 101.6 25.2z" fill="url(#obs2-logo-bottom-right)"/> <g clip-rule="evenodd" fill-rule="evenodd"> <path d="M254.1 190c-1.3 29.2 2.4 62.8 22.1 112.1l-6.2-.5c-17.7-51.5-21.5-78-20.2-107.6a174.7 174.7 0 0 1 20.4-72c2.4-4.9 8-14.1 10.5-18.8 7.1-13.7 11.9-21 16-33.6 5.7-17.5 4.5-25.9 3.8-34.1 4.6 29.9-12.7 56-25.7 82.4a177.1 177.1 0 0 0-20.7 72z" fill="url(#obs2-logo-top-edge)"/> <path d="M194.3 293.4c2.4 5.4 4.6 9.8 6 16.5L195 311c-2.1-7.8-3.8-13.4-6.8-20-17.8-42-46.3-63.6-69.7-79.5 28.2 15.2 57.2 39 75.7 81.9z" fill="url(#obs2-logo-left-edge)"/> <path d="M200.6 315.1c9.8 46-1.2 104.2-33.6 160.9 27.1-56.2 40.2-110.1 29.3-160z" fill="url(#obs2-logo-bottom-edge)"/> <path d="M312.5 311c53.1 19.9 73.6 63.6 88.9 100-19-38.1-45.2-80.3-90.8-96-34.8-11.8-64.1-10.4-114.3 1l-1.1-5c53.2-12.1 81-13.5 117.3 0z" fill="url(#obs2-logo-middle-edge)"/> </g> </g> </svg>安装到 Obsidian</a>
+  <p class="spec">v0.2.0 · 免费 · 开源 · 桌面与手机 · Obsidian 1.8.7 以上</p>
+  <p class="fine">还没上架 Obsidian 社区插件目录，按钮先带你去 GitHub Release；上架后会直接在 Obsidian 里打开。<a class="link" href="https://github.com/IvyYang1999/modular-diary#install" target="_blank" rel="noopener">安装说明</a>。</p>
 </section>
 
 <section class="more wrap">
@@ -401,7 +407,11 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
   const coarse = matchMedia('(pointer:coarse)').matches
   const NS = 'http://www.w3.org/2000/svg'
-  const TYPES = [['写作', '#afd5fe'], ['阅读', '#c3dc9b'], ['英语', '#f7c790'], ['睡觉', '#dcdad4'], ['吃饭', '#febfb9'], ['运动', '#dec3ff']]
+  const TYPES = [['写作', '#53a3f2'], ['阅读', '#a0c849'], ['英语', '#f4a437'], ['睡觉', '#cfccc4'], ['吃饭', '#f47b74'], ['运动', '#ae7ee2']]
+  // Same rule as the plugin's blockTextColor: vivid fills (HSL s >= .45, WCAG luminance < .52) take white copy.
+  const copyOn = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255), mx = Math.max(...c), mn = Math.min(...c), l = (mx + mn) / 2
+    const sat = mx === mn ? 0 : (mx - mn) / (l > .5 ? 2 - mx - mn : mx + mn), f = (v) => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4
+    return sat >= .45 && .2126 * f(c[0]) + .7152 * f(c[1]) + .0722 * f(c[2]) < .52 ? '#fff' : 'rgba(28,28,26,.76)' }
   const HEX = Object.fromEntries(TYPES)
   const R0 = 7, R1 = 23, SNAP = 15
   const fmt = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -569,10 +579,10 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
       const g = el('g', { class: 'ent-g' + (x.i === sel ? ' sel' : ''), 'data-i': x.i }, svg)
       el('rect', { x: cx, y: y0, width: cw, height: hh, rx: 3, fill: HEX[x.t], class: 'ent' }, g)
       const thin = hh < 30
-      el('text', { x: cx + cw / 2, y: y0 + hh / 2 + (thin || !x.note ? 4 : -2), 'text-anchor': 'middle', class: 'dur' }, g).textContent = hrs(x.e - x.s)
+      el('text', { x: cx + cw / 2, y: y0 + hh / 2 + (thin || !x.note ? 4 : -2), 'text-anchor': 'middle', class: 'dur', style: `fill:${copyOn(HEX[x.t])}` }, g).textContent = hrs(x.e - x.s)
       if (x.note) {
         if (thin || cw < 90) el('text', { x: LW + TW + 4, y: y0 + hh / 2 + 4, class: 'side' }, g).textContent = x.note.length > 6 ? x.note.slice(0, 6) + '…' : x.note
-        else el('text', { x: cx + cw / 2, y: y0 + hh / 2 + 13, 'text-anchor': 'middle', class: 'nt' }, g).textContent = x.note.length > 10 ? x.note.slice(0, 10) + '…' : x.note
+        else el('text', { x: cx + cw / 2, y: y0 + hh / 2 + 13, 'text-anchor': 'middle', class: 'nt', style: `fill:${copyOn(HEX[x.t])}` }, g).textContent = x.note.length > 10 ? x.note.slice(0, 10) + '…' : x.note
       }
     }
     if (ghost) {
@@ -749,7 +759,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
     const clip = (x) => ({ ...x, s: Math.max(x.s, r0 * 60), e: Math.min(x.e, r1 * 60) })
     const vis = list.map(clip).filter((x) => x.e > x.s)
     for (const x of vis) if (x.plan) el('rect', { x: lw, y: y(x.s), width: tw, height: y(x.e) - y(x.s), rx: 2, fill: hatch(id, x.t) }, svg)
-    for (const x of vis) if (!x.plan) { el('rect', { x: lw, y: y(x.s) + .5, width: tw, height: y(x.e) - y(x.s) - 1, rx: 2.5, fill: HEX[x.t] }, svg); if ((x.e - x.s) * hh / 60 >= 16) el('text', { x: lw + tw / 2, y: (y(x.s) + y(x.e)) / 2 + 3, 'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 600, fill: 'rgba(28,28,26,.62)' }, svg).textContent = hrs(x.e - x.s) }
+    for (const x of vis) if (!x.plan) { el('rect', { x: lw, y: y(x.s) + .5, width: tw, height: y(x.e) - y(x.s) - 1, rx: 2.5, fill: HEX[x.t] }, svg); if ((x.e - x.s) * hh / 60 >= 16) el('text', { x: lw + tw / 2, y: (y(x.s) + y(x.e)) / 2 + 3, 'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 600, fill: copyOn(HEX[x.t]) }, svg).textContent = hrs(x.e - x.s) }
     return svg
   }
   const E = (s, e, t, p) => ({ s, e, t, plan: p })
