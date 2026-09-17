@@ -1,3 +1,5 @@
+<p align="center"><img src="site/brand/icon-256.png" width="112" alt="Modular Diary logo"></p>
+
 # Modular Diary
 
 A modular daily journal for Obsidian, built around a visual timeline. Time blocks, text, habits, todos, and daily quotes live in a Markdown `timeline` code block.
