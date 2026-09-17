@@ -1,7 +1,7 @@
 {
-  "id": "oneday",
-  "name": "Oneday",
-  "version": "0.1.0",
+  "id": "modular-diary",
+  "name": "Modular Diary",
+  "version": "0.2.0",
   "minAppVersion": "1.8.7",
   "description": "Daily timeline with flexible time categories. Markdown is the single source of truth.",
   "author": "yyt",

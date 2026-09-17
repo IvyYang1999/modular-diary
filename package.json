@@ -1,7 +1,7 @@
 {
-  "name": "oneday",
-  "version": "0.1.0",
-  "description": "Obsidian plugin: daily timeline with flexible time categories, markdown as the single source of truth.",
+  "name": "modular-diary",
+  "version": "0.2.0",
+  "description": "Modular Diary for Obsidian: a daily timeline and flexible modules, with Markdown as the single source of truth.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -19,8 +19,9 @@
     "e2e:quotes": "node e2e/daily-quote-smoke.mjs",
     "e2e:settings": "node e2e/settings-smoke.mjs",
     "e2e:source": "node e2e/source-mode-smoke.mjs",
-    "verify:contracts": "npm run e2e:smoke && npm run e2e:agent && npm run e2e:api && npm run e2e:draw && npm run e2e:grid && npm run e2e:mount && npm run e2e:components && npm run e2e:quotes && npm run e2e:settings && npm run e2e:source",
-    "verify": "npm run typecheck && npm test && npm run verify:contracts && npm run bundle"
+    "verify:contracts": "npm run e2e:smoke && npm run e2e:agent && npm run e2e:api && npm run e2e:draw && npm run e2e:grid && npm run e2e:mount && npm run e2e:components && npm run e2e:quotes && npm run e2e:settings && npm run e2e:source && npm run e2e:recovery",
+    "verify": "npm run typecheck && npm test && npm run verify:contracts && npm run bundle",
+    "e2e:recovery": "node e2e/save-recovery-smoke.mjs"
   },
   "keywords": [
     "obsidian",
