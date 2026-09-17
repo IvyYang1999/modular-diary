@@ -19,24 +19,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 console.log("baseline CPU:", await readCpu())
 await sleep(3000); console.log("  +3s:", await readCpu())
 
-// 1) 隐藏所有 oneday 宿主
+// 1) 隐藏所有 modular-diary 宿主
 await page.evaluate(() => {
-  document.querySelectorAll(".oneday-host").forEach((h) => (h.style.display = "none"))
+  document.querySelectorAll(".modular-diary-host").forEach((h) => (h.style.display = "none"))
 })
-await sleep(3000); console.log("oneday hidden +3s:", await readCpu())
+await sleep(3000); console.log("modular-diary hidden +3s:", await readCpu())
 await sleep(3000); console.log("  +6s:", await readCpu())
 
 // 2) 恢复，隐藏 plan 斜纹（pattern 填充矩形）
 await page.evaluate(() => {
-  document.querySelectorAll(".oneday-host").forEach((h) => (h.style.display = ""))
-  document.querySelectorAll(".oneday-plan-hatch").forEach((r) => (r.style.display = "none"))
+  document.querySelectorAll(".modular-diary-host").forEach((h) => (h.style.display = ""))
+  document.querySelectorAll(".modular-diary-plan-hatch").forEach((r) => (r.style.display = "none"))
 })
 await sleep(3000); console.log("hatch hidden +3s:", await readCpu())
 await sleep(3000); console.log("  +6s:", await readCpu())
 
 // 3) 恢复斜纹，看 CPU 回升吗
 await page.evaluate(() => {
-  document.querySelectorAll(".oneday-plan-hatch").forEach((r) => (r.style.display = ""))
+  document.querySelectorAll(".modular-diary-plan-hatch").forEach((r) => (r.style.display = ""))
 })
 await sleep(4000); console.log("hatch restored +4s:", await readCpu())
 await sleep(4000); console.log("              +8s:", await readCpu())

@@ -25,15 +25,15 @@ describe("undo routing", () => {
     expect(shouldLeaveUndoToFocusedEditor(null)).toBe(false)
   })
 
-  it("routes an Oneday widget nested inside CodeMirror back to Markdown undo", () => {
-    const target = nestedTarget([".cm-content", ".oneday-container"])
+  it("routes an Modular Diary widget nested inside CodeMirror back to Markdown undo", () => {
+    const target = nestedTarget([".cm-content", ".modular-diary-container"])
 
     expect(shouldLeaveUndoToFocusedEditor(target)).toBe(false)
     expect(isEditingSurfaceTarget(target)).toBe(false)
   })
 
-  it("keeps native controls inside an Oneday widget on their own undo stack", () => {
-    const target = nestedTarget(["input", ".cm-content", ".oneday-container"])
+  it("keeps native controls inside an Modular Diary widget on their own undo stack", () => {
+    const target = nestedTarget(["input", ".cm-content", ".modular-diary-container"])
 
     expect(shouldLeaveUndoToFocusedEditor(target)).toBe(true)
     expect(isEditingSurfaceTarget(target)).toBe(true)
@@ -45,11 +45,11 @@ describe("undo routing", () => {
     expect(nativeControlOwnsTimelineDelete(nestedTarget(["textarea", ".cm-content"]))).toBe(true)
   })
 
-  it("immediately undoes a timeline write when focus remains on rendered Oneday chrome", () => {
+  it("immediately undoes a timeline write when focus remains on rendered Modular Diary chrome", () => {
     const calls: string[] = []
     const event = {
       key: "z", metaKey: true, ctrlKey: false, shiftKey: false,
-      target: nestedTarget([".cm-content", ".oneday-container"]),
+      target: nestedTarget([".cm-content", ".modular-diary-container"]),
       preventDefault: () => calls.push("prevent"),
       stopPropagation: () => calls.push("stop"),
     }

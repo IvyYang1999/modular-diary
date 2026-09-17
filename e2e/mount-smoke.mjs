@@ -11,7 +11,7 @@ import fs from "node:fs"
 import os from "node:os"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const out = path.join(os.tmpdir(), "oneday-mount-smoke")
+const out = path.join(os.tmpdir(), "modular-diary-mount-smoke")
 fs.rmSync(out, { recursive: true, force: true })
 fs.mkdirSync(out, { recursive: true })
 
@@ -54,17 +54,17 @@ window.createDiv = function (opts = {}) { return document.body.createDiv(opts) }
 window.__stabilizeInternalScroll = stabilizeInternalScroll
 
 // Mirrors dialog.ts: the quick input and the needs-key hint live in a
-// .oneday-dialog inside the block, which is the scope their CSS relies on.
+// .modular-diary-dialog inside the block, which is the scope their CSS relies on.
 const dialogFixture = document.createElement("div")
-dialogFixture.className = "oneday-container"
+dialogFixture.className = "modular-diary-container"
 dialogFixture.id = "dialog-style-fixture"
 const dialogBox = document.createElement("div")
-dialogBox.className = "oneday-dialog"
+dialogBox.className = "modular-diary-dialog"
 const quickInput = document.createElement("textarea")
-quickInput.className = "oneday-dialog-input"
+quickInput.className = "modular-diary-dialog-input"
 quickInput.setAttribute("aria-label", "快速记录测试")
 const needsKey = document.createElement("div")
-needsKey.className = "oneday-dialog-needskey"
+needsKey.className = "modular-diary-dialog-needskey"
 const needsKeyCopy = document.createElement("span")
 needsKeyCopy.textContent = "快速记录需要先配置模型 API。"
 const needsKeyButton = document.createElement("button")
@@ -77,7 +77,7 @@ document.body.appendChild(dialogFixture)
 
 const retryPane = document.createElement("div")
 retryPane.id = "failed-save-retry-pane"
-retryPane.className = "oneday-text-pane"
+retryPane.className = "modular-diary-text-pane"
 document.body.appendChild(retryPane)
 window.__retryTextSaves = []
 let rejectFirstTextSave = true
@@ -99,7 +99,7 @@ const remountSave = new Promise((resolve) => { finishRemountSave = resolve })
 const mountRemountPane = () => {
   const pane = document.createElement("div")
   pane.id = "save-before-remount-pane"
-  pane.className = "oneday-text-pane"
+  pane.className = "modular-diary-text-pane"
   document.body.appendChild(pane)
   attachInlineTextEditor(pane, "重绘前", {
     renderMarkdown: (host, text) => { host.textContent = text },
@@ -131,17 +131,17 @@ try {
     renderMarkdown: (host, text) => { host.textContent = text },
     onSave: (index, text) => window.__textSaves.push({ index, text }),
   })
-  attachGridInteract(el.querySelector(".oneday-body"), () => {})
-  attachWidthHandle(el.querySelector(".oneday-container"), doc.width ?? 200, () => {})
+  attachGridInteract(el.querySelector(".modular-diary-body"), () => {})
+  attachWidthHandle(el.querySelector(".modular-diary-container"), doc.width ?? 200, () => {})
   window.__blockSizes = []
   window.__blockResizeEvents = []
-  attachBlockResize(el.querySelector(".oneday-container"), el.querySelector(".oneday-body"), {
+  attachBlockResize(el.querySelector(".modular-diary-container"), el.querySelector(".modular-diary-body"), {
     initialSize: doc.blockSize,
     initialCanvasWidth: doc.canvasWidth,
     onStart: () => {
       const interaction = {
         id: "captured-before-preview",
-        internal: captureInternalScroll(el.querySelector(".oneday-container")),
+        internal: captureInternalScroll(el.querySelector(".modular-diary-container")),
       }
       window.__blockResizeEvents.push("start")
       return interaction
@@ -153,14 +153,14 @@ try {
     },
     onCancel: (interaction) => {
       window.__blockResizeEvents.push("cancel:" + interaction.id)
-      restoreInternalScroll(interaction.internal, el.querySelector(".oneday-container"))
+      restoreInternalScroll(interaction.internal, el.querySelector(".modular-diary-container"))
     },
   })
   requestAnimationFrame(() => { el.style.display = "" })
   window.__timeSaved = []
   window.__openTimePopover = () => {
-    const container = el.querySelector(".oneday-container")
-    const anchor = container.querySelector("rect.oneday-block")
+    const container = el.querySelector(".modular-diary-container")
+    const anchor = container.querySelector("rect.modular-diary-block")
     openTimePopover(container, anchor, anchor.getBoundingClientRect(), {
       start: "09:15",
       end: "12:15",
@@ -168,17 +168,17 @@ try {
   }
   const dateTopbar = document.createElement("div")
   dateTopbar.id = "editable-date-fixture"
-  dateTopbar.className = "oneday-timeline-topbar"
+  dateTopbar.className = "modular-diary-timeline-topbar"
   dateTopbar.style.width = "320px"
   window.__dateSaved = []
   dateTopbar.appendChild(buildTimelineDateControl(
-    el.querySelector(".oneday-container"),
+    el.querySelector(".modular-diary-container"),
     "2026-08-18",
     "周二",
     (date) => window.__dateSaved.push(date),
   ))
   const dateNeighbor = document.createElement("div")
-  dateNeighbor.className = "oneday-date-neighbor-fixture"
+  dateNeighbor.className = "modular-diary-date-neighbor-fixture"
   dateNeighbor.textContent = "记录 / 计划"
   dateTopbar.appendChild(dateNeighbor)
   document.body.prepend(dateTopbar)
@@ -199,8 +199,8 @@ const cancelContainer = renderTimelineInto(cancelHost, doc, {
   renderMarkdown: (host, text) => { host.textContent = text },
   onSave: () => {},
 })
-const cancelBody = cancelContainer.querySelector(".oneday-body")
-const cancelTimeline = cancelContainer.querySelector(".oneday-svg-holder")
+const cancelBody = cancelContainer.querySelector(".modular-diary-body")
+const cancelTimeline = cancelContainer.querySelector(".modular-diary-svg-holder")
 const cancelOverflow = document.createElement("div")
 cancelOverflow.style.cssText = "width:1400px;height:1400px;pointer-events:none"
 cancelTimeline.appendChild(cancelOverflow)
@@ -229,7 +229,7 @@ window.__mountEmptyState = () => {
     typeColors: { math: "#7fd4c1" },
     showTimelineOnboarding: true,
   })
-  attachGridInteract(emptyContainer.querySelector(".oneday-body"), () => {})
+  attachGridInteract(emptyContainer.querySelector(".modular-diary-body"), () => {})
   const persistentHost = document.createElement("div")
   persistentHost.id = "persistent-empty-host"
   persistentHost.style.width = "700px"
@@ -258,17 +258,17 @@ window.__mountEmptyState = () => {
     onBrushModeChange: () => {}, onSelect: () => {}, onHide: () => {}, onShow: () => {},
     onAddNew: () => {},
   })
-  const noPaletteToolbarSlot = noPaletteContainer.querySelector(".oneday-slot-toolbar")
+  const noPaletteToolbarSlot = noPaletteContainer.querySelector(".modular-diary-slot-toolbar")
   noPaletteToolbarSlot.classList.remove("is-empty-state")
   noPaletteToolbarSlot.appendChild(emptyToolbar.el)
   // Production runs fitSlotHeights after the toolbar is mounted. Mirror that
   // lifecycle here: the creation controls stay visible above the empty
   // category CTA, so the legacy three-row shell must grow before hit testing.
-  const noPaletteBody = noPaletteContainer.querySelector(".oneday-body")
+  const noPaletteBody = noPaletteContainer.querySelector(".modular-diary-body")
   const need = Math.ceil(noPaletteToolbarSlot.scrollHeight / GRID_ROW_H)
   if (need > Number(noPaletteToolbarSlot.dataset.h)) {
     noPaletteToolbarSlot.dataset.h = String(need)
-    const items = compactGrid([...noPaletteBody.querySelectorAll(".oneday-slot")].map((slot) => ({
+    const items = compactGrid([...noPaletteBody.querySelectorAll(".modular-diary-slot")].map((slot) => ({
       id: slot.dataset.slot,
       x: Number(slot.dataset.x), y: Number(slot.dataset.y),
       w: Number(slot.dataset.w), h: Number(slot.dataset.h),
@@ -311,53 +311,53 @@ window.__mountDefaultTimelineFixture = async (hostWidth) => {
     typeColors: { math: "#7fd4c1", meal: "#f5a3b7" }, hiddenTypes: [], activeType: "math", brushMode: "actual",
     onBrushModeChange: () => {}, onSelect: () => {}, onHide: () => {}, onShow: () => {}, onAddNew: () => {},
   })
-  container.querySelector(".oneday-slot-toolbar").appendChild(toolbar.el)
-  const timelineSlot = container.querySelector(".oneday-slot-timeline")
+  container.querySelector(".modular-diary-slot-toolbar").appendChild(toolbar.el)
+  const timelineSlot = container.querySelector(".modular-diary-slot-timeline")
   timelineSlot.appendChild(toolbar.statusEl)
   const topbar = document.createElement("div")
-  topbar.className = "oneday-timeline-topbar"
+  topbar.className = "modular-diary-timeline-topbar"
   topbar.appendChild(buildTimelineDateControl(container, "2026-08-18", "周二", () => {}))
   topbar.appendChild(buildLayerToggles({ actual: true, plan: true }, () => {}))
   timelineSlot.prepend(topbar)
   attachRowCompaction(topbar, TIMELINE_TOPBAR_COMPACTION)
-  attachGridInteract(container.querySelector(".oneday-body"), () => {})
+  attachGridInteract(container.querySelector(".modular-diary-body"), () => {})
   // Stats labels move outside short bars one frame after mount.
   await new Promise(requestAnimationFrame)
   await new Promise(requestAnimationFrame)
   const topbarRect = topbar.getBoundingClientRect()
-  const layerGroup = topbar.querySelector(".oneday-view-toggle")
-  const layerButtons = [...topbar.querySelectorAll(".oneday-layer-btn")]
-  const dateControl = topbar.querySelector(".oneday-timeline-date-control")
+  const layerGroup = topbar.querySelector(".modular-diary-view-toggle")
+  const layerButtons = [...topbar.querySelectorAll(".modular-diary-layer-btn")]
+  const dateControl = topbar.querySelector(".modular-diary-timeline-date-control")
   const topbarState = {
     height: topbarRect.height,
     singleLine: layerButtons.every((button) => Math.abs((button.getBoundingClientRect().top + button.getBoundingClientRect().height / 2) - (dateControl.getBoundingClientRect().top + dateControl.getBoundingClientRect().height / 2)) <= 0.5),
     layerClipped: layerGroup.getBoundingClientRect().right > timelineSlot.getBoundingClientRect().right - parseFloat(getComputedStyle(timelineSlot).paddingRight) + 0.5,
     compaction: topbar.dataset.compaction,
-    labelsVisible: layerButtons.map((button) => [...button.querySelectorAll("span:not(.oneday-eye)")].some((span) => span.getBoundingClientRect().width > 0)),
-    eyesVisible: layerButtons.map((button) => button.querySelector(".oneday-eye svg")?.getBoundingClientRect().width > 0),
+    labelsVisible: layerButtons.map((button) => [...button.querySelectorAll("span:not(.modular-diary-eye)")].some((span) => span.getBoundingClientRect().width > 0)),
+    eyesVisible: layerButtons.map((button) => button.querySelector(".modular-diary-eye svg")?.getBoundingClientRect().width > 0),
     ariaLabels: layerButtons.map((button) => button.getAttribute("aria-label")),
     dateHeight: dateControl.getBoundingClientRect().height,
     layerButtonHeight: layerButtons[0].getBoundingClientRect().height,
   }
-  const statsSlot = container.querySelector(".oneday-slot-stats")
+  const statsSlot = container.querySelector(".modular-diary-slot-stats")
   const statsRect = statsSlot.getBoundingClientRect()
-  const statLabels = [...statsSlot.querySelectorAll(".oneday-stat-hours")].map((label) => {
+  const statLabels = [...statsSlot.querySelectorAll(".modular-diary-stat-hours")].map((label) => {
     const rect = label.getBoundingClientRect()
     // getBoundingClientRect ignores clipping: an overflow-hidden track is the
     // real visible box for a label that lives inside it.
-    const wrap = label.closest(".oneday-stat-bar-wrap")
+    const wrap = label.closest(".modular-diary-stat-bar-wrap")
     const clip = getComputedStyle(wrap).overflow === "visible" ? statsRect : wrap.getBoundingClientRect()
-    return { text: label.textContent, out: label.classList.contains("oneday-stat-hours-out"), width: rect.width, visible: rect.width > 0 && rect.left >= clip.left - 0.5 && rect.right <= clip.right + 0.5 }
+    return { text: label.textContent, out: label.classList.contains("modular-diary-stat-hours-out"), width: rect.width, visible: rect.width > 0 && rect.left >= clip.left - 0.5 && rect.right <= clip.right + 0.5 }
   })
-  const holder = timelineSlot.querySelector(".oneday-svg-holder")
-  const hours = [...timelineSlot.querySelectorAll("text.oneday-hour")]
+  const holder = timelineSlot.querySelector(".modular-diary-svg-holder")
+  const hours = [...timelineSlot.querySelectorAll("text.modular-diary-hour")]
   const lastHour = hours[hours.length - 1]
   const holderRect = holder.getBoundingClientRect()
-  const svg = timelineSlot.querySelector("svg.oneday-svg")
+  const svg = timelineSlot.querySelector("svg.modular-diary-svg")
   const chrome = timelineSlot.getBoundingClientRect().height - holderRect.height
   const timelineRect = timelineSlot.getBoundingClientRect()
   const components = Object.fromEntries(["habits", "todos", "quote"].map((id) => {
-    const rect = container.querySelector(".oneday-slot-" + id).getBoundingClientRect()
+    const rect = container.querySelector(".modular-diary-slot-" + id).getBoundingClientRect()
     return [id, { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }]
   }))
   return {
@@ -365,7 +365,7 @@ window.__mountDefaultTimelineFixture = async (hostWidth) => {
     statLabels,
     statsScrollsHorizontally: statsSlot.scrollWidth > statsSlot.clientWidth,
     timelineRect: { top: timelineRect.top, bottom: timelineRect.bottom, left: timelineRect.left, right: timelineRect.right },
-    bodyBottom: container.querySelector(".oneday-body").getBoundingClientRect().bottom,
+    bodyBottom: container.querySelector(".modular-diary-body").getBoundingClientRect().bottom,
     hostWidth: host.getBoundingClientRect().width,
     components,
     slotRows: Number(timelineSlot.dataset.h),
@@ -403,22 +403,22 @@ window.__mountNarrowLaneFixture = async () => {
     onSave: () => {},
   })
   attachWidthHandle(container, 200, () => {})
-  const holder = container.querySelector(".oneday-svg-holder")
+  const holder = container.querySelector(".modular-diary-svg-holder")
   const measure = () => {
-    const svg = holder.querySelector("svg.oneday-svg")
+    const svg = holder.querySelector("svg.modular-diary-svg")
     const holderRect = holder.getBoundingClientRect()
-    const labels = [...holder.querySelectorAll("text.oneday-marker-label, text.oneday-side, text.oneday-thin")]
-    const track = holder.querySelector("rect.oneday-track")
-    const widthHandle = holder.querySelector(".oneday-width-handle")
+    const labels = [...holder.querySelectorAll("text.modular-diary-marker-label, text.modular-diary-side, text.modular-diary-thin")]
+    const track = holder.querySelector("rect.modular-diary-track")
+    const widthHandle = holder.querySelector(".modular-diary-width-handle")
     return {
       holderClientWidth: holder.clientWidth,
       holderScrollWidth: holder.scrollWidth,
       svgWidth: Number(svg.getAttribute("width")),
       viewBoxWidth: Number(svg.getAttribute("viewBox").split(" ")[2]),
       lane: Number(svg.getAttribute("data-side-lane")),
-      laneGroupWidth: Number(holder.querySelector("g.oneday-side-lane").getAttribute("data-lane-width")),
+      laneGroupWidth: Number(holder.querySelector("g.modular-diary-side-lane").getAttribute("data-lane-width")),
       trackWidth: Number(track.getAttribute("width")),
-      markerCount: holder.querySelectorAll("g.oneday-marker").length,
+      markerCount: holder.querySelectorAll("g.modular-diary-marker").length,
       labelCount: labels.length,
       labelsClipped: labels.filter((label) => label.getBoundingClientRect().right > holderRect.right + 0.5).length,
       widthHandleDelta: widthHandle ? Math.abs(widthHandle.getBoundingClientRect().left + widthHandle.getBoundingClientRect().width / 2 - track.getBoundingClientRect().right) : null,
@@ -444,7 +444,7 @@ window.__mountToolbarAlignmentFixtures = () => {
   document.querySelector("#toolbar-alignment-fixtures")?.remove()
   const fixture = document.createElement("div")
   fixture.id = "toolbar-alignment-fixtures"
-  fixture.className = "oneday-container"
+  fixture.className = "modular-diary-container"
   fixture.style.cssText = "display:flex;gap:12px;width:1200px"
   const spanColors = { develop: "#55b8d8", media: "#ef777a", sport: "#ffb534" }
   const mount = (id, drawTool, markerTypeColors) => {
@@ -452,7 +452,7 @@ window.__mountToolbarAlignmentFixtures = () => {
     host.style.cssText = "position:relative;width:380px;height:240px"
     const slot = document.createElement("div")
     slot.id = id
-    slot.className = "oneday-slot oneday-slot-toolbar"
+    slot.className = "modular-diary-slot modular-diary-slot-toolbar"
     slot.style.cssText = "inset:0"
     const handle = buildToolbar({
       typeColors: spanColors,
@@ -481,7 +481,7 @@ window.__verifyViewportAnchor = () => {
   const before = document.createElement("div")
   before.style.height = "300px"
   const host = document.createElement("div")
-  host.className = "oneday-host"
+  host.className = "modular-diary-host"
   host.style.height = "260px"
   const after = document.createElement("div")
   after.style.height = "300px"
@@ -518,10 +518,10 @@ const page = await browser.newPage()
 page.on("pageerror", (e) => console.error("[pageerror]", e.message))
 page.on("console", (m) => { if (m.type() === "error") console.error("[console]", m.text()) })
 await page.goto("file://" + path.join(out, "index.html"))
-// ONEDAY_SMOKE_CLASSIC_SCROLLBARS=1 reproduces Linux CI on macOS: styling
+// MODULAR_DIARY_SMOKE_CLASSIC_SCROLLBARS=1 reproduces Linux CI on macOS: styling
 // ::-webkit-scrollbar switches Chromium from overlay to classic scrollbars,
 // which occupy a 15px gutter inside every overflow:auto box.
-if (process.env.ONEDAY_SMOKE_CLASSIC_SCROLLBARS) await page.addStyleTag({ content: "::-webkit-scrollbar{width:15px;height:15px}::-webkit-scrollbar-thumb{background:#bbb}" })
+if (process.env.MODULAR_DIARY_SMOKE_CLASSIC_SCROLLBARS) await page.addStyleTag({ content: "::-webkit-scrollbar{width:15px;height:15px}::-webkit-scrollbar-thumb{background:#bbb}" })
 await page.evaluate(() => {
   document.documentElement.style.setProperty("--background-modifier-hover", "rgb(224, 224, 224)")
   document.documentElement.style.setProperty("--background-modifier-border", "rgb(120, 120, 120)")
@@ -544,14 +544,14 @@ const viewportAnchor = await page.evaluate(() => window.__verifyViewportAnchor()
 await page.evaluate(() => {
   const fixture = document.createElement("section")
   fixture.id = "vertical-rhythm-fixture"
-  fixture.className = "oneday-container"
+  fixture.className = "modular-diary-container"
   fixture.style.cssText = "width:680px;padding:12px;gap:10px"
 
   const addGrip = (slot) => {
     const anchor = document.createElement("div")
-    anchor.className = "oneday-slot-grip-anchor"
+    anchor.className = "modular-diary-slot-grip-anchor"
     const grip = document.createElement("button")
-    grip.className = "oneday-slot-grip"
+    grip.className = "modular-diary-slot-grip"
     grip.style.opacity = "1"
     for (let i = 0; i < 6; i += 1) grip.appendChild(document.createElement("span"))
     anchor.appendChild(grip)
@@ -559,7 +559,7 @@ await page.evaluate(() => {
   }
   const addSlot = (id, height) => {
     const slot = document.createElement("div")
-    slot.className = `oneday-slot oneday-slot-${id}`
+    slot.className = `modular-diary-slot modular-diary-slot-${id}`
     slot.dataset.fixtureSlot = id
     slot.style.cssText = `position:relative;width:100%;height:${height}px`
     addGrip(slot)
@@ -569,9 +569,9 @@ await page.evaluate(() => {
 
   const dialogSlot = addSlot("dialog", 100)
   const dialog = document.createElement("div")
-  dialog.className = "oneday-dialog"
+  dialog.className = "modular-diary-dialog"
   const input = document.createElement("textarea")
-  input.className = "oneday-dialog-input"
+  input.className = "modular-diary-dialog-input"
   input.rows = 1
   input.placeholder = "快速记录：刚健身半小时…"
   dialog.appendChild(input)
@@ -579,25 +579,25 @@ await page.evaluate(() => {
 
   const toolbarSlot = addSlot("toolbar", 190)
   const toolbar = document.createElement("div")
-  toolbar.className = "oneday-toolbar"
+  toolbar.className = "modular-diary-toolbar"
   const toolbarLabel = document.createElement("span")
-  toolbarLabel.className = "oneday-toggle-label"
+  toolbarLabel.className = "modular-diary-toggle-label"
   toolbarLabel.textContent = "新增为"
   toolbar.appendChild(toolbarLabel)
   const mode = document.createElement("span")
-  mode.className = "oneday-mode oneday-brush-toggle"
+  mode.className = "modular-diary-mode modular-diary-brush-toggle"
   for (const [label, active] of [["记录", true], ["计划", false]]) {
     const button = document.createElement("button")
-    button.className = `oneday-mode-btn oneday-brush-btn${active ? " is-active" : ""}`
+    button.className = `modular-diary-mode-btn modular-diary-brush-btn${active ? " is-active" : ""}`
     button.textContent = label
     mode.appendChild(button)
   }
   toolbar.appendChild(mode)
   for (const [index, label] of ["开发", "自媒体", "运动", "睡觉", "阅读", "生活", "wasted", "看剧", "画画", "写作", "游泳", "信息摄取", "战略思考", "环境搭建", "洗澡", "聊天", "发布产品", "复盘反思", "装修", "按摩", "出门"].entries()) {
     const button = document.createElement("button")
-    button.className = `oneday-swatch${index === 0 ? " is-active" : ""}`
+    button.className = `modular-diary-swatch${index === 0 ? " is-active" : ""}`
     const dot = document.createElement("span")
-    dot.className = "oneday-swatch-dot"
+    dot.className = "modular-diary-swatch-dot"
     dot.style.setProperty("--c", `hsl(${index * 31} 65% 55%)`)
     button.append(dot, label)
     toolbar.appendChild(button)
@@ -606,17 +606,17 @@ await page.evaluate(() => {
 
   const statsSlot = addSlot("stats", 220)
   const stats = document.createElement("div")
-  stats.className = "oneday-stats"
+  stats.className = "modular-diary-stats"
   for (const [index, label] of ["出门", "开发", "装修", "睡觉", "生活", "wasted", "运动"].entries()) {
     const row = document.createElement("div")
-    row.className = "oneday-stat-row"
+    row.className = "modular-diary-stat-row"
     const type = document.createElement("span")
-    type.className = "oneday-stat-type"
+    type.className = "modular-diary-stat-type"
     type.textContent = label
     const track = document.createElement("div")
-    track.className = "oneday-stat-bar-wrap"
+    track.className = "modular-diary-stat-bar-wrap"
     const bar = document.createElement("div")
-    bar.className = "oneday-stat-bar"
+    bar.className = "modular-diary-stat-bar"
     bar.style.width = `${95 - index * 11}%`
     bar.style.background = `hsl(${index * 49} 58% 60%)`
     track.appendChild(bar)
@@ -660,11 +660,11 @@ const verticalRhythm = await page.evaluate(() => {
   const overflowStyle = getComputedStyle(overflowSlot)
   const overflowInnerTop = overflowSlot.getBoundingClientRect().top
     + parseFloat(overflowStyle.borderTopWidth) + parseFloat(overflowStyle.paddingTop)
-  const overflowFirstTop = Math.min(...visibleRects(overflowSlot, ".oneday-toolbar > *").map((rect) => rect.top))
+  const overflowFirstTop = Math.min(...visibleRects(overflowSlot, ".modular-diary-toolbar > *").map((rect) => rect.top))
   return {
-    dialog: measure("#vertical-rhythm-fixture .oneday-slot-dialog", ".oneday-dialog-input"),
-    toolbar: measure("#vertical-rhythm-fixture .oneday-slot-toolbar:not(#vertical-overflow-slot)", ".oneday-toolbar > *"),
-    stats: measure("#vertical-rhythm-fixture .oneday-slot-stats", ".oneday-stat-row"),
+    dialog: measure("#vertical-rhythm-fixture .modular-diary-slot-dialog", ".modular-diary-dialog-input"),
+    toolbar: measure("#vertical-rhythm-fixture .modular-diary-slot-toolbar:not(#vertical-overflow-slot)", ".modular-diary-toolbar > *"),
+    stats: measure("#vertical-rhythm-fixture .modular-diary-slot-stats", ".modular-diary-stat-row"),
     overflow: {
       startsAtTop: Math.abs(overflowFirstTop - overflowInnerTop) <= 1,
       scrolls: overflowSlot.scrollHeight > overflowSlot.clientHeight,
@@ -687,6 +687,9 @@ const textSaveRetry = await page.evaluate(async () => {
     attempts: window.__retryTextSaves.length,
   }
   window.dispatchEvent(new Event("blur"))
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  if (window.__retryTextSaves.length !== 1) throw new Error("failed draft retried automatically")
+  pane.querySelector(".modular-diary-save-retry").click()
   await new Promise((resolve) => setTimeout(resolve, 0))
   const result = { afterFailure, attempts: [...window.__retryTextSaves] }
   pane.remove()
@@ -723,7 +726,7 @@ const nestedEditButtonDisplay = await page.evaluate(() => {
   block.className = "cm-embed-block"
   const content = document.createElement("div")
   const host = document.createElement("div")
-  host.className = "oneday-host"
+  host.className = "modular-diary-host"
   content.appendChild(host)
   const controls = document.createElement("div")
   const button = document.createElement("div")
@@ -747,16 +750,16 @@ const state = await page.evaluate(() => ({
   timelineLabelStates: (() => {
     const ns = "http://www.w3.org/2000/svg"
     const svg = document.createElementNS(ns, "svg")
-    svg.classList.add("oneday-svg")
+    svg.classList.add("modular-diary-svg")
     const actualBlock = document.createElementNS(ns, "rect")
-    actualBlock.classList.add("oneday-block")
+    actualBlock.classList.add("modular-diary-block")
     const planBlock = document.createElementNS(ns, "rect")
-    planBlock.classList.add("oneday-block")
+    planBlock.classList.add("modular-diary-block")
     const actualLabel = document.createElementNS(ns, "text")
-    actualLabel.classList.add("oneday-duration")
+    actualLabel.classList.add("modular-diary-duration")
     actualLabel.style.fill = "rgb(32, 32, 32)"
     const planLabel = document.createElementNS(ns, "text")
-    planLabel.classList.add("oneday-duration", "oneday-plan-label")
+    planLabel.classList.add("modular-diary-duration", "modular-diary-plan-label")
     svg.append(actualBlock, planBlock, actualLabel, planLabel)
     document.body.appendChild(svg)
     const read = () => ({
@@ -779,15 +782,15 @@ const state = await page.evaluate(() => ({
     svg.remove()
     return { rest, hover, focus }
   })(),
-  nativeTitleCount: document.querySelectorAll(".oneday-container [title]").length,
-  gripAriaLabel: document.querySelector(".oneday-slot-grip")?.getAttribute("aria-label"),
+  nativeTitleCount: document.querySelectorAll(".modular-diary-container [title]").length,
+  gripAriaLabel: document.querySelector(".modular-diary-slot-grip")?.getAttribute("aria-label"),
   gripStyle: (() => {
-    const style = getComputedStyle(document.querySelector(".oneday-slot-grip"))
+    const style = getComputedStyle(document.querySelector(".modular-diary-slot-grip"))
     return { appearance: style.appearance, background: style.backgroundColor, shadow: style.boxShadow }
   })(),
   gripAlignment: (() => {
     const read = (slot) => {
-      const grip = slot?.querySelector(":scope > .oneday-slot-grip-anchor > .oneday-slot-grip")
+      const grip = slot?.querySelector(":scope > .modular-diary-slot-grip-anchor > .modular-diary-slot-grip")
       if (!slot || !grip) return null
       const slotRect = slot.getBoundingClientRect()
       const gripRect = grip.getBoundingClientRect()
@@ -797,37 +800,37 @@ const state = await page.evaluate(() => ({
       }
     }
     return {
-      dialog: read(document.querySelector("#host .oneday-slot-dialog")),
-      timeline: read(document.querySelector("#host .oneday-slot-timeline")),
+      dialog: read(document.querySelector("#host .modular-diary-slot-dialog")),
+      timeline: read(document.querySelector("#host .modular-diary-slot-timeline")),
     }
   })(),
   toolbarNeutrals: (() => {
     const toolbar = document.createElement("div")
-    toolbar.className = "oneday-toolbar"
+    toolbar.className = "modular-diary-toolbar"
     const toolToggle = document.createElement("span")
-    toolToggle.className = "oneday-mode oneday-tool-toggle"
+    toolToggle.className = "modular-diary-mode modular-diary-tool-toggle"
     const inactive = document.createElement("button")
-    inactive.className = "oneday-mode-btn"
+    inactive.className = "modular-diary-mode-btn"
     const planToggle = document.createElement("button")
-    planToggle.className = "oneday-plan-mode-toggle oneday-brush-toggle is-plan"
+    planToggle.className = "modular-diary-plan-mode-toggle modular-diary-brush-toggle is-plan"
     const planTrack = document.createElement("span")
-    planTrack.className = "oneday-plan-mode-track"
+    planTrack.className = "modular-diary-plan-mode-track"
     const planThumb = document.createElement("span")
-    planThumb.className = "oneday-plan-mode-thumb"
+    planThumb.className = "modular-diary-plan-mode-thumb"
     planTrack.appendChild(planThumb)
     planToggle.appendChild(planTrack)
     const swatch = document.createElement("button")
-    swatch.className = "oneday-swatch"
+    swatch.className = "modular-diary-swatch"
     const activeSwatch = document.createElement("button")
-    activeSwatch.className = "oneday-swatch is-active"
+    activeSwatch.className = "modular-diary-swatch is-active"
     const viewGroup = document.createElement("span")
-    viewGroup.className = "oneday-view-toggle oneday-mode"
+    viewGroup.className = "modular-diary-view-toggle modular-diary-mode"
     const viewButton = document.createElement("button")
-    viewButton.className = "oneday-mode-btn"
+    viewButton.className = "modular-diary-mode-btn"
     viewGroup.appendChild(viewButton)
     toolToggle.appendChild(inactive)
     toolbar.append(toolToggle, planToggle, swatch, activeSwatch, viewGroup)
-    document.querySelector(".oneday-container").appendChild(toolbar)
+    document.querySelector(".modular-diary-container").appendChild(toolbar)
     const result = {
       inactive: getComputedStyle(inactive).backgroundColor,
       swatch: getComputedStyle(swatch).backgroundColor,
@@ -846,9 +849,9 @@ const state = await page.evaluate(() => ({
     return result
   })(),
   designSystem: (() => {
-    const container = document.querySelector(".oneday-container")
-    const slot = container.querySelector(".oneday-slot")
-    const grip = container.querySelector(".oneday-slot-grip")
+    const container = document.querySelector(".modular-diary-container")
+    const slot = container.querySelector(".modular-diary-slot")
+    const grip = container.querySelector(".modular-diary-slot-grip")
     if (!slot || !grip) {
       return { missing: true }
     }
@@ -856,19 +859,19 @@ const state = await page.evaluate(() => ({
     fixture.style.position = "fixed"
     fixture.style.left = "-10000px"
     const action = document.createElement("button")
-    action.className = "oneday-more-actions"
+    action.className = "modular-diary-more-actions"
     const toolbar = document.createElement("div")
-    toolbar.className = "oneday-toolbar"
+    toolbar.className = "modular-diary-toolbar"
     const swatch = document.createElement("button")
-    swatch.className = "oneday-swatch"
+    swatch.className = "modular-diary-swatch"
     toolbar.appendChild(swatch)
     const viewGroup = document.createElement("span")
-    viewGroup.className = "oneday-view-toggle oneday-mode"
+    viewGroup.className = "modular-diary-view-toggle modular-diary-mode"
     const viewButton = document.createElement("button")
-    viewButton.className = "oneday-mode-btn"
+    viewButton.className = "modular-diary-mode-btn"
     viewGroup.appendChild(viewButton)
     const statTrack = document.createElement("div")
-    statTrack.className = "oneday-stat-bar-wrap"
+    statTrack.className = "modular-diary-stat-bar-wrap"
     fixture.append(action, toolbar, viewGroup, statTrack)
     container.appendChild(fixture)
     const style = (el) => getComputedStyle(el)
@@ -897,21 +900,21 @@ const state = await page.evaluate(() => ({
     return result
   })(),
   contentInsets: (() => {
-    const container = document.querySelector(".oneday-container")
+    const container = document.querySelector(".modular-diary-container")
     const fixture = document.createElement("div")
     fixture.style.cssText = "position:fixed;left:-10000px;top:0"
     container.appendChild(fixture)
     const specs = [
-      ["dialog", "oneday-dialog"],
-      ["toolbar", "oneday-toolbar"],
-      ["stats", "oneday-stats"],
-      ["text", "oneday-text-pane"],
+      ["dialog", "modular-diary-dialog"],
+      ["toolbar", "modular-diary-toolbar"],
+      ["stats", "modular-diary-stats"],
+      ["text", "modular-diary-text-pane"],
     ]
     const offsets = {}
     let toolbarGripGap = null
     for (const [id, childClass] of specs) {
       const slot = document.createElement("div")
-      slot.className = `oneday-slot oneday-slot-${id}`
+      slot.className = `modular-diary-slot modular-diary-slot-${id}`
       slot.dataset.slot = id
       slot.style.cssText = "position:relative;width:320px;height:48px"
       const child = document.createElement("div")
@@ -920,9 +923,9 @@ const state = await page.evaluate(() => ({
       let grip = null
       if (id === "toolbar") {
         const anchor = document.createElement("div")
-        anchor.className = "oneday-slot-grip-anchor"
+        anchor.className = "modular-diary-slot-grip-anchor"
         grip = document.createElement("button")
-        grip.className = "oneday-slot-grip"
+        grip.className = "modular-diary-slot-grip"
         grip.style.opacity = "1"
         anchor.appendChild(grip)
         slot.prepend(anchor)
@@ -936,23 +939,23 @@ const state = await page.evaluate(() => ({
     fixture.remove()
     return { offsets, toolbarGripGap }
   })(),
-  eHandles: [...document.querySelectorAll(".oneday-handle-e")].map((h) => {
+  eHandles: [...document.querySelectorAll(".modular-diary-handle-e")].map((h) => {
         const cs = getComputedStyle(h)
         const r = h.getBoundingClientRect()
         return { w: Math.round(r.width), h: Math.round(r.height), x: Math.round(r.x), opacity: cs.opacity, display: cs.display, parent: h.parentElement?.className?.slice(0,30) }
       }),
-      slots: [...document.querySelectorAll("#host .oneday-slot")].map((s) => ({
+      slots: [...document.querySelectorAll("#host .modular-diary-slot")].map((s) => ({
     id: s.dataset.slot, html: s.innerHTML.length, display: getComputedStyle(s).display,
     w: s.getBoundingClientRect().width, h: s.getBoundingClientRect().height,
   })),
-  bodyH: document.querySelector(".oneday-body")?.style.height,
+  bodyH: document.querySelector(".modular-diary-body")?.style.height,
   outerInsets: (() => {
-    const containerEl = document.querySelector(".oneday-container")
-    const scrollEl = containerEl.querySelector(".oneday-block-scroll")
+    const containerEl = document.querySelector(".modular-diary-container")
+    const scrollEl = containerEl.querySelector(".modular-diary-block-scroll")
     const container = containerEl.getBoundingClientRect()
-    const body = document.querySelector(".oneday-body").getBoundingClientRect()
+    const body = document.querySelector(".modular-diary-body").getBoundingClientRect()
     // Classic (non-overlay) scrollbars — Linux CI, or macOS with "always show
-    // scroll bars" — reserve a gutter inside .oneday-block-scroll. That gutter
+    // scroll bars" — reserve a gutter inside .modular-diary-block-scroll. That gutter
     // is browser chrome, not block padding, so it is excluded from the inset.
     const scrollRect = scrollEl ? scrollEl.getBoundingClientRect() : null
     const gutterX = scrollRect ? scrollRect.width - scrollEl.clientWidth : 0
@@ -968,8 +971,8 @@ const state = await page.evaluate(() => ({
     }
   })(),
   widthHandle: (() => {
-    const handle = document.querySelector(".oneday-width-handle")
-    const track = document.querySelector("rect.oneday-track")
+    const handle = document.querySelector(".modular-diary-width-handle")
+    const track = document.querySelector("rect.modular-diary-track")
     const hr = handle.getBoundingClientRect()
     const tr = track.getBoundingClientRect()
     const cs = getComputedStyle(handle)
@@ -986,27 +989,27 @@ const state = await page.evaluate(() => ({
 await page.evaluate(() => {
   const fixture = document.createElement("div")
   fixture.id = "control-visual-fixture"
-  fixture.className = "oneday-container"
+  fixture.className = "modular-diary-container"
   fixture.style.width = "max-content"
   fixture.style.padding = "12px"
   const toolbar = document.createElement("div")
-  toolbar.className = "oneday-toolbar"
+  toolbar.className = "modular-diary-toolbar"
   const label = document.createElement("span")
-  label.className = "oneday-toggle-label"
+  label.className = "modular-diary-toggle-label"
   label.textContent = "新增为"
   const mode = document.createElement("span")
-  mode.className = "oneday-mode oneday-brush-toggle"
+  mode.className = "modular-diary-mode modular-diary-brush-toggle"
   for (const [text, active] of [["记录", true], ["计划", false]]) {
     const button = document.createElement("button")
-    button.className = `oneday-mode-btn${active ? " is-active" : ""}`
+    button.className = `modular-diary-mode-btn${active ? " is-active" : ""}`
     button.textContent = text
     mode.appendChild(button)
   }
   const addSwatch = (text, active, color) => {
     const button = document.createElement("button")
-    button.className = `oneday-swatch${active ? " is-active" : ""}`
+    button.className = `modular-diary-swatch${active ? " is-active" : ""}`
     const dot = document.createElement("span")
-    dot.className = "oneday-swatch-dot"
+    dot.className = "modular-diary-swatch-dot"
     dot.style.setProperty("--c", color)
     button.append(dot, text)
     toolbar.appendChild(button)
@@ -1014,7 +1017,7 @@ await page.evaluate(() => {
   toolbar.append(label, mode)
   addSwatch("开发", true, "#55b8d8")
   addSwatch("自媒体", false, "#f47f82")
-  for (const cls of ["oneday-open-settings", "oneday-more-actions"]) {
+  for (const cls of ["modular-diary-open-settings", "modular-diary-more-actions"]) {
     const action = document.createElement("button")
     action.className = cls
     action.style.position = "static"
@@ -1031,20 +1034,20 @@ await page.locator("#host").screenshot({ path: path.join(out, "main-light.png") 
 await page.evaluate(() => {
   const container = document.createElement("div")
   container.id = "block-action-hit-fixture"
-  container.className = "oneday-container"
+  container.className = "modular-diary-container"
   container.style.cssText = "position:fixed;right:12px;bottom:12px;width:100px;height:72px;z-index:9999"
   const slot = document.createElement("div")
-  slot.className = "oneday-slot"
+  slot.className = "modular-diary-slot"
   slot.style.cssText = "left:0;top:0;width:100%;height:100%;z-index:20"
   const resize = document.createElement("div")
-  resize.className = "oneday-handle oneday-handle-e"
+  resize.className = "modular-diary-handle modular-diary-handle-e"
   resize.style.cssText = "opacity:1;width:100%;height:100%;top:0;right:0"
   slot.appendChild(resize)
   const settings = document.createElement("button")
-  settings.className = "oneday-open-settings"
-  settings.setAttribute("aria-label", "打开 Oneday 设置")
+  settings.className = "modular-diary-open-settings"
+  settings.setAttribute("aria-label", "打开 Modular Diary 设置")
   const more = document.createElement("button")
-  more.className = "oneday-more-actions"
+  more.className = "modular-diary-more-actions"
   more.setAttribute("aria-label", "更多操作")
   window.__blockActionClicks = []
   settings.addEventListener("click", () => window.__blockActionClicks.push("settings"))
@@ -1064,27 +1067,27 @@ const blockActionHit = await page.evaluate(() => {
     }
   }
   return {
-    settings: hit("#block-action-hit-fixture .oneday-open-settings"),
-    more: hit("#block-action-hit-fixture .oneday-more-actions"),
+    settings: hit("#block-action-hit-fixture .modular-diary-open-settings"),
+    more: hit("#block-action-hit-fixture .modular-diary-more-actions"),
   }
 })
-await page.locator("#block-action-hit-fixture .oneday-open-settings").click()
-await page.locator("#block-action-hit-fixture .oneday-more-actions").click()
+await page.locator("#block-action-hit-fixture .modular-diary-open-settings").click()
+await page.locator("#block-action-hit-fixture .modular-diary-more-actions").click()
 const blockActionClicks = await page.evaluate(() => [...window.__blockActionClicks])
 await page.evaluate(() => document.getElementById("block-action-hit-fixture")?.remove())
 
 // Native wheel chaining must progress through all three scroll owners:
-// timeline content -> Oneday block viewport -> Markdown/page viewport.
+// timeline content -> Modular Diary block viewport -> Markdown/page viewport.
 await page.evaluate(() => {
   document.body.style.minHeight = "2400px"
   const container = document.createElement("div")
   container.id = "nested-scroll-fixture"
-  container.className = "oneday-container"
+  container.className = "modular-diary-container"
   container.style.cssText = "position:fixed;left:12px;top:12px;width:260px;height:180px;z-index:9999"
   const block = document.createElement("div")
-  block.className = "oneday-block-scroll"
+  block.className = "modular-diary-block-scroll"
   const inner = document.createElement("div")
-  inner.className = "oneday-svg-holder"
+  inner.className = "modular-diary-svg-holder"
   inner.style.cssText = "width:220px;height:90px;flex:none"
   const innerContent = document.createElement("div")
   innerContent.style.height = "320px"
@@ -1096,19 +1099,19 @@ await page.evaluate(() => {
   document.body.appendChild(container)
   window.scrollTo(0, 0)
 })
-const nestedScrollBox = await page.locator("#nested-scroll-fixture .oneday-svg-holder").boundingBox()
+const nestedScrollBox = await page.locator("#nested-scroll-fixture .modular-diary-svg-holder").boundingBox()
 if (!nestedScrollBox) { console.error("NESTED SCROLL FIXTURE HAS NO BOX"); process.exit(1) }
 await page.mouse.move(nestedScrollBox.x + nestedScrollBox.width / 2, nestedScrollBox.y + nestedScrollBox.height / 2)
 await page.mouse.wheel(0, 80)
 await page.waitForTimeout(50)
 const innerScrollOwned = await page.evaluate(() => ({
-  inner: document.querySelector("#nested-scroll-fixture .oneday-svg-holder").scrollTop,
-  block: document.querySelector("#nested-scroll-fixture .oneday-block-scroll").scrollTop,
+  inner: document.querySelector("#nested-scroll-fixture .modular-diary-svg-holder").scrollTop,
+  block: document.querySelector("#nested-scroll-fixture .modular-diary-block-scroll").scrollTop,
   page: window.scrollY,
 }))
 await page.evaluate(() => {
-  const inner = document.querySelector("#nested-scroll-fixture .oneday-svg-holder")
-  const block = document.querySelector("#nested-scroll-fixture .oneday-block-scroll")
+  const inner = document.querySelector("#nested-scroll-fixture .modular-diary-svg-holder")
+  const block = document.querySelector("#nested-scroll-fixture .modular-diary-block-scroll")
   inner.scrollTop = inner.scrollHeight
   block.scrollTop = 0
   window.scrollTo(0, 0)
@@ -1116,13 +1119,13 @@ await page.evaluate(() => {
 await page.mouse.wheel(0, 80)
 await page.waitForTimeout(50)
 const blockScrollOwned = await page.evaluate(() => ({
-  inner: document.querySelector("#nested-scroll-fixture .oneday-svg-holder").scrollTop,
-  block: document.querySelector("#nested-scroll-fixture .oneday-block-scroll").scrollTop,
+  inner: document.querySelector("#nested-scroll-fixture .modular-diary-svg-holder").scrollTop,
+  block: document.querySelector("#nested-scroll-fixture .modular-diary-block-scroll").scrollTop,
   page: window.scrollY,
 }))
 await page.evaluate(() => {
-  const inner = document.querySelector("#nested-scroll-fixture .oneday-svg-holder")
-  const block = document.querySelector("#nested-scroll-fixture .oneday-block-scroll")
+  const inner = document.querySelector("#nested-scroll-fixture .modular-diary-svg-holder")
+  const block = document.querySelector("#nested-scroll-fixture .modular-diary-block-scroll")
   inner.scrollTop = inner.scrollHeight
   block.scrollTop = block.scrollHeight
   window.scrollTo(0, 0)
@@ -1130,8 +1133,8 @@ await page.evaluate(() => {
 await page.mouse.wheel(0, 80)
 await page.waitForTimeout(50)
 const pageScrollOwned = await page.evaluate(() => ({
-  inner: document.querySelector("#nested-scroll-fixture .oneday-svg-holder").scrollTop,
-  block: document.querySelector("#nested-scroll-fixture .oneday-block-scroll").scrollTop,
+  inner: document.querySelector("#nested-scroll-fixture .modular-diary-svg-holder").scrollTop,
+  block: document.querySelector("#nested-scroll-fixture .modular-diary-block-scroll").scrollTop,
   page: window.scrollY,
 }))
 await page.evaluate(() => {
@@ -1146,11 +1149,11 @@ if (nestedEditButtonDisplay !== "none") {
 }
 
 const blockResizeCancel = await page.evaluate(async () => {
-  const container = document.querySelector("#block-resize-cancel-fixture .oneday-container")
-  const block = container.querySelector(".oneday-block-scroll")
-  const timeline = container.querySelector(".oneday-svg-holder")
-  const text = container.querySelector(".oneday-text-pane")
-  const handle = container.querySelector(".oneday-block-resize-se")
+  const container = document.querySelector("#block-resize-cancel-fixture .modular-diary-container")
+  const block = container.querySelector(".modular-diary-block-scroll")
+  const timeline = container.querySelector(".modular-diary-svg-holder")
+  const text = container.querySelector(".modular-diary-text-pane")
+  const handle = container.querySelector(".modular-diary-block-resize-se")
   block.scrollTop = block.scrollHeight
   block.scrollLeft = block.scrollWidth
   timeline.scrollTop = timeline.scrollHeight
@@ -1194,9 +1197,9 @@ const blockResizeCancel = await page.evaluate(async () => {
 // restore it once the new SVG becomes measurable.
 const remountedTimelineScroll = await page.evaluate(async () => {
   const container = document.createElement("div")
-  container.className = "oneday-container"
+  container.className = "modular-diary-container"
   const holder = document.createElement("div")
-  holder.className = "oneday-svg-holder"
+  holder.className = "modular-diary-svg-holder"
   holder.style.cssText = "height:50px;overflow:auto"
   container.appendChild(holder)
   document.body.appendChild(container)
@@ -1220,18 +1223,18 @@ if (Math.abs(remountedTimelineScroll.top - 120) > 1) {
   process.exit(1)
 }
 
-// The outer Oneday viewport resizes independently from the internal grid.
+// The outer Modular Diary viewport resizes independently from the internal grid.
 // Shrinking from the south-east corner must preserve every slot's geometry
 // and move overflow into the dedicated inner scroller.
-const blockResizeHandle = page.locator("#host .oneday-block-resize-se")
+const blockResizeHandle = page.locator("#host .modular-diary-block-resize-se")
 await blockResizeHandle.scrollIntoViewIfNeeded()
 const blockResizeHandleBox = await blockResizeHandle.boundingBox()
 if (!blockResizeHandleBox) { console.error("BLOCK RESIZE HANDLE HAS NO BOX"); process.exit(1) }
 const blockGeometryBefore = await page.evaluate(() => {
-  const container = document.querySelector(".oneday-container")
+  const container = document.querySelector(".modular-diary-container")
   const embed = container.closest(".cm-embed-block")
-  const body = document.querySelector(".oneday-body")
-  const timeline = document.querySelector(".oneday-slot-timeline")
+  const body = document.querySelector(".modular-diary-body")
+  const timeline = document.querySelector(".modular-diary-slot-timeline")
   const cr = container.getBoundingClientRect()
   const br = body.getBoundingClientRect()
   const tr = timeline.getBoundingClientRect()
@@ -1254,12 +1257,12 @@ await page.mouse.move(blockResizeHandleBox.x + blockResizeHandleBox.width / 2 - 
 await page.mouse.up()
 const blockResize = await page.evaluate(async () => {
   await new Promise(requestAnimationFrame)
-  const container = document.querySelector(".oneday-container")
+  const container = document.querySelector(".modular-diary-container")
   const embed = container.closest(".cm-embed-block")
-  const scroller = document.querySelector(".oneday-block-scroll")
-  const body = document.querySelector(".oneday-body")
-  const timeline = document.querySelector(".oneday-slot-timeline")
-  const handle = document.querySelector(".oneday-block-resize-se")
+  const scroller = document.querySelector(".modular-diary-block-scroll")
+  const body = document.querySelector(".modular-diary-body")
+  const timeline = document.querySelector(".modular-diary-slot-timeline")
+  const handle = document.querySelector(".modular-diary-block-resize-se")
   const cr = container.getBoundingClientRect()
   const br = body.getBoundingClientRect()
   const tr = timeline.getBoundingClientRect()
@@ -1291,9 +1294,9 @@ const blockResize = await page.evaluate(async () => {
 // block inset. The component edge is a real 1px border inside the slot bounds,
 // so the scroller cannot clip the right edge as it did with CSS outline.
 const scrolledEdgeChrome = await page.evaluate(async () => {
-  const container = document.querySelector(".oneday-container")
-  const scroller = document.querySelector(".oneday-block-scroll")
-  const slots = [...document.querySelectorAll(".oneday-slot")]
+  const container = document.querySelector(".modular-diary-container")
+  const scroller = document.querySelector(".modular-diary-block-scroll")
+  const slots = [...document.querySelectorAll(".modular-diary-slot")]
   const leftmost = slots.reduce((best, slot) => Number(slot.dataset.x) < Number(best.dataset.x) ? slot : best)
   const rightmost = slots.reduce((best, slot) => {
     const edge = Number(slot.dataset.x) + Number(slot.dataset.w)
@@ -1316,18 +1319,18 @@ const scrolledEdgeChrome = await page.evaluate(async () => {
   }
   return result
 })
-const rightmostSlot = page.locator(`.oneday-slot[data-slot="${scrolledEdgeChrome.rightmostId}"]`)
+const rightmostSlot = page.locator(`.modular-diary-slot[data-slot="${scrolledEdgeChrome.rightmostId}"]`)
 await rightmostSlot.hover()
 const rightEdgeBorder = await rightmostSlot.evaluate((slot) => {
   const style = getComputedStyle(slot)
   return { color: style.borderRightColor, style: style.borderRightStyle, width: parseFloat(style.borderRightWidth) }
 })
 await page.evaluate(async () => {
-  document.querySelector(".oneday-block-scroll").scrollLeft = 0
+  document.querySelector(".modular-diary-block-scroll").scrollLeft = 0
   await new Promise(requestAnimationFrame)
 })
 
-const widthHandle = page.locator(".oneday-width-handle")
+const widthHandle = page.locator(".modular-diary-width-handle")
 await widthHandle.hover()
 const widthHandleHover = await widthHandle.evaluate((handle) => {
   const cs = getComputedStyle(handle)
@@ -1339,9 +1342,9 @@ await page.mouse.move(widthHandleBox.x + widthHandleBox.width / 2, widthHandleBo
 await page.mouse.down()
 await page.mouse.move(widthHandleBox.x + widthHandleBox.width / 2 + 30, widthHandleBox.y + widthHandleBox.height / 2)
 const widthDrag = await page.evaluate(() => {
-  const handle = document.querySelector(".oneday-width-handle")
-  const preview = document.querySelector(".oneday-width-preview")
-  const track = document.querySelector("rect.oneday-track")
+  const handle = document.querySelector(".modular-diary-width-handle")
+  const preview = document.querySelector(".modular-diary-width-preview")
+  const track = document.querySelector("rect.modular-diary-track")
   if (!preview) return null
   const pr = preview.getBoundingClientRect()
   const tr = track.getBoundingClientRect()
@@ -1356,19 +1359,19 @@ await page.mouse.up()
 // Timeline scrolling must belong to the SVG content pane. The outer grid slot
 // owns the eight resize handles, so neither horizontal edge may scroll away.
 const timelineInternalScroll = await page.evaluate(async () => {
-  const slot = document.querySelector(".oneday-slot-timeline")
-  const pane = slot?.querySelector(".oneday-svg-holder")
-  const widthHandle = slot?.querySelector(".oneday-width-handle")
-  const track = slot?.querySelector("rect.oneday-track")
+  const slot = document.querySelector(".modular-diary-slot-timeline")
+  const pane = slot?.querySelector(".modular-diary-svg-holder")
+  const widthHandle = slot?.querySelector(".modular-diary-width-handle")
+  const track = slot?.querySelector("rect.modular-diary-track")
   if (!slot || !pane || !widthHandle || !track) return { missing: true }
   const originalHeight = slot.style.height
   const originalWidth = slot.style.width
   slot.style.height = "240px"
   slot.style.width = "160px"
   await new Promise(requestAnimationFrame)
-  const west = slot.querySelector(".oneday-handle-w")
-  const east = slot.querySelector(".oneday-handle-e")
-  const handles = [...slot.querySelectorAll(".oneday-handle")]
+  const west = slot.querySelector(".modular-diary-handle-w")
+  const east = slot.querySelector(".modular-diary-handle-e")
+  const handles = [...slot.querySelectorAll(".modular-diary-handle")]
   const before = handles.map((handle) => handle.getBoundingClientRect())
   pane.scrollTop = pane.scrollHeight
   pane.scrollLeft = pane.scrollWidth
@@ -1409,10 +1412,10 @@ const timelineInternalScroll = await page.evaluate(async () => {
 // Every grid slot may become smaller than its content. Its move grip belongs
 // to the viewport chrome, so it must remain fully visible and clickable even
 // for the ordinary slots that still use their outer element as the scroller.
-await page.locator("#host .oneday-slot-toolbar").scrollIntoViewIfNeeded()
+await page.locator("#host .modular-diary-slot-toolbar").scrollIntoViewIfNeeded()
 const genericGripScroll = await page.evaluate(async () => {
-  const slot = document.querySelector("#host .oneday-slot-toolbar")
-  const grip = slot?.querySelector(".oneday-slot-grip")
+  const slot = document.querySelector("#host .modular-diary-slot-toolbar")
+  const grip = slot?.querySelector(".modular-diary-slot-grip")
   if (!slot || !grip) return { missing: true }
   const originalWidth = slot.style.width
   const originalHeight = slot.style.height
@@ -1422,7 +1425,7 @@ const genericGripScroll = await page.evaluate(async () => {
   filler.className = "grip-scroll-fixture"
   filler.style.width = "520px"
   filler.style.height = "240px"
-  const anchor = slot.querySelector(".oneday-slot-grip-anchor")
+  const anchor = slot.querySelector(".modular-diary-slot-grip-anchor")
   if (anchor) anchor.after(filler)
   else slot.prepend(filler)
   await new Promise(requestAnimationFrame)
@@ -1435,7 +1438,7 @@ const genericGripScroll = await page.evaluate(async () => {
   const visibleWidth = Math.max(0, Math.min(after.right, slotRect.right) - Math.max(after.left, slotRect.left))
   const visibleHeight = Math.max(0, Math.min(after.bottom, slotRect.bottom) - Math.max(after.top, slotRect.top))
   const hitTarget = document.elementFromPoint(after.left + after.width / 2, after.top + after.height / 2)
-  const hit = hitTarget?.closest(".oneday-slot-grip") === grip
+  const hit = hitTarget?.closest(".modular-diary-slot-grip") === grip
   const result = {
     scrollLeft: slot.scrollLeft,
     scrollTop: slot.scrollTop,
@@ -1462,23 +1465,23 @@ const genericGripScroll = await page.evaluate(async () => {
 
 await page.evaluate(() => document.body.classList.add("is-mobile"))
 const mobileDefault = await page.evaluate(() => ({
-  grip: getComputedStyle(document.querySelector(".oneday-slot-grip")).display,
-  handle: getComputedStyle(document.querySelector(".oneday-handle-e")).display,
-  width: getComputedStyle(document.querySelector(".oneday-width-handle")).display,
-  block: getComputedStyle(document.querySelector(".oneday-block-resize-e")).display,
+  grip: getComputedStyle(document.querySelector(".modular-diary-slot-grip")).display,
+  handle: getComputedStyle(document.querySelector(".modular-diary-handle-e")).display,
+  width: getComputedStyle(document.querySelector(".modular-diary-width-handle")).display,
+  block: getComputedStyle(document.querySelector(".modular-diary-block-resize-e")).display,
 }))
-await page.evaluate(() => document.querySelector(".oneday-container")?.classList.add("is-layout-editing"))
+await page.evaluate(() => document.querySelector(".modular-diary-container")?.classList.add("is-layout-editing"))
 const mobileEditing = await page.evaluate(() => {
-  const grip = document.querySelector(".oneday-slot-grip").getBoundingClientRect()
-  const handle = document.querySelector(".oneday-handle-e").getBoundingClientRect()
-  const width = document.querySelector(".oneday-width-handle").getBoundingClientRect()
-  const block = document.querySelector(".oneday-block-resize-e").getBoundingClientRect()
-  const blockCorner = document.querySelector(".oneday-block-resize-se").getBoundingClientRect()
+  const grip = document.querySelector(".modular-diary-slot-grip").getBoundingClientRect()
+  const handle = document.querySelector(".modular-diary-handle-e").getBoundingClientRect()
+  const width = document.querySelector(".modular-diary-width-handle").getBoundingClientRect()
+  const block = document.querySelector(".modular-diary-block-resize-e").getBoundingClientRect()
+  const blockCorner = document.querySelector(".modular-diary-block-resize-se").getBoundingClientRect()
   return {
-    grip: { display: getComputedStyle(document.querySelector(".oneday-slot-grip")).display, w: grip.width, h: grip.height },
-    handle: { display: getComputedStyle(document.querySelector(".oneday-handle-e")).display, w: handle.width },
-    width: { display: getComputedStyle(document.querySelector(".oneday-width-handle")).display, w: width.width },
-    block: { display: getComputedStyle(document.querySelector(".oneday-block-resize-e")).display, w: block.width },
+    grip: { display: getComputedStyle(document.querySelector(".modular-diary-slot-grip")).display, w: grip.width, h: grip.height },
+    handle: { display: getComputedStyle(document.querySelector(".modular-diary-handle-e")).display, w: handle.width },
+    width: { display: getComputedStyle(document.querySelector(".modular-diary-width-handle")).display, w: width.width },
+    block: { display: getComputedStyle(document.querySelector(".modular-diary-block-resize-e")).display, w: block.width },
     blockCorner: { w: blockCorner.width, h: blockCorner.height },
   }
 })
@@ -1486,13 +1489,13 @@ const mobileEditing = await page.evaluate(() => {
 // Precise-time popover: moving focus from start to end must not save/close.
 await page.evaluate(() => {
   document.body.classList.remove("is-mobile")
-  document.querySelector(".oneday-container")?.classList.remove("is-layout-editing")
+  document.querySelector(".modular-diary-container")?.classList.remove("is-layout-editing")
   window.__openTimePopover()
 })
 await page.waitForTimeout(20)
 await page.locator('input[aria-label="结束时间"]').click()
 const timeEndFocus = await page.evaluate(() => ({
-  popover: Boolean(document.querySelector(".oneday-time-popover")),
+  popover: Boolean(document.querySelector(".modular-diary-time-popover")),
   activeLabel: document.activeElement?.getAttribute("aria-label"),
   saved: window.__timeSaved.length,
 }))
@@ -1501,34 +1504,34 @@ const timeEndFocus = await page.evaluate(() => ({
 await page.locator('input[aria-label="结束时间"]').fill("12:xx")
 await page.locator('input[aria-label="结束时间"]').press("Enter")
 const timeInvalid = await page.evaluate(() => {
-  const pop = document.querySelector(".oneday-time-popover")
+  const pop = document.querySelector(".modular-diary-time-popover")
   const end = pop?.querySelector('input[aria-label="结束时间"]')
   return {
     popover: Boolean(pop),
     invalid: end?.getAttribute("aria-invalid"),
     ring: end ? getComputedStyle(end).boxShadow !== "none" : false,
-    message: pop?.querySelector(".oneday-time-popover-error")?.textContent ?? null,
+    message: pop?.querySelector(".modular-diary-time-popover-error")?.textContent ?? null,
     saved: window.__timeSaved.length,
   }
 })
 await page.locator('input[aria-label="结束时间"]').fill("12:45")
 const timeInvalidCleared = await page.evaluate(() => ({
-  invalid: document.querySelector('.oneday-time-popover input[aria-label="结束时间"]')?.getAttribute("aria-invalid") ?? null,
-  message: document.querySelector(".oneday-time-popover-error")?.textContent ?? null,
+  invalid: document.querySelector('.modular-diary-time-popover input[aria-label="结束时间"]')?.getAttribute("aria-invalid") ?? null,
+  message: document.querySelector(".modular-diary-time-popover-error")?.textContent ?? null,
 }))
 await page.locator('input[aria-label="结束时间"]').press("Enter")
 const timeCommitted = await page.evaluate(() => ({
-  popover: Boolean(document.querySelector(".oneday-time-popover")),
+  popover: Boolean(document.querySelector(".modular-diary-time-popover")),
   saved: window.__timeSaved,
 }))
 
 // Timeline date is an explicit, keyboard-accessible control. Editing it must
 // commit one ISO date and must not leak a native title/second tooltip.
-const dateControl = page.locator("#editable-date-fixture .oneday-timeline-date-control")
+const dateControl = page.locator("#editable-date-fixture .modular-diary-timeline-date-control")
 await page.mouse.move(1, 1)
 const dateRestStyle = await page.evaluate(() => {
   const topbar = document.querySelector("#editable-date-fixture")
-  const control = topbar?.querySelector(".oneday-timeline-date-control")
+  const control = topbar?.querySelector(".modular-diary-timeline-date-control")
   if (!topbar || !control) return { missing: true }
   const style = getComputedStyle(control)
   const topbarStyle = getComputedStyle(topbar)
@@ -1545,47 +1548,47 @@ const dateHoverBackground = await dateControl.evaluate((control) => getComputedS
 await dateControl.click()
 await page.waitForTimeout(20)
 const dateOpened = await page.evaluate(() => {
-  const control = document.querySelector("#editable-date-fixture .oneday-timeline-date-control")
-  const popover = document.querySelector(".oneday-date-popover")
+  const control = document.querySelector("#editable-date-fixture .modular-diary-timeline-date-control")
+  const popover = document.querySelector(".modular-diary-date-popover")
   return {
     text: control?.textContent ?? "",
     title: control?.getAttribute("title"),
     expanded: control?.getAttribute("aria-expanded"),
-    monthTitle: popover?.querySelector(".oneday-date-picker-title")?.textContent ?? "",
-    dayCount: popover?.querySelectorAll(".oneday-date-picker-day").length ?? 0,
-    selectedDate: popover?.querySelector(".oneday-date-picker-day.is-selected")?.getAttribute("data-date"),
+    monthTitle: popover?.querySelector(".modular-diary-date-picker-title")?.textContent ?? "",
+    dayCount: popover?.querySelectorAll(".modular-diary-date-picker-day").length ?? 0,
+    selectedDate: popover?.querySelector(".modular-diary-date-picker-day.is-selected")?.getAttribute("data-date"),
     focusedDate: document.activeElement?.getAttribute("data-date"),
     hasSegmentedInput: Boolean(popover?.querySelector('input[type="date"]')),
   }
 })
-await page.evaluate(() => document.querySelector(".oneday-date-picker-day.is-selected")?.blur())
+await page.evaluate(() => document.querySelector(".modular-diary-date-picker-day.is-selected")?.blur())
 await page.waitForTimeout(20)
 const dateTransientBlur = await page.evaluate(() => ({
-  popover: Boolean(document.querySelector(".oneday-date-popover")),
+  popover: Boolean(document.querySelector(".modular-diary-date-popover")),
   saved: [...window.__dateSaved],
 }))
-await page.locator(".oneday-date-popover").screenshot({ path: path.join(out, "date-popover-light.png") })
-await page.locator('.oneday-date-popover .oneday-date-picker-day[data-date="2026-08-24"]').click()
+await page.locator(".modular-diary-date-popover").screenshot({ path: path.join(out, "date-popover-light.png") })
+await page.locator('.modular-diary-date-popover .modular-diary-date-picker-day[data-date="2026-08-24"]').click()
 const dateCommitted = await page.evaluate(() => ({
-  popover: Boolean(document.querySelector(".oneday-date-popover")),
-  expanded: document.querySelector("#editable-date-fixture .oneday-timeline-date-control")?.getAttribute("aria-expanded"),
+  popover: Boolean(document.querySelector(".modular-diary-date-popover")),
+  expanded: document.querySelector("#editable-date-fixture .modular-diary-timeline-date-control")?.getAttribute("aria-expanded"),
   saved: [...window.__dateSaved],
-  cursor: getComputedStyle(document.querySelector("#editable-date-fixture .oneday-timeline-date-control")).cursor,
+  cursor: getComputedStyle(document.querySelector("#editable-date-fixture .modular-diary-timeline-date-control")).cursor,
 }))
 await page.locator("#editable-date-fixture").screenshot({ path: path.join(out, "editable-date-light.png") })
 
 // Text editor: a real click in the lower empty interior must still hit the
 // pane, not only the placeholder/text line near its top. Keep clear of the
 // 8px edge resize zone, whose interaction intentionally takes precedence.
-const textSlot = page.locator(".oneday-slot-text")
+const textSlot = page.locator(".modular-diary-slot-text")
 await textSlot.scrollIntoViewIfNeeded()
 const textSlotBox = await textSlot.boundingBox()
 if (!textSlotBox) { console.error("TEXT SLOT HAS NO BOX"); process.exit(1) }
 const textReadScroll = await page.evaluate(async () => {
-  const slot = document.querySelector(".oneday-slot-text")
-  const pane = slot?.querySelector(".oneday-text-pane")
+  const slot = document.querySelector(".modular-diary-slot-text")
+  const pane = slot?.querySelector(".modular-diary-text-pane")
   if (!slot || !pane) return { scrollTop: 0, handleDelta: 0, missing: true }
-  const handles = [...slot.querySelectorAll(".oneday-handle")]
+  const handles = [...slot.querySelectorAll(".modular-diary-handle")]
   const before = handles.map((handle) => handle.getBoundingClientRect())
   pane.scrollTop = pane.scrollHeight
   await new Promise(requestAnimationFrame)
@@ -1602,7 +1605,7 @@ const textReadScroll = await page.evaluate(async () => {
 })
 const textClickPoint = { x: textSlotBox.x + textSlotBox.width / 2, y: textSlotBox.y + textSlotBox.height * 0.75 }
 const textMarkdownSemantics = await page.evaluate(() => {
-  const host = document.querySelector(".oneday-slot-text .oneday-text-host")
+  const host = document.querySelector(".modular-diary-slot-text .modular-diary-text-host")
   return {
     exists: Boolean(host),
     nativeMarkdownContainer: Boolean(host?.classList.contains("markdown-rendered")),
@@ -1610,10 +1613,10 @@ const textMarkdownSemantics = await page.evaluate(() => {
 })
 const textClickTarget = await page.evaluate(({ x, y }) => {
   const target = document.elementFromPoint(x, y)
-  return { tag: target?.tagName, cls: target?.className, slot: target?.closest(".oneday-slot")?.dataset.slot }
+  return { tag: target?.tagName, cls: target?.className, slot: target?.closest(".modular-diary-slot")?.dataset.slot }
 }, textClickPoint)
 const textClickViewportBefore = await page.evaluate(() => {
-  const pane = document.querySelector(".oneday-slot-text .oneday-text-pane")
+  const pane = document.querySelector(".modular-diary-slot-text .modular-diary-text-pane")
   const scrolling = document.scrollingElement
   return {
     paneTop: pane?.getBoundingClientRect().top ?? 0,
@@ -1624,24 +1627,24 @@ const textClickViewportBefore = await page.evaluate(() => {
 await page.mouse.click(textClickPoint.x, textClickPoint.y)
 await page.waitForTimeout(50)
 const textPaneEditing = await page.evaluate(() => ({
-  textarea: Boolean(document.querySelector(".oneday-text-pane textarea.oneday-text-inline")),
-  slotEditing: Boolean(document.querySelector(".oneday-slot-text.is-editing")),
+  textarea: Boolean(document.querySelector(".modular-diary-text-pane textarea.modular-diary-text-inline")),
+  slotEditing: Boolean(document.querySelector(".modular-diary-slot-text.is-editing")),
   paneFillsSlot: (() => {
-    const pane = document.querySelector(".oneday-text-pane").getBoundingClientRect()
-    const slot = document.querySelector(".oneday-slot-text").getBoundingClientRect()
-    const style = getComputedStyle(document.querySelector(".oneday-slot-text"))
+    const pane = document.querySelector(".modular-diary-text-pane").getBoundingClientRect()
+    const slot = document.querySelector(".modular-diary-slot-text").getBoundingClientRect()
+    const style = getComputedStyle(document.querySelector(".modular-diary-slot-text"))
     const expected = slot.height
       - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth)
       - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
     return Math.abs(pane.height - expected) <= 1
   })(),
   textareaFillsBlankInterior: (() => {
-    const pane = document.querySelector(".oneday-text-pane").getBoundingClientRect()
-    const textarea = document.querySelector(".oneday-text-inline")?.getBoundingClientRect()
+    const pane = document.querySelector(".modular-diary-text-pane").getBoundingClientRect()
+    const textarea = document.querySelector(".modular-diary-text-inline")?.getBoundingClientRect()
     return Boolean(textarea && textarea.bottom >= pane.bottom - 1)
   })(),
   viewportStable: (() => {
-    const pane = document.querySelector(".oneday-slot-text .oneday-text-pane")
+    const pane = document.querySelector(".modular-diary-slot-text .modular-diary-text-pane")
     const scrolling = document.scrollingElement
     return {
       paneTop: pane?.getBoundingClientRect().top ?? 0,
@@ -1650,12 +1653,12 @@ const textPaneEditing = await page.evaluate(() => ({
     }
   })(),
 }))
-const textResizeHandle = page.locator(".oneday-slot-text .oneday-handle-e")
+const textResizeHandle = page.locator(".modular-diary-slot-text .modular-diary-handle-e")
 const textResizeDisplay = await textResizeHandle.evaluate((handle) => getComputedStyle(handle).display)
 await page.evaluate(() => {
   window.__textResizeEvents = []
-  const slot = document.querySelector(".oneday-slot-text")
-  const pane = document.querySelector(".oneday-text-pane")
+  const slot = document.querySelector(".modular-diary-slot-text")
+  const pane = document.querySelector(".modular-diary-text-pane")
   slot?.addEventListener("pointerdown", (e) => window.__textResizeEvents.push(`down:${e.target.className}`), true)
   pane?.addEventListener("focusout", () => window.__textResizeEvents.push("focusout"), true)
   document.addEventListener("pointerup", () => window.__textResizeEvents.push("up"), { capture: true, once: true })
@@ -1670,16 +1673,16 @@ if (textResizeDisplay !== "none") {
     await page.mouse.down()
     // A real pointer can blur the textarea; the resize gesture must remain part
     // of the same edit session until pointerup restores focus.
-    await page.locator(".oneday-text-inline").evaluate((textarea) => textarea.blur())
+    await page.locator(".modular-diary-text-inline").evaluate((textarea) => textarea.blur())
     await page.waitForTimeout(10)
     await page.mouse.move(point.x + 110, point.y, { steps: 4 })
     await page.mouse.up()
   }
   textResizeWhileEditing = await page.evaluate((before) => {
-    const slot = document.querySelector(".oneday-slot-text")
-    const textarea = document.querySelector(".oneday-text-inline")
+    const slot = document.querySelector(".modular-diary-slot-text")
+    const textarea = document.querySelector(".modular-diary-text-inline")
     return {
-      display: getComputedStyle(document.querySelector(".oneday-slot-text .oneday-handle-e")).display,
+      display: getComputedStyle(document.querySelector(".modular-diary-slot-text .modular-diary-handle-e")).display,
       resized: slot.getBoundingClientRect().width > before + 20,
       textarea: Boolean(textarea),
       focused: document.activeElement === textarea,
@@ -1688,13 +1691,13 @@ if (textResizeDisplay !== "none") {
   }, beforeWidth)
 }
 const textEditScroll = await page.evaluate(async () => {
-  const slot = document.querySelector(".oneday-slot-text")
-  const pane = document.querySelector(".oneday-text-pane")
-  const textarea = document.querySelector(".oneday-text-inline")
+  const slot = document.querySelector(".modular-diary-slot-text")
+  const pane = document.querySelector(".modular-diary-text-pane")
+  const textarea = document.querySelector(".modular-diary-text-inline")
   if (!slot || !pane || !textarea) return { before: 0, after: 0, max: 0, missing: true }
   textarea.value += "\\n末尾继续编辑"
   textarea.setSelectionRange(textarea.value.length, textarea.value.length)
-  const handles = [...slot.querySelectorAll(".oneday-handle")]
+  const handles = [...slot.querySelectorAll(".modular-diary-handle")]
   const beforeRects = handles.map((handle) => handle.getBoundingClientRect())
   pane.scrollTop = pane.scrollHeight
   const before = pane.scrollTop
@@ -1723,7 +1726,7 @@ const textEditScroll = await page.evaluate(async () => {
 // Switching away from a macOS window does not reliably move activeElement and
 // therefore may not emit focusout. Window blur itself must flush the fifth line.
 const textWindowBlurSave = await page.evaluate(async () => {
-  const textarea = document.querySelector(".oneday-text-inline")
+  const textarea = document.querySelector(".modular-diary-text-inline")
   const expected = textarea?.value ?? ""
   window.dispatchEvent(new Event("blur"))
   await new Promise((resolve) => setTimeout(resolve, 0))
@@ -1736,12 +1739,12 @@ const quickInputStyle = await page.evaluate(() => {
   const input = document.querySelector('[aria-label="快速记录测试"]')
   input.focus()
   const style = getComputedStyle(input)
-  const setup = document.querySelector("#dialog-style-fixture .oneday-dialog-needskey button")
+  const setup = document.querySelector("#dialog-style-fixture .modular-diary-dialog-needskey button")
   const setupStyle = getComputedStyle(setup)
   const reference = document.createElement("button")
-  reference.className = "oneday-swatch"
+  reference.className = "modular-diary-swatch"
   const referenceToolbar = document.createElement("div")
-  referenceToolbar.className = "oneday-toolbar"
+  referenceToolbar.className = "modular-diary-toolbar"
   referenceToolbar.appendChild(reference)
   document.querySelector("#dialog-style-fixture").appendChild(referenceToolbar)
   const compactHeight = reference.getBoundingClientRect().height
@@ -1749,7 +1752,7 @@ const quickInputStyle = await page.evaluate(() => {
   return {
     shadow: style.boxShadow,
     borderColor: style.borderColor,
-    important: [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]).filter((rule) => rule.selectorText?.includes(".oneday-dialog-input")).map((rule) => rule.cssText).filter((text) => text.includes("!important")).length,
+    important: [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]).filter((rule) => rule.selectorText?.includes(".modular-diary-dialog-input")).map((rule) => rule.cssText).filter((text) => text.includes("!important")).length,
     setup: { height: setup.getBoundingClientRect().height, compactHeight, shadow: setupStyle.boxShadow, color: setupStyle.color, accent: getComputedStyle(setup).getPropertyValue("--text-accent").trim() },
   }
 })
@@ -1759,9 +1762,9 @@ const toolbarAlignment = await page.evaluate(() => {
     const slot = document.getElementById(id)
     const slotRect = slot.getBoundingClientRect()
     const slotStyle = getComputedStyle(slot)
-    const controls = slot.querySelector(".oneday-creation-controls").getBoundingClientRect()
-    const categories = slot.querySelector(".oneday-category-list").getBoundingClientRect()
-    const firstCategory = slot.querySelector(".oneday-swatch, .oneday-toolbar-empty")?.getBoundingClientRect()
+    const controls = slot.querySelector(".modular-diary-creation-controls").getBoundingClientRect()
+    const categories = slot.querySelector(".modular-diary-category-list").getBoundingClientRect()
+    const firstCategory = slot.querySelector(".modular-diary-swatch, .modular-diary-toolbar-empty")?.getBoundingClientRect()
     return {
       topInset: controls.top - slotRect.top - parseFloat(slotStyle.borderTopWidth),
       expectedTopInset: parseFloat(slotStyle.paddingTop),
@@ -1780,33 +1783,33 @@ await page.locator("#toolbar-alignment-fixtures").screenshot({ path: path.join(o
 const emptyState = await page.evaluate(() => {
   window.__mountEmptyState()
   const host = document.getElementById("empty-host")
-  const timeline = host.querySelector(".oneday-slot-timeline")
-  const stats = host.querySelector(".oneday-slot-stats")
-  const hint = timeline.querySelector(".oneday-timeline-onboarding")
-  const track = timeline.querySelector("rect.oneday-track")
-  const statsEmpty = stats.querySelector(".oneday-stats-empty")
+  const timeline = host.querySelector(".modular-diary-slot-timeline")
+  const stats = host.querySelector(".modular-diary-slot-stats")
+  const hint = timeline.querySelector(".modular-diary-timeline-onboarding")
+  const track = timeline.querySelector("rect.modular-diary-track")
+  const statsEmpty = stats.querySelector(".modular-diary-stats-empty")
   const statsStyle = getComputedStyle(stats)
   const statsEmptyStyle = statsEmpty ? getComputedStyle(statsEmpty) : null
   const hintRect = hint?.getBoundingClientRect()
   const trackRect = track?.getBoundingClientRect()
   const statsRect = statsEmpty?.getBoundingClientRect()
   const statsSlotRect = stats.getBoundingClientRect()
-  const statsGrip = stats.querySelector(".oneday-slot-grip")
-  const statsGripAnchor = stats.querySelector(".oneday-slot-grip-anchor")
+  const statsGrip = stats.querySelector(".modular-diary-slot-grip")
+  const statsGripAnchor = stats.querySelector(".modular-diary-slot-grip-anchor")
   const statsGripNotch = statsGripAnchor ? getComputedStyle(statsGripAnchor, "::before") : null
-  const narrowGuide = document.querySelector("#narrow-guide-host .oneday-timeline-onboarding")
-  const narrowTrack = document.querySelector("#narrow-guide-host rect.oneday-track")
+  const narrowGuide = document.querySelector("#narrow-guide-host .modular-diary-timeline-onboarding")
+  const narrowTrack = document.querySelector("#narrow-guide-host rect.modular-diary-track")
   const narrowGuideRect = narrowGuide?.getBoundingClientRect()
   const narrowTrackRect = narrowTrack?.getBoundingClientRect()
-  const zeroToolbarSlot = document.querySelector("#no-palette-timeline-host .oneday-slot-toolbar")
-  const zeroToolbar = zeroToolbarSlot?.querySelector(".oneday-toolbar")
-  const zeroToolbarButton = zeroToolbarSlot?.querySelector(".oneday-toolbar-empty")
-  const zeroSouthHandle = zeroToolbarSlot?.querySelector(".oneday-handle-s")
+  const zeroToolbarSlot = document.querySelector("#no-palette-timeline-host .modular-diary-slot-toolbar")
+  const zeroToolbar = zeroToolbarSlot?.querySelector(".modular-diary-toolbar")
+  const zeroToolbarButton = zeroToolbarSlot?.querySelector(".modular-diary-toolbar-empty")
+  const zeroSouthHandle = zeroToolbarSlot?.querySelector(".modular-diary-handle-s")
   const zeroSlotStyle = zeroToolbarSlot ? getComputedStyle(zeroToolbarSlot) : null
   const zeroToolbarShellRect = zeroToolbar?.getBoundingClientRect()
   const zeroToolbarRect = zeroToolbarButton?.getBoundingClientRect()
   const zeroSouthHandleRect = zeroSouthHandle?.getBoundingClientRect()
-  const slots = [...host.querySelectorAll(".oneday-slot")].map((slot) => ({
+  const slots = [...host.querySelectorAll(".modular-diary-slot")].map((slot) => ({
     id: slot.dataset.slot,
     x: Number(slot.dataset.x),
     y: Number(slot.dataset.y),
@@ -1814,19 +1817,19 @@ const emptyState = await page.evaluate(() => {
     h: Number(slot.dataset.h),
   }))
   const result = {
-    timelineStart: hint?.querySelector(".oneday-timeline-onboarding-label.is-start")?.textContent,
-    timelineEnd: hint?.querySelector(".oneday-timeline-onboarding-label.is-end")?.textContent,
-    timelineCopy: hint?.querySelector(".oneday-timeline-onboarding-copy")?.textContent,
+    timelineStart: hint?.querySelector(".modular-diary-timeline-onboarding-label.is-start")?.textContent,
+    timelineEnd: hint?.querySelector(".modular-diary-timeline-onboarding-label.is-end")?.textContent,
+    timelineCopy: hint?.querySelector(".modular-diary-timeline-onboarding-copy")?.textContent,
     timelinePointerEvents: hint ? getComputedStyle(hint).pointerEvents : null,
     timelineInsideTrack: Boolean(hintRect && trackRect && hintRect.left >= trackRect.left + 2 && hintRect.right <= trackRect.right - 2),
     timelineNearStart: Boolean(hintRect && trackRect && hintRect.top > trackRect.top && hintRect.top - trackRect.top < trackRect.height / 4),
-    persistentTimelineGuideCount: document.querySelectorAll("#persistent-empty-host .oneday-timeline-onboarding").length,
-    noPaletteTimelineGuideCount: document.querySelectorAll("#no-palette-timeline-host .oneday-timeline-onboarding").length,
+    persistentTimelineGuideCount: document.querySelectorAll("#persistent-empty-host .modular-diary-timeline-onboarding").length,
+    noPaletteTimelineGuideCount: document.querySelectorAll("#no-palette-timeline-host .modular-diary-timeline-onboarding").length,
     // With no category at all the track carries one centred prompt that
     // opens the category editor like the toolbar's "Add first category".
     noPaletteTimelinePrompt: (() => {
-      const prompt = document.querySelector("#no-palette-timeline-host button.oneday-timeline-empty")
-      const track = document.querySelector("#no-palette-timeline-host rect.oneday-track")
+      const prompt = document.querySelector("#no-palette-timeline-host button.modular-diary-timeline-empty")
+      const track = document.querySelector("#no-palette-timeline-host rect.modular-diary-track")
       if (!prompt || !track) return null
       const p = prompt.getBoundingClientRect()
       const t = track.getBoundingClientRect()
@@ -1837,7 +1840,7 @@ const emptyState = await page.evaluate(() => {
         insideTrack: p.left >= t.left && p.right <= t.right && p.top >= t.top && p.bottom <= t.bottom,
         borderStyle: getComputedStyle(prompt).borderStyle,
         clicked: (window.__addFirstFromTimeline ?? 0) - before,
-        populatedCount: document.querySelectorAll("#host button.oneday-timeline-empty").length,
+        populatedCount: document.querySelectorAll("#host button.modular-diary-timeline-empty").length,
       }
     })(),
     zeroToolbarFillsSlot: Boolean(zeroToolbarShellRect && zeroToolbarSlot && (() => {
@@ -1850,7 +1853,7 @@ const emptyState = await page.evaluate(() => {
     zeroToolbarKeepsNormalShell: Boolean(!zeroToolbarSlot?.classList.contains("is-empty-state") && zeroSlotStyle?.borderStyle === "solid" && getComputedStyle(zeroToolbarButton).borderStyle === "none"),
     zeroToolbarSlotRows: Number(zeroToolbarSlot?.dataset.h),
     narrowGuideInsideTrack: Boolean(narrowGuideRect && narrowTrackRect && narrowGuideRect.left >= narrowTrackRect.left && narrowGuideRect.right <= narrowTrackRect.right),
-    statsLabel: statsEmpty?.querySelector(".oneday-stats-empty-label")?.textContent,
+    statsLabel: statsEmpty?.querySelector(".modular-diary-stats-empty-label")?.textContent,
     statsSlotBorderStyle: statsStyle.borderStyle,
     statsInnerBorderStyle: statsEmptyStyle?.borderStyle ?? null,
     statsFits: statsEmpty ? statsEmpty.getBoundingClientRect().height <= stats.getBoundingClientRect().height : false,
@@ -1865,17 +1868,17 @@ const emptyState = await page.evaluate(() => {
       background: statsGripNotch.backgroundColor,
       opacity: statsGripNotch.opacity,
     } : null,
-    legacyStatsChildren: statsEmpty?.querySelectorAll(".oneday-stats-empty-mark, .oneday-stats-empty-detail").length ?? 0,
+    legacyStatsChildren: statsEmpty?.querySelectorAll(".modular-diary-stats-empty-mark, .modular-diary-stats-empty-detail").length ?? 0,
     slots,
   }
   return result
 })
 await page.locator("#empty-host").screenshot({ path: path.join(out, "empty-light.png") })
 await page.locator("#no-palette-timeline-host").screenshot({ path: path.join(out, "zero-palette-light.png") })
-await page.locator("#empty-host .oneday-slot-stats").hover()
-await page.locator("#empty-host .oneday-slot-stats").screenshot({ path: path.join(out, "stats-empty-hover-light.png") })
-await page.locator("#no-palette-timeline-host .oneday-slot-toolbar").hover()
-await page.locator("#no-palette-timeline-host .oneday-slot-toolbar").screenshot({ path: path.join(out, "zero-toolbar-hover-light.png") })
+await page.locator("#empty-host .modular-diary-slot-stats").hover()
+await page.locator("#empty-host .modular-diary-slot-stats").screenshot({ path: path.join(out, "stats-empty-hover-light.png") })
+await page.locator("#no-palette-timeline-host .modular-diary-slot-toolbar").hover()
+await page.locator("#no-palette-timeline-host .modular-diary-slot-toolbar").screenshot({ path: path.join(out, "zero-toolbar-hover-light.png") })
 await page.mouse.move(1, 1)
 await page.evaluate(() => {
   document.body.classList.add("theme-dark")
@@ -1890,56 +1893,56 @@ await page.evaluate(() => {
 await page.locator("#host").screenshot({ path: path.join(out, "main-dark.png") })
 await page.locator("#editable-date-fixture").screenshot({ path: path.join(out, "editable-date-dark.png") })
 await dateControl.click()
-await page.locator(".oneday-date-popover").screenshot({ path: path.join(out, "date-popover-dark.png") })
+await page.locator(".modular-diary-date-popover").screenshot({ path: path.join(out, "date-popover-dark.png") })
 await page.keyboard.press("Escape")
 await page.locator("#control-visual-fixture").screenshot({ path: path.join(out, "controls-dark.png") })
 await page.locator("#vertical-rhythm-fixture").screenshot({ path: path.join(out, "vertical-rhythm-dark.png") })
 await page.locator("#toolbar-alignment-fixtures").screenshot({ path: path.join(out, "toolbar-alignment-states-dark.png") })
 await page.locator("#empty-host").screenshot({ path: path.join(out, "empty-dark.png") })
-const statsEmptySlot = page.locator("#empty-host .oneday-slot-stats")
-const zeroToolbarEmptySlot = page.locator("#no-palette-timeline-host .oneday-slot-toolbar")
+const statsEmptySlot = page.locator("#empty-host .modular-diary-slot-stats")
+const zeroToolbarEmptySlot = page.locator("#no-palette-timeline-host .modular-diary-slot-toolbar")
 await page.mouse.move(1, 1)
 await statsEmptySlot.screenshot({ path: path.join(out, "stats-empty-default-dark.png") })
 await statsEmptySlot.hover()
 const statsEmptyHover = await statsEmptySlot.evaluate((slot) => ({
   slotBorderStyle: getComputedStyle(slot).borderStyle,
-  innerBorderStyle: getComputedStyle(slot.querySelector(".oneday-stats-empty")).borderStyle,
-  notchOpacity: getComputedStyle(slot.querySelector(".oneday-slot-grip-anchor"), "::before").opacity,
+  innerBorderStyle: getComputedStyle(slot.querySelector(".modular-diary-stats-empty")).borderStyle,
+  notchOpacity: getComputedStyle(slot.querySelector(".modular-diary-slot-grip-anchor"), "::before").opacity,
 }))
 await statsEmptySlot.screenshot({ path: path.join(out, "stats-empty-hover-dark.png") })
 await page.mouse.move(1, 1)
 await zeroToolbarEmptySlot.screenshot({ path: path.join(out, "zero-toolbar-default-dark.png") })
-await zeroToolbarEmptySlot.locator(".oneday-toolbar-empty").hover()
+await zeroToolbarEmptySlot.locator(".modular-diary-toolbar-empty").hover()
 const zeroToolbarEmptyHover = await zeroToolbarEmptySlot.evaluate((slot) => ({
   slotBorderStyle: getComputedStyle(slot).borderStyle,
-  buttonBorderStyle: getComputedStyle(slot.querySelector(".oneday-toolbar-empty")).borderStyle,
+  buttonBorderStyle: getComputedStyle(slot.querySelector(".modular-diary-toolbar-empty")).borderStyle,
 }))
 await zeroToolbarEmptySlot.screenshot({ path: path.join(out, "zero-toolbar-hover-dark.png") })
 const emptyResponsive = await page.evaluate(async () => {
   const host = document.getElementById("empty-host")
   host.style.width = "480px"
   await new Promise(requestAnimationFrame)
-  const stats = host.querySelector(".oneday-slot-stats")
-  const timelinePane = host.querySelector(".oneday-svg-holder")
+  const stats = host.querySelector(".modular-diary-slot-stats")
+  const timelinePane = host.querySelector(".modular-diary-svg-holder")
   return {
     statsFits: stats.scrollHeight <= stats.clientHeight,
     statsScrollHeight: stats.scrollHeight,
     statsClientHeight: stats.clientHeight,
-    statsLabelNoWrap: getComputedStyle(stats.querySelector(".oneday-stats-empty-label")).whiteSpace,
+    statsLabelNoWrap: getComputedStyle(stats.querySelector(".modular-diary-stats-empty-label")).whiteSpace,
     timelineScrollsInternally: timelinePane.scrollWidth > timelinePane.clientWidth && getComputedStyle(timelinePane).overflowX === "auto",
-    bodyOverflowsViewport: host.querySelector(".oneday-body").scrollWidth > host.getBoundingClientRect().width + 1,
+    bodyOverflowsViewport: host.querySelector(".modular-diary-body").scrollWidth > host.getBoundingClientRect().width + 1,
   }
 })
 await page.locator("#empty-host").screenshot({ path: path.join(out, "empty-narrow-dark.png") })
 const defaultTimeline = {}
 for (const hostWidth of [900, 480, 260]) {
   defaultTimeline[hostWidth] = await page.evaluate((width) => window.__mountDefaultTimelineFixture(width), hostWidth)
-  await page.locator("#default-timeline-fixture .oneday-slot-timeline").screenshot({ path: path.join(out, `default-timeline-${hostWidth}.png`) })
+  await page.locator("#default-timeline-fixture .modular-diary-slot-timeline").screenshot({ path: path.join(out, `default-timeline-${hostWidth}.png`) })
 }
 const narrowLane = await page.evaluate(() => window.__mountNarrowLaneFixture())
 await page.evaluate(() => { document.querySelector("#narrow-lane-fixture").style.width = "300px" })
 await page.waitForTimeout(80)
-await page.locator("#narrow-lane-fixture .oneday-slot-timeline").screenshot({ path: path.join(out, "narrow-lane-300.png") })
+await page.locator("#narrow-lane-fixture .modular-diary-slot-timeline").screenshot({ path: path.join(out, "narrow-lane-300.png") })
 await browser.close()
 console.log(JSON.stringify({ ...state, verticalRhythm, viewportAnchor, narrowLane, defaultTimeline }, null, 2))
 if (!state.ok) { console.error("MOUNT THREW"); process.exit(1) }
@@ -2011,7 +2014,7 @@ if (
 if (!state.toolbarNeutrals.inactive || state.toolbarNeutrals.inactive !== state.toolbarNeutrals.swatch) { console.error("BRUSH/SWATCH NEUTRAL BACKGROUNDS DIVERGED", state.toolbarNeutrals); process.exit(1) }
 if (state.toolbarNeutrals.modeBorder !== "rgba(0, 0, 0, 0)" || state.toolbarNeutrals.swatchBorder !== "rgba(0, 0, 0, 0)" || state.toolbarNeutrals.activeSwatchBorder !== "rgb(128, 80, 220)") { console.error("BRUSH/SWATCH BORDER STATES DIVERGED", state.toolbarNeutrals); process.exit(1) }
 if (state.toolbarNeutrals.planTrackBackground === "rgba(0, 0, 0, 0)" || state.toolbarNeutrals.planThumbBackground === "rgba(0, 0, 0, 0)") { console.error("PLAN MODE SWITCH LOST ITS VISIBLE STATE", state.toolbarNeutrals); process.exit(1) }
-if (!blockActionHit.settings.targetClass?.includes("oneday-open-settings") || !blockActionHit.more.targetClass?.includes("oneday-more-actions") || blockActionHit.settings.cursor !== "pointer" || blockActionHit.more.cursor !== "pointer" || blockActionHit.settings.zIndex !== "200" || blockActionHit.more.zIndex !== "200" || blockActionClicks.join(",") !== "settings,more") { console.error("BLOCK ACTIONS LOST POINTER HIT TESTING", { blockActionHit, blockActionClicks }); process.exit(1) }
+if (!blockActionHit.settings.targetClass?.includes("modular-diary-open-settings") || !blockActionHit.more.targetClass?.includes("modular-diary-more-actions") || blockActionHit.settings.cursor !== "pointer" || blockActionHit.more.cursor !== "pointer" || blockActionHit.settings.zIndex !== "200" || blockActionHit.more.zIndex !== "200" || blockActionClicks.join(",") !== "settings,more") { console.error("BLOCK ACTIONS LOST POINTER HIT TESTING", { blockActionHit, blockActionClicks }); process.exit(1) }
 if (innerScrollOwned.inner <= 0 || innerScrollOwned.block !== 0 || innerScrollOwned.page !== 0) { console.error("INNER SCROLLER DID NOT OWN AVAILABLE WHEEL DELTA", innerScrollOwned); process.exit(1) }
 if (blockScrollOwned.block <= 0 || blockScrollOwned.page !== 0) { console.error("WHEEL DID NOT CHAIN FROM INNER SCROLLER TO BLOCK", blockScrollOwned); process.exit(1) }
 if (pageScrollOwned.page <= 0) { console.error("WHEEL DID NOT CHAIN FROM BLOCK TO PAGE", pageScrollOwned); process.exit(1) }
@@ -2024,7 +2027,7 @@ if (
   state.designSystem.surfaces.swatch !== state.designSystem.surfaces.action ||
   state.designSystem.surfaces.viewGroup !== state.designSystem.surfaces.statTrack ||
   state.designSystem.actionOpacity !== "1"
-) { console.error("ONEDAY DESIGN TOKEN CONTRACT REGRESSED", state.designSystem); process.exit(1) }
+) { console.error("MODULAR DIARY DESIGN TOKEN CONTRACT REGRESSED", state.designSystem); process.exit(1) }
 if (
   Math.abs(state.toolbarNeutrals.inactiveHeight - state.toolbarNeutrals.swatchHeight) > 0.5
   || Math.abs(state.toolbarNeutrals.toggleHeight - state.toolbarNeutrals.swatchHeight) > 0.5
@@ -2032,7 +2035,7 @@ if (
   || Math.abs(state.toolbarNeutrals.viewButtonHeight - state.toolbarNeutrals.swatchHeight) > 0.5
 ) { console.error("COMPACT CONTROL HEIGHTS DIVERGED", state.toolbarNeutrals); process.exit(1) }
 const contentInsetValues = Object.values(state.contentInsets.offsets).flatMap(({ left, right }) => [left, right])
-if (contentInsetValues.some((value) => Math.abs(value - contentInsetValues[0]) > 0.5) || state.contentInsets.toolbarGripGap < -0.5) { console.error("ONEDAY CONTENT INSET CONTRACT REGRESSED", state.contentInsets); process.exit(1) }
+if (contentInsetValues.some((value) => Math.abs(value - contentInsetValues[0]) > 0.5) || state.contentInsets.toolbarGripGap < -0.5) { console.error("MODULAR DIARY CONTENT INSET CONTRACT REGRESSED", state.contentInsets); process.exit(1) }
 if (
   Object.values(blockResizeCancel.before).some((value) => value <= 0) ||
   JSON.stringify(blockResizeCancel.after) !== JSON.stringify(blockResizeCancel.before) ||
@@ -2059,7 +2062,7 @@ if (Math.abs(scrolledEdgeChrome.leftGap - 4) > 0.5 || Math.abs(scrolledEdgeChrom
 if (rightEdgeBorder.width !== 1 || rightEdgeBorder.style !== "solid" || rightEdgeBorder.color !== "rgb(120, 120, 120)") { console.error("RIGHTMOST SLOT BORDER IS NOT VISIBLE", rightEdgeBorder); process.exit(1) }
 if (state.slots.length === 0 || state.slots.some((s) => s.html === 0)) { console.error("EMPTY SLOT"); process.exit(1) }
 if (state.slots.some((s) => s.w === 0 || s.h === 0)) { console.error("COLLAPSED SLOT (zero size)"); process.exit(1) }
-if (process.env.ONEDAY_SMOKE_CLASSIC_SCROLLBARS) console.log("outerInsets", JSON.stringify(state.outerInsets))
+if (process.env.MODULAR_DIARY_SMOKE_CLASSIC_SCROLLBARS) console.log("outerInsets", JSON.stringify(state.outerInsets))
 if (Object.values(state.outerInsets).slice(0, 4).some((gap) => Math.abs(gap - 4) > 0.5)) { console.error("BLOCK OUTER INSETS ARE NOT UNIFORM", state.outerInsets); process.exit(1) }
 if (Math.abs(state.outerInsets.containerWidth - state.outerInsets.bodyWidth - 8) > 1) { console.error("BLOCK HORIZONTAL INSET CHANGED TOTAL WIDTH", state.outerInsets); process.exit(1) }
 if (state.widthHandle.centerDelta > 1 || state.widthHandle.topDelta > 1 || state.widthHandle.bottomDelta > 1 || state.widthHandle.width > 3.1) { console.error("WIDTH HANDLE MISALIGNED", state.widthHandle); process.exit(1) }
@@ -2069,9 +2072,9 @@ if (!widthDrag || widthDrag.topDelta > 1 || widthDrag.bottomDelta > 1 || widthDr
 if (timelineInternalScroll.missing || timelineInternalScroll.paneScrollTop <= 0 || timelineInternalScroll.paneScrollLeft <= 0 || timelineInternalScroll.slotScrollTop !== 0 || timelineInternalScroll.slotScrollLeft !== 0 || timelineInternalScroll.slotOverflowY !== "hidden" || timelineInternalScroll.paneOverflowY !== "auto") { console.error("TIMELINE CONTENT IS NOT THE SCROLLER", timelineInternalScroll); process.exit(1) }
 if (timelineInternalScroll.westDelta > 1 || timelineInternalScroll.eastDelta > 1 || timelineInternalScroll.handleDelta > 1) { console.error("TIMELINE GRID HANDLES MOVED WITH CONTENT", timelineInternalScroll); process.exit(1) }
 if (timelineInternalScroll.handleBackgrounds.some((color) => color !== "rgba(0, 0, 0, 0)")) { console.error("TIMELINE GRID HANDLE BECAME VISIBLE", timelineInternalScroll); process.exit(1) }
-if (timelineInternalScroll.widthHandleParent !== "oneday-svg-holder" || timelineInternalScroll.widthHandleTrackDelta > 1) { console.error("TIMELINE WIDTH HANDLE DETACHED FROM TRACK", timelineInternalScroll); process.exit(1) }
+if (timelineInternalScroll.widthHandleParent !== "modular-diary-svg-holder" || timelineInternalScroll.widthHandleTrackDelta > 1) { console.error("TIMELINE WIDTH HANDLE DETACHED FROM TRACK", timelineInternalScroll); process.exit(1) }
 if (genericGripScroll.missing || genericGripScroll.scrollLeft <= 0 || genericGripScroll.scrollTop <= 0 || Math.abs(genericGripScroll.beforeX - 3) > 1 || Math.abs(genericGripScroll.beforeY - 3) > 1 || Math.abs(genericGripScroll.afterX - 3) > 1 || Math.abs(genericGripScroll.afterY - 3) > 1) { console.error("SLOT MOVE GRIP SCROLLED WITH CONTENT", genericGripScroll); process.exit(1) }
-if (genericGripScroll.visibleWidth < genericGripScroll.width - 1 || genericGripScroll.visibleHeight < genericGripScroll.height - 1 || !genericGripScroll.hit || genericGripScroll.anchor !== "oneday-slot-grip-anchor") { console.error("SLOT MOVE GRIP IS CLIPPED OR NOT CLICKABLE", genericGripScroll); process.exit(1) }
+if (genericGripScroll.visibleWidth < genericGripScroll.width - 1 || genericGripScroll.visibleHeight < genericGripScroll.height - 1 || !genericGripScroll.hit || genericGripScroll.anchor !== "modular-diary-slot-grip-anchor") { console.error("SLOT MOVE GRIP IS CLIPPED OR NOT CLICKABLE", genericGripScroll); process.exit(1) }
 if (Object.values(mobileDefault).some((display) => display !== "none")) { console.error("MOBILE HANDLES LEAKED", mobileDefault); process.exit(1) }
 if (mobileEditing.grip.display === "none" || mobileEditing.grip.w < 44 || mobileEditing.grip.h < 44) { console.error("MOBILE GRIP TOO SMALL", mobileEditing); process.exit(1) }
 if (mobileEditing.handle.display === "none" || mobileEditing.handle.w < 20) { console.error("MOBILE RESIZE HANDLE TOO SMALL", mobileEditing); process.exit(1) }

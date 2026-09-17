@@ -1,4 +1,4 @@
-/** Insert a new oneday timeline block at the cursor (editor menu / command). */
+/** Insert a new Modular Diary timeline block at the cursor (editor menu / command). */
 import { Editor } from "obsidian"
 
 /** Daily-note filename -> YYYY-MM-DD (supports 2026-08-18 / 2026.8.18sun 等); else today. */

@@ -3,8 +3,8 @@ import { chromium } from "playwright"
 const browser = await chromium.connectOverCDP("http://127.0.0.1:9333")
 const page = browser.contexts()[0].pages()[0]
 const info = await page.evaluate(() => ({
-  onedayEnabled: app.plugins.enabledPlugins.has("oneday"),
-  manifestLoaded: !!app.plugins.manifests?.oneday,
+  modularDiaryEnabled: app.plugins.enabledPlugins.has("modular-diary"),
+  manifestLoaded: !!app.plugins.manifests?.["modular-diary"],
   enabledCount: app.plugins.enabledPlugins.size,
   enabledList: [...app.plugins.enabledPlugins],
 }))

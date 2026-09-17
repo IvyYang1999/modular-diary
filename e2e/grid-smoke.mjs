@@ -10,7 +10,7 @@ import fs from "node:fs"
 import os from "node:os"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const out = path.join(os.tmpdir(), "oneday-grid-smoke")
+const out = path.join(os.tmpdir(), "modular-diary-grid-smoke")
 fs.rmSync(out, { recursive: true, force: true })
 fs.mkdirSync(out, { recursive: true })
 
@@ -24,7 +24,7 @@ const items = [
 ]
 for (const it of items) {
   const slot = document.createElement("div")
-  slot.className = "oneday-slot"
+  slot.className = "modular-diary-slot"
   slot.dataset.slot = it.id
   slot.dataset.x = it.x; slot.dataset.y = it.y; slot.dataset.w = it.w; slot.dataset.h = it.h
   slot.textContent = it.id
@@ -50,7 +50,7 @@ attachGridInteract(body, (items) => {
   }, document.getElementById("base"), "live-preview")
   window.__gridVisualCommits.push({
     started,
-    overlays: document.querySelectorAll(".oneday-remount-overlay").length,
+    overlays: document.querySelectorAll(".modular-diary-remount-overlay").length,
     sourceVisible: getComputedStyle(document.getElementById("base")).visibility !== "hidden",
   })
 })
@@ -62,7 +62,7 @@ const wideItems = [
 ]
 for (const it of wideItems) {
   const slot = document.createElement("div")
-  slot.className = "oneday-slot"
+  slot.className = "modular-diary-slot"
   slot.dataset.slot = it.id
   slot.dataset.x = it.x; slot.dataset.y = it.y; slot.dataset.w = it.w; slot.dataset.h = it.h
   slot.textContent = it.id
@@ -82,7 +82,7 @@ const relocateItems = [
 ]
 for (const it of relocateItems) {
   const slot = document.createElement("div")
-  slot.className = "oneday-slot"
+  slot.className = "modular-diary-slot"
   slot.dataset.slot = it.id
   slot.dataset.x = it.x; slot.dataset.y = it.y; slot.dataset.w = it.w; slot.dataset.h = it.h
   slot.textContent = it.id
@@ -107,17 +107,17 @@ const html = `<!doctype html><html><head><style>${css}
 #wide { position: relative; }
 #relocate-shell { width: 600px; margin-top: 40px; }
 #relocate { position: relative; }
-.oneday-slot { background: #eee; }
-</style></head><body><div id="base" class="oneday-container"><div id="body"></div></div><div id="scroll" class="oneday-container"><div id="wide" class="oneday-body"></div></div><div id="relocate-shell" class="oneday-container"><div id="relocate" class="oneday-body"></div></div><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`
+.modular-diary-slot { background: #eee; }
+</style></head><body><div id="base" class="modular-diary-container"><div id="body"></div></div><div id="scroll" class="modular-diary-container"><div id="wide" class="modular-diary-body"></div></div><div id="relocate-shell" class="modular-diary-container"><div id="relocate" class="modular-diary-body"></div></div><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`
 fs.writeFileSync(path.join(out, "index.html"), html)
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 800, height: 500 } })
 page.on("pageerror", (e) => { console.error("pageerror:", e.message); process.exit(1) })
 await page.goto("file://" + path.join(out, "index.html"))
-await page.waitForSelector(".oneday-slot-grip")
+await page.waitForSelector(".modular-diary-slot-grip")
 
-const edgeHandle = page.locator('#body .oneday-slot[data-slot="toolbar"] .oneday-handle-e')
+const edgeHandle = page.locator('#body .modular-diary-slot[data-slot="toolbar"] .modular-diary-handle-e')
 await edgeHandle.hover()
 const edgeHandleHoverBackground = await edgeHandle.evaluate((handle) => getComputedStyle(handle).backgroundColor)
 if (edgeHandleHoverBackground !== "rgba(0, 0, 0, 0)") {
@@ -128,15 +128,15 @@ const bodyBox = await page.locator("#body").boundingBox()
 // cellW = 600/12 = 50, rowH = 20
 
 // 1. move toolbar (grip) down ~5 rows: y 0 -> 5; timeline (y2,h10) should push below? toolbar h2 at y5 overlaps timeline(y2..12) -> timeline pushed to 7
-const grip = await page.locator('#body .oneday-slot[data-slot="toolbar"] .oneday-slot-grip').boundingBox()
+const grip = await page.locator('#body .modular-diary-slot[data-slot="toolbar"] .modular-diary-slot-grip').boundingBox()
 await page.mouse.move(grip.x + 4, grip.y + 4)
 await page.mouse.down()
 const movePointerContract = await page.evaluate(() => {
-  const handle = document.querySelector('#body .oneday-slot[data-slot="toolbar"] .oneday-slot-grip')
+  const handle = document.querySelector('#body .modular-diary-slot[data-slot="toolbar"] .modular-diary-slot-grip')
   return {
     pointerId: window.__lastPointerId,
     captured: handle?.hasPointerCapture(window.__lastPointerId) ?? false,
-    redrawBlocked: document.querySelector("#base")?.dataset.onedayPointerActive === "1",
+    redrawBlocked: document.querySelector("#base")?.dataset.modularDiaryPointerActive === "1",
   }
 })
 if (!movePointerContract.captured || !movePointerContract.redrawBlocked) {
@@ -150,7 +150,7 @@ await page.evaluate(() => document.dispatchEvent(new PointerEvent("pointerup", {
   pointerType: "touch",
 })))
 const moveAfterForeignPointer = await page.evaluate(() => ({
-  active: document.querySelector('#body .oneday-slot[data-slot="toolbar"]')?.classList.contains("is-placeholder"),
+  active: document.querySelector('#body .modular-diary-slot[data-slot="toolbar"]')?.classList.contains("is-placeholder"),
   commits: window.__committed.length,
 }))
 if (!moveAfterForeignPointer.active || moveAfterForeignPointer.commits !== 0) {
@@ -158,14 +158,14 @@ if (!moveAfterForeignPointer.active || moveAfterForeignPointer.commits !== 0) {
 }
 await page.mouse.move(grip.x + 4, grip.y + 4 + 100, { steps: 4 })
 const during = await page.evaluate(() => ({
-  clone: document.querySelector(".oneday-drag-clone") !== null,
-  placeholder: document.querySelector('.oneday-slot[data-slot="toolbar"]')?.classList.contains("is-placeholder") ?? false,
+  clone: document.querySelector(".modular-diary-drag-clone") !== null,
+  placeholder: document.querySelector('.modular-diary-slot[data-slot="toolbar"]')?.classList.contains("is-placeholder") ?? false,
 }))
 if (!during.clone || !during.placeholder) { console.error("missing clone/placeholder", during); process.exit(1) }
 await page.mouse.up()
 const movePointerReleased = await page.evaluate(() => ({
-  active: document.querySelector("#base")?.dataset.onedayPointerActive ?? "",
-  captured: document.querySelector('#body .oneday-slot[data-slot="toolbar"] .oneday-slot-grip')?.hasPointerCapture(window.__lastPointerId) ?? false,
+  active: document.querySelector("#base")?.dataset.modularDiaryPointerActive ?? "",
+  captured: document.querySelector('#body .modular-diary-slot[data-slot="toolbar"] .modular-diary-slot-grip')?.hasPointerCapture(window.__lastPointerId) ?? false,
 }))
 if (movePointerReleased.active || movePointerReleased.captured) {
   console.error("grid move did not release its interaction ownership", movePointerReleased); process.exit(1)
@@ -177,7 +177,7 @@ if (movePointerReleased.active || movePointerReleased.captured) {
 const relocateBody = page.locator("#relocate")
 await relocateBody.scrollIntoViewIfNeeded()
 const relocateBodyBox = await relocateBody.boundingBox()
-const statsGrip = await page.locator('#relocate .oneday-slot[data-slot="stats"] .oneday-slot-grip').boundingBox()
+const statsGrip = await page.locator('#relocate .modular-diary-slot[data-slot="stats"] .modular-diary-slot-grip').boundingBox()
 await page.mouse.move(statsGrip.x + 4, statsGrip.y + 4)
 await page.mouse.down()
 await page.mouse.move(
@@ -186,9 +186,9 @@ await page.mouse.move(
   { steps: 12 },
 )
 const relocateDuring = await page.evaluate(() => ({
-  active: document.querySelector("#relocate-shell")?.dataset.onedayPointerActive === "1",
-  placeholder: document.querySelector('#relocate .oneday-slot[data-slot="stats"]')?.classList.contains("is-placeholder") ?? false,
-  clone: document.querySelector(".oneday-drag-clone") !== null,
+  active: document.querySelector("#relocate-shell")?.dataset.modularDiaryPointerActive === "1",
+  placeholder: document.querySelector('#relocate .modular-diary-slot[data-slot="stats"]')?.classList.contains("is-placeholder") ?? false,
+  clone: document.querySelector(".modular-diary-drag-clone") !== null,
 }))
 if (!relocateDuring.active || !relocateDuring.placeholder || !relocateDuring.clone) {
   console.error("Stats relocation ended before pointer release", relocateDuring); process.exit(1)
@@ -196,8 +196,8 @@ if (!relocateDuring.active || !relocateDuring.placeholder || !relocateDuring.clo
 await page.locator("#relocate-shell").screenshot({ path: path.join(out, "stats-below-timeline-preview.png") })
 await page.mouse.up()
 const relocateAfter = await page.evaluate(() => {
-  const stats = document.querySelector('#relocate .oneday-slot[data-slot="stats"]')
-  const timeline = document.querySelector('#relocate .oneday-slot[data-slot="timeline"]')
+  const stats = document.querySelector('#relocate .modular-diary-slot[data-slot="stats"]')
+  const timeline = document.querySelector('#relocate .modular-diary-slot[data-slot="timeline"]')
   return {
     stats: { x: Number(stats?.dataset.x), y: Number(stats?.dataset.y) },
     timeline: { x: Number(timeline?.dataset.x), bottom: Number(timeline?.dataset.y) + Number(timeline?.dataset.h) },
@@ -213,11 +213,11 @@ await page.locator("#relocate-shell").screenshot({ path: path.join(out, "stats-b
 
 // 2. resize timeline via e-handle: w 12 -> 6 (drag left edge of right side)
 await page.locator("#body").scrollIntoViewIfNeeded()
-const tl = await page.locator('#body .oneday-slot[data-slot="timeline"]').boundingBox()
+const tl = await page.locator('#body .modular-diary-slot[data-slot="timeline"]').boundingBox()
 await page.mouse.move(tl.x + tl.width - 2, tl.y + tl.height / 2)
 await page.mouse.down()
 const resizePointerContract = await page.evaluate(() => {
-  const handle = document.querySelector('#body .oneday-slot[data-slot="timeline"] .oneday-handle-e')
+  const handle = document.querySelector('#body .modular-diary-slot[data-slot="timeline"] .modular-diary-handle-e')
   return {
     pointerId: window.__lastPointerId,
     captured: handle?.hasPointerCapture(window.__lastPointerId) ?? false,
@@ -234,7 +234,7 @@ await page.evaluate(() => document.dispatchEvent(new PointerEvent("pointerup", {
   pointerType: "touch",
 })))
 const afterForeignPointer = await page.evaluate(() => ({
-  active: document.querySelector('#body .oneday-slot[data-slot="timeline"]')?.classList.contains("is-resizing"),
+  active: document.querySelector('#body .modular-diary-slot[data-slot="timeline"]')?.classList.contains("is-resizing"),
   commits: window.__committed.length,
 }))
 if (!afterForeignPointer.active || afterForeignPointer.commits !== 1) {
@@ -244,7 +244,7 @@ if (!afterForeignPointer.active || afterForeignPointer.commits !== 1) {
 // button remains held. Capture must keep one uninterrupted resize session.
 for (const x of [tl.x + 500, tl.x + 250, tl.x + 460, tl.x + 280, tl.x + 300]) {
   await page.mouse.move(x, tl.y + tl.height / 2, { steps: 3 })
-  const active = await page.locator('#body .oneday-slot[data-slot="timeline"]').evaluate((slot) => slot.classList.contains("is-resizing"))
+  const active = await page.locator('#body .modular-diary-slot[data-slot="timeline"]').evaluate((slot) => slot.classList.contains("is-resizing"))
   if (!active) { console.error("grid resize ended during a held zig-zag drag", x); process.exit(1) }
 }
 await page.mouse.up()
@@ -255,7 +255,7 @@ if (resizeVisualHandoff.started || resizeVisualHandoff.overlays !== 0 || !resize
 
 // A genuine cancellation must roll the preview back and must never persist a
 // half-finished layout. Releasing the physical button afterwards is a no-op.
-const cancelSlot = page.locator('#body .oneday-slot[data-slot="toolbar"]')
+const cancelSlot = page.locator('#body .modular-diary-slot[data-slot="toolbar"]')
 const cancelBefore = await cancelSlot.evaluate((slot) => ({
   x: slot.dataset.x,
   y: slot.dataset.y,
@@ -273,7 +273,7 @@ await page.evaluate(() => document.dispatchEvent(new PointerEvent("pointercancel
 })))
 await page.mouse.up()
 const cancelAfter = await page.evaluate(() => {
-  const slot = document.querySelector('#body .oneday-slot[data-slot="toolbar"]')
+  const slot = document.querySelector('#body .modular-diary-slot[data-slot="toolbar"]')
   return {
     active: slot.classList.contains("is-resizing"),
     commits: window.__committed.length,
@@ -287,14 +287,14 @@ if (cancelAfter.active || cancelAfter.commits !== 2 || JSON.stringify(cancelAfte
 // 3. Two half-width peers fill one row. Growing the left peer by two columns
 // must expand the internal canvas and move the right peer horizontally, not
 // push it down.
-await page.locator('#wide .oneday-slot[data-slot="toolbar"]').scrollIntoViewIfNeeded()
+await page.locator('#wide .modular-diary-slot[data-slot="toolbar"]').scrollIntoViewIfNeeded()
 const wideBodyBefore = await page.locator("#wide").boundingBox()
-const wideLeft = await page.locator('#wide .oneday-slot[data-slot="toolbar"]').boundingBox()
+const wideLeft = await page.locator('#wide .modular-diary-slot[data-slot="toolbar"]').boundingBox()
 const wideCell = wideBodyBefore.width / 12
 await page.mouse.move(wideLeft.x + wideLeft.width - 2, wideLeft.y + wideLeft.height / 2)
 await page.mouse.down()
 await page.mouse.move(wideLeft.x + wideLeft.width + wideCell * 2, wideLeft.y + wideLeft.height / 2, { steps: 4 })
-const topEdgeResizePreview = await page.locator('#wide .oneday-slot[data-slot="toolbar"]').evaluate((slot) => {
+const topEdgeResizePreview = await page.locator('#wide .modular-diary-slot[data-slot="toolbar"]').evaluate((slot) => {
   const body = slot.parentElement
   const rect = slot.getBoundingClientRect()
   const bodyRect = body.getBoundingClientRect()

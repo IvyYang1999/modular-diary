@@ -6,7 +6,7 @@ export interface TextPaneDeps {
   onSave: (index: number, text: string) => void | Promise<void>
   /** Drafts live above the disposable MarkdownPostProcessor DOM tree. */
   getDraft?: (index: number) => TextDraftState | null
-  onDraftChange?: (index: number, draft: TextDraftState | null) => void
+  onDraftChange?: (index: number, draft: TextDraftState | null, savedValue?: string) => void
 }
 
 /** DOM mount: svg string + stats row + error list, into a code-block container. */
@@ -27,7 +27,7 @@ interface InlineEditorDeps {
   renderMarkdown: (host: HTMLElement, text: string) => void
   onSave: (text: string) => void | Promise<void>
   initialDraft?: TextDraftState | null
-  onDraftChange?: (draft: TextDraftState | null) => void
+  onDraftChange?: (draft: TextDraftState | null, savedValue?: string) => void
 }
 
 export interface TimelineViewOptions extends RenderOptions {
@@ -43,16 +43,26 @@ export interface TimelineViewOptions extends RenderOptions {
   extraSlots?: GridItem[]
 }
 
-const TEXT_EDITOR_FLUSH_EVENT = "oneday:text-editor-flush"
+const TEXT_EDITOR_DISPOSE_EVENT = "modular-diary:text-editor-dispose"
+
+export function disposeInlineTextEditors(root: ParentNode): void {
+  root.querySelectorAll<HTMLElement>(".modular-diary-text-pane").forEach((pane) => {
+    const event = pane.ownerDocument.createEvent("Event")
+    event.initEvent(TEXT_EDITOR_DISPOSE_EVENT, false, false)
+    pane.dispatchEvent(event)
+  })
+}
+
+const TEXT_EDITOR_FLUSH_EVENT = "modular-diary:text-editor-flush"
 
 /**
  * Fixed chrome the plugin mounts around the SVG inside the timeline slot. The
  * default slot height must reserve it, otherwise the last hours of the range
  * are only reachable through the holder's internal scroll. Mirrors styles.css:
- *   slot border 1 + 1 and --oneday-slot-padding-block 8 + 8       = 18
- *   .oneday-timeline-topbar: 26px compact control + 2px padding
+ *   slot border 1 + 1 and --modular-diary-slot-padding-block 8 + 8       = 18
+ *   .modular-diary-timeline-topbar: 26px compact control + 2px padding
  *     + 1px border on both sides (32) + 2px margin-bottom          = 34
- *   .oneday-draw-status: 14px + 2px margin top/bottom              = 18
+ *   .modular-diary-draw-status: 14px + 2px margin top/bottom              = 18
  * The mount-smoke contract measures the real DOM against this value.
  */
 export const TIMELINE_SLOT_CHROME_H = 70
@@ -64,7 +74,7 @@ interface TextEditorFlushEvent extends Event {
 /** Commit every dirty inline text editor below root before its DOM is replaced. */
 export function flushInlineTextEditors(root: ParentNode): Promise<void> {
   const pending: Promise<void>[] = []
-  root.querySelectorAll<HTMLElement>(".oneday-text-pane").forEach((pane) => {
+  root.querySelectorAll<HTMLElement>(".modular-diary-text-pane").forEach((pane) => {
     const event = pane.ownerDocument.createEvent("Event") as TextEditorFlushEvent
     event.initEvent(TEXT_EDITOR_FLUSH_EVENT, false, false)
     event.waitUntil = (promise) => pending.push(promise.catch(() => undefined))
@@ -88,16 +98,16 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     detachResizeGuard = null
     detachLifecycle?.()
     detachLifecycle = null
-    pane.closest(".oneday-slot")?.classList.remove("is-editing")
+    pane.closest(".modular-diary-slot")?.classList.remove("is-editing")
     pane.empty()
     if (text.trim() === "") {
-      pane.createDiv({ cls: "oneday-text-placeholder", text: t("clickToWrite") })
+      pane.createDiv({ cls: "modular-diary-text-placeholder", text: t("clickToWrite") })
     } else {
       // MarkdownRenderer only supplies the rendered children. Obsidian's own
       // typography (notably <hr>) is scoped by the markdown-rendered host
       // class, so keep that semantic wrapper instead of restyling individual
-      // Markdown nodes with a parallel Oneday theme.
-      const host = pane.createDiv({ cls: "oneday-text-host markdown-rendered" })
+      // Markdown nodes with a parallel Modular Diary theme.
+      const host = pane.createDiv({ cls: "modular-diary-text-host markdown-rendered" })
       deps.renderMarkdown(host, text)
     }
   }
@@ -109,22 +119,24 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     const paneScrollTop = pane.scrollTop
     const paneScrollLeft = pane.scrollLeft
     pane.empty()
-    pane.closest(".oneday-slot")?.classList.add("is-editing")
-    const ta = pane.createEl("textarea", { cls: "oneday-text-inline" })
+    pane.closest(".modular-diary-slot")?.classList.add("is-editing")
+    const ta = pane.createEl("textarea", { cls: "modular-diary-text-inline" })
     ta.value = draft?.value ?? text
     const paneStyle = domWindow?.getComputedStyle(pane)
     const paneVerticalPadding = Number.parseFloat(paneStyle?.paddingTop ?? "0")
       + Number.parseFloat(paneStyle?.paddingBottom ?? "0")
     const editorFloor = Math.max(0, pane.clientHeight - paneVerticalPadding)
     ta.style.minHeight = `${editorFloor}px`
+    let failed = draft?.saveFailed ?? false
+    let disposed = false
     const publishDraft = (shouldFocus = dom.activeElement === ta): void => {
-      deps.onDraftChange?.({ value: ta.value, editing: true, shouldFocus })
+      deps.onDraftChange?.({ value: ta.value, editing: true, shouldFocus, saveFailed: failed }, disposed ? ta.value : undefined)
     }
-    const slot = pane.closest<HTMLElement>(".oneday-slot")
+    const slot = pane.closest<HTMLElement>(".modular-diary-slot")
     let resizing = false
     const onResizeStart = (e: PointerEvent): void => {
       const target = e.target as Element | null
-      if (target?.closest(".oneday-handle")) resizing = true
+      if (target?.closest(".modular-diary-handle")) resizing = true
     }
     const onResizeEnd = (): void => {
       if (!resizing) return
@@ -162,7 +174,9 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     let finished = false
     let committing = false
     let commitPromise: Promise<void> | null = null
-    const commit = (): Promise<void> => {
+    const commit = (explicit = false): Promise<void> => {
+      if (disposed || (failed && !explicit)) return Promise.resolve()
+      if (explicit) failed = false
       if (finished) return Promise.resolve()
       if (commitPromise) return commitPromise
       if (ta.value === text) {
@@ -171,6 +185,8 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
         show() // 没变就不写回，避免无谓重渲染
         return Promise.resolve()
       }
+      retry.hidden = true
+      ta.removeAttribute("aria-invalid")
       committing = true
       const submitted = ta.value
       const running = Promise.resolve().then(() => deps.onSave(submitted)).then(() => {
@@ -184,7 +200,7 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
           return commit()
         }
         finished = true
-        deps.onDraftChange?.(null)
+        deps.onDraftChange?.(null, submitted)
         detachFocusout?.()
         detachFocusout = null
         detachResizeGuard?.()
@@ -195,16 +211,24 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
       }).catch((error: unknown) => {
         committing = false
         commitPromise = null
-        publishDraft(dom.hasFocus())
+        failed = true
+        retry.hidden = false
+        ta.setAttribute("aria-invalid", "true")
+        publishDraft(false)
         // The plugin-owned draft survives even if this renderer is replaced.
-        console.error("Oneday: failed to save inline text; draft kept in editor", error)
-        if (ta.isConnected && dom.hasFocus()) ta.focus({ preventScroll: true })
+        console.error("Modular Diary: failed to save inline text; draft kept in editor", error)
+
       })
       commitPromise = running
       return running
     }
+    const retry = pane.createEl("button", { cls: "modular-diary-save-retry", text: t("retrySave") })
+    retry.type = "button"
+    retry.hidden = !failed
+    retry.addEventListener("click", () => { void commit(true) })
     // 容器级 focusout（专家方案）：焦点离开整个文字区才提交
     const onFocusout = (): void => {
+      if (disposed) return
       publishDraft(false)
       domWindow?.setTimeout(() => {
         if (!resizing && pane.querySelector("textarea") && !pane.contains(dom.activeElement)) {
@@ -217,6 +241,7 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     // macOS 切到另一应用时，textarea 可能仍是 document.activeElement，因而
     // 不产生 focusout。窗口隐藏、页面卸载和组件重绘也都必须先提交草稿。
     const onWindowBlur = (): void => {
+      if (disposed) return
       publishDraft(false)
       void commit()
     }
@@ -235,7 +260,17 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     domWindow?.addEventListener("pagehide", onPageHide)
     dom.addEventListener("visibilitychange", onVisibilityChange)
     pane.addEventListener(TEXT_EDITOR_FLUSH_EVENT, onForcedFlush)
+    const onDispose = (): void => {
+      if (finished || disposed) return
+      publishDraft(false)
+      disposed = true
+      detachFocusout?.()
+      detachResizeGuard?.()
+      detachLifecycle?.()
+    }
+    pane.addEventListener(TEXT_EDITOR_DISPOSE_EVENT, onDispose)
     detachLifecycle = () => {
+      pane.removeEventListener(TEXT_EDITOR_DISPOSE_EVENT, onDispose)
       domWindow?.removeEventListener("blur", onWindowBlur)
       domWindow?.removeEventListener("pagehide", onPageHide)
       dom.removeEventListener("visibilitychange", onVisibilityChange)
@@ -244,7 +279,7 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     ta.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
-        void commit()
+        void commit(true)
       } else if (e.key === "Escape") {
         finished = true
         deps.onDraftChange?.(null)
@@ -267,7 +302,7 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     if (pane.querySelector("textarea")) return
     const target = e.target as Element | null
     if (target?.closest("a, button, input, textarea")) return
-    const host = pane.querySelector<HTMLElement>(".oneday-text-host")
+    const host = pane.querySelector<HTMLElement>(".modular-diary-text-host")
     const caretAtEnd = host === null || e.clientY > host.getBoundingClientRect().bottom
     edit(null, true, caretAtEnd)
   })
@@ -277,7 +312,7 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
 
 /**
  * Keep the SVG's annotation lane inside the scroll pane's content width. The
- * track keeps its authored width; only the `.oneday-side-lane` group and the
+ * track keeps its authored width; only the `.modular-diary-side-lane` group and the
  * SVG frame are swapped, so interaction-owned nodes (range buttons, edit
  * edges, ghosts) and the track node survive a slot resize. Runs once the pane
  * has a measurable box and again whenever it resizes.
@@ -291,7 +326,7 @@ function attachSideLaneFit(
   const dom = svgHolder.ownerDocument
   const domWindow = dom.defaultView
   const fit = (): void => {
-    const live = svgHolder.querySelector<SVGSVGElement>("svg.oneday-svg")
+    const live = svgHolder.querySelector<SVGSVGElement>("svg.modular-diary-svg")
     if (!live) return
     const available = svgHolder.clientWidth
     if (available <= 0) return
@@ -299,9 +334,9 @@ function attachSideLaneFit(
     if (live.getAttribute("data-side-lane") === String(lane)) return
     const staging = dom.createElement("div")
     staging.innerHTML = renderTimelineSvg(doc, { ...opts, width: baseWidth, sideLaneWidth: lane })
-    const next = staging.querySelector<SVGSVGElement>("svg.oneday-svg")
-    const nextLane = next?.querySelector("g.oneday-side-lane")
-    const liveLane = live.querySelector("g.oneday-side-lane")
+    const next = staging.querySelector<SVGSVGElement>("svg.modular-diary-svg")
+    const nextLane = next?.querySelector("g.modular-diary-side-lane")
+    const liveLane = live.querySelector("g.modular-diary-side-lane")
     if (!next || !nextLane || !liveLane) return
     for (const name of ["width", "height", "viewBox", "data-side-lane"]) {
       const value = next.getAttribute(name)
@@ -311,7 +346,7 @@ function attachSideLaneFit(
     liveLane.replaceWith(nextLane.cloneNode(true))
     // Edit/focus visuals classify lane nodes by data-line; let the owning
     // interaction rebuild that state on the fresh group.
-    live.dispatchEvent(new (domWindow?.CustomEvent ?? CustomEvent)("oneday-sync-edit-visual"))
+    live.dispatchEvent(new (domWindow?.CustomEvent ?? CustomEvent)("modular-diary-sync-edit-visual"))
   }
   fit()
   const ResizeObserverCtor = domWindow?.ResizeObserver
@@ -328,7 +363,7 @@ function attachSideLaneFit(
 
 /**
  * Measure note copy with the host's real font so wrapping matches what the
- * SVG paints. The probe resolves the theme's `--oneday-font-svg-label`
+ * SVG paints. The probe resolves the theme's `--modular-diary-font-svg-label`
  * (custom properties are not resolved by getComputedStyle) and the inherited
  * family; without a canvas or a laid-out probe the builder's estimate wins.
  */
@@ -339,7 +374,7 @@ function createNoteMeasurer(container: HTMLElement): TextMeasurer | undefined {
   const canvas = dom.createElement("canvas")
   const context = canvas.getContext?.("2d")
   if (!context) return undefined
-  const probe = container.createEl("span", { cls: "oneday-note-measure-probe" })
+  const probe = container.createEl("span", { cls: "modular-diary-note-measure-probe" })
   const style = domWindow.getComputedStyle(probe)
   const fontPx = Number.parseFloat(style.fontSize)
   const family = style.fontFamily
@@ -355,7 +390,7 @@ export function renderTimelineInto(
   opts: TimelineViewOptions,
   textPane?: TextPaneDeps
 ): HTMLElement {
-  const container = el.createDiv({ cls: "oneday-container" })
+  const container = el.createDiv({ cls: "modular-diary-container" })
   const domWindow = container.ownerDocument.defaultView
   const measureNote = opts.measureNote ?? createNoteMeasurer(container)
   if (measureNote) opts = { ...opts, measureNote }
@@ -363,14 +398,14 @@ export function renderTimelineInto(
   const baseWidth = doc.width ?? opts.width ?? 200
   const texts = doc.texts ?? []
   const hasText = textPane !== undefined && texts.length > 0
-  const blockScroll = container.createDiv({ cls: "oneday-block-scroll" })
-  const body = blockScroll.createDiv({ cls: "oneday-body is-settling" })
+  const blockScroll = container.createDiv({ cls: "modular-diary-block-scroll" })
+  const body = blockScroll.createDiv({ cls: "modular-diary-body is-settling" })
   if (doc.canvasWidth !== undefined) body.dataset.gridBaseWidth = String(doc.canvasWidth)
 
   // 网格布局（yyt 2026-08-17：组件手柄拖拽移动+缩放、自动吸附+重力压实）：
   // 12 列 x 20px 行，组件几何存 dataset，交互由 main 接 attachGridInteract
   // 时间轴默认行数取 SVG 实际高度（含标注车道撑高）加上顶栏/状态行等固定
-  // 外壳，避免底部最后一两个小时被 .oneday-svg-holder 的内部滚动吞掉
+  // 外壳，避免底部最后一两个小时被 .modular-diary-svg-holder 的内部滚动吞掉
   const timelineSvg = renderTimelineSvg(doc, { ...opts, width: baseWidth })
   const svgHeight = Number(/<svg[^>]*height="([\d.]+)"/.exec(timelineSvg)?.[1] ?? 800)
   const timelineRows = Math.ceil((svgHeight + TIMELINE_SLOT_CHROME_H) / GRID_ROW_H)
@@ -389,14 +424,14 @@ export function renderTimelineInto(
   )
   body.style.height = `${gridRows(items) * GRID_ROW_H}px`
   for (const it of items) {
-    const slot = body.createDiv({ cls: `oneday-slot oneday-slot-${it.id}` })
+    const slot = body.createDiv({ cls: `modular-diary-slot modular-diary-slot-${it.id}` })
     slot.dataset.slot = it.id
     slot.dataset.x = String(it.x)
     slot.dataset.y = String(it.y)
     slot.dataset.w = String(it.w)
     slot.dataset.h = String(it.h)
     if (it.id === "timeline") {
-      const svgHolder = slot.createDiv({ cls: "oneday-svg-holder" })
+      const svgHolder = slot.createDiv({ cls: "modular-diary-svg-holder" })
       svgHolder.innerHTML = timelineSvg
       attachSideLaneFit(svgHolder, doc, opts, baseWidth)
       const noCategories = Object.keys(opts.typeColors).length === 0
@@ -404,11 +439,11 @@ export function renderTimelineInto(
       if (noCategories && doc.entries.length === 0 && doc.annotations.length === 0 && doc.errors.length === 0) {
         // Same visual family as the Stats empty state (dashed, faint copy),
         // sized to the real track so it reads as "this track is waiting".
-        const empty = svgHolder.createEl("button", { cls: "oneday-timeline-empty", attr: { type: "button" } })
+        const empty = svgHolder.createEl("button", { cls: "modular-diary-timeline-empty", attr: { type: "button" } })
         empty.setAttribute("aria-label", t("addFirstCategory"))
-        empty.createEl("span", { cls: "oneday-timeline-empty-title", text: t("addFirstCategory") })
-        empty.createEl("span", { cls: "oneday-timeline-empty-copy", text: t("timelineNeedsCategory") })
-        const track = svgHolder.querySelector<SVGRectElement>("rect.oneday-track")
+        empty.createEl("span", { cls: "modular-diary-timeline-empty-title", text: t("addFirstCategory") })
+        empty.createEl("span", { cls: "modular-diary-timeline-empty-copy", text: t("timelineNeedsCategory") })
+        const track = svgHolder.querySelector<SVGRectElement>("rect.modular-diary-track")
         const trackX = Number(track?.getAttribute("x"))
         const trackY = Number(track?.getAttribute("y"))
         const trackW = Number(track?.getAttribute("width"))
@@ -433,11 +468,11 @@ export function renderTimelineInto(
         && doc.annotations.length === 0
         && doc.errors.length === 0
       ) {
-        const guide = svgHolder.createDiv({ cls: "oneday-timeline-onboarding" })
+        const guide = svgHolder.createDiv({ cls: "modular-diary-timeline-onboarding" })
         guide.setAttribute("role", "note")
         // 引导严格收在真实轨道内；它演示“从一点拖到另一点”的手势，
         // 不伪装成已经创建好的色块，也不成为常驻空状态。
-        const track = svgHolder.querySelector<SVGRectElement>("rect.oneday-track")
+        const track = svgHolder.querySelector<SVGRectElement>("rect.modular-diary-track")
         const trackX = Number(track?.getAttribute("x"))
         const trackY = Number(track?.getAttribute("y"))
         const trackW = Number(track?.getAttribute("width"))
@@ -453,23 +488,23 @@ export function renderTimelineInto(
           guide.style.width = `${Math.max(1, trackW - inset * 2)}px`
           guide.style.height = `${guideH}px`
         }
-        const gesture = guide.createDiv({ cls: "oneday-timeline-onboarding-gesture" })
+        const gesture = guide.createDiv({ cls: "modular-diary-timeline-onboarding-gesture" })
         gesture.setAttribute("aria-hidden", "true")
-        gesture.createEl("span", { cls: "oneday-timeline-onboarding-dot is-start" })
-        gesture.createEl("span", { cls: "oneday-timeline-onboarding-line" })
-        gesture.createEl("span", { cls: "oneday-timeline-onboarding-dot is-end" })
-        gesture.createEl("span", { cls: "oneday-timeline-onboarding-label is-start", text: t("start") })
-        gesture.createEl("span", { cls: "oneday-timeline-onboarding-label is-end", text: t("end") })
-        guide.createEl("span", { cls: "oneday-timeline-onboarding-copy", text: t("dragStartToEnd") })
+        gesture.createEl("span", { cls: "modular-diary-timeline-onboarding-dot is-start" })
+        gesture.createEl("span", { cls: "modular-diary-timeline-onboarding-line" })
+        gesture.createEl("span", { cls: "modular-diary-timeline-onboarding-dot is-end" })
+        gesture.createEl("span", { cls: "modular-diary-timeline-onboarding-label is-start", text: t("start") })
+        gesture.createEl("span", { cls: "modular-diary-timeline-onboarding-label is-end", text: t("end") })
+        guide.createEl("span", { cls: "modular-diary-timeline-onboarding-copy", text: t("dragStartToEnd") })
       }
     } else if (isTextSlot(it.id) && textPane) {
       const idx = it.id === "text" ? 0 : Number(it.id.slice(4)) - 1
-      const pane = slot.createDiv({ cls: "oneday-text-pane" })
+      const pane = slot.createDiv({ cls: "modular-diary-text-pane" })
       attachInlineTextEditor(pane, texts[idx] ?? "", {
         renderMarkdown: (host, text) => textPane.renderMarkdown(host, text),
         onSave: (text) => textPane.onSave(idx, text),
         initialDraft: textPane.getDraft?.(idx) ?? null,
-        onDraftChange: (draft) => textPane.onDraftChange?.(idx, draft),
+        onDraftChange: (draft, savedValue) => textPane.onDraftChange?.(idx, draft, savedValue),
       })
     }
   }
@@ -484,43 +519,43 @@ export function renderTimelineInto(
   // 宿主恒 100%：时间轴 SVG 随槽位响应式重渲染，宽度由网格手柄调（yyt 2026-08-17）
   const useFloat = Boolean(doc.floatRight) && !inCallout && !inLivePreview
   el.style.width = useFloat ? `${baseWidth + SIDE_LANE_W}px` : "100%"
-  el.classList.add("oneday-host")
-  el.classList.toggle("oneday-host-float", useFloat)
+  el.classList.add("modular-diary-host")
+  el.classList.toggle("modular-diary-host-float", useFloat)
 
-  const statsSlot = container.querySelector<HTMLElement>(".oneday-slot-stats") // 被 off: 隐藏时不兜底渲染
+  const statsSlot = container.querySelector<HTMLElement>(".modular-diary-slot-stats") // 被 off: 隐藏时不兜底渲染
   statsSlot?.classList.toggle("is-empty-state", stats.length === 0 && doc.errors.length === 0)
   if (stats.length > 0 && statsSlot) {
     // 每行一个类型 + 荧光笔色点（yyt 2026-08-17）
-    const box = (statsSlot as HTMLElement).createDiv({ cls: "oneday-stats" })
+    const box = (statsSlot as HTMLElement).createDiv({ cls: "modular-diary-stats" })
     const maxMin = Math.max(...stats.map((st) => st.minutes), 1)
     for (const st of stats) {
-      const row = box.createDiv({ cls: "oneday-stat-row" })
-      row.createEl("span", { cls: "oneday-stat-type", text: st.type })
-      const barWrap = row.createDiv({ cls: "oneday-stat-bar-wrap" })
+      const row = box.createDiv({ cls: "modular-diary-stat-row" })
+      row.createEl("span", { cls: "modular-diary-stat-type", text: st.type })
+      const barWrap = row.createDiv({ cls: "modular-diary-stat-bar-wrap" })
       const color = opts.typeColors[st.type] ?? hashTypeColor(st.type)
       const pct = Math.max(3, (st.minutes / maxMin) * 100)
-      const bar = barWrap.createDiv({ cls: "oneday-stat-bar" })
+      const bar = barWrap.createDiv({ cls: "modular-diary-stat-bar" })
       bar.style.background = color
       bar.style.width = `${pct}%`
       // 先放柱内，挂载后实测：装不下就挪柱外（百分比阈值对不上像素，yyt 2026-08-19）
-      const label = bar.createEl("span", { cls: "oneday-stat-hours", text: formatHours(st.minutes) })
+      const label = bar.createEl("span", { cls: "modular-diary-stat-hours", text: formatHours(st.minutes) })
       const insideColor = relatedTextColor(color)
       label.style.color = insideColor
       // 实测要在最终布局上做，而且要能双向迁移：字体回退、槽位缩放都会改变
       // 柱宽（Linux 上字体度量与 macOS 不同，一次 rAF 不够）。
       const placeLabel = (): void => {
-        const isOut = label.classList.contains("oneday-stat-hours-out")
+        const isOut = label.classList.contains("modular-diary-stat-hours-out")
         // 外置后柱子会为标签让位而变窄；判断“能否回柱内”要用柱子在轨道里的
         // 名义宽度（百分比 × 轨道宽），而不是让位后的实际宽度。
         const insideWidth = isOut ? (barWrap.clientWidth * pct) / 100 : bar.clientWidth
         const fits = label.offsetWidth + 10 <= insideWidth
         if (!isOut && !fits) {
-          label.classList.add("oneday-stat-hours-out")
+          label.classList.add("modular-diary-stat-hours-out")
           label.style.color = ""
           barWrap.classList.add("is-label-out")
           barWrap.appendChild(label)
         } else if (isOut && fits) {
-          label.classList.remove("oneday-stat-hours-out")
+          label.classList.remove("modular-diary-stat-hours-out")
           label.style.color = insideColor
           barWrap.classList.remove("is-label-out")
           bar.appendChild(label)
@@ -540,16 +575,16 @@ export function renderTimelineInto(
       }
     }
   } else if (statsSlot && doc.errors.length === 0) {
-    const empty = statsSlot.createDiv({ cls: "oneday-stats-empty" })
+    const empty = statsSlot.createDiv({ cls: "modular-diary-stats-empty" })
     empty.setAttribute("role", "note")
     empty.createEl("span", {
-      cls: "oneday-stats-empty-label",
+      cls: "modular-diary-stats-empty-label",
       text: t("statsEmpty"),
     })
   }
 
   if (doc.errors.length > 0 && statsSlot) {
-    const box = (statsSlot as HTMLElement).createDiv({ cls: "oneday-errors" })
+    const box = (statsSlot as HTMLElement).createDiv({ cls: "modular-diary-errors" })
     for (const err of doc.errors) {
       box.createDiv({
         text: t("lineError", {

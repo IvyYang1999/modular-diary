@@ -59,13 +59,13 @@ const SPAN_LABEL_MIN_GAP = 16
 let previewHatchUid = 0
 
 // Keyboard ownership must follow the concrete renderer the user interacted
-// with. A document can contain several mounted Oneday timelines (and the same
+// with. A document can contain several mounted Modular Diary timelines (and the same
 // source can be open in more than one pane), so "the first editing SVG" is not
 // a valid owner for Delete/Escape.
 const activeEditOwnerByDocument = new WeakMap<Document, SVGSVGElement>()
 const editKeyRouterOwner = {}
 type EditKeyRoutedDocument = Document & {
-  __onedayEditKeyRouter?: {
+  __modularDiaryEditKeyRouter?: {
     owner: object
     handler: (event: KeyboardEvent) => void
   }
@@ -73,15 +73,15 @@ type EditKeyRoutedDocument = Document & {
 
 function ensureDocumentEditKeyRouter(dom: Document): void {
   const routed = dom as EditKeyRoutedDocument
-  if (routed.__onedayEditKeyRouter?.owner === editKeyRouterOwner) return
-  if (routed.__onedayEditKeyRouter) {
-    dom.removeEventListener("keydown", routed.__onedayEditKeyRouter.handler, true)
+  if (routed.__modularDiaryEditKeyRouter?.owner === editKeyRouterOwner) return
+  if (routed.__modularDiaryEditKeyRouter) {
+    dom.removeEventListener("keydown", routed.__modularDiaryEditKeyRouter.handler, true)
   }
   const handler = (event: KeyboardEvent): void => {
     if (!['Escape', 'Delete', 'Backspace'].includes(event.key)) return
-    const editingSvgs = Array.from(dom.querySelectorAll<SVGSVGElement>(".oneday-svg.is-editing-block"))
+    const editingSvgs = Array.from(dom.querySelectorAll<SVGSVGElement>(".modular-diary-svg.is-editing-block"))
     if (editingSvgs.length === 0) return
-    const explicitOwners = editingSvgs.filter((candidate) => candidate.dataset.onedayEditOwnerActive === "1")
+    const explicitOwners = editingSvgs.filter((candidate) => candidate.dataset.modularDiaryEditOwnerActive === "1")
     const rememberedOwner = activeEditOwnerByDocument.get(dom)
     const editingSvg = explicitOwners.length === 1
       ? explicitOwners[0]
@@ -93,18 +93,18 @@ function ensureDocumentEditKeyRouter(dom: Document): void {
     event.preventDefault()
     event.stopPropagation()
     const CustomEventCtor = dom.defaultView?.CustomEvent ?? CustomEvent
-    editingSvg.dispatchEvent(new CustomEventCtor("oneday-esc", { detail: { key: event.key } }))
+    editingSvg.dispatchEvent(new CustomEventCtor("modular-diary-esc", { detail: { key: event.key } }))
     editingSvgs.forEach((candidate) => {
-      if (candidate !== editingSvg) candidate.dispatchEvent(new CustomEventCtor("oneday-sync-edit-visual"))
+      if (candidate !== editingSvg) candidate.dispatchEvent(new CustomEventCtor("modular-diary-sync-edit-visual"))
     })
   }
   dom.addEventListener("keydown", handler, true)
-  routed.__onedayEditKeyRouter = { owner: editKeyRouterOwner, handler }
+  routed.__modularDiaryEditKeyRouter = { owner: editKeyRouterOwner, handler }
 }
 
 export function requestTimelineEntryDelete(svg: SVGSVGElement, line: number): boolean {
   const CustomEventCtor = svg.ownerDocument.defaultView?.CustomEvent ?? CustomEvent
-  const event = new CustomEventCtor("oneday-delete-entry-request", {
+  const event = new CustomEventCtor("modular-diary-delete-entry-request", {
     bubbles: false,
     cancelable: true,
     detail: { line },
@@ -123,9 +123,9 @@ function editEdgeZone(height: number): number {
 }
 
 export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, deps: DrawDeps): void {
-  const svg = container.querySelector<SVGSVGElement>("svg.oneday-svg")
-  const track = container.querySelector<SVGRectElement>("rect.oneday-track")
-  const statusEl = container.querySelector<HTMLElement>(".oneday-draw-status")
+  const svg = container.querySelector<SVGSVGElement>("svg.modular-diary-svg")
+  const track = container.querySelector<SVGRectElement>("rect.modular-diary-track")
+  const statusEl = container.querySelector<HTMLElement>(".modular-diary-draw-status")
   if (!svg || !track) return
   const dom = svg.ownerDocument
   const domWindow = dom.defaultView
@@ -153,15 +153,15 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
   })
 
   const activateEditOwner = (): void => {
-    dom.querySelectorAll<SVGSVGElement>('[data-oneday-edit-owner-active="1"]').forEach((candidate) => {
-      if (candidate !== svg) delete candidate.dataset.onedayEditOwnerActive
+    dom.querySelectorAll<SVGSVGElement>('[data-modular-diary-edit-owner-active="1"]').forEach((candidate) => {
+      if (candidate !== svg) delete candidate.dataset.modularDiaryEditOwnerActive
     })
     activeEditOwnerByDocument.set(dom, svg)
-    svg.dataset.onedayEditOwnerActive = "1"
+    svg.dataset.modularDiaryEditOwnerActive = "1"
   }
 
   const deactivateEditOwner = (): void => {
-    delete svg.dataset.onedayEditOwnerActive
+    delete svg.dataset.modularDiaryEditOwnerActive
     if (activeEditOwnerByDocument.get(dom) === svg) activeEditOwnerByDocument.delete(dom)
   }
 
@@ -226,12 +226,12 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
    */
   const resolveEditPointerHit = (e: PointerEvent, editing: SVGRectElement): EditPointerHit | null => {
     const eventTarget = e.target as Element | null
-    const edge = eventTarget?.closest<SVGRectElement>("rect.oneday-edit-edge") ?? null
+    const edge = eventTarget?.closest<SVGRectElement>("rect.modular-diary-edit-edge") ?? null
     if (edge && Number(edge.dataset.line) === Number(editing.dataset.line)) {
       return { mode: edge.dataset.edge === "top" ? "top" : "bottom", fromHandle: true }
     }
 
-    const target = eventTarget?.closest("rect.oneday-block")
+    const target = eventTarget?.closest("rect.modular-diary-block")
     if (target !== editing) return null
     const rect0 = svg.getBoundingClientRect()
     const localY = (e.clientY - rect0.top) * (svgWidth() / rect0.width)
@@ -310,19 +310,19 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     const centerDelta = y + height / 2 - originalCenter
     const duration = formatHours(durationMin)
     svg.querySelectorAll<SVGElement>(`[data-line="${line}"]`).forEach((node) => {
-      if (node.classList.contains("oneday-edit-edge") || node.classList.contains("oneday-edit-edge-line")) return
-      if (node.matches("rect.oneday-block")) {
+      if (node.classList.contains("modular-diary-edit-edge") || node.classList.contains("modular-diary-edit-edge-line")) return
+      if (node.matches("rect.modular-diary-block")) {
         node.setAttribute("y", String(y))
         node.setAttribute("height", String(Math.max(2, height)))
         return
       }
-      if (node.matches("rect.oneday-plan-hatch")) {
+      if (node.matches("rect.modular-diary-plan-hatch")) {
         node.setAttribute("y", String(y))
         node.setAttribute("height", String(Math.max(2, height)))
         return
       }
       node.setAttribute("transform", `translate(0 ${centerDelta})`)
-      if (node.matches("text.oneday-duration")) {
+      if (node.matches("text.modular-diary-duration")) {
         const current = node.textContent ?? ""
         const separator = current.indexOf(" · ")
         node.textContent = separator >= 0 ? `${duration}${current.slice(separator)}` : duration
@@ -340,7 +340,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       drag.endMin - drag.startMin,
     )
     svg.querySelectorAll<SVGElement>(`[data-line="${drag.line}"]`).forEach((node) => {
-      if (!node.matches("rect.oneday-block, rect.oneday-plan-hatch")) node.removeAttribute("transform")
+      if (!node.matches("rect.modular-diary-block, rect.modular-diary-plan-hatch")) node.removeAttribute("transform")
     })
   }
 
@@ -357,14 +357,14 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
    * remount restores canonical order.
    */
   const raiseEntryVisuals = (line: number): void => {
-    const rect = svg.querySelector<SVGRectElement>(`rect.oneday-block[data-line="${line}"]`)
-    if (!rect || rect.classList.contains("oneday-plan")) return
-    const firstEdge = svg.querySelector(".oneday-edit-edge")
+    const rect = svg.querySelector<SVGRectElement>(`rect.modular-diary-block[data-line="${line}"]`)
+    if (!rect || rect.classList.contains("modular-diary-plan")) return
+    const firstEdge = svg.querySelector(".modular-diary-edit-edge")
     // Re-inserting the focused rect drops keyboard focus; hand it back so a
     // click-started gesture does not leave focus on the scroll pane.
     const hadFocus = dom.activeElement === rect
     svg.querySelectorAll<SVGElement>(`[data-line="${line}"]`).forEach((node) => {
-      if (node.classList.contains("oneday-edit-edge") || node.closest("g.oneday-side-lane")) return
+      if (node.classList.contains("modular-diary-edit-edge") || node.closest("g.modular-diary-side-lane")) return
       svg.insertBefore(node, firstEdge)
     })
     if (hadFocus) rect.focus({ preventScroll: true })
@@ -426,7 +426,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
 
   const appendRangeStepControls = (edge: RangeEdge): void => {
     const controls = dom.createElementNS(SVGNS, "g")
-    controls.setAttribute("class", `oneday-range-step-controls is-${edge}`)
+    controls.setAttribute("class", `modular-diary-range-step-controls is-${edge}`)
     controls.dataset.edge = edge
 
     const pairWidth = RANGE_STEP_BUTTON_WIDTH * 2 + RANGE_STEP_BUTTON_GAP
@@ -438,7 +438,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
 
     ;(["contract", "extend"] as RangeAction[]).forEach((action, index) => {
       const button = dom.createElementNS(SVGNS, "g")
-      button.setAttribute("class", "oneday-range-step-button")
+      button.setAttribute("class", "modular-diary-range-step-button")
       button.dataset.edge = edge
       button.dataset.action = action
       button.setAttribute("role", "button")
@@ -452,7 +452,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
 
       const x = startX + index * (RANGE_STEP_BUTTON_WIDTH + RANGE_STEP_BUTTON_GAP)
       const backing = dom.createElementNS(SVGNS, "rect")
-      backing.setAttribute("class", "oneday-range-step-button-bg")
+      backing.setAttribute("class", "modular-diary-range-step-button-bg")
       backing.setAttribute("x", String(x))
       backing.setAttribute("y", String(y))
       backing.setAttribute("width", String(RANGE_STEP_BUTTON_WIDTH))
@@ -460,7 +460,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       backing.setAttribute("rx", "4")
 
       const text = dom.createElementNS(SVGNS, "text")
-      text.setAttribute("class", "oneday-range-step-button-text")
+      text.setAttribute("class", "modular-diary-range-step-button-text")
       text.setAttribute("x", String(x + RANGE_STEP_BUTTON_WIDTH / 2))
       text.setAttribute("y", String(y + RANGE_STEP_BUTTON_HEIGHT / 2))
       text.setAttribute("text-anchor", "middle")
@@ -506,13 +506,13 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     }
     if (!precisionHint) {
       precisionHint = dom.createElementNS(SVGNS, "g")
-      precisionHint.setAttribute("class", "oneday-precision-hint")
+      precisionHint.setAttribute("class", "modular-diary-precision-hint")
       precisionHint.setAttribute("aria-hidden", "true")
       const backing = dom.createElementNS(SVGNS, "rect")
-      backing.setAttribute("class", "oneday-precision-hint-bg")
+      backing.setAttribute("class", "modular-diary-precision-hint-bg")
       backing.setAttribute("rx", "4")
       const text = dom.createElementNS(SVGNS, "text")
-      text.setAttribute("class", "oneday-precision-hint-text")
+      text.setAttribute("class", "modular-diary-precision-hint-text")
       text.setAttribute("text-anchor", "middle")
       text.setAttribute("dominant-baseline", "central")
       precisionHint.append(backing, text)
@@ -520,8 +520,8 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     }
 
     precisionHint.classList.toggle("is-active", fineSnap)
-    const text = precisionHint.querySelector<SVGTextElement>(".oneday-precision-hint-text")
-    const backing = precisionHint.querySelector<SVGRectElement>(".oneday-precision-hint-bg")
+    const text = precisionHint.querySelector<SVGTextElement>(".modular-diary-precision-hint-text")
+    const backing = precisionHint.querySelector<SVGRectElement>(".modular-diary-precision-hint-bg")
     if (!text || !backing) return
     text.textContent = t(fineSnap ? "precisionActive" : "precisionHint", { key: precisionKey })
 
@@ -553,7 +553,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
 
     if (!spanPreview) {
       spanPreview = dom.createElementNS(SVGNS, "g")
-      spanPreview.setAttribute("class", "oneday-span-preview-labels")
+      spanPreview.setAttribute("class", "modular-diary-span-preview-labels")
       spanPreview.setAttribute("aria-hidden", "true")
       svg.appendChild(spanPreview)
     }
@@ -587,14 +587,14 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
 
     const addLabel = (kind: "start" | "end", minute: number, edgeY: number, labelY: number): void => {
       const label = dom.createElementNS(SVGNS, "g")
-      label.setAttribute("class", `oneday-span-preview-label is-${kind}`)
+      label.setAttribute("class", `modular-diary-span-preview-label is-${kind}`)
       label.dataset.minute = String(minute)
       label.dataset.edgeY = String(edgeY)
       label.dataset.labelY = String(labelY)
 
       if (Math.abs(labelY - edgeY) > 0.5) {
         const leader = dom.createElementNS(SVGNS, "line")
-        leader.setAttribute("class", "oneday-span-preview-leader")
+        leader.setAttribute("class", "modular-diary-span-preview-leader")
         leader.setAttribute("x1", String(trackX - 3))
         leader.setAttribute("y1", String(edgeY))
         leader.setAttribute("x2", String(trackX - 3))
@@ -603,7 +603,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       }
 
       const tick = dom.createElementNS(SVGNS, "line")
-      tick.setAttribute("class", "oneday-span-preview-tick")
+      tick.setAttribute("class", "modular-diary-span-preview-tick")
       tick.setAttribute("x1", String(trackX - 4))
       tick.setAttribute("y1", String(edgeY))
       tick.setAttribute("x2", String(trackX + 3))
@@ -611,7 +611,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       label.appendChild(tick)
 
       const backing = dom.createElementNS(SVGNS, "rect")
-      backing.setAttribute("class", "oneday-span-preview-label-bg")
+      backing.setAttribute("class", "modular-diary-span-preview-label-bg")
       backing.setAttribute("x", "1")
       backing.setAttribute("y", String(labelY - SPAN_LABEL_HEIGHT / 2))
       backing.setAttribute("width", String(Math.max(1, trackX - 6)))
@@ -620,7 +620,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       label.appendChild(backing)
 
       const text = dom.createElementNS(SVGNS, "text")
-      text.setAttribute("class", "oneday-span-preview-label-text")
+      text.setAttribute("class", "modular-diary-span-preview-label-text")
       text.setAttribute("x", String(trackX - 6))
       text.setAttribute("y", String(labelY))
       text.setAttribute("text-anchor", "end")
@@ -660,7 +660,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     if (deps.getTool?.() === "marker") return
 
     // 并列日程：允许从已有色块上起笔（yyt 2026-08-17）；右键菜单不受影响。
-    const hit = (e.target as Element | null)?.closest("rect.oneday-block")
+    const hit = (e.target as Element | null)?.closest("rect.modular-diary-block")
     downBlockLine = hit ? Number((hit as HTMLElement).dataset.line) : null
     downY = e.clientY
 
@@ -679,18 +679,18 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
 
     if (!activeType) return
     ghost = dom.createElementNS(SVGNS, "rect")
-    ghost.setAttribute("class", "oneday-ghost")
+    ghost.setAttribute("class", "modular-diary-ghost")
     ghost.setAttribute("x", String(trackX + 2))
     ghost.setAttribute("width", String(trackW - 4))
     ghost.setAttribute("rx", "3")
     ghost.setAttribute("fill", deps.typeColor(activeType))
-    ghost.style.setProperty("--oneday-block-color", deps.typeColor(activeType))
+    ghost.style.setProperty("--modular-diary-block-color", deps.typeColor(activeType))
     svg.appendChild(ghost)
     const plan = deps.getMode() === "plan"
     if (plan) {
-      const patternId = `oneday-preview-hatch-${++previewHatchUid}`
+      const patternId = `modular-diary-preview-hatch-${++previewHatchUid}`
       ghostPattern = dom.createElementNS(SVGNS, "defs")
-      ghostPattern.setAttribute("class", "oneday-preview-defs")
+      ghostPattern.setAttribute("class", "modular-diary-preview-defs")
       const pattern = dom.createElementNS(SVGNS, "pattern")
       pattern.id = patternId
       pattern.setAttribute("width", "6")
@@ -709,7 +709,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       ghostPattern.appendChild(pattern)
       svg.appendChild(ghostPattern)
       ghostHatch = dom.createElementNS(SVGNS, "rect")
-      ghostHatch.setAttribute("class", "oneday-preview-hatch")
+      ghostHatch.setAttribute("class", "modular-diary-preview-hatch")
       ghostHatch.setAttribute("x", String(trackX + 2))
       ghostHatch.setAttribute("width", String(trackW - 4))
       ghostHatch.setAttribute("rx", "3")
@@ -718,7 +718,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       svg.appendChild(ghostHatch)
     }
     ghostDuration = dom.createElementNS(SVGNS, "text")
-    ghostDuration.setAttribute("class", `oneday-preview-duration is-dragging${plan ? " is-plan" : ""}`)
+    ghostDuration.setAttribute("class", `modular-diary-preview-duration is-dragging${plan ? " is-plan" : ""}`)
     ghostDuration.setAttribute("x", String(trackX + trackW / 2))
     ghostDuration.setAttribute("text-anchor", "middle")
     ghostDuration.setAttribute("pointer-events", "none")
@@ -727,8 +727,8 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     // rather than briefly showing the generic muted/overlay-looking label.
     if (!plan) {
       const color = deps.typeColor(activeType)
-      ghostDuration.style.setProperty("--oneday-block-text-light", relatedTextColor(color))
-      ghostDuration.style.setProperty("--oneday-block-text-dark", relatedTextColor(darkThemeBlockFill(color)))
+      ghostDuration.style.setProperty("--modular-diary-block-text-light", relatedTextColor(color))
+      ghostDuration.style.setProperty("--modular-diary-block-text-dark", relatedTextColor(darkThemeBlockFill(color)))
     }
     svg.appendChild(ghostDuration)
     updateGhost(dragStartMin, dragStartMin)
@@ -813,8 +813,8 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       // The visible boundary and every inner point keep the create cursor.
       // Concrete range buttons own their own pointer cursor via CSS.
       const target = e.target as Element | null
-      svg.querySelectorAll<SVGRectElement>("rect.oneday-block").forEach((block) => { block.style.cursor = "" })
-      const hoveredBlock = target?.closest<SVGRectElement>("rect.oneday-block") ?? null
+      svg.querySelectorAll<SVGRectElement>("rect.modular-diary-block").forEach((block) => { block.style.cursor = "" })
+      const hoveredBlock = target?.closest<SVGRectElement>("rect.modular-diary-block") ?? null
       let cursor = deps.getActiveType() ? "crosshair" : "default"
       const rect = svg.getBoundingClientRect()
       const scale = svgWidth() / rect.width
@@ -943,7 +943,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     const optimisticNodes: Element[] = []
     if (ghost) {
       const plan = deps.getMode() === "plan"
-      ghost.setAttribute("class", `oneday-block oneday-preview-block${plan ? " oneday-plan is-plan" : ""}`)
+      ghost.setAttribute("class", `modular-diary-block modular-diary-preview-block${plan ? " modular-diary-plan is-plan" : ""}`)
       ghost.setAttribute("fill-opacity", plan ? "0.12" : "0.95")
       if (plan) {
         ghost.setAttribute("stroke", deps.typeColor(activeType))
@@ -953,11 +953,11 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       optimisticNodes.push(ghost)
     }
     if (ghostHatch) {
-      ghostHatch.setAttribute("class", "oneday-plan-hatch oneday-preview-hatch")
+      ghostHatch.setAttribute("class", "modular-diary-plan-hatch modular-diary-preview-hatch")
       optimisticNodes.push(ghostHatch)
     }
     if (ghostDuration) {
-      ghostDuration.setAttribute("class", `oneday-duration oneday-preview-duration${deps.getMode() === "plan" ? " oneday-plan-label is-plan" : ""}`)
+      ghostDuration.setAttribute("class", `modular-diary-duration modular-diary-preview-duration${deps.getMode() === "plan" ? " modular-diary-plan-label is-plan" : ""}`)
       optimisticNodes.push(ghostDuration)
     }
     if (ghostPattern) optimisticNodes.push(ghostPattern)
@@ -987,12 +987,12 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
   const editingRect = (): SVGRectElement | null => {
     const line = deps.getEditingLine()
     if (line === null) return null
-    return svg.querySelector<SVGRectElement>(`rect.oneday-block[data-line="${line}"]`)
+    return svg.querySelector<SVGRectElement>(`rect.modular-diary-block[data-line="${line}"]`)
   }
 
   const syncEditEdges = (rect: SVGRectElement | null): void => {
     if (!rect) {
-      svg.querySelectorAll(".oneday-edit-edge, .oneday-edit-edge-line").forEach((edge) => edge.remove())
+      svg.querySelectorAll(".modular-diary-edit-edge, .modular-diary-edit-edge-line").forEach((edge) => edge.remove())
       return
     }
     const line = Number(rect.dataset.line)
@@ -1004,10 +1004,10 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     const hotHeight = Math.min(8, Math.max(2, height / 4))
 
     for (const edgeName of ["top", "bottom"] as const) {
-      let edge = svg.querySelector<SVGRectElement>(`rect.oneday-edit-edge[data-edge="${edgeName}"]`)
+      let edge = svg.querySelector<SVGRectElement>(`rect.modular-diary-edit-edge[data-edge="${edgeName}"]`)
       if (!edge) {
         edge = dom.createElementNS(SVGNS, "rect")
-        edge.setAttribute("class", "oneday-edit-edge")
+        edge.setAttribute("class", "modular-diary-edit-edge")
         edge.dataset.edge = edgeName
         svg.appendChild(edge)
       }
@@ -1024,7 +1024,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     let editLine = deps.getEditingLine()
     const rect = editLine === null
       ? null
-      : svg.querySelector<SVGRectElement>(`rect.oneday-block[data-line="${editLine}"]`)
+      : svg.querySelector<SVGRectElement>(`rect.modular-diary-block[data-line="${editLine}"]`)
     // Source edits can remove the selected line between renders. Never let a
     // dangling line number freeze every remaining label without a real target.
     if (editLine !== null && rect === null) {
@@ -1032,18 +1032,18 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       editLine = null
     }
     svg.classList.toggle("is-editing-block", rect !== null)
-    svg.querySelectorAll("rect.oneday-block").forEach((r) => {
+    svg.querySelectorAll("rect.modular-diary-block").forEach((r) => {
       r.classList.toggle("is-edit-target", rect !== null && r === rect)
       r.classList.toggle("is-frozen", rect !== null && r !== rect)
     })
-    svg.querySelectorAll("rect.oneday-plan-hatch[data-line]").forEach((hatch) => {
+    svg.querySelectorAll("rect.modular-diary-plan-hatch[data-line]").forEach((hatch) => {
       const mine = Number((hatch as HTMLElement).dataset.line) === editLine
       hatch.classList.toggle("is-frozen", editLine !== null && !mine)
     })
     // A selected span freezes every other timeline item, not only other
     // spans. Time-point lines, their label surfaces, and displaced leaders
     // belong to the same focus layer and must follow the same ownership rule.
-    svg.querySelectorAll<SVGElement>(".oneday-marker, .oneday-marker-label-bg, .oneday-side-leader").forEach((node) => {
+    svg.querySelectorAll<SVGElement>(".modular-diary-marker, .modular-diary-marker-label-bg, .modular-diary-side-leader").forEach((node) => {
       const mine = Number(node.dataset.line) === editLine
       node.classList.toggle("is-frozen", editLine !== null && !mine)
     })
@@ -1075,7 +1075,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       if (pending) element.classList.remove("is-hover", "is-focus")
     })
     if (pending) {
-      const tooltip = container.querySelector<HTMLElement>(".oneday-tooltip")
+      const tooltip = container.querySelector<HTMLElement>(".modular-diary-tooltip")
       if (tooltip) {
         tooltip.style.display = "none"
         tooltip.setAttribute("aria-hidden", "true")
@@ -1102,7 +1102,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     }
   }
 
-  svg.addEventListener("oneday-delete-entry-request", (event: Event) => {
+  svg.addEventListener("modular-diary-delete-entry-request", (event: Event) => {
     const line = Number((event as CustomEvent<{ line?: number }>).detail?.line)
     if (!Number.isInteger(line) || !svg.querySelector(`[data-line="${line}"]`)) return
     event.preventDefault()
@@ -1114,7 +1114,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
   // hit-test state as direct click selection. Keeping the edge construction
   // here prevents narrow/split blocks from becoming purple-looking shells
   // with no real resize targets.
-  svg.addEventListener("oneday-sync-edit", () => {
+  svg.addEventListener("modular-diary-sync-edit", () => {
     activateEditOwner()
     syncEditVisual()
   })
@@ -1122,11 +1122,11 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
   // 选中态属于“这个色块”，不是“这个时间轴”。用 document 级捕获监听覆盖
   // 工具栏、文字组件、block 空白和页面正文；每个 Document 只安装一次，
   // 再把退出事件转发给当前仍挂载的编辑 SVG，避免每次重渲染堆积监听器。
-  svg.addEventListener("oneday-exit-edit", exitEdit)
-  if (!dom.body.dataset.onedayOutsideEditArmed) {
-    dom.body.dataset.onedayOutsideEditArmed = "1"
+  svg.addEventListener("modular-diary-exit-edit", exitEdit)
+  if (!dom.body.dataset.modularDiaryOutsideEditArmed) {
+    dom.body.dataset.modularDiaryOutsideEditArmed = "1"
     dom.addEventListener("pointerdown", (e: PointerEvent) => {
-      const editingSvgs = Array.from(dom.querySelectorAll<SVGSVGElement>(".oneday-svg.is-editing-block"))
+      const editingSvgs = Array.from(dom.querySelectorAll<SVGSVGElement>(".modular-diary-svg.is-editing-block"))
       if (editingSvgs.length === 0) return
       const target = e.target as Element | null
       // Let the owning SVG consume every press inside an active timeline. Its
@@ -1136,7 +1136,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       if (target && editingSvgs.some((editingSvg) => editingSvg.contains(target))) return
       const CustomEventCtor = dom.defaultView?.CustomEvent ?? CustomEvent
       editingSvgs.forEach((editingSvg) => {
-        editingSvg.dispatchEvent(new CustomEventCtor("oneday-exit-edit"))
+        editingSvg.dispatchEvent(new CustomEventCtor("modular-diary-exit-edit"))
       })
     }, { capture: true })
   }
@@ -1159,8 +1159,8 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     }
   }
   ensureDocumentEditKeyRouter(dom)
-  svg.addEventListener("oneday-esc", onEditKey as EventListener)
-  svg.addEventListener("oneday-sync-edit-visual", syncEditVisual)
+  svg.addEventListener("modular-diary-esc", onEditKey as EventListener)
+  svg.addEventListener("modular-diary-sync-edit-visual", syncEditVisual)
 
   // 进入编辑态的视觉同步（挂载时若已在编辑态则恢复）
   syncEditVisual()
@@ -1168,10 +1168,10 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
   svg.addEventListener("dblclick", (e: MouseEvent) => {
     // dblclick 的 target 取自 pointerup——capture 期间被重定向成 svg；
     // 且第二击 pointerup 的 no-move 分支已退出编辑态。所以一律用 elementFromPoint 找真实色块
-    const eventHit = (e.target as Element | null)?.closest<SVGElement>("rect.oneday-block, rect.oneday-edit-edge")
-      ?? (dom.elementFromPoint(e.clientX, e.clientY)?.closest("rect.oneday-block, rect.oneday-edit-edge") as SVGElement | null)
-    const hit = eventHit?.classList.contains("oneday-edit-edge")
-      ? svg.querySelector<SVGRectElement>(`rect.oneday-block[data-line="${eventHit.dataset.line}"]`)
+    const eventHit = (e.target as Element | null)?.closest<SVGElement>("rect.modular-diary-block, rect.modular-diary-edit-edge")
+      ?? (dom.elementFromPoint(e.clientX, e.clientY)?.closest("rect.modular-diary-block, rect.modular-diary-edit-edge") as SVGElement | null)
+    const hit = eventHit?.classList.contains("modular-diary-edit-edge")
+      ? svg.querySelector<SVGRectElement>(`rect.modular-diary-block[data-line="${eventHit.dataset.line}"]`)
       : eventHit
     if (!hit) return
     const line = Number(hit.dataset.line)
@@ -1195,7 +1195,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
   attachTimelineKeyboardNavigation(svg)
   svg.addEventListener("keydown", (e: KeyboardEvent) => {
     const hit = timelineObjectFromEvent(e)
-    if (!hit?.matches("rect.oneday-block")) return
+    if (!hit?.matches("rect.modular-diary-block")) return
     const line = Number(hit.dataset.line)
     if (!Number.isInteger(line)) return
     if (e.key === "Enter" || e.key === " ") {
@@ -1212,9 +1212,9 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
 
   svg.addEventListener("contextmenu", (e: MouseEvent) => {
     const target = e.target as Element | null
-    const eventHit = target?.closest<SVGElement>("rect.oneday-block, rect.oneday-edit-edge") ?? null
-    const hitBlock = eventHit?.classList.contains("oneday-edit-edge")
-      ? svg.querySelector<SVGRectElement>(`rect.oneday-block[data-line="${eventHit.dataset.line}"]`)
+    const eventHit = target?.closest<SVGElement>("rect.modular-diary-block, rect.modular-diary-edit-edge") ?? null
+    const hitBlock = eventHit?.classList.contains("modular-diary-edit-edge")
+      ? svg.querySelector<SVGRectElement>(`rect.modular-diary-block[data-line="${eventHit.dataset.line}"]`)
       : eventHit
     if (!hitBlock) {
       e.preventDefault()

@@ -45,13 +45,13 @@ describe("drag estimated work into the timeline", () => {
     expect(buildScheduledPlan({
       source: "todo",
       id: "ship",
-      title: "发布 Oneday",
+      title: "发布 Modular Diary",
       type: "开发",
       durationMin: 30,
     }, 9 * 60 + 5)).toEqual({
       startMin: 9 * 60 + 5,
       endMin: 9 * 60 + 35,
-      line: "plan 09:05-09:35 开发 发布 Oneday [todo:ship]",
+      line: "plan 09:05-09:35 开发 发布 Modular Diary [todo:ship]",
     })
   })
 
@@ -71,7 +71,7 @@ describe("drag estimated work into the timeline", () => {
 
   it("round-trips the scheduled Todo through the canonical Markdown writer", () => {
     const plan = buildScheduledPlan({
-      source: "todo", id: "ship", title: "发布 Oneday", type: "开发", durationMin: 30,
+      source: "todo", id: "ship", title: "发布 Modular Diary", type: "开发", durationMin: 30,
     }, 9 * 60 + 5)
     const source = insertEntryLine("date: 2026-08-24\n---", plan.line, plan.startMin)
 
@@ -80,7 +80,7 @@ describe("drag estimated work into the timeline", () => {
       startMin: 9 * 60 + 5,
       endMin: 9 * 60 + 35,
       type: "开发",
-      note: "发布 Oneday",
+      note: "发布 Modular Diary",
       todoId: "ship",
     })
   })

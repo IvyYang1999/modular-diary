@@ -21,7 +21,7 @@ const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-
 function iconButton(parent: HTMLElement, icon: string, label: string, action: () => void): HTMLButtonElement {
   const button = parent.ownerDocument.createElement("button")
   button.type = "button"
-  button.className = "oneday-settings-icon-button"
+  button.className = "modular-diary-settings-icon-button"
   button.setAttribute("aria-label", label)
   setIcon(button, icon)
   button.addEventListener("click", action)
@@ -32,9 +32,9 @@ function iconButton(parent: HTMLElement, icon: string, label: string, action: ()
 function actionButton(parent: HTMLElement, label: string, action: () => void): HTMLButtonElement {
   const button = parent.ownerDocument.createElement("button")
   button.type = "button"
-  button.className = "oneday-settings-add-button"
+  button.className = "modular-diary-settings-add-button"
   const icon = parent.ownerDocument.createElement("span")
-  icon.className = "oneday-settings-add-icon"
+  icon.className = "modular-diary-settings-add-icon"
   setIcon(icon, "plus")
   button.append(icon, parent.ownerDocument.createTextNode(label))
   button.addEventListener("click", action)
@@ -44,13 +44,13 @@ function actionButton(parent: HTMLElement, label: string, action: () => void): H
 
 function field(parent: HTMLElement, labelText: string, name: string, full = false): { root: HTMLLabelElement; control: HTMLElement } {
   const root = parent.ownerDocument.createElement("label")
-  root.className = `oneday-rule-field${full ? " is-full" : ""}`
+  root.className = `modular-diary-rule-field${full ? " is-full" : ""}`
   root.dataset.field = name
   const label = parent.ownerDocument.createElement("span")
-  label.className = "oneday-rule-field-label"
+  label.className = "modular-diary-rule-field-label"
   label.textContent = labelText
   const control = parent.ownerDocument.createElement("span")
-  control.className = "oneday-rule-field-control"
+  control.className = "modular-diary-rule-field-control"
   root.append(label, control)
   parent.appendChild(root)
   return { root, control }
@@ -126,24 +126,24 @@ function nextAvailableDate(values: string[]): string {
 
 export function renderCategorySettings(container: HTMLElement, host: FocusedSettingsHost, scope: "span" | "marker" = "span"): void {
   container.replaceChildren()
-  container.classList.add("oneday-category-settings")
+  container.classList.add("modular-diary-category-settings")
   container.dataset.categoryScope = scope
   const colors = scope === "marker" ? host.settings.markerTypeColors : host.settings.spanTypeColors
   const retired = scope === "marker" ? host.settings.markerRetiredTypeColors : host.settings.spanRetiredTypeColors
 
   const list = container.ownerDocument.createElement("div")
-  list.className = "oneday-category-editor-list"
+  list.className = "modular-diary-category-editor-list"
   container.appendChild(list)
 
   const render = (): void => renderCategorySettings(container, host, scope)
   for (const [type, color] of Object.entries(colors)) {
     const row = container.ownerDocument.createElement("div")
-    row.className = "oneday-category-editor-row"
+    row.className = "modular-diary-category-editor-row"
 
     const colorInput = container.ownerDocument.createElement("input")
     colorInput.type = "color"
     colorInput.value = color
-    colorInput.className = "oneday-category-color-input"
+    colorInput.className = "modular-diary-category-color-input"
     colorInput.setAttribute("aria-label", `${t("categoryColor")}: ${type}`)
     colorInput.addEventListener("input", () => {
       colors[type] = colorInput.value
@@ -177,7 +177,7 @@ export function renderCategorySettings(container: HTMLElement, host: FocusedSett
     })
 
     const actions = container.ownerDocument.createElement("div")
-    actions.className = "oneday-settings-row-actions"
+    actions.className = "modular-diary-settings-row-actions"
     iconButton(actions, "trash-2", t("delete"), () => {
       retired[type] ??= colors[type]
       delete colors[type]
@@ -198,10 +198,10 @@ export function renderCategorySettings(container: HTMLElement, host: FocusedSett
 
 export function renderHabitSettings(container: HTMLElement, host: FocusedSettingsHost): void {
   container.replaceChildren()
-  container.classList.add("oneday-habit-settings")
+  container.classList.add("modular-diary-habit-settings")
   const categories = Object.keys(host.settings.spanTypeColors)
   const list = container.ownerDocument.createElement("div")
-  list.className = "oneday-rule-editor-list"
+  list.className = "modular-diary-rule-editor-list"
   container.appendChild(list)
 
   const render = (): void => renderHabitSettings(container, host)
@@ -209,7 +209,7 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
 
   for (const habit of [...host.settings.habits].sort((a, b) => a.order - b.order)) {
     const row = container.ownerDocument.createElement("section")
-    row.className = "oneday-rule-editor"
+    row.className = "modular-diary-rule-editor"
     row.dataset.habitId = habit.id
 
     const nameField = field(row, t("habitName"), "name")
@@ -226,9 +226,9 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
 
     const categoryField = field(row, t("trackedCategory"), "category")
     const categoryPicker = container.ownerDocument.createElement("span")
-    categoryPicker.className = "oneday-category-picker"
+    categoryPicker.className = "modular-diary-category-picker"
     const categoryDot = container.ownerDocument.createElement("span")
-    categoryDot.className = "oneday-category-picker-dot"
+    categoryDot.className = "modular-diary-category-picker-dot"
     categoryDot.setAttribute("aria-hidden", "true")
     const categorySelect = container.ownerDocument.createElement("select")
     if (habit.type && !categories.includes(habit.type)) selectOption(categorySelect, habit.type, habit.type)
@@ -236,7 +236,7 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
     categories.forEach((category) => selectOption(categorySelect, category, category))
     categorySelect.value = habit.type
     const updateCategoryColor = (): void => {
-      categoryDot.style.setProperty("--oneday-category-color", host.settings.spanTypeColors[categorySelect.value] ?? "var(--text-faint)")
+      categoryDot.style.setProperty("--modular-diary-category-color", host.settings.spanTypeColors[categorySelect.value] ?? "var(--text-faint)")
     }
     updateCategoryColor()
     categorySelect.addEventListener("change", () => {
@@ -264,7 +264,7 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
     if (habit.targetMetric === "count") {
       const countField = field(row, t("targetCount"), "target")
       const countControl = container.ownerDocument.createElement("span")
-      countControl.className = "oneday-count-control"
+      countControl.className = "modular-diary-count-control"
       const countInput = container.ownerDocument.createElement("input")
       countInput.type = "number"
       countInput.min = "1"
@@ -272,7 +272,7 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
       countInput.inputMode = "numeric"
       countInput.value = String(Math.max(1, Math.round(Number(habit.targetCount) || 1)))
       const countUnit = container.ownerDocument.createElement("span")
-      countUnit.className = "oneday-count-unit"
+      countUnit.className = "modular-diary-count-unit"
       countUnit.textContent = t("timesUnit")
       countInput.addEventListener("change", () => {
         habit.targetCount = Math.max(1, Math.round(Number(countInput.value) || 1))
@@ -284,7 +284,7 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
     } else if (habit.targetMinutes > 0) {
       const durationField = field(row, t("targetDuration"), "target")
       const durationControl = container.ownerDocument.createElement("span")
-      durationControl.className = "oneday-duration-control"
+      durationControl.className = "modular-diary-duration-control"
       const durationInput = container.ownerDocument.createElement("input")
       durationInput.type = "number"
       durationInput.min = "0"
@@ -342,7 +342,7 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
       if (habit.schedule.kind === "weekly") {
         const daysField = field(row, t("weeklyDays"), "weekdays", true)
         const days = container.ownerDocument.createElement("span")
-        days.className = "oneday-weekday-control"
+        days.className = "modular-diary-weekday-control"
         ;[1, 2, 3, 4, 5, 6, 0].forEach((day, index) => {
           const button = container.ownerDocument.createElement("button")
           button.type = "button"
@@ -365,7 +365,7 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
       } else if (habit.schedule.kind === "interval") {
         const intervalField = field(row, t("everyNDays"), "interval", true)
         const intervalControl = container.ownerDocument.createElement("span")
-        intervalControl.className = "oneday-interval-control"
+        intervalControl.className = "modular-diary-interval-control"
         const everyGroup = container.ownerDocument.createElement("label")
         const everyLabel = container.ownerDocument.createElement("span")
         everyLabel.textContent = t("intervalEvery")
@@ -399,10 +399,10 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
       } else if (habit.schedule.kind === "dates") {
         const datesField = field(row, t("specificCalendarDates"), "dates", true)
         const datesControl = container.ownerDocument.createElement("span")
-        datesControl.className = "oneday-date-control"
+        datesControl.className = "modular-diary-date-control"
         for (const date of habit.schedule.dates) {
           const dateItem = container.ownerDocument.createElement("span")
-          dateItem.className = "oneday-date-item"
+          dateItem.className = "modular-diary-date-item"
           const dateInput = container.ownerDocument.createElement("input")
           dateInput.type = "date"
           dateInput.value = date
@@ -417,12 +417,12 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
             habit.schedule.dates = habit.schedule.dates.filter((value) => value !== date)
             void save().then(render)
           })
-          remove.classList.add("oneday-date-remove")
+          remove.classList.add("modular-diary-date-remove")
           datesControl.appendChild(dateItem)
         }
         const addDate = container.ownerDocument.createElement("button")
         addDate.type = "button"
-        addDate.className = "oneday-date-add"
+        addDate.className = "modular-diary-date-add"
         const addIcon = container.ownerDocument.createElement("span")
         setIcon(addIcon, "plus")
         addDate.append(addIcon, container.ownerDocument.createTextNode(t("addDate")))
@@ -438,7 +438,7 @@ export function renderHabitSettings(container: HTMLElement, host: FocusedSetting
     }
 
     const actions = container.ownerDocument.createElement("div")
-    actions.className = "oneday-settings-row-actions"
+    actions.className = "modular-diary-settings-row-actions"
     iconButton(actions, "trash-2", t("delete"), () => {
       host.settings.habits = host.settings.habits.filter((item) => item.id !== habit.id)
       void save().then(render)

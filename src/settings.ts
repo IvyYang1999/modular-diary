@@ -3,7 +3,7 @@
  * （2026-08-16 拍板：设置页填 API key 直调模型）+ layout knobs.
  */
 import { App, PluginSettingTab, Setting, setIcon } from "obsidian"
-import type OnedayPlugin from "./main"
+import type ModularDiaryPlugin from "./main"
 import { ApiProvider } from "./agent/api-client"
 import { DEFAULT_TYPE_COLORS } from "./core/type-colors"
 import { t as tr } from "./i18n"
@@ -15,7 +15,7 @@ import { renderDailyQuoteSettings } from "./daily-quote-settings"
 
 export type DialogBackend = "api" | "claude-cli"
 
-export interface OnedaySettings {
+export interface ModularDiarySettings {
   spanTypeColors: Record<string, string>
   markerTypeColors: Record<string, string>
   hourHeight: number
@@ -49,7 +49,7 @@ export interface OnedaySettings {
   dailyQuoteInk: string
 }
 
-export const DEFAULT_SETTINGS: OnedaySettings = {
+export const DEFAULT_SETTINGS: ModularDiarySettings = {
   spanTypeColors: DEFAULT_TYPE_COLORS,
   markerTypeColors: {},
   hourHeight: 48,
@@ -73,23 +73,23 @@ export const DEFAULT_SETTINGS: OnedaySettings = {
 
 const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 
-export class OnedaySettingTab extends PluginSettingTab {
-  constructor(app: App, private plugin: OnedayPlugin) {
+export class ModularDiarySettingTab extends PluginSettingTab {
+  constructor(app: App, private plugin: ModularDiaryPlugin) {
     super(app, plugin)
   }
 
   display(): void {
     const { containerEl } = this
     containerEl.empty()
-    containerEl.addClass("oneday-focused-settings")
-    containerEl.addClass("oneday-settings-tab")
+    containerEl.addClass("modular-diary-focused-settings")
+    containerEl.addClass("modular-diary-settings-tab")
     containerEl.createEl("h2", { text: tr("settingsTitle") })
 
-    const timelineSection = containerEl.createDiv({ cls: "oneday-settings-section" })
+    const timelineSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     timelineSection.dataset.settingsSection = "timeline"
     timelineSection.createEl("h3", { text: tr("timelineSettingsHeading") })
     timelineSection.createEl("p", { text: tr("timelineSettingsDescription"), cls: "setting-item-description" })
-    const timelineSettingsEl = timelineSection.createDiv({ cls: "oneday-settings-section-editor" })
+    const timelineSettingsEl = timelineSection.createDiv({ cls: "modular-diary-settings-section-editor" })
 
     new Setting(timelineSettingsEl)
       .setName(tr("defaultRange"))
@@ -129,29 +129,29 @@ export class OnedaySettingTab extends PluginSettingTab {
       ["span", tr("spanCategoriesHeading"), tr("spanCategoriesDescription")],
       ["marker", tr("markerCategoriesHeading"), tr("markerCategoriesDescription")],
     ] as const) {
-      const categorySection = containerEl.createDiv({ cls: "oneday-settings-section" })
+      const categorySection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
       categorySection.dataset.settingsSection = `${scope}-categories`
       categorySection.createEl("h3", { text: heading })
       categorySection.createEl("p", { text: description, cls: "setting-item-description" })
-      renderCategorySettings(categorySection.createDiv({ cls: "oneday-settings-section-editor" }), this.plugin, scope)
+      renderCategorySettings(categorySection.createDiv({ cls: "modular-diary-settings-section-editor" }), this.plugin, scope)
     }
 
-    const habitSection = containerEl.createDiv({ cls: "oneday-settings-section" })
+    const habitSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     habitSection.dataset.settingsSection = "habits"
     habitSection.createEl("h3", { text: tr("habitsHeading") })
     habitSection.createEl("p", { text: tr("habitsDescription"), cls: "setting-item-description" })
-    renderHabitSettings(habitSection.createDiv({ cls: "oneday-settings-section-editor" }), this.plugin)
+    renderHabitSettings(habitSection.createDiv({ cls: "modular-diary-settings-section-editor" }), this.plugin)
 
-    const weeklyTodoSection = containerEl.createDiv({ cls: "oneday-settings-section" })
+    const weeklyTodoSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     weeklyTodoSection.dataset.settingsSection = "todo-rules"
     weeklyTodoSection.createEl("h3", { text: tr("todoRulesHeading") })
     weeklyTodoSection.createEl("p", { text: tr("todoRulesDescription"), cls: "setting-item-description" })
-    const weeklyTodosEl = weeklyTodoSection.createDiv({ cls: "oneday-rules-settings oneday-settings-section-editor" })
+    const weeklyTodosEl = weeklyTodoSection.createDiv({ cls: "modular-diary-rules-settings modular-diary-settings-section-editor" })
     const renderWeeklyTodos = (): void => {
       weeklyTodosEl.empty()
       const categories = Object.keys(this.plugin.settings.spanTypeColors)
       for (const todo of [...this.plugin.settings.weeklyTodos].sort((a, b) => a.order - b.order)) {
-        const row = new Setting(weeklyTodosEl).setClass("oneday-rule-setting")
+        const row = new Setting(weeklyTodosEl).setClass("modular-diary-rule-setting")
         row.addText((control) => control.setValue(todo.title).setPlaceholder(tr("todoTitle")).onChange(async (value) => {
           todo.title = value.trim(); await this.plugin.saveSettings({ rerender: true })
         }))
@@ -173,7 +173,7 @@ export class OnedaySettingTab extends PluginSettingTab {
         }))
       }
       const add = weeklyTodosEl.createEl("button", {
-        cls: "oneday-settings-add-rule",
+        cls: "modular-diary-settings-add-rule",
         attr: { type: "button", "aria-label": tr("addWeeklyTodo") },
       })
       setIcon(add, "plus")
@@ -189,16 +189,16 @@ export class OnedaySettingTab extends PluginSettingTab {
     }
     renderWeeklyTodos()
 
-    const quoteSection = containerEl.createDiv({ cls: "oneday-settings-section" })
+    const quoteSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     quoteSection.dataset.settingsSection = "daily-quotes"
     quoteSection.createEl("h3", { text: tr("dailyQuoteSettings") })
     quoteSection.createEl("p", { text: tr("dailyQuoteSettingsDescription"), cls: "setting-item-description" })
-    renderDailyQuoteSettings(quoteSection.createDiv({ cls: "oneday-settings-section-editor" }), this.plugin)
+    renderDailyQuoteSettings(quoteSection.createDiv({ cls: "modular-diary-settings-section-editor" }), this.plugin)
 
-    const captureSection = containerEl.createDiv({ cls: "oneday-settings-section" })
+    const captureSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     captureSection.dataset.settingsSection = "natural-language"
     captureSection.createEl("h3", { text: tr("naturalLanguageHeading") })
-    const captureEl = captureSection.createDiv({ cls: "oneday-settings-section-editor" })
+    const captureEl = captureSection.createDiv({ cls: "modular-diary-settings-section-editor" })
 
     new Setting(captureEl)
       .setName(tr("backend"))

@@ -40,55 +40,55 @@ function element<K extends keyof HTMLElementTagNameMap>(
 /**
  * Mount an editor over the rendered block without destroying the visual DOM.
  * The fenced language lines are visible but immutable; only the block body is
- * editable, so a half-written fence can never make the Oneday block disappear.
+ * editable, so a half-written fence can never make the Modular Diary block disappear.
  */
 export function mountSourceMode(
   container: HTMLElement,
   initialDraft: string,
   deps: SourceModeDeps,
 ): HTMLElement {
-  container.querySelector(".oneday-source-mode")?.remove()
+  container.querySelector(".modular-diary-source-mode")?.remove()
   container.classList.add("is-source-mode")
   const dom = container.ownerDocument
-  const overlay = element(dom, "section", "oneday-source-mode")
+  const overlay = element(dom, "section", "modular-diary-source-mode")
   overlay.setAttribute("role", "region")
   overlay.setAttribute("aria-label", t("sourceMode"))
   // Keep the native text context menu and prevent the block-level More menu
   // from opening underneath the source editor.
   overlay.addEventListener("contextmenu", (event) => event.stopPropagation())
 
-  const header = element(dom, "header", "oneday-source-header")
-  const heading = element(dom, "div", "oneday-source-heading")
+  const header = element(dom, "header", "modular-diary-source-header")
+  const heading = element(dom, "div", "modular-diary-source-heading")
   heading.append(
-    element(dom, "strong", "oneday-source-title", t("sourceMode")),
-    element(dom, "span", "oneday-source-subtitle", t("sourceModeDescription")),
+    element(dom, "strong", "modular-diary-source-title", t("sourceMode")),
+    element(dom, "span", "modular-diary-source-subtitle", t("sourceModeDescription")),
   )
   header.appendChild(heading)
 
-  const actions = element(dom, "div", "oneday-source-actions")
-  const cancel = element(dom, "button", "oneday-source-cancel", t("cancel"))
+  const actions = element(dom, "div", "modular-diary-source-actions")
+  const cancel = element(dom, "button", "modular-diary-source-cancel", t("cancel"))
   cancel.type = "button"
-  const apply = element(dom, "button", "oneday-source-apply", t("applySource"))
+  const apply = element(dom, "button", "modular-diary-source-apply", t("applySource"))
   apply.type = "button"
   actions.append(cancel, apply)
   header.appendChild(actions)
 
-  const editor = element(dom, "div", "oneday-source-editor")
-  const openingFence = element(dom, "div", "oneday-source-fence", "```timeline")
-  const textarea = element(dom, "textarea", "oneday-source-textarea")
+  const editor = element(dom, "div", "modular-diary-source-editor")
+  const openingFence = element(dom, "div", "modular-diary-source-fence", "```timeline")
+  const textarea = element(dom, "textarea", "modular-diary-source-textarea")
   textarea.value = initialDraft
   textarea.spellcheck = false
   textarea.autocomplete = "off"
   textarea.setAttribute("autocapitalize", "off")
   textarea.setAttribute("aria-label", t("sourceBody"))
-  const closingFence = element(dom, "div", "oneday-source-fence", "```")
+  const closingFence = element(dom, "div", "modular-diary-source-fence", "```")
   editor.append(openingFence, textarea, closingFence)
 
-  const footer = element(dom, "footer", "oneday-source-footer")
-  const feedback = element(dom, "div", "oneday-source-feedback")
+  const footer = element(dom, "footer", "modular-diary-source-footer")
+  const feedback = element(dom, "div", "modular-diary-source-feedback")
   feedback.setAttribute("role", "status")
   feedback.setAttribute("aria-live", "polite")
-  const shortcut = element(dom, "span", "oneday-source-shortcut", t("sourceShortcut"))
+  const shortcut = element(dom, "span", "modular-diary-source-shortcut", t("sourceShortcut"))
   footer.append(feedback, shortcut)
 
   let saving = false

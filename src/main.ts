@@ -3,8 +3,8 @@ import { normalizeSpan, parseTimeline } from "./core/parser"
 import { formatClockPlain, formatEntryLine, formatMarkerLine } from "./core/format"
 import { FALLBACK_COLOR } from "./render/svg-builder"
 import { hashTypeColor, pickVisibleType } from "./core/type-colors"
-import { flushInlineTextEditors, renderTimelineInto } from "./render/timeline-view"
-import { DEFAULT_SETTINGS, OnedaySettings, OnedaySettingTab } from "./settings"
+import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } from "./render/timeline-view"
+import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
 import { CategorySettingsModal, DailyQuoteSettingsModal, HabitSettingsModal } from "./settings-modals"
 import { attachDialog } from "./agent/dialog"
 import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo } from "./edit/source-rewriter"
@@ -35,9 +35,10 @@ import {
   stabilizeViewportAnchor,
   type ViewportAnchor,
 } from "./edit/viewport-anchor"
+import { resolveTimelineSource } from "./edit/source-location"
 import { ScrollTransactionRegistry, type ScrollTransactionKey } from "./edit/scroll-transaction"
 import { chooseMutationView, findOwningView, resolvePersistedOwnerView, resolveTransactionOwner } from "./edit/view-owner"
-import { timelineFenceAtOrdinal, timelineFenceOrdinal, timelineSourceAtOrdinal } from "./edit/block-identity"
+import { timelineFenceOrdinal, timelineSourceAtOrdinal } from "./edit/block-identity"
 import {
   captureInternalScroll,
   restoreInternalScroll,
@@ -122,12 +123,12 @@ interface BlockTransformOptions {
 }
 
 /**
- * Oneday — highlighter-style daily timeline block.
+ * Modular Diary — highlighter-style daily timeline block.
  * Markdown source is the single source of truth (mermaid-style dual view).
  * M1 渲染 / M2 对话框 / M3 画板编辑（选荧光笔→拖色块→写回；右键菜单）。
  */
-export default class OnedayPlugin extends Plugin {
-  settings: OnedaySettings = DEFAULT_SETTINGS
+export default class ModularDiaryPlugin extends Plugin {
+  settings: ModularDiarySettings = DEFAULT_SETTINGS
   private readonly mountedTimelines = new MountedTimelineRegistry()
   private readonly scrollTransactions = new ScrollTransactionRegistry<object, TimelineScrollSnapshot>()
   private readonly remountScroll = new RemountScrollRegistry<object, TimelineScrollSnapshot>()
@@ -143,6 +144,8 @@ export default class OnedayPlugin extends Plugin {
   private weeklyLedgerLoading: Promise<void> | null = null
   private ledgerRefreshTimer = 0
   private ledgerGeneration = 0
+
+  private readonly blockSources = new WeakMap<HTMLElement, string>()
 
   private parse(source: string) {
     return parseTimeline(source, {
@@ -177,15 +180,15 @@ export default class OnedayPlugin extends Plugin {
   }
   /** 视图类即时切换（LP/阅读模式都生效，不依赖重渲染） */
   private applyViewClass(container: HTMLElement, view: LayerView): void {
-    container.classList.remove("oneday-view-all", "oneday-view-actual", "oneday-view-plan", "oneday-view-none")
+    container.classList.remove("modular-diary-view-all", "modular-diary-view-actual", "modular-diary-view-plan", "modular-diary-view-none")
     const cls = view.actual && view.plan ? "all" : view.actual ? "actual" : view.plan ? "plan" : "none"
-    container.classList.add(`oneday-view-${cls}`)
+    container.classList.add(`modular-diary-view-${cls}`)
   }
 
   async onload(): Promise<void> {
     configureI18n(getLanguage)
     await this.loadSettings()
-    this.addSettingTab(new OnedaySettingTab(this.app, this))
+    this.addSettingTab(new ModularDiarySettingTab(this.app, this))
     const invalidateLedger = (file: TAbstractFile): void => {
       this.ledgerGeneration += 1
       this.weeklyLedger = null
@@ -255,7 +258,7 @@ export default class OnedayPlugin extends Plugin {
     registerUndo(document)
     this.app.workspace.iterateAllLeaves((leaf) => registerUndo(leaf.view.containerEl.ownerDocument))
 
-    // Paste is an external CodeMirror transaction. Freeze each Oneday block's
+    // Paste is an external CodeMirror transaction. Freeze each Modular Diary block's
     // last stable visual snapshot before CM can scroll or replace processor
     // hosts; the owning block consumes it only if its timeline source remains
     // unchanged. This closes the lifecycle gap that made the first paste jump
@@ -276,8 +279,8 @@ export default class OnedayPlugin extends Plugin {
         const view = owningView as MarkdownView | null
         if (!view) return
         const CustomEventCtor = dom.defaultView?.CustomEvent ?? CustomEvent
-        view.containerEl.querySelectorAll<HTMLElement>(".oneday-container").forEach((container: HTMLElement) => {
-          container.dispatchEvent(new CustomEventCtor("oneday-before-external-edit", { bubbles: true }))
+        view.containerEl.querySelectorAll<HTMLElement>(".modular-diary-container").forEach((container: HTMLElement) => {
+          container.dispatchEvent(new CustomEventCtor("modular-diary-before-external-edit", { bubbles: true }))
         })
       }, { capture: true })
     }
@@ -302,6 +305,7 @@ export default class OnedayPlugin extends Plugin {
     )
 
     this.registerMarkdownCodeBlockProcessor("timeline", (source, el, ctx) => {
+      this.blockSources.set(el, source)
       const mountKey = this.scrollTransactionKey(el, ctx)
       const snapshotLatch = new RemountSnapshotLatch<TimelineScrollSnapshot>()
       const pointerRedrawGate = createPointerRedrawGate()
@@ -310,7 +314,7 @@ export default class OnedayPlugin extends Plugin {
       let releaseFreezeTimer = 0
       const startTracking = (): void => {
         stopTracking()
-        const current = el.querySelector<HTMLElement>(".oneday-container")
+        const current = el.querySelector<HTMLElement>(".modular-diary-container")
         if (!current) return
         const update = (): void => {
           if (current.isConnected) snapshotLatch.update(this.captureScroll(current))
@@ -318,7 +322,7 @@ export default class OnedayPlugin extends Plugin {
         update()
         const snapshot = snapshotLatch.value
         const scrollOwners = new Set<HTMLElement>([
-          ...Array.from(current.querySelectorAll<HTMLElement>(".oneday-block-scroll, .oneday-svg-holder, .oneday-text-pane")),
+          ...Array.from(current.querySelectorAll<HTMLElement>(".modular-diary-block-scroll, .modular-diary-svg-holder, .modular-diary-text-pane")),
           ...(snapshot?.viewport?.scroller ? [snapshot.viewport.scroller] : []),
         ])
         scrollOwners.forEach((owner) => owner.addEventListener("scroll", update, { passive: true }))
@@ -334,7 +338,7 @@ export default class OnedayPlugin extends Plugin {
         if (!this.timelineVisuals.shouldRender(el, source)) return
         await flushInlineTextEditors(el)
         if (!this.timelineVisuals.shouldRender(el, source)) return
-        const current = el.querySelector<HTMLElement>(".oneday-container")
+        const current = el.querySelector<HTMLElement>(".modular-diary-container")
         // A source write owns its original snapshot across the replacement.
         // Ordinary settings redraws keep a local snapshot, but must never
         // overwrite an in-flight write after CodeMirror has already moved.
@@ -344,6 +348,7 @@ export default class OnedayPlugin extends Plugin {
         const scrollSnapshot = pending ?? remounted ?? (current ? this.captureScroll(current) : null)
         if (scrollSnapshot) snapshotLatch.update(scrollSnapshot)
         stopTracking()
+        disposeInlineTextEditors(el)
         el.replaceChildren()
         this.renderTimelineBlock(source, el, ctx, scrollSnapshot)
         this.timelineVisuals.accept(el, source)
@@ -361,7 +366,7 @@ export default class OnedayPlugin extends Plugin {
         redrawQueue = redrawQueue.then(performRedraw, performRedraw)
       }
       const redraw = (): void => {
-        const current = el.querySelector<HTMLElement>(".oneday-container")
+        const current = el.querySelector<HTMLElement>(".modular-diary-container")
         if (!current) {
           queueRedraw()
           return
@@ -371,12 +376,13 @@ export default class OnedayPlugin extends Plugin {
         })
       }
       const previewMountedSource = (nextSource: string, previousSource: string): (() => void) | null => {
-        const current = el.querySelector<HTMLElement>(".oneday-container")
+        const current = el.querySelector<HTMLElement>(".modular-diary-container")
         if (!current?.isConnected) return null
         const scrollSnapshot = this.captureScroll(current)
         const paint = (value: string): void => {
           void flushInlineTextEditors(el)
           stopTracking()
+          disposeInlineTextEditors(el)
           el.replaceChildren()
           this.renderTimelineBlock(value, el, ctx, scrollSnapshot)
           const domWindow = el.ownerDocument.defaultView
@@ -398,7 +404,7 @@ export default class OnedayPlugin extends Plugin {
         if (el.isConnected) redraw()
       })
       const freezeBeforeExternalEdit = (): void => {
-        const current = el.querySelector<HTMLElement>(".oneday-container")
+        const current = el.querySelector<HTMLElement>(".modular-diary-container")
         if (!current?.isConnected) return
         snapshotLatch.freeze(this.captureScroll(current))
         const domWindow = el.ownerDocument.defaultView
@@ -410,21 +416,24 @@ export default class OnedayPlugin extends Plugin {
           if (current.isConnected) snapshotLatch.update(this.captureScroll(current))
         }, 1_500)
       }
-      el.addEventListener("oneday-before-external-edit", freezeBeforeExternalEdit)
+      el.addEventListener("modular-diary-before-external-edit", freezeBeforeExternalEdit)
       ctx.addChild(new MountedTimelineChild(
         el,
         () => {
           unregister()
           unregisterVisual()
           pointerRedrawGate.clear()
-          el.removeEventListener("oneday-before-external-edit", freezeBeforeExternalEdit)
+          el.removeEventListener("modular-diary-before-external-edit", freezeBeforeExternalEdit)
           const domWindow = el.ownerDocument.defaultView
           if (releaseFreezeTimer && domWindow) domWindow.clearTimeout(releaseFreezeTimer)
           releaseFreezeTimer = 0
         },
-        () => flushInlineTextEditors(el),
         () => {
-          const current = el.querySelector<HTMLElement>(".oneday-container")
+          void flushInlineTextEditors(el)
+          disposeInlineTextEditors(el)
+        },
+        () => {
+          const current = el.querySelector<HTMLElement>(".modular-diary-container")
           if (current?.isConnected) snapshotLatch.update(this.captureScroll(current))
           if (snapshotLatch.value) this.remountScroll.remember(mountKey, source, snapshotLatch.value)
           stopTracking()
@@ -443,6 +452,7 @@ export default class OnedayPlugin extends Plugin {
   ): void {
       const dom = el.ownerDocument
       const domWindow = dom.defaultView
+      this.blockSources.set(el, source)
       const doc = this.parse(source)
       // 渲染色号：全局优先，退休板兜底（删除/改名的类型在旧块里保色）
       const spanPaletteForRender = { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors }
@@ -483,16 +493,20 @@ export default class OnedayPlugin extends Plugin {
         extraSlots.push(defaultComponentSlot("todos", Math.max(5, (doc.todos.length + dueWeeklyTodos.length) * 2 + 3), doc.side))
       }
       if (layoutHas("quote")) extraSlots.push(defaultComponentSlot("quote", QUOTE_ROWS, doc.side))
-      const textBlockKey = this.mutationBlockKey(el, ctx)
+      const textBlockKey = {
+        ...this.mutationBlockKey(el, ctx), source,
+        section: () => el.isConnected ? ctx.getSectionInfo(el) : null,
+      }
       const blockIdentity: BlockIdentity<object> = {
         owner: textBlockKey.owner,
         path: textBlockKey.path,
         blockOrdinal: textBlockKey.blockOrdinal,
       }
+      const draftBlockOrdinal = textBlockKey.blockOrdinal
       const textDraftKey = (index: number): TextDraftKey<object> => ({
         owner: textBlockKey.owner,
         path: textBlockKey.path,
-        blockOrdinal: textBlockKey.blockOrdinal,
+        blockOrdinal: draftBlockOrdinal,
         index,
       })
       const saveText = async (index: number, text: string): Promise<void> => {
@@ -527,8 +541,11 @@ export default class OnedayPlugin extends Plugin {
           },
           onSave: saveText,
           getDraft: (index) => this.textDrafts.get(textDraftKey(index)),
-          onDraftChange: (index, draft) => {
+          onDraftChange: (index, draft, savedValue) => {
             const key = textDraftKey(index)
+            // A completion from a disposed renderer must not replace or clear
+            // newer typing in the remounted editor.
+            if (savedValue !== undefined && this.textDrafts.get(key)?.value !== savedValue) return
             if (draft) this.textDrafts.set(key, draft)
             else this.textDrafts.delete(key)
           },
@@ -625,7 +642,7 @@ export default class OnedayPlugin extends Plugin {
                   const cellW = bodyRect.width / columns
                   const gx = Math.min(MAX_GRID_COLS - 6, Math.max(0, Math.floor((x - bodyRect.left) / cellW)))
                   const gy = Math.max(0, Math.floor((y - bodyRect.top) / GRID_ROW_H))
-                  const items = Array.from(body.querySelectorAll<HTMLElement>(".oneday-slot")).map((sl) => ({
+                  const items = Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot")).map((sl) => ({
                     id: sl.dataset.slot as GridItem["id"],
                     x: Number(sl.dataset.x), y: Number(sl.dataset.y), w: Number(sl.dataset.w), h: Number(sl.dataset.h),
                   }))
@@ -642,7 +659,7 @@ export default class OnedayPlugin extends Plugin {
           ["todos", tr("addTodoComponent"), "list-todo"],
           ["quote", tr("addDailyQuoteComponent"), "quote"],
         ] as const) {
-          if (container.querySelector(`.oneday-slot-${slotId}`) || doc.hiddenSlots.includes(slotId)) continue
+          if (container.querySelector(`.modular-diary-slot-${slotId}`) || doc.hiddenSlots.includes(slotId)) continue
           menu.addItem((item) => item.setTitle(label).setIcon(icon).setSection("components").onClick(() => {
             void this.applyBlockTransform(el, ctx, source, (value) => this.addComponentSlot(value, doc, container, slotId))
           }))
@@ -660,7 +677,7 @@ export default class OnedayPlugin extends Plugin {
         menu.addItem((item) =>
           item.setTitle(tr("setDefaultLayout")).setIcon("bookmark").setSection("layout").onClick(() => {
             if (body) {
-              const items = Array.from(body.querySelectorAll<HTMLElement>(".oneday-slot")).map((sl) => ({
+              const items = Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot")).map((sl) => ({
                 id: sl.dataset.slot as GridItem["id"],
                 x: Number(sl.dataset.x), y: Number(sl.dataset.y), w: Number(sl.dataset.w), h: Number(sl.dataset.h),
               }))
@@ -679,13 +696,13 @@ export default class OnedayPlugin extends Plugin {
         menu.addSeparator()
         menu.addItem((item) =>
           item
-            .setTitle(tr("deleteOnedayBlock"))
+            .setTitle(tr("deleteModularDiaryBlock"))
             .setIcon("trash-2")
             .setWarning(true)
             .setSection("danger")
             .onClick(() => {
               void this.deleteTimelineBlock(el, ctx).catch((error: unknown) => {
-                console.error("Oneday: failed to delete timeline block", error)
+                console.error("Modular Diary: failed to delete timeline block", error)
                 new Notice(error instanceof Error ? error.message : tr("sourceChanged"))
               })
             })
@@ -697,7 +714,7 @@ export default class OnedayPlugin extends Plugin {
         if (container.isConnected) return container
         return this.timelineVisuals
           .findHost(blockIdentity.path, blockIdentity.owner, blockIdentity.blockOrdinal)
-          ?.querySelector<HTMLElement>(".oneday-container") ?? null
+          ?.querySelector<HTMLElement>(".modular-diary-container") ?? null
       }
       const targetForEntryLine = (line: number): EntryTarget | null => {
         const entry = doc.entries.find((item) => item.line === line)
@@ -758,18 +775,24 @@ export default class OnedayPlugin extends Plugin {
         // 绝不能用 document.querySelector 命中同页/同文件的另一个块。
         const live = liveContainer()
         if (!live) return
-        const rect = live.querySelector(`rect.oneday-block[data-line="${ln}"]`)
+        const rect = live.querySelector(`rect.modular-diary-block[data-line="${ln}"]`)
         const e0 = doc.entries.find((it) => it.line === ln)
         if (!rect || !e0 || !target) return
         openNotePopover(live, rect, rect.getBoundingClientRect(), e0.note ?? "", async (note) => {
           try {
-            await this.applyBlockTransform(el, ctx, source, (s) => rewriteEntryTarget(
-              s,
-              target,
-              (entry) => formatEntryLine({ ...entry, note: note || undefined }),
-            ), { previewVisual: previewTimeline })
+            await this.applyBlockTransform(el, ctx, source, (s) => {
+              const entries = this.parse(s).entries
+              // A failed disk acknowledgement may follow a successful editor
+              // mutation. Retrying that exact intended value is safe too.
+              const current = resolveEntryTarget(entries, target)
+                ?? resolveEntryTarget(entries, captureEntryTarget({ ...e0, note: note || undefined }))
+              if (!current) throw new Error(tr("sourceChanged"))
+              return replaceEntryLine(s, current.line, formatEntryLine({ ...current, note: note || undefined }))
+            }, { previewVisual: previewTimeline })
           } catch (error) {
-            new Notice(error instanceof Error ? error.message : tr("sourceChanged"), 8000)
+            if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) {
+              new Notice(error instanceof Error ? error.message : tr("sourceChanged"), 8000)
+            }
             throw error
           }
         })
@@ -812,7 +835,7 @@ export default class OnedayPlugin extends Plugin {
         domDocument: dom,
       })
       // 填槽：工具栏/状态行/对话框各就各位（插槽位置由 layout 决定）
-      const toolbarSlot = container.querySelector<HTMLElement>(".oneday-slot-toolbar")
+      const toolbarSlot = container.querySelector<HTMLElement>(".modular-diary-slot-toolbar")
       if (toolbarSlot) {
         // Geometry controls are still real content when the selected tool has
         // no categories.  Only the second row is empty; preserving the normal
@@ -820,12 +843,12 @@ export default class OnedayPlugin extends Plugin {
         toolbarSlot.classList.remove("is-empty-state")
         toolbarSlot.appendChild(toolbar.el)
       }
-      const timelineSlot = container.querySelector<HTMLElement>(".oneday-slot-timeline")
+      const timelineSlot = container.querySelector<HTMLElement>(".modular-diary-slot-timeline")
       if (timelineSlot) {
         timelineSlot.appendChild(toolbar.statusEl)
         // 顶栏：日期+星期（跨期统计锚点）在左，记录/计划开关在右
         const topbar = dom.createElement("div")
-        topbar.className = "oneday-timeline-topbar" // 宽度跟随元素块（槽位），非时间轴矩形
+        topbar.className = "modular-diary-timeline-topbar" // 宽度跟随元素块（槽位），非时间轴矩形
         if (dateStr) {
           const wd = weekdayLabel(dateStr)
           const dateEl = buildTimelineDateControl(container, dateStr, wd, (date) => {
@@ -846,7 +869,7 @@ export default class OnedayPlugin extends Plugin {
         attachRowCompaction(topbar, TIMELINE_TOPBAR_COMPACTION)
       }
 
-      const habitsSlot = container.querySelector<HTMLElement>(".oneday-slot-habits")
+      const habitsSlot = container.querySelector<HTMLElement>(".modular-diary-slot-habits")
       if (habitsSlot) {
         renderHabitsInto(habitsSlot, dueHabits.map((habit) => ({
           habit,
@@ -881,7 +904,7 @@ export default class OnedayPlugin extends Plugin {
         })
       }
 
-      const todosSlot = container.querySelector<HTMLElement>(".oneday-slot-todos")
+      const todosSlot = container.querySelector<HTMLElement>(".modular-diary-slot-todos")
       const todoViewItems: TodoViewItem[] = [
         ...doc.todos.map((todo) => {
           const metrics = todoMetrics(todo, doc.entries)
@@ -1018,7 +1041,7 @@ export default class OnedayPlugin extends Plugin {
         })
       }
 
-      const quoteSlot = container.querySelector<HTMLElement>(".oneday-slot-quote")
+      const quoteSlot = container.querySelector<HTMLElement>(".modular-diary-slot-quote")
       if (quoteSlot) {
         // The sentence of the day and its tint come from settings only; the
         // block source carries nothing about quotes (2026-09-10).
@@ -1030,8 +1053,8 @@ export default class OnedayPlugin extends Plugin {
           onEdit: () => new DailyQuoteSettingsModal(this.app, this).open(),
         })
       }
-      const col = container.querySelector(".oneday-timeline-col")
-      const body = container.querySelector<HTMLElement>(".oneday-body")
+      const col = container.querySelector(".modular-diary-timeline-col")
+      const body = container.querySelector<HTMLElement>(".modular-diary-body")
       if (body) {
         attachBlockResize(container, body, {
           initialSize: doc.blockSize,
@@ -1080,10 +1103,10 @@ export default class OnedayPlugin extends Plugin {
           // End the current edit session before the source mutation so a
           // synchronous Obsidian rerender cannot reuse the deleted line number.
           if (sameBlock(this.editing, blockIdentity) && currentEditingLine() === line) {
-            const svgEl = container.querySelector<SVGSVGElement>("svg.oneday-svg")
+            const svgEl = container.querySelector<SVGSVGElement>("svg.modular-diary-svg")
             if (svgEl) {
               const CustomEventCtor = dom.defaultView?.CustomEvent ?? CustomEvent
-              svgEl.dispatchEvent(new CustomEventCtor("oneday-exit-edit"))
+              svgEl.dispatchEvent(new CustomEventCtor("modular-diary-exit-edit"))
             }
             // The DOM may already have been detached; keep the model invariant
             // independent from whether the visual cleanup listener was present.
@@ -1098,12 +1121,14 @@ export default class OnedayPlugin extends Plugin {
               previewVisual: previewTimeline,
             })
           } catch (error) {
-            new Notice(error instanceof Error ? error.message : tr("sourceChanged"), 8000)
+            if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) {
+              new Notice(error instanceof Error ? error.message : tr("sourceChanged"), 8000)
+            }
             throw error
           }
         }
         const requestDeleteTimelineEntry = (line: number): void => {
-          const svgEl = container.querySelector<SVGSVGElement>("svg.oneday-svg")
+          const svgEl = container.querySelector<SVGSVGElement>("svg.modular-diary-svg")
           if (svgEl && requestTimelineEntryDelete(svgEl, line)) return
           void deleteTimelineEntry(line)
         }
@@ -1176,7 +1201,7 @@ export default class OnedayPlugin extends Plugin {
           // the commit boundary. Earlier ownership/source failures arrive
           // here and must not remain silent.
           const alreadyReported = error instanceof Error
-            && Boolean((error as Error & { onedayNoticeReported?: boolean }).onedayNoticeReported)
+            && Boolean((error as Error & { modularDiaryNoticeReported?: boolean }).modularDiaryNoticeReported)
           if (!alreadyReported) {
             new Notice(error instanceof Error ? error.message : tr("sourceChanged"), 0)
           }
@@ -1190,7 +1215,7 @@ export default class OnedayPlugin extends Plugin {
             editTimes: (ln) => {
               const live = liveContainer()
               if (!live) return
-              const rect = live.querySelector(`rect.oneday-block[data-line="${ln}"]`)
+              const rect = live.querySelector(`rect.modular-diary-block[data-line="${ln}"]`)
               const e0 = doc.entries.find((it) => it.line === ln)
               if (!rect || !e0) return
               openTimePopover(live, rect, rect.getBoundingClientRect(), {
@@ -1209,9 +1234,9 @@ export default class OnedayPlugin extends Plugin {
             editSpan: (ln) => {
               const target = targetForEntryLine(ln)
               this.editing = target ? { ...blockIdentity, target } : null
-              const svgEl = container.querySelector("svg.oneday-svg")
+              const svgEl = container.querySelector("svg.modular-diary-svg")
               const CustomEventCtor = dom.defaultView?.CustomEvent ?? CustomEvent
-              svgEl?.dispatchEvent(new CustomEventCtor("oneday-sync-edit"))
+              svgEl?.dispatchEvent(new CustomEventCtor("modular-diary-sync-edit"))
             },
             setNote: (ln, note) =>
               void this.applyBlockTransform(el, ctx, source, (s) => rewriteEntryTarget(
@@ -1255,23 +1280,27 @@ export default class OnedayPlugin extends Plugin {
 
         const markerAnchor = (line: number): SVGGElement | null => {
           const live = liveContainer()
-          return live?.querySelector<SVGGElement>(`g.oneday-marker[data-line="${line}"]`) ?? null
+          return live?.querySelector<SVGGElement>(`g.modular-diary-marker[data-line="${line}"]`) ?? null
         }
         const editMarkerNote = (line: number): void => {
           const target = targetForMarkerLine(line)
           const anchor = markerAnchor(line)
           const marker = doc.annotations.find((item) => item.line === line && item.type)
-          const live = anchor?.closest<HTMLElement>(".oneday-container")
+          const live = anchor?.closest<HTMLElement>(".modular-diary-container")
           if (!anchor || !marker || !live || !target) return
           openNotePopover(live, anchor, anchor.getBoundingClientRect(), marker.text, async (text) => {
             try {
-              await this.applyBlockTransform(el, ctx, source, (value) => rewriteMarkerTarget(
-                value,
-                target,
-                (current) => formatMarkerLine({ ...current, type: current.type!, text }),
-              ))
+              await this.applyBlockTransform(el, ctx, source, (value) => {
+                const markers = this.parse(value).annotations
+                const current = resolveMarkerTarget(markers, target)
+                  ?? resolveMarkerTarget(markers, captureMarkerTarget({ ...marker, text }))
+                if (!current?.type) throw new Error(tr("sourceChanged"))
+                return replaceEntryLine(value, current.line, formatMarkerLine({ ...current, type: current.type, text }))
+              })
             } catch (error) {
+              if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) {
               new Notice(error instanceof Error ? error.message : tr("sourceChanged"), 8000)
+            }
               throw error
             }
           }, { kind: "marker" })
@@ -1334,12 +1363,12 @@ export default class OnedayPlugin extends Plugin {
                 const target = targetForMarkerLine(targetLine)
                 this.markerEditing = target ? { ...blockIdentity, target } : null
                 const CustomEventCtor = dom.defaultView?.CustomEvent ?? CustomEvent
-                container.querySelector("svg.oneday-svg")?.dispatchEvent(new CustomEventCtor("oneday-marker-sync-edit"))
+                container.querySelector("svg.modular-diary-svg")?.dispatchEvent(new CustomEventCtor("modular-diary-marker-sync-edit"))
               },
               editTime: (targetLine) => {
                 const anchor = markerAnchor(targetLine)
                 const current = doc.annotations.find((item) => item.line === targetLine && item.type)
-                const live = anchor?.closest<HTMLElement>(".oneday-container")
+                const live = anchor?.closest<HTMLElement>(".modular-diary-container")
                 if (!anchor || !current?.type || !live) return
                 openPointTimePopover(live, anchor, anchor.getBoundingClientRect(), formatClockPlain(current.timeMin), (clock) => {
                   const [hour, minute] = clock.split(":").map(Number)
@@ -1380,7 +1409,7 @@ export default class OnedayPlugin extends Plugin {
 
       // 初始宽度自适应内容：无 layout 头时，时间轴槽位收到内容自然宽（yyt 2026-08-17）
       if (doc.layout === undefined && (doc.entries.length > 0 || doc.annotations.length > 0) && body) {
-        const slotEl = container.querySelector<HTMLElement>(".oneday-slot-timeline")
+        const slotEl = container.querySelector<HTMLElement>(".modular-diary-slot-timeline")
         if (slotEl) {
           domWindow?.requestAnimationFrame(() => {
             const bodyW = body.getBoundingClientRect().width
@@ -1404,7 +1433,7 @@ export default class OnedayPlugin extends Plugin {
       // 右下角：设置快捷入口。
       const settingsButton = dom.createElement("button")
       settingsButton.type = "button"
-      settingsButton.className = "oneday-open-settings"
+      settingsButton.className = "modular-diary-open-settings"
       setIcon(settingsButton, "settings")
       settingsButton.setAttribute("aria-label", tr("openSettings"))
       settingsButton.addEventListener("click", (e) => {
@@ -1416,7 +1445,7 @@ export default class OnedayPlugin extends Plugin {
       // 当前 block 的低频附加操作：组件管理 + 布局，不再误用「添加」语义。
       const more = dom.createElement("button")
       more.type = "button"
-      more.className = "oneday-more-actions"
+      more.className = "modular-diary-more-actions"
       setIcon(more, "ellipsis")
       more.setAttribute("aria-label", tr("moreActions"))
       more.setAttribute("aria-haspopup", "menu")
@@ -1430,10 +1459,10 @@ export default class OnedayPlugin extends Plugin {
       // 触控端不直接暴露细小手柄：先进入显式布局编辑态，再显示放大的命中区。
       const layoutEdit = dom.createElement("button")
       layoutEdit.type = "button"
-      layoutEdit.className = "oneday-layout-edit-toggle"
+      layoutEdit.className = "modular-diary-layout-edit-toggle"
       layoutEdit.setAttribute("aria-pressed", "false")
       const layoutEditIcon = dom.createElement("span")
-      layoutEditIcon.className = "oneday-layout-edit-icon"
+      layoutEditIcon.className = "modular-diary-layout-edit-icon"
       layoutEditIcon.setAttribute("aria-hidden", "true")
       const layoutEditLabel = dom.createElement("span")
       const syncLayoutEdit = (active: boolean): void => {
@@ -1457,12 +1486,12 @@ export default class OnedayPlugin extends Plugin {
         // The timeline owns all context-menu gestures inside its SVG. A
         // WebView may retarget a marker label/line to the SVG root, so checking
         // only `rect` lets the enclosing Block menu steal time-point clicks.
-        if (t?.closest("button, input, textarea, a, .oneday-svg, .oneday-text-host, .oneday-add-menu")) return
+        if (t?.closest("button, input, textarea, a, .modular-diary-svg, .modular-diary-text-host, .modular-diary-add-menu")) return
         e.preventDefault()
         // 点在组件空白上 -> 提供统一的自制「隐藏」菜单（off: 头，可从更多菜单重新显示）
-        const slotEl = t?.closest(".oneday-slot") as HTMLElement | null
+        const slotEl = t?.closest(".modular-diary-slot") as HTMLElement | null
         const slotId = slotEl?.dataset.slot
-        if (slotId && (slotId === "text" || /^text\d+$/.test(slotId)) && t?.closest(".oneday-text-pane") === null) {
+        if (slotId && (slotId === "text" || /^text\d+$/.test(slotId)) && t?.closest(".modular-diary-text-pane") === null) {
           // 文本框空白处右键 -> 删除此文本框（可 Ctrl+Z 恢复）
           const idx = slotId === "text" ? 0 : Number(slotId.slice(4)) - 1
           const menu = new Menu()
@@ -1498,7 +1527,7 @@ export default class OnedayPlugin extends Plugin {
         showMoreMenu(e.clientX, e.clientY)
       })
 
-      const dialogSlot = container.querySelector<HTMLElement>(".oneday-slot-dialog")
+      const dialogSlot = container.querySelector<HTMLElement>(".modular-diary-slot-dialog")
       if ((Platform.isDesktopApp || this.settings.dialogBackend === "api") && dialogSlot) {
         attachDialog(dialogSlot, doc, {
           settings: this.settings,
@@ -1506,7 +1535,7 @@ export default class OnedayPlugin extends Plugin {
             // @ts-expect-error 内部 API
             this.app.setting?.open?.()
             // @ts-expect-error 内部 API
-            this.app.setting?.openTabById?.("oneday")
+            this.app.setting?.openTabById?.("modular-diary")
           },
           writeActions: (actions) =>
             this.applyBlockTransform(el, ctx, source, (s) => {
@@ -1548,9 +1577,9 @@ export default class OnedayPlugin extends Plugin {
   /** 无 layout 头的块在首次写入时持久化当前槽位布局（避免每次重渲染重新拟合 -> 闪缩） */
   private persistLayoutOnce(source: string, doc: { layout?: unknown }, container: HTMLElement): string {
     if (doc.layout !== undefined) return source
-    const body = container.querySelector<HTMLElement>(".oneday-body")
+    const body = container.querySelector<HTMLElement>(".modular-diary-body")
     if (!body) return source
-    const items = Array.from(body.querySelectorAll<HTMLElement>(".oneday-slot")).map((sl) => ({
+    const items = Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot")).map((sl) => ({
       id: sl.dataset.slot as GridItem["id"],
       x: Number(sl.dataset.x), y: Number(sl.dataset.y), w: Number(sl.dataset.w), h: Number(sl.dataset.h),
     }))
@@ -1581,7 +1610,7 @@ export default class OnedayPlugin extends Plugin {
       )).then((groups) => {
         if (generation === this.ledgerGeneration) this.weeklyLedger = groups.flat()
       }).catch((error: unknown) => {
-        console.error("Oneday: failed to build weekly ledger", error)
+        console.error("Modular Diary: failed to build weekly ledger", error)
         if (generation === this.ledgerGeneration) this.weeklyLedger = []
       }).finally(() => {
         this.weeklyLedgerLoading = null
@@ -1615,10 +1644,10 @@ export default class OnedayPlugin extends Plugin {
   /** Grow slots whose content exceeds their grid height, then re-compact (display-only). */
   private fitSlotHeights(container: HTMLElement): void {
     const run = (): void => {
-      const body = container.querySelector<HTMLElement>(".oneday-body")
+      const body = container.querySelector<HTMLElement>(".modular-diary-body")
       if (!body) return
       const viewportAnchor = captureViewportAnchor(container)
-      const slots = Array.from(body.querySelectorAll<HTMLElement>(".oneday-slot"))
+      const slots = Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot"))
       let grew = false
       for (const slot of slots) {
         // 文字槽不自动撑高：保持用户拖的尺寸，内部滚动（yyt 2026-08-19）
@@ -1641,10 +1670,10 @@ export default class OnedayPlugin extends Plugin {
     }
     run()
     // 二次量高去重：渲染频繁时定时器堆积会造成重排风暴（性能审计 2026-08-19）
-    if (!container.dataset.onedayFitPending) {
-      container.dataset.onedayFitPending = "1"
+    if (!container.dataset.modularDiaryFitPending) {
+      container.dataset.modularDiaryFitPending = "1"
       container.ownerDocument.defaultView?.setTimeout(() => {
-        delete container.dataset.onedayFitPending
+        delete container.dataset.modularDiaryFitPending
         run()
       }, 300)
     }
@@ -1652,9 +1681,9 @@ export default class OnedayPlugin extends Plugin {
 
   /** Capture the exact visible scroller; file path alone is never an owner. */
   private captureScroll(container: HTMLElement): TimelineScrollSnapshot {
-    const block = container.matches(".oneday-container")
+    const block = container.matches(".modular-diary-container")
       ? container
-      : container.querySelector<HTMLElement>(".oneday-container")
+      : container.querySelector<HTMLElement>(".modular-diary-container")
     return {
       internal: captureInternalScroll(container),
       viewport: block ? captureViewportAnchor(block) : null,
@@ -1671,7 +1700,7 @@ export default class OnedayPlugin extends Plugin {
     stabilizeViewportAnchor(snapshot.viewport, container, 2)
 
     // 等真实的异步渲染落定（MarkdownRenderer.render 的 Promise），不盲猜时长（专家方案）
-    const asyncRenders = container.querySelectorAll<HTMLElement>(".oneday-text-host")
+    const asyncRenders = container.querySelectorAll<HTMLElement>(".modular-diary-text-host")
     const settle = Array.from(asyncRenders).map((h) => new Promise<void>((resolve) => {
       const MutationObserverCtor = container.ownerDocument.defaultView?.MutationObserver ?? MutationObserver
       const mo = new MutationObserverCtor(() => {
@@ -1685,10 +1714,10 @@ export default class OnedayPlugin extends Plugin {
       // zero while its content is empty. Restore only that reset; never pull
       // the outer page—or a pane the user has since scrolled—back again.
       if (!container.isConnected) return
-      const slots = Array.from(container.querySelectorAll<HTMLElement>(".oneday-slot")).filter((s) => /^text\d*$/.test(s.dataset.slot ?? ""))
+      const slots = Array.from(container.querySelectorAll<HTMLElement>(".modular-diary-slot")).filter((s) => /^text\d*$/.test(s.dataset.slot ?? ""))
       slots.forEach((slot) => {
         const target = snapshot.internal.texts[slot.dataset.slot ?? ""]?.top ?? 0
-        const scroller = slot.querySelector<HTMLElement>(".oneday-text-pane") ?? slot
+        const scroller = slot.querySelector<HTMLElement>(".modular-diary-text-pane") ?? slot
         if (target > 0 && scroller.scrollTop <= 1) scroller.scrollTop = target
       })
     })
@@ -1732,11 +1761,12 @@ export default class OnedayPlugin extends Plugin {
   private scrollTransactionKey(
     el: HTMLElement,
     ctx: MarkdownPostProcessorContext,
-    section = ctx.getSectionInfo(el),
+    section: { lineStart: number; lineEnd: number } | null = ctx.getSectionInfo(el),
     ownerOverride?: object,
     contentOverride?: string
   ): ScrollTransactionKey<object> {
     const viewOwner = this.owningMarkdownView(ctx.sourcePath, el)
+      ?? chooseMutationView(ctx.sourcePath, el, this.markdownViews(ctx.sourcePath), null)
     let fallbackOwner = this.documentOwnerTokens.get(ctx.docId)
     if (!fallbackOwner) {
       fallbackOwner = {}
@@ -1748,13 +1778,18 @@ export default class OnedayPlugin extends Plugin {
     const owner = resolveTransactionOwner(viewOwner?.leaf ?? null, ownerOverride ?? null, fallbackOwner)
     const content = contentOverride
       ?? (viewOwner ? viewOwner.editor.getValue() : null)
+    const capturedSource = this.blockSources.get(el)
+    const location = content !== null && capturedSource !== undefined
+      ? resolveTimelineSource(content, capturedSource, section)
+        ?? (section && extractBlockSourceFromContent(content, section) !== null ? section : null)
+      : section
     return {
       owner,
       path: ctx.sourcePath,
       docId: ctx.docId,
-      lineStart: section?.lineStart ?? -1,
-      blockOrdinal: section && content !== null
-        ? timelineFenceOrdinal(content, section.lineStart)
+      lineStart: location?.lineStart ?? -1,
+      blockOrdinal: location && content !== null
+        ? timelineFenceOrdinal(content, location.lineStart)
         : -1,
     }
   }
@@ -1833,12 +1868,11 @@ export default class OnedayPlugin extends Plugin {
    * identity.
    */
   private async applyTextBlockTransform(
-    key: ScrollTransactionKey<object>,
+    key: ScrollTransactionKey<object> & { source: string; section?: () => { lineStart: number; lineEnd: number } | null },
     transform: (source: string) => string
   ): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(key.path)
     if (!(file instanceof TFile)) throw new Error(tr("fileNotFound"))
-    if (key.blockOrdinal < 0) throw new Error(tr("blockNotFound"))
 
     const views = this.markdownViews(key.path)
     // The MarkdownView object can be replaced while Obsidian rebuilds a leaf.
@@ -1848,13 +1882,13 @@ export default class OnedayPlugin extends Plugin {
     if (view) {
       const editor = view.editor
       const content = editor.getValue()
-      const location = timelineFenceAtOrdinal(content, key.blockOrdinal)
+      const location = resolveTimelineSource(content, key.source, key.section?.() ?? null)
       if (!location) throw new Error(tr("sourceChanged"))
+      key.blockOrdinal = timelineFenceOrdinal(content, location.lineStart)
       const newSource = transform(location.source)
-      if (newSource === location.source) return
 
       const host = this.timelineVisuals.findHost(key.path, key.owner, key.blockOrdinal)
-      const visualContainer = host?.querySelector<HTMLElement>(".oneday-container") ?? null
+      const visualContainer = host?.querySelector<HTMLElement>(".modular-diary-container") ?? null
       const snapshot = visualContainer ? this.captureScroll(visualContainer) : null
       const transactionKey: ScrollTransactionKey<object> = {
         ...key,
@@ -1886,8 +1920,12 @@ export default class OnedayPlugin extends Plugin {
         if (host) this.timelineVisuals.accept(host, newSource)
         await applyDurableWrite({
           apply: () => {
-            if (codeMirrorWrite) codeMirrorWrite.apply()
-            else editor.replaceRange(replacement, from, to)
+            if (newSource !== location.source) {
+              if (codeMirrorWrite) codeMirrorWrite.apply()
+              else editor.replaceRange(replacement, from, to)
+            }
+            key.source = newSource
+            if (host) this.blockSources.set(host, newSource)
           },
           memoryMatches: () => timelineSourceAtOrdinal(editor.getValue(), key.blockOrdinal) === newSource,
           save: () => view.save(),
@@ -1910,28 +1948,32 @@ export default class OnedayPlugin extends Plugin {
     // exists. Choosing another pane could overwrite unsaved source there.
     if (views.length > 0) throw new Error(tr("sourceChanged"))
 
+    let savedSource = key.source
     await this.app.vault.process(file, (content) => {
-      const location = timelineFenceAtOrdinal(content, key.blockOrdinal)
+      const location = resolveTimelineSource(content, key.source, key.section?.() ?? null)
       if (!location) throw new Error(tr("sourceChanged"))
       const newSource = transform(location.source)
-      return newSource === location.source
+      const updated = newSource === location.source
         ? content
         : replaceBlockInContent(content, location, newSource)
+      savedSource = newSource
+      return updated
     })
+    key.source = savedSource
   }
 
   /** Sole write path into markdown (D7/D3 共用): transform block source, splice back. */
   private async applyBlockTransform(
     el: HTMLElement,
     ctx: MarkdownPostProcessorContext,
-    _source: string,
+    source: string,
     transform: (source: string) => string,
     options: BlockTransformOptions = {}
   ): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath)
     if (!(file instanceof TFile)) throw new Error(tr("fileNotFound"))
-    const section = ctx.getSectionInfo(el)
-    if (!section) throw new Error(tr("blockNotFound"))
+    const hint = el.isConnected ? ctx.getSectionInfo(el) : null
+    const expectedSource = this.blockSources.get(el) ?? source
 
     // 优先走编辑器事务（进 CM6 撤销栈，Ctrl+Z 可撤回，yyt 2026-08-17）；
     // 找不到打开的编辑器再退回 vault.process。关键点：每次都从当前编辑器/文件
@@ -1941,13 +1983,13 @@ export default class OnedayPlugin extends Plugin {
     const view = chooseMutationView(ctx.sourcePath, el, views, activeView)
     if (view) {
       const editor = view.editor
-      const liveSource = extractBlockSourceFromContent(editor.getValue(), section)
-      if (liveSource === null) throw new Error(tr("sourceChanged"))
+      const section = resolveTimelineSource(editor.getValue(), expectedSource, hint)
+      if (!section) throw new Error(tr("sourceChanged"))
+      const liveSource = section.source
       const newSource = transform(liveSource)
-      if (newSource === liveSource) return
       const transactionKey = this.scrollTransactionKey(el, ctx, section, view.leaf, editor.getValue())
       const snapshot = options.scrollSnapshot
-        ?? this.captureScroll(el.closest(".oneday-container") as HTMLElement ?? el)
+        ?? this.captureScroll(el.closest(".modular-diary-container") as HTMLElement ?? el)
       const openFence = editor.getLine(section.lineStart) ?? ""
       const prefix = /^(\s*(?:>\s*)*)/.exec(openFence)?.[1] ?? ""
       const body = newSource
@@ -1971,8 +2013,8 @@ export default class OnedayPlugin extends Plugin {
           ?? ((value: string) => this.timelineVisuals.preview(el, value)))(newSource) ?? null
         this.scrollTransactions.cancel(transactionKey)
         this.scrollTransactions.begin(transactionKey, newSource, transactionSnapshot)
-        const visualContainer = el.querySelector<HTMLElement>(".oneday-container")
-          ?? el.closest<HTMLElement>(".oneday-container")
+        const visualContainer = el.querySelector<HTMLElement>(".modular-diary-container")
+          ?? el.closest<HTMLElement>(".modular-diary-container")
         if (visualContainer) beginRemountVisual(
           this.remountVisual,
           transactionKey,
@@ -1980,8 +2022,11 @@ export default class OnedayPlugin extends Plugin {
           resolveRemountVisualMode(options.remountVisual, Boolean(rollbackVisual))
         )
         const applyEditorMutation = (): void => {
-          if (codeMirrorWrite) codeMirrorWrite.apply()
-          else editor.replaceRange(replacement, from, to)
+          if (newSource !== liveSource) {
+            if (codeMirrorWrite) codeMirrorWrite.apply()
+            else editor.replaceRange(replacement, from, to)
+          }
+          this.blockSources.set(el, newSource)
         }
         await applyDurableWrite({
           apply: applyEditorMutation,
@@ -1990,7 +2035,7 @@ export default class OnedayPlugin extends Plugin {
           persistedMatches: async () => {
             const persistedSource = timelineSourceAtOrdinal(await this.app.vault.read(file), transactionKey.blockOrdinal)
             const currentEditorSource = timelineSourceAtOrdinal(editor.getValue(), transactionKey.blockOrdinal)
-            // A later Oneday action may already have advanced this same block
+            // A later Modular Diary action may already have advanced this same block
             // while the first save was in flight. Either this exact source or
             // the editor's newer source proves that the original mutation is
             // safely represented on disk.
@@ -2002,8 +2047,11 @@ export default class OnedayPlugin extends Plugin {
         this.scrollTransactions.cancel(transactionKey)
         this.remountVisual.cancel(transactionKey)
         rollbackVisual?.()
+        if (timelineSourceAtOrdinal(editor.getValue(), transactionKey.blockOrdinal) === newSource) {
+          this.blockSources.set(el, newSource)
+        }
         const reported = error instanceof Error ? error : new Error(tr("timelineSaveFailed"))
-        ;(reported as Error & { onedayNoticeReported?: boolean }).onedayNoticeReported = true
+        ;(reported as Error & { modularDiaryNoticeReported?: boolean }).modularDiaryNoticeReported = true
         new Notice(tr("timelineSaveFailed"), 0)
         throw reported
       }
@@ -2015,29 +2063,33 @@ export default class OnedayPlugin extends Plugin {
     if (views.length > 0) throw new Error(tr("sourceChanged"))
 
     let transactionKey: ScrollTransactionKey<object> | null = null
+    let committedSource = expectedSource
     const visualRollback: { current: (() => void) | null } = { current: null }
     try {
       await this.app.vault.process(file, (content) => {
-        const liveSource = extractBlockSourceFromContent(content, section)
-        if (liveSource === null) throw new Error(tr("sourceChanged"))
+        const section = resolveTimelineSource(content, expectedSource, hint)
+        if (!section) throw new Error(tr("sourceChanged"))
+        const liveSource = section.source
         const newSource = transform(liveSource)
         if (newSource === liveSource) return content
         visualRollback.current = (options.previewVisual
           ?? ((value: string) => this.timelineVisuals.preview(el, value)))(newSource) ?? null
         transactionKey = this.scrollTransactionKey(el, ctx, section, undefined, content)
         const snapshot = options.scrollSnapshot
-          ?? this.captureScroll(el.closest(".oneday-container") as HTMLElement ?? el)
+          ?? this.captureScroll(el.closest(".modular-diary-container") as HTMLElement ?? el)
         this.scrollTransactions.begin(transactionKey, newSource, snapshot)
-        const visualContainer = el.querySelector<HTMLElement>(".oneday-container")
-          ?? el.closest<HTMLElement>(".oneday-container")
+        const visualContainer = el.querySelector<HTMLElement>(".modular-diary-container")
+          ?? el.closest<HTMLElement>(".modular-diary-container")
         if (visualContainer) beginRemountVisual(
           this.remountVisual,
           transactionKey,
           visualContainer,
           resolveRemountVisualMode(options.remountVisual, Boolean(visualRollback.current))
         )
+        committedSource = newSource
         return replaceBlockInContent(content, section, newSource)
       })
+      this.blockSources.set(el, committedSource)
     } catch (error) {
       if (transactionKey) {
         this.scrollTransactions.cancel(transactionKey)
@@ -2049,7 +2101,7 @@ export default class OnedayPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    const data = (await this.loadData()) as (Partial<OnedaySettings> & LegacyCategoryPaletteSettings) | null
+    const data = (await this.loadData()) as (Partial<ModularDiarySettings> & LegacyCategoryPaletteSettings) | null
     const hasPersistedSettings = data !== null
     const needsCategoryMigration = Boolean(data && ("typeColors" in data || "retiredTypeColors" in data))
     const palettes = migrateCategoryPalettes(data)
@@ -2080,7 +2132,7 @@ export default class OnedayPlugin extends Plugin {
     // @ts-expect-error setting 是 Obsidian 内部 API
     this.app.setting?.open?.()
     // @ts-expect-error openTabById 是 Obsidian 内部 API
-    this.app.setting?.openTabById?.("oneday")
+    this.app.setting?.openTabById?.("modular-diary")
   }
 
   private openCategorySettings(scope: "span" | "marker" = "span"): void {
@@ -2099,7 +2151,7 @@ export default class OnedayPlugin extends Plugin {
   /** Directly redraw mounted blocks in both Live Preview and reading mode. */
   private rerenderMountedTimelines(excludedSourcePaths: ReadonlySet<string> = new Set()): void {
     this.mountedTimelines.refreshAll(
-      (error) => console.error("Oneday: failed to refresh a mounted timeline", error),
+      (error) => console.error("Modular Diary: failed to refresh a mounted timeline", error),
       excludedSourcePaths
     )
   }

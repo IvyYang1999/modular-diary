@@ -7,7 +7,7 @@ import fs from "node:fs"
 import os from "node:os"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const out = path.join(os.tmpdir(), "oneday-settings-smoke")
+const out = path.join(os.tmpdir(), "modular-diary-settings-smoke")
 fs.rmSync(out, { recursive: true, force: true })
 fs.mkdirSync(out, { recursive: true })
 
@@ -88,7 +88,7 @@ export class Setting {
 fs.writeFileSync(path.join(out, "entry.ts"), `
 import { renderCategorySettings, renderHabitSettings } from "${path.join(here, "../src/settings-editors")}" 
 import { CategorySettingsModal, HabitSettingsModal } from "${path.join(here, "../src/settings-modals")}" 
-import { OnedaySettingTab } from "${path.join(here, "../src/settings")}" 
+import { ModularDiarySettingTab } from "${path.join(here, "../src/settings")}"
 import { configureI18n } from "${path.join(here, "../src/i18n")}" 
 
 HTMLElement.prototype.createDiv = function (opts: any = {}) {
@@ -141,7 +141,7 @@ renderHabitSettings(document.querySelector("#habits-en"), host)
 configureI18n(() => "zh")
 new CategorySettingsModal({} as any, host as any, "marker").open()
 new HabitSettingsModal({} as any, host as any).open()
-const globalTab = new OnedaySettingTab({} as any, host as any)
+const globalTab = new ModularDiarySettingTab({} as any, host as any)
 globalTab.containerEl.id = "global-settings"
 globalTab.display()
 `)
@@ -155,7 +155,7 @@ await esbuild.build({
 
 const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
 fs.writeFileSync(path.join(out, "styles.css"), css)
-fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><link rel="stylesheet" href="styles.css"><style>select:hover,select:focus{background:var(--background-modifier-hover)!important}</style></head><body><main class="oneday-focused-settings"><section id="categories"></section><section id="habits"></section><section id="habits-en"></section></main><script src="bundle.js"></script></body></html>`)
+fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><link rel="stylesheet" href="styles.css"><style>select:hover,select:focus{background:var(--background-modifier-hover)!important}</style></head><body><main class="modular-diary-focused-settings"><section id="categories"></section><section id="habits"></section><section id="habits-en"></section></main><script src="bundle.js"></script></body></html>`)
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 820, height: 900 }, deviceScaleFactor: 1 })
@@ -176,34 +176,34 @@ await page.evaluate(() => {
 })
 
 const state = await page.evaluate(() => {
-  const rows = [...document.querySelectorAll("#habits .oneday-rule-editor")]
+  const rows = [...document.querySelectorAll("#habits .modular-diary-rule-editor")]
   const daily = rows[0]
   const weekly = rows[1]
-  const labels = [...daily.querySelectorAll(".oneday-rule-field-label")].map((el) => el.textContent)
+  const labels = [...daily.querySelectorAll(".modular-diary-rule-field-label")].map((el) => el.textContent)
   const selectValues = [...daily.querySelectorAll("select")].map((el) => el.options[el.selectedIndex]?.textContent)
   const parent = daily.parentElement.getBoundingClientRect()
   const row = daily.getBoundingClientRect()
-  const categoryColor = getComputedStyle(daily.querySelector(".oneday-category-picker-dot")).backgroundColor
+  const categoryColor = getComputedStyle(daily.querySelector(".modular-diary-category-picker-dot")).backgroundColor
   const categoryColorValue = daily.querySelector('[data-field="category"] select').value
-  const duration = daily.querySelector(".oneday-duration-control")
+  const duration = daily.querySelector(".modular-diary-duration-control")
   const durationInput = duration.querySelector('input[type="number"]')
   const durationUnit = duration.querySelector("select")
   const goalValue = daily.querySelector('[data-field="goal"] select')?.value
-  const categoryList = document.querySelector("#categories .oneday-category-editor-list")
-  const categorySwatch = document.querySelector("#categories .oneday-category-color-input")
+  const categoryList = document.querySelector("#categories .modular-diary-category-editor-list")
+  const categorySwatch = document.querySelector("#categories .modular-diary-category-color-input")
   const globalSettings = document.querySelector("#global-settings")
   globalSettings.style.width = "610px"
-  const currentSections = [...globalSettings.querySelectorAll(".oneday-settings-section")]
-  const globalCategoryList = globalSettings.querySelector(".oneday-settings-section[data-settings-section='span-categories'] .oneday-category-editor-list") ?? currentSections[0]?.querySelector(".oneday-category-editor-list")
-  const globalMarkerRows = globalSettings.querySelectorAll(".oneday-settings-section[data-settings-section='marker-categories'] .oneday-category-editor-row")
-  const globalHabitRow = globalSettings.querySelector(".oneday-settings-section[data-settings-section='habits'] .oneday-rule-editor") ?? currentSections[2]?.querySelector(".oneday-rule-editor")
+  const currentSections = [...globalSettings.querySelectorAll(".modular-diary-settings-section")]
+  const globalCategoryList = globalSettings.querySelector(".modular-diary-settings-section[data-settings-section='span-categories'] .modular-diary-category-editor-list") ?? currentSections[0]?.querySelector(".modular-diary-category-editor-list")
+  const globalMarkerRows = globalSettings.querySelectorAll(".modular-diary-settings-section[data-settings-section='marker-categories'] .modular-diary-category-editor-row")
+  const globalHabitRow = globalSettings.querySelector(".modular-diary-settings-section[data-settings-section='habits'] .modular-diary-rule-editor") ?? currentSections[2]?.querySelector(".modular-diary-rule-editor")
   const globalHabitRect = globalHabitRow.getBoundingClientRect()
   const globalHabitChildren = [...globalHabitRow.children].map((el) => el.getBoundingClientRect())
-  const globalSections = [...globalSettings.querySelectorAll(".oneday-settings-section")]
+  const globalSections = [...globalSettings.querySelectorAll(".modular-diary-settings-section")]
   const todoRules = globalSettings.querySelector("[data-settings-section='todo-rules']")
   const timelineSettings = globalSettings.querySelector("[data-settings-section='timeline']")
-  const addWeekly = todoRules?.querySelector(".oneday-settings-add-rule")
-  const englishDaily = document.querySelector('#habits-en .oneday-rule-editor[data-habit-id="daily"]')
+  const addWeekly = todoRules?.querySelector(".modular-diary-settings-add-rule")
+  const englishDaily = document.querySelector('#habits-en .modular-diary-rule-editor[data-habit-id="daily"]')
   const rowColumns = rows.map((editor) => {
     const left = (selector) => {
       const node = editor.querySelector(selector)
@@ -215,7 +215,7 @@ const state = await page.evaluate(() => {
       goal: left('[data-field="goal"]'),
       target: left('[data-field="target"]'),
       repeat: left('[data-field="repeat"]'),
-      actions: left('.oneday-settings-row-actions'),
+      actions: left('.modular-diary-settings-row-actions'),
     }
   })
   return {
@@ -235,10 +235,10 @@ const state = await page.evaluate(() => {
     categorySwatchWidth: categorySwatch.getBoundingClientRect().width,
     categorySwatchHeight: categorySwatch.getBoundingClientRect().height,
     leftInset: row.left - parent.left,
-    categoryRows: document.querySelectorAll("#categories .oneday-category-editor-row").length,
-    modalTitles: [...document.querySelectorAll(".oneday-settings-modal > h2")].map((el) => el.textContent),
-    focusedCategoryScope: document.querySelector(".oneday-settings-modal .oneday-category-scope-tabs button.is-active")?.dataset.scope,
-    focusedCategoryRows: document.querySelectorAll(".oneday-settings-modal [data-category-scope='marker'] .oneday-category-editor-row").length,
+    categoryRows: document.querySelectorAll("#categories .modular-diary-category-editor-row").length,
+    modalTitles: [...document.querySelectorAll(".modular-diary-settings-modal > h2")].map((el) => el.textContent),
+    focusedCategoryScope: document.querySelector(".modular-diary-settings-modal .modular-diary-category-scope-tabs button.is-active")?.dataset.scope,
+    focusedCategoryRows: document.querySelectorAll(".modular-diary-settings-modal [data-category-scope='marker'] .modular-diary-category-editor-row").length,
     globalCategoryColumns: getComputedStyle(globalCategoryList).gridTemplateColumns.split(" ").length,
     globalMarkerRows: globalMarkerRows.length,
     globalHabitColumns: getComputedStyle(globalHabitRow).gridTemplateColumns.split(" ").length,
@@ -256,15 +256,15 @@ const state = await page.evaluate(() => {
       const section = globalSettings.querySelector("[data-settings-section='daily-quotes']")
       return {
         present: Boolean(section),
-        hasLibrary: Boolean(section?.querySelector("textarea.oneday-quote-library")),
-        hasInkDots: (section?.querySelectorAll(".oneday-quote-ink-dot").length ?? 0) > 1,
-        hasDesigner: Boolean(section?.querySelector(".oneday-quote-designer, .oneday-quote-settings-tabs, details")),
+        hasLibrary: Boolean(section?.querySelector("textarea.modular-diary-quote-library")),
+        hasInkDots: (section?.querySelectorAll(".modular-diary-quote-ink-dot").length ?? 0) > 1,
+        hasDesigner: Boolean(section?.querySelector(".modular-diary-quote-designer, .modular-diary-quote-settings-tabs, details")),
         sectionHeight: section?.getBoundingClientRect().height ?? 0,
       }
     })(),
     timelineTop: timelineSettings.getBoundingClientRect().top - globalSettings.getBoundingClientRect().top,
     timelineSettingNames: timelineSettings ? [...timelineSettings.querySelectorAll(".setting-item-name")].map((el) => el.textContent) : [],
-    englishLabels: [...englishDaily.querySelectorAll(".oneday-rule-field-label")].map((el) => el.textContent),
+    englishLabels: [...englishDaily.querySelectorAll(".modular-diary-rule-field-label")].map((el) => el.textContent),
     englishGoalOptions: [...englishDaily.querySelector('[data-field="goal"] select').options].map((option) => option.textContent),
     englishRepeatOptions: [...englishDaily.querySelector('[data-field="repeat"] select').options].map((option) => option.textContent),
     rowColumns,
@@ -274,11 +274,11 @@ const state = await page.evaluate(() => {
 await page.locator("#habits").screenshot({ path: path.join(out, "habits-light.png") })
 await page.locator("#habits-en").screenshot({ path: path.join(out, "habits-en-light.png") })
 await page.locator("#categories").screenshot({ path: path.join(out, "categories-light.png") })
-await page.locator(".oneday-settings-modal").first().screenshot({ path: path.join(out, "categories-modal-marker-light.png") })
+await page.locator(".modular-diary-settings-modal").first().screenshot({ path: path.join(out, "categories-modal-marker-light.png") })
 await page.locator("#global-settings").screenshot({ path: path.join(out, "global-settings-610.png") })
 await page.locator("#global-settings [data-settings-section='daily-quotes']").screenshot({ path: path.join(out, "global-settings-quote.png") })
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="category"] select').hover()
-const categoryHoverBackground = await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="category"] select').evaluate((el) => getComputedStyle(el).backgroundColor)
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="category"] select').hover()
+const categoryHoverBackground = await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="category"] select').evaluate((el) => getComputedStyle(el).backgroundColor)
 await page.evaluate(() => {
   document.documentElement.style.setProperty("--background-primary", "#202020")
   document.documentElement.style.setProperty("--background-secondary", "#292929")
@@ -291,17 +291,17 @@ await page.evaluate(() => {
 await page.locator("#habits").screenshot({ path: path.join(out, "habits-dark.png") })
 await page.locator("#categories").screenshot({ path: path.join(out, "categories-dark.png") })
 await page.setViewportSize({ width: 460, height: 900 })
-const narrowCategoryColumns = await page.locator("#categories .oneday-category-editor-list").evaluate((el) =>
+const narrowCategoryColumns = await page.locator("#categories .modular-diary-category-editor-list").evaluate((el) =>
   getComputedStyle(el).gridTemplateColumns.split(" ").length
 )
 await page.locator("#categories").screenshot({ path: path.join(out, "categories-narrow.png") })
 await page.locator("#global-settings").evaluate((el) => { el.style.width = "440px" })
 const globalNarrowState = await page.locator("#global-settings").evaluate((root) => {
-  const sections = [...root.querySelectorAll(".oneday-settings-section")]
-  const habitRow = root.querySelector("[data-settings-section='habits'] .oneday-rule-editor") ?? sections[2]?.querySelector(".oneday-rule-editor")
+  const sections = [...root.querySelectorAll(".modular-diary-settings-section")]
+  const habitRow = root.querySelector("[data-settings-section='habits'] .modular-diary-rule-editor") ?? sections[2]?.querySelector(".modular-diary-rule-editor")
   const habitRect = habitRow.getBoundingClientRect()
   return {
-    categoryColumns: getComputedStyle(root.querySelector("[data-settings-section='span-categories'] .oneday-category-editor-list") ?? sections[0]?.querySelector(".oneday-category-editor-list")).gridTemplateColumns.split(" ").length,
+    categoryColumns: getComputedStyle(root.querySelector("[data-settings-section='span-categories'] .modular-diary-category-editor-list") ?? sections[0]?.querySelector(".modular-diary-category-editor-list")).gridTemplateColumns.split(" ").length,
     habitColumns: getComputedStyle(habitRow).gridTemplateColumns.split(" ").length,
     habitChildrenWithinRow: [...habitRow.children].every((el) => {
       const rect = el.getBoundingClientRect()
@@ -323,40 +323,40 @@ await page.evaluate(() => {
   root.setProperty("--text-muted", "#707070")
   document.body.style.background = "#ffffff"
 })
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="name"] input').fill("")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="name"] input').dispatchEvent("change")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] .oneday-duration-control select').selectOption("hours")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] .oneday-duration-control input').fill("0.5")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] .oneday-duration-control input').dispatchEvent("change")
-const repeatSelect = page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="repeat"] select')
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="name"] input').fill("")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="name"] input').dispatchEvent("change")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] .modular-diary-duration-control select').selectOption("hours")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] .modular-diary-duration-control input').fill("0.5")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] .modular-diary-duration-control input').dispatchEvent("change")
+const repeatSelect = page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="repeat"] select')
 await repeatSelect.selectOption("weekly")
-await page.waitForSelector('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="weekdays"] button')
-const weekdayButtons = page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="weekdays"] button')
+await page.waitForSelector('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="weekdays"] button')
+const weekdayButtons = page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="weekdays"] button')
 const weekdayCount = await weekdayButtons.count()
 await weekdayButtons.nth(2).click()
 
 await repeatSelect.selectOption("interval")
-await page.waitForSelector('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="interval"]')
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="interval"] input[type="number"]').fill("3")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="interval"] input[type="number"]').dispatchEvent("change")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="interval"] input[type="date"]').fill("2026-08-23")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="interval"] input[type="date"]').dispatchEvent("change")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"]').screenshot({ path: path.join(out, "habit-interval-light.png") })
+await page.waitForSelector('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="interval"]')
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="interval"] input[type="number"]').fill("3")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="interval"] input[type="number"]').dispatchEvent("change")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="interval"] input[type="date"]').fill("2026-08-23")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="interval"] input[type="date"]').dispatchEvent("change")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"]').screenshot({ path: path.join(out, "habit-interval-light.png") })
 const intervalState = await page.evaluate(() => structuredClone(window.__settings.habits[0].schedule))
 
 await repeatSelect.selectOption("dates")
-await page.waitForSelector('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="dates"] input[type="date"]')
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] .oneday-date-add').click()
-await page.waitForFunction(() => document.querySelectorAll('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="dates"] input[type="date"]').length === 2)
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"]').screenshot({ path: path.join(out, "habit-dates-light.png") })
-const datePickerCount = await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="dates"] input[type="date"]').count()
+await page.waitForSelector('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="dates"] input[type="date"]')
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] .modular-diary-date-add').click()
+await page.waitForFunction(() => document.querySelectorAll('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="dates"] input[type="date"]').length === 2)
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"]').screenshot({ path: path.join(out, "habit-dates-light.png") })
+const datePickerCount = await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="dates"] input[type="date"]').count()
 
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="goal"] select').selectOption("daily-below")
-await page.waitForSelector('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="target"] .oneday-duration-control')
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] .oneday-duration-control select').selectOption("hours")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] .oneday-duration-control input').fill("0.5")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] .oneday-duration-control input').dispatchEvent("change")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"]').screenshot({ path: path.join(out, "habit-daily-below-light.png") })
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="goal"] select').selectOption("daily-below")
+await page.waitForSelector('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="target"] .modular-diary-duration-control')
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] .modular-diary-duration-control select').selectOption("hours")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] .modular-diary-duration-control input').fill("0.5")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] .modular-diary-duration-control input').dispatchEvent("change")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"]').screenshot({ path: path.join(out, "habit-daily-below-light.png") })
 const belowState = await page.evaluate(() => ({
   comparison: window.__settings?.habits?.[0]?.durationComparison ?? null,
   targetMinutes: window.__settings?.habits?.[0]?.targetMinutes ?? null,
@@ -364,11 +364,11 @@ const belowState = await page.evaluate(() => ({
   targetMetric: window.__settings?.habits?.[0]?.targetMetric ?? null,
 }))
 
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="goal"] select').selectOption("weekly-count")
-await page.waitForSelector('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="target"] .oneday-count-control')
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="target"] input').fill("3")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="target"] input').dispatchEvent("change")
-await page.locator('#habits .oneday-rule-editor[data-habit-id="daily"]').screenshot({ path: path.join(out, "habit-weekly-count-light.png") })
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="goal"] select').selectOption("weekly-count")
+await page.waitForSelector('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="target"] .modular-diary-count-control')
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="target"] input').fill("3")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="target"] input').dispatchEvent("change")
+await page.locator('#habits .modular-diary-rule-editor[data-habit-id="daily"]').screenshot({ path: path.join(out, "habit-weekly-count-light.png") })
 const changedState = await page.evaluate(() => ({
   saves: window.__saves,
   storedMinutes: window.__settings?.habits?.[0]?.targetMinutes ?? null,
@@ -376,7 +376,7 @@ const changedState = await page.evaluate(() => ({
   storedMetric: window.__settings?.habits?.[0]?.targetMetric ?? null,
   storedPeriod: window.__settings?.habits?.[0]?.targetPeriod ?? null,
   storedName: window.__settings?.habits?.[0]?.name ?? null,
-  dailyRepeatCount: document.querySelectorAll('#habits .oneday-rule-editor[data-habit-id="daily"] [data-field="repeat"]').length,
+  dailyRepeatCount: document.querySelectorAll('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="repeat"]').length,
 }))
 await browser.close()
 

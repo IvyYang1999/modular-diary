@@ -22,11 +22,11 @@ for (const leaf of leaves) {
   await page.waitForTimeout(800)
   const probe = await page.evaluate(() => {
     return [...document.querySelectorAll(".workspace-leaf:not(.is-hidden)")].map((leafEl) => {
-      const host = leafEl.querySelector(".oneday-host")
+      const host = leafEl.querySelector(".modular-diary-host")
       if (!host) return null
       const r = host.getBoundingClientRect()
-      const body = host.querySelector(".oneday-body")?.getBoundingClientRect()
-      const slot = host.querySelector(".oneday-slot")?.getBoundingClientRect()
+      const body = host.querySelector(".modular-diary-body")?.getBoundingClientRect()
+      const slot = host.querySelector(".modular-diary-slot")?.getBoundingClientRect()
       return {
         file: leafEl.querySelector(".view-header-title")?.textContent,
         hostW: Math.round(r.width), hostInlineW: host.style.width,

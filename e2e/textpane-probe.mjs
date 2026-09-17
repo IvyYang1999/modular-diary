@@ -7,7 +7,7 @@ await page.evaluate(async () => {
 })
 await page.waitForTimeout(2500)
 const probe = await page.evaluate(() => {
-  const host = document.querySelector(".oneday-text-host")
+  const host = document.querySelector(".modular-diary-text-host")
   if (!host) return { error: "no text host found" }
   const cs = getComputedStyle(host)
   return {

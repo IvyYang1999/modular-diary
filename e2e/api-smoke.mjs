@@ -9,7 +9,7 @@ import fs from "node:fs"
 import os from "node:os"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const out = path.join(os.tmpdir(), "oneday-api-smoke")
+const out = path.join(os.tmpdir(), "modular-diary-api-smoke")
 fs.rmSync(out, { recursive: true, force: true })
 fs.mkdirSync(out, { recursive: true })
 

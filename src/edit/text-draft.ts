@@ -9,6 +9,7 @@ export interface TextDraftState {
   value: string
   editing: boolean
   shouldFocus: boolean
+  saveFailed?: boolean
 }
 
 interface OwnerDrafts {

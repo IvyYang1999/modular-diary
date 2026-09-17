@@ -9,7 +9,7 @@ await page.evaluate(async () => {
 })
 await page.waitForTimeout(2000)
 const m = await page.evaluate(() => {
-  const host = document.querySelector(".oneday-text-host")
+  const host = document.querySelector(".modular-diary-text-host")
   if (!host) return { error: "no host" }
   return {
     pWhiteSpace: getComputedStyle(host.querySelector("p")).whiteSpace,

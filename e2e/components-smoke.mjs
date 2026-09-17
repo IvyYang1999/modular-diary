@@ -7,7 +7,7 @@ import fs from "node:fs"
 import os from "node:os"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const out = path.join(os.tmpdir(), "oneday-components-smoke")
+const out = path.join(os.tmpdir(), "modular-diary-components-smoke")
 fs.rmSync(out, { recursive: true, force: true })
 fs.mkdirSync(out, { recursive: true })
 
@@ -45,7 +45,7 @@ HTMLElement.prototype.createEl = function (tag: string, opts: any = {}) {
 
 const host = document.querySelector<HTMLElement>("#host")!
 const createSlot = (id: string, height: number): HTMLElement => {
-  const slot = host.createDiv({ cls: "oneday-slot oneday-slot-" + id })
+  const slot = host.createDiv({ cls: "modular-diary-slot modular-diary-slot-" + id })
   slot.dataset.slot = id
   slot.style.cssText = "position:relative;width:430px;height:" + height + "px"
   return slot
@@ -55,9 +55,9 @@ const visualOwner = {}
 const visualKey = { owner: visualOwner, path: "visual.md", blockOrdinal: 0, docId: "visual", lineStart: 1 }
 const visualRegistry = new RemountVisualRegistry()
 const visualFixture = document.body.createDiv({ cls: "visual-handoff-fixture" })
-const visualSource = visualFixture.createDiv({ cls: "oneday-container visual-source" })
+const visualSource = visualFixture.createDiv({ cls: "modular-diary-container visual-source" })
 visualSource.style.cssText = "width:320px;height:96px"
-visualSource.createDiv({ cls: "oneday-todos", text: "visual continuity" })
+visualSource.createDiv({ cls: "modular-diary-todos", text: "visual continuity" })
 window.__beginVisualHandoff = () => {
   const started = visualRegistry.begin(visualKey, visualSource)
   visualSource.remove()
@@ -65,13 +65,13 @@ window.__beginVisualHandoff = () => {
 }
 window.__completeVisualHandoff = () => visualRegistry.complete(visualKey)
 window.__verifyVisualHandoffHasOneVisibleTree = () => {
-  const source = document.body.createDiv({ cls: "oneday-container visual-single-tree" })
+  const source = document.body.createDiv({ cls: "modular-diary-container visual-single-tree" })
   source.style.cssText = "width:320px;height:96px"
-  source.createDiv({ cls: "oneday-stats", text: "one visible tree" })
+  source.createDiv({ cls: "modular-diary-stats", text: "one visible tree" })
   const key = { ...visualKey, blockOrdinal: 9, docId: "visual-single-tree" }
   const started = visualRegistry.begin(key, source)
   const hiddenDuringHandoff = getComputedStyle(source).visibility === "hidden"
-  const overlaysDuringHandoff = document.querySelectorAll(".oneday-remount-overlay").length
+  const overlaysDuringHandoff = document.querySelectorAll(".modular-diary-remount-overlay").length
   visualRegistry.cancel(key)
   const restoredAfterCancel = getComputedStyle(source).visibility !== "hidden"
   source.remove()
@@ -79,64 +79,64 @@ window.__verifyVisualHandoffHasOneVisibleTree = () => {
 }
 window.__verifyCompletedWriteNeverSharesAPaint = () => {
   return ["text-save", "source-mode-commit"].map((action, index) => {
-    const source = document.body.createDiv({ cls: "oneday-container visual-" + action })
+    const source = document.body.createDiv({ cls: "modular-diary-container visual-" + action })
     source.style.cssText = "width:320px;height:96px"
-    source.createDiv({ cls: "oneday-stats", text: action })
+    source.createDiv({ cls: "modular-diary-stats", text: action })
     const key = { ...visualKey, blockOrdinal: 10 + index, docId: "visual-" + action }
     const started = visualRegistry.begin(key, source)
     source.replaceWith(document.createElement("div"))
     const completed = visualRegistry.complete(key)
-    const overlays = document.querySelectorAll(".oneday-remount-overlay").length
+    const overlays = document.querySelectorAll(".modular-diary-remount-overlay").length
     return { action, started, completed, overlays }
   })
 }
 window.__verifyPreviewedTimelineWriteNeedsNoClone = () => {
   return ["block-create", "range-step", "entry-resize"].map((action, index) => {
-    const source = document.body.createDiv({ cls: "oneday-container visual-live-" + action })
+    const source = document.body.createDiv({ cls: "modular-diary-container visual-live-" + action })
     source.style.cssText = "width:320px;height:96px"
-    source.createDiv({ cls: "oneday-stats", text: "final state already painted: " + action })
+    source.createDiv({ cls: "modular-diary-stats", text: "final state already painted: " + action })
     const key = { ...visualKey, blockOrdinal: 30 + index, docId: "visual-live-" + action }
     const mode = resolveRemountVisualMode(undefined, true)
     const started = beginRemountVisual(visualRegistry, key, source, mode)
-    const overlays = document.querySelectorAll(".oneday-remount-overlay").length
+    const overlays = document.querySelectorAll(".modular-diary-remount-overlay").length
     const sourceVisible = getComputedStyle(source).visibility !== "hidden"
     source.remove()
     return { action, mode, started, overlays, sourceVisible }
   })
 }
 window.__verifyLiveGridPreviewNeedsNoClone = () => {
-  const source = document.body.createDiv({ cls: "oneday-container visual-live-grid-resize" })
+  const source = document.body.createDiv({ cls: "modular-diary-container visual-live-grid-resize" })
   source.style.cssText = "width:320px;height:96px"
-  source.createDiv({ cls: "oneday-stats", text: "already resized live preview" })
+  source.createDiv({ cls: "modular-diary-stats", text: "already resized live preview" })
   const key = { ...visualKey, blockOrdinal: 19, docId: "visual-live-grid-resize" }
   const started = beginRemountVisual(visualRegistry, key, source, "live-preview")
-  const overlays = document.querySelectorAll(".oneday-remount-overlay").length
+  const overlays = document.querySelectorAll(".modular-diary-remount-overlay").length
   const sourceVisible = getComputedStyle(source).visibility !== "hidden"
   source.remove()
   return { started, overlays, sourceVisible }
 }
 window.__verifyVisualHandoffInvalidation = () => {
   const makeSource = (suffix) => {
-    const source = document.body.createDiv({ cls: "oneday-container visual-invalidation-" + suffix })
+    const source = document.body.createDiv({ cls: "modular-diary-container visual-invalidation-" + suffix })
     source.style.cssText = "width:320px;height:96px"
-    source.createDiv({ cls: "oneday-stats", text: "must never become a stale fixed ghost" })
+    source.createDiv({ cls: "modular-diary-stats", text: "must never become a stale fixed ghost" })
     return source
   }
   const scrollSource = makeSource("scroll")
   const scrollKey = { ...visualKey, blockOrdinal: 1, docId: "visual-scroll" }
   const scrollStarted = visualRegistry.begin(scrollKey, scrollSource)
-  const beforeScroll = document.querySelectorAll(".oneday-remount-overlay").length
+  const beforeScroll = document.querySelectorAll(".modular-diary-remount-overlay").length
   scrollSource.dispatchEvent(new Event("scroll", { bubbles: false }))
-  const afterScroll = document.querySelectorAll(".oneday-remount-overlay").length
+  const afterScroll = document.querySelectorAll(".modular-diary-remount-overlay").length
   visualRegistry.cancel(scrollKey)
   scrollSource.remove()
 
   const resizeSource = makeSource("resize")
   const resizeKey = { ...visualKey, blockOrdinal: 2, docId: "visual-resize" }
   const resizeStarted = visualRegistry.begin(resizeKey, resizeSource)
-  const beforeResize = document.querySelectorAll(".oneday-remount-overlay").length
+  const beforeResize = document.querySelectorAll(".modular-diary-remount-overlay").length
   window.dispatchEvent(new Event("resize"))
-  const afterResize = document.querySelectorAll(".oneday-remount-overlay").length
+  const afterResize = document.querySelectorAll(".modular-diary-remount-overlay").length
   visualRegistry.cancel(resizeKey)
   resizeSource.remove()
   return { scrollStarted, beforeScroll, afterScroll, resizeStarted, beforeResize, afterResize }
@@ -162,8 +162,8 @@ renderHabitsInto(badgeFixture, [
   onEdit: () => {}, onMenu: () => {}, onMove: () => {},
 })
 renderTodosInto(createSlot("todos", 210), [
-  { id: "local", title: "整理发布清单", group: "Oneday", type: "develop", completed: false, weekly: false, estimateMinutes: 60, actualMinutes: 30 },
-  { id: "weekly", title: "本周深度开发", group: "Oneday", type: "develop", completed: false, weekly: true, estimateMinutes: 300, actualMinutes: 150 },
+  { id: "local", title: "整理发布清单", group: "Modular Diary", type: "develop", completed: false, weekly: false, estimateMinutes: 60, actualMinutes: 30 },
+  { id: "weekly", title: "本周深度开发", group: "Modular Diary", type: "develop", completed: false, weekly: true, estimateMinutes: 300, actualMinutes: 150 },
   { id: "read", title: "读完一章", group: "学习", type: "read", completed: true, weekly: false, estimateMinutes: 30, actualMinutes: 35 },
 ], {
   categories: Object.keys(colors), typeColors: colors,
@@ -239,16 +239,16 @@ window.__requestPersistentTodoRefresh = () => persistentRefreshGate.run(persiste
   renderPersistentTodo()
 })
 
-const anyRecordScheduleFixture = host.createDiv({ cls: "oneday-schedule-source oneday-any-record-schedule-source", text: "维护 linuxdo 账号" })
+const anyRecordScheduleFixture = host.createDiv({ cls: "modular-diary-schedule-source modular-diary-any-record-schedule-source", text: "维护 linuxdo 账号" })
 anyRecordScheduleFixture.style.cssText = "width:220px;height:32px"
 anyRecordScheduleFixture.dataset.scheduleSource = "habit"
 anyRecordScheduleFixture.dataset.scheduleId = "publish"
 anyRecordScheduleFixture.dataset.scheduleTitle = "维护 linuxdo 账号"
 anyRecordScheduleFixture.dataset.scheduleType = "read"
 anyRecordScheduleFixture.dataset.scheduleDuration = "0"
-const scheduleHolder = host.createDiv({ cls: "oneday-svg-holder oneday-schedule-test" })
+const scheduleHolder = host.createDiv({ cls: "modular-diary-svg-holder modular-diary-schedule-test" })
 scheduleHolder.style.cssText = "position:relative;width:300px;height:820px;overflow:hidden"
-scheduleHolder.innerHTML = '<svg class="oneday-svg" width="300" height="820" style="display:block;width:300px;height:820px"><rect class="oneday-track" x="36" y="26" width="250" height="768"></rect></svg>'
+scheduleHolder.innerHTML = '<svg class="modular-diary-svg" width="300" height="820" style="display:block;width:300px;height:820px"><rect class="modular-diary-track" x="36" y="26" width="250" height="768"></rect></svg>'
 window.__scheduledPlans = []
 attachTimelineScheduleDrag(host, {
   rangeStart: 420, rangeEnd: 1380, entries: [], annotations: [], errors: [], hiddenTypes: [],
@@ -270,14 +270,14 @@ await esbuild.build({
 
 const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
 const hostileThemeButtonChrome = `
-  .oneday-habit-row:hover button,
-  .oneday-todo-row:hover button {
+  .modular-diary-habit-row:hover button,
+  .modular-diary-todo-row:hover button {
     background: rgb(210, 210, 210);
     border: 1px solid rgb(150, 150, 150);
     box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
   }
 `
-fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><style>${css}</style><style>${hostileThemeButtonChrome}</style></head><body style="margin:16px"><main id="host" class="oneday-container" style="width:440px"></main><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
+fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><style>${css}</style><style>${hostileThemeButtonChrome}</style></head><body style="margin:16px"><main id="host" class="modular-diary-container" style="width:440px"></main><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 960, height: 860 }, deviceScaleFactor: 1 })
@@ -301,7 +301,7 @@ await page.waitForTimeout(50)
 
 const pointerSortRow = async (handle, targetRow, expectedTitle, screenshotName) => {
   const sourceTypography = await handle.evaluate((control) => {
-    const title = control.closest(".oneday-habit-row, .oneday-todo-row")?.querySelector(".oneday-item-title")
+    const title = control.closest(".modular-diary-habit-row, .modular-diary-todo-row")?.querySelector(".modular-diary-item-title")
     const style = getComputedStyle(title)
     return { fontSize: style.fontSize, fontWeight: style.fontWeight, lineHeight: style.lineHeight, fontFamily: style.fontFamily }
   })
@@ -319,14 +319,14 @@ const pointerSortRow = async (handle, targetRow, expectedTitle, screenshotName) 
   await page.mouse.down()
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height - 2, { steps: 5 })
   const preview = await page.evaluate((title) => {
-    const ghost = document.querySelector(".oneday-item-sort-ghost")
-    const placeholder = document.querySelector(".oneday-item-sort-placeholder")
+    const ghost = document.querySelector(".modular-diary-item-sort-ghost")
+    const placeholder = document.querySelector(".modular-diary-item-sort-placeholder")
     const list = placeholder?.parentElement
-    const ghostTitle = ghost?.querySelector(".oneday-item-title")
-    const ghostHandle = ghost?.querySelector(".oneday-item-drag")
+    const ghostTitle = ghost?.querySelector(".modular-diary-item-title")
+    const ghostHandle = ghost?.querySelector(".modular-diary-item-drag")
     const ghostStyle = ghostTitle ? getComputedStyle(ghostTitle) : null
     const visiblePeerHandles = list
-      ? [...list.querySelectorAll(".oneday-habit-row:not(.oneday-item-sort-placeholder) .oneday-item-drag, .oneday-todo-row:not(.oneday-item-sort-placeholder) .oneday-item-drag")]
+      ? [...list.querySelectorAll(".modular-diary-habit-row:not(.modular-diary-item-sort-placeholder) .modular-diary-item-drag, .modular-diary-todo-row:not(.modular-diary-item-sort-placeholder) .modular-diary-item-drag")]
         .filter((control) => getComputedStyle(control).opacity !== "0")
       : []
     return {
@@ -361,26 +361,26 @@ const pointerSortRow = async (handle, targetRow, expectedTitle, screenshotName) 
 }
 
 const state = await page.evaluate(() => {
-  const slots = [...document.querySelectorAll(".oneday-slot")]
-  const weeklyHabit = document.querySelector(".oneday-habit-row .oneday-item-progress-bar")
-  const todoBars = [...document.querySelectorAll(".oneday-todo-row .oneday-item-progress-bar")]
-  const row = document.querySelector(".oneday-habit-row")
-  const slot = row.closest(".oneday-slot")
-  const emptyButtons = [...document.querySelectorAll(".oneday-component-empty")]
-  const headerButtons = [...document.querySelectorAll(".oneday-component-actions button")]
-  const habitStatuses = [...slot.querySelectorAll(".oneday-habit-row .oneday-item-status")]
-  const dailyBadgeStatuses = [...document.querySelectorAll(".habit-badge-contract .oneday-item-status")]
-  const incompleteStatus = document.querySelector(".oneday-habit-row:not(.is-complete) .oneday-item-status")
-  const completeStatus = document.querySelector(".oneday-habit-row.is-complete .oneday-item-status")
-  const habitMoreCount = document.querySelectorAll(".oneday-habit-row .oneday-item-more").length
-  const habitHandle = document.querySelector(".oneday-habit-drag")
-  const habitDot = row.querySelector(".oneday-item-dot")
-  const defaultTodoSlot = document.querySelectorAll(".oneday-slot-todos")[0]
-  const groupedTodoSlot = document.querySelectorAll(".oneday-slot-todos")[2]
-  const todoRows = [...defaultTodoSlot.querySelectorAll(".oneday-todo-row")]
+  const slots = [...document.querySelectorAll(".modular-diary-slot")]
+  const weeklyHabit = document.querySelector(".modular-diary-habit-row .modular-diary-item-progress-bar")
+  const todoBars = [...document.querySelectorAll(".modular-diary-todo-row .modular-diary-item-progress-bar")]
+  const row = document.querySelector(".modular-diary-habit-row")
+  const slot = row.closest(".modular-diary-slot")
+  const emptyButtons = [...document.querySelectorAll(".modular-diary-component-empty")]
+  const headerButtons = [...document.querySelectorAll(".modular-diary-component-actions button")]
+  const habitStatuses = [...slot.querySelectorAll(".modular-diary-habit-row .modular-diary-item-status")]
+  const dailyBadgeStatuses = [...document.querySelectorAll(".habit-badge-contract .modular-diary-item-status")]
+  const incompleteStatus = document.querySelector(".modular-diary-habit-row:not(.is-complete) .modular-diary-item-status")
+  const completeStatus = document.querySelector(".modular-diary-habit-row.is-complete .modular-diary-item-status")
+  const habitMoreCount = document.querySelectorAll(".modular-diary-habit-row .modular-diary-item-more").length
+  const habitHandle = document.querySelector(".modular-diary-habit-drag")
+  const habitDot = row.querySelector(".modular-diary-item-dot")
+  const defaultTodoSlot = document.querySelectorAll(".modular-diary-slot-todos")[0]
+  const groupedTodoSlot = document.querySelectorAll(".modular-diary-slot-todos")[2]
+  const todoRows = [...defaultTodoSlot.querySelectorAll(".modular-diary-todo-row")]
   const manualTodoRow = todoRows[0]
-  const todoHandle = defaultTodoSlot.querySelector(".oneday-todo-drag")
-  const todoCheck = defaultTodoSlot.querySelector(".oneday-todo-check")
+  const todoHandle = defaultTodoSlot.querySelector(".modular-diary-todo-drag")
+  const todoCheck = defaultTodoSlot.querySelector(".modular-diary-todo-check")
   const rowRect = row.getBoundingClientRect()
   const habitHandleRect = habitHandle.getBoundingClientRect()
   const habitDotRect = habitDot.getBoundingClientRect()
@@ -389,12 +389,12 @@ const state = await page.evaluate(() => {
   const todoCheckRect = todoCheck.getBoundingClientRect()
   const statusRect = incompleteStatus.getBoundingClientRect()
   const referenceToolbar = document.createElement("div")
-  referenceToolbar.className = "oneday-toolbar"
+  referenceToolbar.className = "modular-diary-toolbar"
   referenceToolbar.style.cssText = "position:absolute;visibility:hidden"
   const referenceSwatch = document.createElement("button")
-  referenceSwatch.className = "oneday-swatch"
+  referenceSwatch.className = "modular-diary-swatch"
   referenceToolbar.appendChild(referenceSwatch)
-  document.querySelector(".oneday-container").appendChild(referenceToolbar)
+  document.querySelector(".modular-diary-container").appendChild(referenceToolbar)
   const compactControlHeight = referenceSwatch.getBoundingClientRect().height
   referenceToolbar.remove()
   const gripMetrics = (handle) => {
@@ -431,7 +431,7 @@ const state = await page.evaluate(() => {
     habitStatusTags: habitStatuses.map((status) => status.tagName),
     habitStatusPointerEvents: habitStatuses.map((status) => getComputedStyle(status).pointerEvents),
     habitMoreCount,
-    habitHandleCount: slot.querySelectorAll(".oneday-habit-drag").length,
+    habitHandleCount: slot.querySelectorAll(".modular-diary-habit-drag").length,
     habitHandleOpacity: getComputedStyle(habitHandle).opacity,
     habitHandleDraggable: habitHandle.draggable,
     habitHandleCursor: getComputedStyle(habitHandle).cursor,
@@ -439,11 +439,11 @@ const state = await page.evaluate(() => {
     habitContentInset: habitDotRect.left - rowRect.left,
     habitHandleGutterGap: rowRect.left - habitHandleRect.right,
     habitGrip: gripMetrics(habitHandle),
-    todoMoreCount: defaultTodoSlot.querySelectorAll(".oneday-todo-row .oneday-item-more").length,
-    todoGroupCount: defaultTodoSlot.querySelectorAll(".oneday-todo-group").length,
+    todoMoreCount: defaultTodoSlot.querySelectorAll(".modular-diary-todo-row .modular-diary-item-more").length,
+    todoGroupCount: defaultTodoSlot.querySelectorAll(".modular-diary-todo-group").length,
     todoRowsDraggable: todoRows.map((todo) => todo.draggable),
     // Slot-mounted todo rows only; the progress-contract fixture is not a slot.
-    todoHandleCount: document.querySelectorAll(".oneday-slot .oneday-todo-drag").length,
+    todoHandleCount: document.querySelectorAll(".modular-diary-slot .modular-diary-todo-drag").length,
     todoHandleOpacity: getComputedStyle(todoHandle).opacity,
     todoHandleDraggable: todoHandle.draggable,
     todoHandleCursor: getComputedStyle(todoHandle).cursor,
@@ -454,12 +454,12 @@ const state = await page.evaluate(() => {
     todoCheckBackground: getComputedStyle(todoCheck).backgroundColor,
     todoCheckSize: [todoCheck.getBoundingClientRect().width, todoCheck.getBoundingClientRect().height],
     todoBorderTopWidths: todoRows.map((todo) => getComputedStyle(todo).borderTopWidth),
-    groupedTodoLabels: [...groupedTodoSlot.querySelectorAll(".oneday-todo-group")].map((el) => el.textContent),
-    groupedTodoTitles: [...groupedTodoSlot.querySelectorAll(".oneday-item-title")].map((el) => el.textContent),
-    groupedTodoHandleCount: groupedTodoSlot.querySelectorAll(".oneday-todo-drag").length,
-    groupedTodoSortLabel: groupedTodoSlot.querySelector('.oneday-component-actions button[aria-label*="排序"]')?.getAttribute("aria-label") ?? "",
-    groupedScheduleSourceCount: groupedTodoSlot.querySelectorAll(".oneday-schedule-source").length,
-    scheduleSourceCursor: getComputedStyle(defaultTodoSlot.querySelector(".oneday-schedule-source")).cursor,
+    groupedTodoLabels: [...groupedTodoSlot.querySelectorAll(".modular-diary-todo-group")].map((el) => el.textContent),
+    groupedTodoTitles: [...groupedTodoSlot.querySelectorAll(".modular-diary-item-title")].map((el) => el.textContent),
+    groupedTodoHandleCount: groupedTodoSlot.querySelectorAll(".modular-diary-todo-drag").length,
+    groupedTodoSortLabel: groupedTodoSlot.querySelector('.modular-diary-component-actions button[aria-label*="排序"]')?.getAttribute("aria-label") ?? "",
+    groupedScheduleSourceCount: groupedTodoSlot.querySelectorAll(".modular-diary-schedule-source").length,
+    scheduleSourceCursor: getComputedStyle(defaultTodoSlot.querySelector(".modular-diary-schedule-source")).cursor,
     statusRightInset: rowRect.right - statusRect.right,
     incompleteStatusText: incompleteStatus?.textContent ?? "",
     incompleteStatusIcons: incompleteStatus?.querySelectorAll("svg").length ?? -1,
@@ -477,25 +477,25 @@ const state = await page.evaluate(() => {
       }
     }),
     actionSizes: headerButtons.map((button) => [button.getBoundingClientRect().width, button.getBoundingClientRect().height]),
-    todoHeaderActionLabels: [...defaultTodoSlot.querySelectorAll(".oneday-component-actions button")].map((button) => button.getAttribute("aria-label")),
-    todoHeaderActionIcons: [...defaultTodoSlot.querySelectorAll(".oneday-component-actions button svg")].map((icon) => icon.dataset.icon),
-    habitHeaderActionCount: document.querySelectorAll(".oneday-slot-habits:first-of-type .oneday-component-actions button").length,
-    habitHeaderActionLabel: document.querySelector(".oneday-slot-habits:first-of-type .oneday-component-actions button")?.getAttribute("aria-label") ?? "",
-    habitHeaderActionIcon: document.querySelector(".oneday-slot-habits:first-of-type .oneday-component-actions button svg")?.dataset.icon ?? "",
-    weeklyCheckboxDisabled: defaultTodoSlot.querySelectorAll(".oneday-todo-check:disabled").length,
-    todoGroupControls: document.querySelectorAll('.oneday-todo-form [aria-label="分组"], .oneday-todo-group-input').length,
-    todoEstimateUnitOptions: [...document.querySelectorAll(".oneday-todo-estimate-unit-select")].map((element) => [...element.options].map((option) => option.textContent).join("|")),
-    draftVisible: !document.querySelector('.oneday-slot[data-slot="todos-draft"] .oneday-todo-add-form')?.hidden,
-    draftTitle: document.querySelector('.oneday-slot[data-slot="todos-draft"] .oneday-todo-title-input')?.value ?? "",
-    draftEstimate: document.querySelector('.oneday-slot[data-slot="todos-draft"] .oneday-todo-estimate-input')?.value ?? "",
-    draftEstimateUnit: document.querySelector('.oneday-slot[data-slot="todos-draft"] .oneday-todo-estimate-unit-select')?.value ?? "",
+    todoHeaderActionLabels: [...defaultTodoSlot.querySelectorAll(".modular-diary-component-actions button")].map((button) => button.getAttribute("aria-label")),
+    todoHeaderActionIcons: [...defaultTodoSlot.querySelectorAll(".modular-diary-component-actions button svg")].map((icon) => icon.dataset.icon),
+    habitHeaderActionCount: document.querySelectorAll(".modular-diary-slot-habits:first-of-type .modular-diary-component-actions button").length,
+    habitHeaderActionLabel: document.querySelector(".modular-diary-slot-habits:first-of-type .modular-diary-component-actions button")?.getAttribute("aria-label") ?? "",
+    habitHeaderActionIcon: document.querySelector(".modular-diary-slot-habits:first-of-type .modular-diary-component-actions button svg")?.dataset.icon ?? "",
+    weeklyCheckboxDisabled: defaultTodoSlot.querySelectorAll(".modular-diary-todo-check:disabled").length,
+    todoGroupControls: document.querySelectorAll('.modular-diary-todo-form [aria-label="分组"], .modular-diary-todo-group-input').length,
+    todoEstimateUnitOptions: [...document.querySelectorAll(".modular-diary-todo-estimate-unit-select")].map((element) => [...element.options].map((option) => option.textContent).join("|")),
+    draftVisible: !document.querySelector('.modular-diary-slot[data-slot="todos-draft"] .modular-diary-todo-add-form')?.hidden,
+    draftTitle: document.querySelector('.modular-diary-slot[data-slot="todos-draft"] .modular-diary-todo-title-input')?.value ?? "",
+    draftEstimate: document.querySelector('.modular-diary-slot[data-slot="todos-draft"] .modular-diary-todo-estimate-input')?.value ?? "",
+    draftEstimateUnit: document.querySelector('.modular-diary-slot[data-slot="todos-draft"] .modular-diary-todo-estimate-unit-select')?.value ?? "",
     draftRestoreFocus: window.__draftRestoreFocus,
   }
 })
 
 const remountVisualDuringGap = await page.evaluate(() => {
   const started = window.__beginVisualHandoff()
-  const overlay = document.querySelector(".oneday-remount-overlay")
+  const overlay = document.querySelector(".modular-diary-remount-overlay")
   const rect = overlay?.getBoundingClientRect()
   return {
     started,
@@ -510,7 +510,7 @@ const remountVisualCompletion = await page.evaluate(() => {
   const completed = window.__completeVisualHandoff()
   return {
     completed,
-    overlaysInCompletionTask: document.querySelectorAll(".oneday-remount-overlay").length,
+    overlaysInCompletionTask: document.querySelectorAll(".modular-diary-remount-overlay").length,
   }
 })
 const remountSingleVisibleTree = await page.evaluate(() => window.__verifyVisualHandoffHasOneVisibleTree())
@@ -523,13 +523,13 @@ const liveGridPreview = await page.evaluate(() => window.__verifyLiveGridPreview
 // grid resize commits. Completion is therefore a synchronous handoff contract.
 const remountVisualInvalidation = await page.evaluate(() => window.__verifyVisualHandoffInvalidation())
 
-const populatedTodoSlot = page.locator(".oneday-slot-todos").first()
-await page.locator(".oneday-slot-habits").first().locator(".oneday-component-actions button").click()
-await populatedTodoSlot.locator(".oneday-component-actions button").nth(2).click()
-const explicitAddFocusedTitle = await populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-title-input').evaluate((input) => document.activeElement === input)
-await populatedTodoSlot.locator('.oneday-todo-add-form input[type="text"]').fill("整理学习资料")
-const estimateInput = populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-estimate-input')
-const estimateUnitSelect = populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-estimate-unit-select')
+const populatedTodoSlot = page.locator(".modular-diary-slot-todos").first()
+await page.locator(".modular-diary-slot-habits").first().locator(".modular-diary-component-actions button").click()
+await populatedTodoSlot.locator(".modular-diary-component-actions button").nth(2).click()
+const explicitAddFocusedTitle = await populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-title-input').evaluate((input) => document.activeElement === input)
+await populatedTodoSlot.locator('.modular-diary-todo-add-form input[type="text"]').fill("整理学习资料")
+const estimateInput = populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-estimate-input')
+const estimateUnitSelect = populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-estimate-unit-select')
 const minuteValueBeforeUnitSwitch = await estimateInput.inputValue()
 await estimateUnitSelect.selectOption("hours")
 const hourValueAfterUnitSwitch = await estimateInput.inputValue()
@@ -538,104 +538,104 @@ await estimateUnitSelect.selectOption("minutes")
 const minuteValueAfterUnitSwitch = await estimateInput.inputValue()
 await estimateUnitSelect.selectOption("hours")
 const hourValueAfterRoundTrip = await estimateInput.inputValue()
-await populatedTodoSlot.locator(".oneday-todo-add-form").screenshot({ path: path.join(out, "todo-unit-switch-light.png") })
-await populatedTodoSlot.locator(".oneday-todo-add-form").dispatchEvent("submit")
-await populatedTodoSlot.locator(".oneday-todo-add-form").evaluate((form) => { form.hidden = true })
+await populatedTodoSlot.locator(".modular-diary-todo-add-form").screenshot({ path: path.join(out, "todo-unit-switch-light.png") })
+await populatedTodoSlot.locator(".modular-diary-todo-add-form").dispatchEvent("submit")
+await populatedTodoSlot.locator(".modular-diary-todo-add-form").evaluate((form) => { form.hidden = true })
 // The authored duration is stored as integer minutes, so a small decimal hour
 // such as 0.02h is a valid one-minute estimate. The Todo form must own that
 // normalization instead of letting Chromium interrupt the flow with its
 // native step-mismatch validation bubble.
-await populatedTodoSlot.locator(".oneday-component-actions button").nth(2).click()
-await populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-title-input').fill("精确小时输入")
-await populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-estimate-unit-select').selectOption("hours")
-await populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-estimate-input').fill("0.02")
-await populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-save').click()
-const preciseHourSubmit = await populatedTodoSlot.locator(".oneday-todo-add-form").evaluate((form) => ({
+await populatedTodoSlot.locator(".modular-diary-component-actions button").nth(2).click()
+await populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-title-input').fill("精确小时输入")
+await populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-estimate-unit-select').selectOption("hours")
+await populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-estimate-input').fill("0.02")
+await populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-save').click()
+const preciseHourSubmit = await populatedTodoSlot.locator(".modular-diary-todo-add-form").evaluate((form) => ({
   hidden: form.hidden,
   noValidate: form.noValidate,
-  errorCount: form.querySelectorAll('.oneday-todo-form-error:not([hidden])').length,
+  errorCount: form.querySelectorAll('.modular-diary-todo-form-error:not([hidden])').length,
 }))
 // Keep the rest of this smoke deterministic even on the deliberately failing
 // pre-fix candidate, where the browser prevents submit and leaves the form up.
-await populatedTodoSlot.locator(".oneday-todo-add-form").evaluate((form) => { form.hidden = true })
-await populatedTodoSlot.locator(".oneday-component-actions button").nth(2).click()
-await populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-title-input').fill("非法负数时长")
-await populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-estimate-unit-select').selectOption("hours")
-await populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-estimate-input').fill("-1")
-await populatedTodoSlot.locator('.oneday-todo-add-form .oneday-todo-save').click()
-const invalidDurationFeedback = await populatedTodoSlot.locator(".oneday-todo-add-form").evaluate((form) => ({
+await populatedTodoSlot.locator(".modular-diary-todo-add-form").evaluate((form) => { form.hidden = true })
+await populatedTodoSlot.locator(".modular-diary-component-actions button").nth(2).click()
+await populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-title-input').fill("非法负数时长")
+await populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-estimate-unit-select').selectOption("hours")
+await populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-estimate-input').fill("-1")
+await populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-save').click()
+const invalidDurationFeedback = await populatedTodoSlot.locator(".modular-diary-todo-add-form").evaluate((form) => ({
   hidden: form.hidden,
   noValidate: form.noValidate,
-  error: form.querySelector('.oneday-todo-form-error:not([hidden])')?.textContent?.trim() ?? "",
-  ariaInvalid: form.querySelector('.oneday-todo-estimate-input')?.getAttribute('aria-invalid') ?? "",
+  error: form.querySelector('.modular-diary-todo-form-error:not([hidden])')?.textContent?.trim() ?? "",
+  ariaInvalid: form.querySelector('.modular-diary-todo-estimate-input')?.getAttribute('aria-invalid') ?? "",
 }))
-await populatedTodoSlot.locator(".oneday-todo-add-form").screenshot({ path: path.join(out, "todo-validation-light.png") })
-await populatedTodoSlot.locator(".oneday-todo-add-form").evaluate((form) => { form.hidden = true })
-await populatedTodoSlot.locator(".oneday-component-actions button").nth(0).click()
-await populatedTodoSlot.locator(".oneday-component-actions button").nth(1).click()
-await populatedTodoSlot.locator(".oneday-todo-row").first().click({ button: "right" })
-const todoEditForm = populatedTodoSlot.locator(".oneday-todo-row").first().locator(".oneday-todo-edit-form")
+await populatedTodoSlot.locator(".modular-diary-todo-add-form").screenshot({ path: path.join(out, "todo-validation-light.png") })
+await populatedTodoSlot.locator(".modular-diary-todo-add-form").evaluate((form) => { form.hidden = true })
+await populatedTodoSlot.locator(".modular-diary-component-actions button").nth(0).click()
+await populatedTodoSlot.locator(".modular-diary-component-actions button").nth(1).click()
+await populatedTodoSlot.locator(".modular-diary-todo-row").first().click({ button: "right" })
+const todoEditForm = populatedTodoSlot.locator(".modular-diary-todo-row").first().locator(".modular-diary-todo-edit-form")
 const todoEditWasVisible = await todoEditForm.isVisible()
 const todoEditInitial = {
-  title: await todoEditForm.locator('.oneday-todo-title-input').inputValue(),
-  category: await todoEditForm.locator('.oneday-todo-category-select').inputValue(),
-  estimate: await todoEditForm.locator('.oneday-todo-estimate-input').inputValue(),
-  estimateUnit: await todoEditForm.locator('.oneday-todo-estimate-unit-select').inputValue(),
+  title: await todoEditForm.locator('.modular-diary-todo-title-input').inputValue(),
+  category: await todoEditForm.locator('.modular-diary-todo-category-select').inputValue(),
+  estimate: await todoEditForm.locator('.modular-diary-todo-estimate-input').inputValue(),
+  estimateUnit: await todoEditForm.locator('.modular-diary-todo-estimate-unit-select').inputValue(),
 }
 await populatedTodoSlot.screenshot({ path: path.join(out, "todo-edit-light.png") })
-await todoEditForm.locator('.oneday-todo-estimate-input').fill("0.75")
+await todoEditForm.locator('.modular-diary-todo-estimate-input').fill("0.75")
 await todoEditForm.dispatchEvent("submit")
-await populatedTodoSlot.locator(".oneday-todo-drag").first().focus()
-const todoHandleFocusOpacity = await populatedTodoSlot.locator(".oneday-todo-drag").first().evaluate((handle) => getComputedStyle(handle).opacity)
-await populatedTodoSlot.locator(".oneday-todo-row").first().hover()
-const todoHandleHoverOpacity = await populatedTodoSlot.locator(".oneday-todo-drag").first().evaluate((handle) => getComputedStyle(handle).opacity)
-await populatedTodoSlot.locator(".oneday-todo-row").nth(1).hover()
-const todoSequentialHoverOpacities = await populatedTodoSlot.locator(".oneday-todo-drag").evaluateAll((handles) => handles.map((handle) => getComputedStyle(handle).opacity))
-await populatedTodoSlot.locator(".oneday-todo-list").evaluate((list) => list.classList.add("is-ordering"))
-const todoOrderingHoverGrip = await populatedTodoSlot.locator(".oneday-todo-row").nth(1).locator(".oneday-todo-drag").evaluate((handle) => {
+await populatedTodoSlot.locator(".modular-diary-todo-drag").first().focus()
+const todoHandleFocusOpacity = await populatedTodoSlot.locator(".modular-diary-todo-drag").first().evaluate((handle) => getComputedStyle(handle).opacity)
+await populatedTodoSlot.locator(".modular-diary-todo-row").first().hover()
+const todoHandleHoverOpacity = await populatedTodoSlot.locator(".modular-diary-todo-drag").first().evaluate((handle) => getComputedStyle(handle).opacity)
+await populatedTodoSlot.locator(".modular-diary-todo-row").nth(1).hover()
+const todoSequentialHoverOpacities = await populatedTodoSlot.locator(".modular-diary-todo-drag").evaluateAll((handles) => handles.map((handle) => getComputedStyle(handle).opacity))
+await populatedTodoSlot.locator(".modular-diary-todo-list").evaluate((list) => list.classList.add("is-ordering"))
+const todoOrderingHoverGrip = await populatedTodoSlot.locator(".modular-diary-todo-row").nth(1).locator(".modular-diary-todo-drag").evaluate((handle) => {
   const style = getComputedStyle(handle)
   return { opacity: style.opacity, pointerEvents: style.pointerEvents }
 })
-await populatedTodoSlot.locator(".oneday-todo-list").evaluate((list) => list.classList.remove("is-ordering"))
+await populatedTodoSlot.locator(".modular-diary-todo-list").evaluate((list) => list.classList.remove("is-ordering"))
 await populatedTodoSlot.screenshot({ path: path.join(out, "todo-sequential-hover-light.png") })
-const todoHandleHoverChrome = await populatedTodoSlot.locator(".oneday-todo-drag").first().evaluate((handle) => {
+const todoHandleHoverChrome = await populatedTodoSlot.locator(".modular-diary-todo-drag").first().evaluate((handle) => {
   const style = getComputedStyle(handle)
   return { background: style.backgroundColor, borderWidth: style.borderWidth, boxShadow: style.boxShadow }
 })
-await populatedTodoSlot.locator(".oneday-todo-check").first().hover()
-const todoCheckHoverBackground = await populatedTodoSlot.locator(".oneday-todo-check").first().evaluate((check) => getComputedStyle(check).backgroundColor)
+await populatedTodoSlot.locator(".modular-diary-todo-check").first().hover()
+const todoCheckHoverBackground = await populatedTodoSlot.locator(".modular-diary-todo-check").first().evaluate((check) => getComputedStyle(check).backgroundColor)
 await populatedTodoSlot.screenshot({ path: path.join(out, "todo-check-hover-light.png") })
 await pointerSortRow(
-  populatedTodoSlot.locator(".oneday-todo-drag").first(),
-  populatedTodoSlot.locator(".oneday-todo-row").nth(2),
+  populatedTodoSlot.locator(".modular-diary-todo-drag").first(),
+  populatedTodoSlot.locator(".modular-diary-todo-row").nth(2),
   "整理发布清单",
   "todo-row-drag-preview-light.png",
 )
-const todoOrderAfterSort = await populatedTodoSlot.locator(".oneday-todo-row .oneday-item-title").allTextContents()
-const habitSlot = page.locator(".oneday-slot-habits").first()
-await habitSlot.locator(".oneday-habit-row").first().hover()
-const habitHandleHoverOpacity = await habitSlot.locator(".oneday-habit-drag").first().evaluate((handle) => getComputedStyle(handle).opacity)
-const habitHandleHoverChrome = await habitSlot.locator(".oneday-habit-drag").first().evaluate((handle) => {
+const todoOrderAfterSort = await populatedTodoSlot.locator(".modular-diary-todo-row .modular-diary-item-title").allTextContents()
+const habitSlot = page.locator(".modular-diary-slot-habits").first()
+await habitSlot.locator(".modular-diary-habit-row").first().hover()
+const habitHandleHoverOpacity = await habitSlot.locator(".modular-diary-habit-drag").first().evaluate((handle) => getComputedStyle(handle).opacity)
+const habitHandleHoverChrome = await habitSlot.locator(".modular-diary-habit-drag").first().evaluate((handle) => {
   const style = getComputedStyle(handle)
   return { background: style.backgroundColor, borderWidth: style.borderWidth, boxShadow: style.boxShadow }
 })
-await habitSlot.locator(".oneday-habit-list").evaluate((list) => list.classList.add("is-ordering"))
-const habitOrderingHoverGrip = await habitSlot.locator(".oneday-habit-row").first().locator(".oneday-habit-drag").evaluate((handle) => {
+await habitSlot.locator(".modular-diary-habit-list").evaluate((list) => list.classList.add("is-ordering"))
+const habitOrderingHoverGrip = await habitSlot.locator(".modular-diary-habit-row").first().locator(".modular-diary-habit-drag").evaluate((handle) => {
   const style = getComputedStyle(handle)
   return { opacity: style.opacity, pointerEvents: style.pointerEvents }
 })
-await habitSlot.locator(".oneday-habit-list").evaluate((list) => list.classList.remove("is-ordering"))
+await habitSlot.locator(".modular-diary-habit-list").evaluate((list) => list.classList.remove("is-ordering"))
 await habitSlot.screenshot({ path: path.join(out, "habit-drag-hover-light.png") })
 await pointerSortRow(
-  habitSlot.locator(".oneday-habit-drag").first(),
-  habitSlot.locator(".oneday-habit-row").nth(1),
+  habitSlot.locator(".modular-diary-habit-drag").first(),
+  habitSlot.locator(".modular-diary-habit-row").nth(1),
   "开发练习",
   "habit-row-drag-preview-light.png",
 )
-const habitOrderAfterSort = await habitSlot.locator(".oneday-habit-row .oneday-item-title").allTextContents()
+const habitOrderAfterSort = await habitSlot.locator(".modular-diary-habit-row .modular-diary-item-title").allTextContents()
 
-const scheduleSource = populatedTodoSlot.locator(".oneday-todo-row", { hasText: "整理发布清单" }).locator(".oneday-schedule-source")
-const scheduleTrack = page.locator(".oneday-schedule-test .oneday-track")
+const scheduleSource = populatedTodoSlot.locator(".modular-diary-todo-row", { hasText: "整理发布清单" }).locator(".modular-diary-schedule-source")
+const scheduleTrack = page.locator(".modular-diary-schedule-test .modular-diary-track")
 const scheduleSourceBox = await scheduleSource.boundingBox()
 const scheduleTrackBox = await scheduleTrack.boundingBox()
 if (!scheduleSourceBox || !scheduleTrackBox) throw new Error("schedule drag fixture has no geometry")
@@ -644,21 +644,21 @@ await page.mouse.down()
 // 09:03 snaps to 09:05; the Todo's authored 60-minute estimate remains exact.
 await page.mouse.move(scheduleTrackBox.x + scheduleTrackBox.width / 2, scheduleTrackBox.y + (123 / 960) * scheduleTrackBox.height, { steps: 8 })
 const schedulePreview = await page.evaluate(() => ({
-  preview: Boolean(document.querySelector(".oneday-schedule-preview")),
-  previewText: document.querySelector(".oneday-schedule-preview text")?.textContent ?? "",
-  ghost: Boolean(document.querySelector(".oneday-schedule-drag-ghost.is-valid")),
-  pointerActive: document.querySelector("#host")?.getAttribute("data-oneday-pointer-active") ?? "",
+  preview: Boolean(document.querySelector(".modular-diary-schedule-preview")),
+  previewText: document.querySelector(".modular-diary-schedule-preview text")?.textContent ?? "",
+  ghost: Boolean(document.querySelector(".modular-diary-schedule-drag-ghost.is-valid")),
+  pointerActive: document.querySelector("#host")?.getAttribute("data-modular-diary-pointer-active") ?? "",
 }))
-await page.locator(".oneday-schedule-test").screenshot({ path: path.join(out, "todo-schedule-preview-light.png") })
+await page.locator(".modular-diary-schedule-test").screenshot({ path: path.join(out, "todo-schedule-preview-light.png") })
 await page.mouse.up()
 const scheduledPlans = await page.evaluate(() => window.__scheduledPlans)
 const scheduleCleanup = await page.evaluate(() => ({
-  preview: document.querySelectorAll(".oneday-schedule-preview").length,
-  ghost: document.querySelectorAll(".oneday-schedule-drag-ghost").length,
-  pointerActive: document.querySelector("#host")?.hasAttribute("data-oneday-pointer-active") ?? false,
+  preview: document.querySelectorAll(".modular-diary-schedule-preview").length,
+  ghost: document.querySelectorAll(".modular-diary-schedule-drag-ghost").length,
+  pointerActive: document.querySelector("#host")?.hasAttribute("data-modular-diary-pointer-active") ?? false,
 }))
 
-const anyRecordScheduleSource = page.locator(".oneday-any-record-schedule-source")
+const anyRecordScheduleSource = page.locator(".modular-diary-any-record-schedule-source")
 const anyRecordScheduleAria = await anyRecordScheduleSource.getAttribute("aria-label")
 await anyRecordScheduleSource.scrollIntoViewIfNeeded()
 const anyRecordScheduleSourceBox = await anyRecordScheduleSource.boundingBox()
@@ -680,22 +680,22 @@ await page.mouse.up()
 const plansAfterOutsideDrop = await page.evaluate(() => window.__scheduledPlans.length)
 const sortEventsAfterOutsideDrop = await page.evaluate(() => window.__events.filter((event) => event.startsWith("todo-move:local")).length)
 
-const persistentTodoSlot = page.locator('.oneday-slot[data-slot="todos-edit-session"]')
-await persistentTodoSlot.locator(".oneday-todo-row").click({ button: "right" })
-const persistentEditForm = persistentTodoSlot.locator(".oneday-todo-edit-form")
-await persistentEditForm.locator(".oneday-todo-title-input").fill("重绘后仍在编辑")
+const persistentTodoSlot = page.locator('.modular-diary-slot[data-slot="todos-edit-session"]')
+await persistentTodoSlot.locator(".modular-diary-todo-row").click({ button: "right" })
+const persistentEditForm = persistentTodoSlot.locator(".modular-diary-todo-edit-form")
+await persistentEditForm.locator(".modular-diary-todo-title-input").fill("重绘后仍在编辑")
 await page.evaluate(() => window.__requestPersistentTodoRefresh())
 const persistentTitleRefresh = await page.evaluate(() => ({
   runs: window.__persistentTodoRefreshRuns,
   activeClass: document.activeElement?.className ?? "",
-  value: document.querySelector('.oneday-slot[data-slot="todos-edit-session"] .oneday-todo-edit-form .oneday-todo-title-input')?.value ?? "",
+  value: document.querySelector('.modular-diary-slot[data-slot="todos-edit-session"] .modular-diary-todo-edit-form .modular-diary-todo-title-input')?.value ?? "",
 }))
-await persistentEditForm.locator(".oneday-todo-category-select").focus()
+await persistentEditForm.locator(".modular-diary-todo-category-select").focus()
 await page.evaluate(() => window.__requestPersistentTodoRefresh())
 const persistentSelectRefresh = await page.evaluate(() => ({
   runs: window.__persistentTodoRefreshRuns,
   activeClass: document.activeElement?.className ?? "",
-  connected: Boolean(document.querySelector('.oneday-slot[data-slot="todos-edit-session"] .oneday-todo-category-select')),
+  connected: Boolean(document.querySelector('.modular-diary-slot[data-slot="todos-edit-session"] .modular-diary-todo-category-select')),
 }))
 await page.evaluate(() => {
   const owner = document.createElement("input")
@@ -707,8 +707,8 @@ await page.waitForTimeout(20)
 const persistentDeferredRefresh = await page.evaluate(() => ({
   runs: window.__persistentTodoRefreshRuns,
   active: document.activeElement?.id ?? "",
-  visible: !document.querySelector('.oneday-slot[data-slot="todos-edit-session"] .oneday-todo-edit-form')?.hidden,
-  value: document.querySelector('.oneday-slot[data-slot="todos-edit-session"] .oneday-todo-edit-form .oneday-todo-title-input')?.value ?? "",
+  visible: !document.querySelector('.modular-diary-slot[data-slot="todos-edit-session"] .modular-diary-todo-edit-form')?.hidden,
+  value: document.querySelector('.modular-diary-slot[data-slot="todos-edit-session"] .modular-diary-todo-edit-form .modular-diary-todo-title-input')?.value ?? "",
 }))
 const persistentFocusAfterRedraw = await page.evaluate(() => {
   const owner = document.querySelector("#unrelated-active-editor")
@@ -717,35 +717,35 @@ const persistentFocusAfterRedraw = await page.evaluate(() => {
   return document.activeElement?.id ?? ""
 })
 const persistentEditAfterRedraw = {
-  visible: await persistentTodoSlot.locator(".oneday-todo-edit-form").isVisible(),
-  title: await persistentTodoSlot.locator(".oneday-todo-edit-form .oneday-todo-title-input").inputValue(),
+  visible: await persistentTodoSlot.locator(".modular-diary-todo-edit-form").isVisible(),
+  title: await persistentTodoSlot.locator(".modular-diary-todo-edit-form .modular-diary-todo-title-input").inputValue(),
 }
 await persistentTodoSlot.screenshot({ path: path.join(out, "todo-edit-persisted-light.png") })
 
-await page.locator(".oneday-component-empty").first().hover()
-const emptyHover = await page.locator(".oneday-component-empty").first().evaluate((button) => {
+await page.locator(".modular-diary-component-empty").first().hover()
+const emptyHover = await page.locator(".modular-diary-component-empty").first().evaluate((button) => {
   const style = getComputedStyle(button)
   return { background: style.backgroundColor, borderStyle: style.borderStyle }
 })
-await page.locator(".oneday-slot-habits").last().screenshot({ path: path.join(out, "habit-empty-hover-light.png") })
+await page.locator(".modular-diary-slot-habits").last().screenshot({ path: path.join(out, "habit-empty-hover-light.png") })
 
-await habitSlot.locator(".oneday-habit-row", { hasText: "开发练习" }).click({ button: "right" })
-await populatedTodoSlot.locator(".oneday-todo-row", { hasText: "整理发布清单" }).locator(".oneday-todo-check").click()
+await habitSlot.locator(".modular-diary-habit-row", { hasText: "开发练习" }).click({ button: "right" })
+await populatedTodoSlot.locator(".modular-diary-todo-row", { hasText: "整理发布清单" }).locator(".modular-diary-todo-check").click()
 const todoCompletionContinuity = await populatedTodoSlot.evaluate((slot) => {
-  const root = slot.querySelector(".oneday-todos")
-  const row = [...slot.querySelectorAll(".oneday-todo-row")].find((candidate) => candidate.textContent?.includes("整理发布清单"))
+  const root = slot.querySelector(".modular-diary-todos")
+  const row = [...slot.querySelectorAll(".modular-diary-todo-row")].find((candidate) => candidate.textContent?.includes("整理发布清单"))
   return {
     rootConnected: Boolean(root?.isConnected),
     rootHeight: root?.getBoundingClientRect().height ?? 0,
     rowComplete: row?.classList.contains("is-complete") ?? false,
-    pressed: row?.querySelector(".oneday-todo-check")?.getAttribute("aria-pressed") ?? "",
-    count: slot.querySelector(".oneday-component-count")?.textContent ?? "",
+    pressed: row?.querySelector(".modular-diary-todo-check")?.getAttribute("aria-pressed") ?? "",
+    count: slot.querySelector(".modular-diary-component-count")?.textContent ?? "",
   }
 })
-await page.locator(".oneday-component-empty").first().click()
-const emptyTodoForm = page.locator(".oneday-slot-todos").nth(1).locator(".oneday-todo-form")
-await page.locator(".oneday-slot-todos").nth(1).locator(".oneday-component-empty").click()
-await emptyTodoForm.locator('.oneday-todo-title-input').fill("空状态新任务")
+await page.locator(".modular-diary-component-empty").first().click()
+const emptyTodoForm = page.locator(".modular-diary-slot-todos").nth(1).locator(".modular-diary-todo-form")
+await page.locator(".modular-diary-slot-todos").nth(1).locator(".modular-diary-component-empty").click()
+await emptyTodoForm.locator('.modular-diary-todo-title-input').fill("空状态新任务")
 await emptyTodoForm.dispatchEvent("submit")
 const events = await page.evaluate(() => window.__events)
 await page.locator("#host").screenshot({ path: path.join(out, "components-light.png") })
@@ -759,31 +759,31 @@ await page.evaluate(() => {
   document.documentElement.style.setProperty("--text-faint", "#777777")
   document.body.style.background = "#202020"
 })
-await habitSlot.locator(".oneday-habit-row").first().hover()
-const habitHandleDarkHoverChrome = await habitSlot.locator(".oneday-habit-drag").first().evaluate((handle) => {
+await habitSlot.locator(".modular-diary-habit-row").first().hover()
+const habitHandleDarkHoverChrome = await habitSlot.locator(".modular-diary-habit-drag").first().evaluate((handle) => {
   const style = getComputedStyle(handle)
   return { background: style.backgroundColor, borderWidth: style.borderWidth, boxShadow: style.boxShadow }
 })
 await habitSlot.screenshot({ path: path.join(out, "habit-drag-hover-dark.png") })
-await populatedTodoSlot.locator(".oneday-todo-row").first().hover()
-const todoHandleDarkHoverChrome = await populatedTodoSlot.locator(".oneday-todo-drag").first().evaluate((handle) => {
+await populatedTodoSlot.locator(".modular-diary-todo-row").first().hover()
+const todoHandleDarkHoverChrome = await populatedTodoSlot.locator(".modular-diary-todo-drag").first().evaluate((handle) => {
   const style = getComputedStyle(handle)
   return { background: style.backgroundColor, borderWidth: style.borderWidth, boxShadow: style.boxShadow }
 })
 await populatedTodoSlot.screenshot({ path: path.join(out, "todo-drag-hover-dark.png") })
 await pointerSortRow(
-  habitSlot.locator(".oneday-habit-drag").first(),
-  habitSlot.locator(".oneday-habit-row").nth(1),
+  habitSlot.locator(".modular-diary-habit-drag").first(),
+  habitSlot.locator(".modular-diary-habit-row").nth(1),
   "运动",
   "habit-row-drag-preview-dark.png",
 )
 await pointerSortRow(
-  populatedTodoSlot.locator(".oneday-todo-drag").first(),
-  populatedTodoSlot.locator(".oneday-todo-row").nth(1),
+  populatedTodoSlot.locator(".modular-diary-todo-drag").first(),
+  populatedTodoSlot.locator(".modular-diary-todo-row").nth(1),
   "本周深度开发",
   "todo-row-drag-preview-dark.png",
 )
-await populatedTodoSlot.locator(".oneday-todo-row").first().click({ button: "right" })
+await populatedTodoSlot.locator(".modular-diary-todo-row").first().click({ button: "right" })
 await populatedTodoSlot.screenshot({ path: path.join(out, "todo-edit-dark.png") })
 await page.locator("#host").screenshot({ path: path.join(out, "components-dark.png") })
 await page.locator(".habit-badge-contract").screenshot({ path: path.join(out, "habit-status-badges-dark.png") })
@@ -796,11 +796,11 @@ const narrowRows = await page.evaluate(() => {
     slot.style.transition = "none"
     slot.style.width = "200px"
     // Rows replaced by an inline edit form earlier in the run have no box.
-    const rows = [...slot.querySelectorAll(".oneday-habit-row, .oneday-todo-row")].filter((row) => (row.querySelector(".oneday-habit-body, .oneday-todo-body")?.getBoundingClientRect().width ?? 0) > 0)
+    const rows = [...slot.querySelectorAll(".modular-diary-habit-row, .modular-diary-todo-row")].filter((row) => (row.querySelector(".modular-diary-habit-body, .modular-diary-todo-body")?.getBoundingClientRect().width ?? 0) > 0)
     const result = rows.map((row) => {
-      const title = row.querySelector(".oneday-item-title")
-      const meta = row.querySelector(".oneday-item-meta")
-      const body = row.querySelector(".oneday-habit-body, .oneday-todo-body")
+      const title = row.querySelector(".modular-diary-item-title")
+      const meta = row.querySelector(".modular-diary-item-meta")
+      const body = row.querySelector(".modular-diary-habit-body, .modular-diary-todo-body")
       const titleRect = title.getBoundingClientRect()
       const bodyRect = body.getBoundingClientRect()
       return {
@@ -819,16 +819,16 @@ const narrowRows = await page.evaluate(() => {
     slot.style.transition = ""
     return result
   }
-  const progressRows = [...document.querySelectorAll(".todo-progress-contract .oneday-todo-row")].map((row) => ({
-    title: row.querySelector(".oneday-item-title")?.textContent,
-    tracks: row.querySelectorAll(".oneday-item-progress").length,
-    barRatio: (() => { const bar = row.querySelector(".oneday-item-progress-bar"); return bar ? bar.getBoundingClientRect().width / bar.parentElement.getBoundingClientRect().width : null })(),
+  const progressRows = [...document.querySelectorAll(".todo-progress-contract .modular-diary-todo-row")].map((row) => ({
+    title: row.querySelector(".modular-diary-item-title")?.textContent,
+    tracks: row.querySelectorAll(".modular-diary-item-progress").length,
+    barRatio: (() => { const bar = row.querySelector(".modular-diary-item-progress-bar"); return bar ? bar.getBoundingClientRect().width / bar.parentElement.getBoundingClientRect().width : null })(),
     height: row.getBoundingClientRect().height,
   }))
   return {
-    habits: read(document.querySelector(".oneday-slot-habits")),
-    todos: read(document.querySelector(".oneday-slot-todos")),
-    wideHabitRowHeight: document.querySelector(".oneday-slot-habits .oneday-habit-row").getBoundingClientRect().height,
+    habits: read(document.querySelector(".modular-diary-slot-habits")),
+    todos: read(document.querySelector(".modular-diary-slot-todos")),
+    wideHabitRowHeight: document.querySelector(".modular-diary-slot-habits .modular-diary-habit-row").getBoundingClientRect().height,
     progressRows,
   }
 })
@@ -930,10 +930,10 @@ if (!events.includes("todo-edit:local:整理发布清单:45")) errors.push("todo
 if (!events.includes("todo-add:整理学习资料:30")) errors.push("hour-based todo creation did not convert to canonical minutes")
 if (minuteValueBeforeUnitSwitch !== "30" || hourValueAfterUnitSwitch !== "30" || minuteValueAfterUnitSwitch !== "0.5" || hourValueAfterRoundTrip !== "0.5") errors.push("switching Todo duration units must reinterpret the authored number without rewriting it")
 if (!events.includes("todo-add:精确小时输入:1") || !preciseHourSubmit.hidden || !preciseHourSubmit.noValidate || preciseHourSubmit.errorCount !== 0) errors.push("decimal-hour Todo creation leaked into native browser validation instead of saving one canonical minute")
-if (events.some((event) => event.startsWith("todo-add:非法负数时长:")) || invalidDurationFeedback.hidden || !invalidDurationFeedback.noValidate || !invalidDurationFeedback.error || invalidDurationFeedback.ariaInvalid !== "true") errors.push("invalid Todo duration must stay in the editor with Oneday-owned inline feedback")
+if (events.some((event) => event.startsWith("todo-add:非法负数时长:")) || invalidDurationFeedback.hidden || !invalidDurationFeedback.noValidate || !invalidDurationFeedback.error || invalidDurationFeedback.ariaInvalid !== "true") errors.push("invalid Todo duration must stay in the editor with Modular Diary-owned inline feedback")
 if (!explicitAddFocusedTitle) errors.push("an explicit add action must focus the todo title input")
-if (persistentTitleRefresh.runs !== 0 || !String(persistentTitleRefresh.activeClass).includes("oneday-todo-title-input") || persistentTitleRefresh.value !== "重绘后仍在编辑") errors.push("background refresh replaced the active todo title editor")
-if (persistentSelectRefresh.runs !== 0 || !String(persistentSelectRefresh.activeClass).includes("oneday-todo-category-select") || !persistentSelectRefresh.connected) errors.push("background refresh closed the active todo category selector")
+if (persistentTitleRefresh.runs !== 0 || !String(persistentTitleRefresh.activeClass).includes("modular-diary-todo-title-input") || persistentTitleRefresh.value !== "重绘后仍在编辑") errors.push("background refresh replaced the active todo title editor")
+if (persistentSelectRefresh.runs !== 0 || !String(persistentSelectRefresh.activeClass).includes("modular-diary-todo-category-select") || !persistentSelectRefresh.connected) errors.push("background refresh closed the active todo category selector")
 if (persistentDeferredRefresh.runs !== 1 || persistentDeferredRefresh.active !== "unrelated-active-editor" || !persistentDeferredRefresh.visible || persistentDeferredRefresh.value !== "重绘后仍在编辑") errors.push("deferred todo refresh did not coalesce and restore the draft after editing ended")
 if (persistentFocusAfterRedraw !== "unrelated-active-editor") errors.push("restoring a todo edit draft stole focus from another active interaction")
 if (!events.some((event) => event.startsWith("todo-group:")) || !events.some((event) => event.startsWith("todo-sort:"))) errors.push("todo group and sort controls must be independently reachable")

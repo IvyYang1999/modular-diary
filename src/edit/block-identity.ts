@@ -1,61 +1,56 @@
-const TIMELINE_FENCE = /^\s*(?:>\s*)*```timeline(?:\s|$)/i
-const TIMELINE_OPEN = /^(\s*(?:>\s*)*)(`{3,}|~{3,})\s*timeline(?:\s.*)?$/i
+const FENCE_OPEN = /^(\s*(?:>\s*)*)(`{3,}|~{3,})([^`]*)$/
 
-/**
- * Stable identity for a timeline block while its own or earlier contents
- * change line count. The ordinal changes only if a whole timeline fence is
- * inserted or removed before it, which Oneday's in-block transforms never do.
- */
-export function timelineFenceOrdinal(content: string, lineStart: number): number {
-  const lines = content.split("\n")
-  let ordinal = 0
-  const limit = Math.max(0, Math.min(lineStart, lines.length))
-  for (let line = 0; line < limit; line += 1) {
-    if (TIMELINE_FENCE.test(lines[line])) ordinal += 1
-  }
-  return ordinal
-}
-
-/** Read the current body of the Nth timeline fence from whole-note content. */
 export interface TimelineFenceLocation {
   lineStart: number
   lineEnd: number
   source: string
 }
 
-/** Locate the Nth timeline fence in the current note, independent of old DOM line numbers. */
-export function timelineFenceAtOrdinal(content: string, targetOrdinal: number): TimelineFenceLocation | null {
-  if (!Number.isInteger(targetOrdinal) || targetOrdinal < 0) return null
+/** Walk actual fences, skipping code examples rather than matching their contents. */
+export function* timelineFences(content: string): Generator<TimelineFenceLocation> {
   const lines = content.split("\n")
-  let ordinal = 0
   for (let start = 0; start < lines.length; start += 1) {
-    const opening = TIMELINE_OPEN.exec(lines[start] ?? "")
+    const opening = FENCE_OPEN.exec(lines[start] ?? "")
     if (!opening) continue
-    const prefix = opening[1] ?? ""
+    const prefix = opening[1]
     const fence = opening[2]
-    if (ordinal !== targetOrdinal) {
-      ordinal += 1
-      continue
-    }
-
-    const emptyQuotedLine = prefix.trimEnd()
+    const isTimeline = /^\s*timeline(?:\s|$)/i.test(opening[3])
     const body: string[] = []
-    for (let end = start + 1; end < lines.length; end += 1) {
-      const line = lines[end] ?? ""
-      if (line.slice(prefix.length).trim() === fence && (prefix === "" || line.startsWith(prefix))) {
-        return { lineStart: start, lineEnd: end, source: body.join("\n") }
-      }
+    let valid = true
+    let end = start + 1
+    for (; end < lines.length; end += 1) {
+      const line = lines[end]
+      if (line.slice(prefix.length).trim() === fence && (prefix === "" || line.startsWith(prefix))) break
       if (prefix === "") body.push(line)
       else if (line.startsWith(prefix)) body.push(line.slice(prefix.length))
-      else if (line === emptyQuotedLine) body.push("")
-      else return null
+      else if (line === prefix.trimEnd()) body.push("")
+      else valid = false
     }
-    return null
+    if (end >= lines.length) return
+    if (isTimeline && valid) yield { lineStart: start, lineEnd: end, source: body.join("\n") }
+    start = end
+  }
+}
+
+/** Ordinal is for mounted identity; deferred writes additionally verify source. */
+export function timelineFenceOrdinal(content: string, lineStart: number): number {
+  let ordinal = 0
+  for (const location of timelineFences(content)) {
+    if (location.lineStart >= lineStart) break
+    ordinal += 1
+  }
+  return ordinal
+}
+
+export function timelineFenceAtOrdinal(content: string, targetOrdinal: number): TimelineFenceLocation | null {
+  if (!Number.isInteger(targetOrdinal) || targetOrdinal < 0) return null
+  let ordinal = 0
+  for (const location of timelineFences(content)) {
+    if (ordinal++ === targetOrdinal) return location
   }
   return null
 }
 
-/** Read the current body of the Nth timeline fence from whole-note content. */
 export function timelineSourceAtOrdinal(content: string, targetOrdinal: number): string | null {
   return timelineFenceAtOrdinal(content, targetOrdinal)?.source ?? null
 }

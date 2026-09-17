@@ -1,11 +1,11 @@
 ---
-name: oneday-timeline
-description: 编辑 oneday Obsidian 插件的荧光笔时间轴块。当用户要求记录/规划时间花费、修改 daily 笔记里的 timeline 代码块时使用。触发词：时间轴、oneday、timeline、记录时间、刚花了/刚用了 X 时间、规划今天。
+name: modular-diary-timeline
+description: 编辑 Modular Diary Obsidian 插件的荧光笔时间轴块。当用户要求记录/规划时间花费、修改 daily 笔记里的 timeline 代码块时使用。触发词：时间轴、Modular Diary、timeline、记录时间、刚花了/刚用了 X 时间、规划今天。
 ---
 
-# oneday 时间轴编辑
+# Modular Diary 时间轴编辑
 
-oneday 把时间轴存为 Obsidian 笔记里的 ` ```timeline ` 代码块。**markdown 源码是唯一事实源**：你只编辑代码块内部，插件会自动重新渲染。**绝不改动代码块以外的正文。**
+Modular Diary 把时间轴存为 Obsidian 笔记里的 ` ```timeline ` 代码块。**markdown 源码是唯一事实源**：你只编辑代码块内部，插件会自动重新渲染。**绝不改动代码块以外的正文。**
 
 ## 语法总览
 
@@ -52,7 +52,7 @@ plan 08:00-09:30 math 线代第一章      # plan 前缀 = 规划层（斜线纹
 ## 边界
 
 - 只编辑 timeline 代码块内部；块外正文一个字都不动。
-- 没有 timeline 块的笔记：先问用户要不要新建（或提示用户：编辑器右键菜单/命令面板有「插入 Oneday 时间轴」入口）。
+- 没有 timeline 块的笔记：先问用户要不要新建（或提示用户：编辑器右键菜单/命令面板有「插入 Modular Diary 时间轴」入口）。
 - `layout:` 头是组件拖拽的持久化，格式 `id@x,y,w,h`（slot 名：text/toolbar/timeline/stats/dialog）；用户拖过就别手改，没拖过就别加。
 - 修改已有条目时保留原行格式（plan 前缀、备注），只改用户要求的部分。
 

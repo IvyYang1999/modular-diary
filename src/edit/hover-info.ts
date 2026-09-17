@@ -31,13 +31,13 @@ export function toggleBlockFocus(container: HTMLElement, line: number): void {
 }
 
 export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void {
-  const svg = container.querySelector<SVGSVGElement>("svg.oneday-svg")
+  const svg = container.querySelector<SVGSVGElement>("svg.modular-diary-svg")
   if (!svg) return
   const dom = container.ownerDocument
 
-  container.querySelector(".oneday-tooltip")?.remove() // 幂等：响应式重渲染会重复 attach
+  container.querySelector(".modular-diary-tooltip")?.remove() // 幂等：响应式重渲染会重复 attach
   const tooltip = dom.createElement("div")
-  tooltip.className = "oneday-tooltip"
+  tooltip.className = "modular-diary-tooltip"
   tooltip.setAttribute("role", "tooltip")
   tooltip.setAttribute("aria-hidden", "true")
   tooltip.style.display = "none"
@@ -57,7 +57,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
   const showInfo = (target: Element | null): boolean => {
     const markerLine = Number(target?.closest<SVGElement>("[data-line]")?.dataset.line)
     const markerTarget = Number.isFinite(markerLine)
-      ? svg.querySelector<SVGGElement>(`g.oneday-marker[data-line="${markerLine}"]`)
+      ? svg.querySelector<SVGGElement>(`g.modular-diary-marker[data-line="${markerLine}"]`)
       : null
     if (markerTarget) {
       const marker = doc.annotations.find((item) => item.line === Number(markerTarget.dataset.line) && item.type)
@@ -66,15 +66,15 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
       container.querySelectorAll(`[data-line="${marker.line}"]`).forEach((el) => el.classList.add("is-hover"))
       tooltip.replaceChildren()
       const time = dom.createElement("div")
-      time.className = "oneday-tooltip-time"
+      time.className = "modular-diary-tooltip-time"
       time.textContent = formatTimelineDisplayTime(marker.timeMin)
       const type = dom.createElement("div")
-      type.className = "oneday-tooltip-type"
+      type.className = "modular-diary-tooltip-type"
       type.textContent = (marker.plan ? t("planPrefix") : "") + marker.type
       tooltip.append(time, type)
       if (marker.text) {
         const note = dom.createElement("div")
-        note.className = "oneday-tooltip-note"
+        note.className = "modular-diary-tooltip-note"
         note.textContent = marker.text
         tooltip.appendChild(note)
       }
@@ -82,7 +82,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
       tooltip.setAttribute("aria-hidden", "false")
       return true
     }
-    const block = target?.closest("rect.oneday-block") as SVGRectElement | null
+    const block = target?.closest("rect.modular-diary-block") as SVGRectElement | null
     if (!block) return false
     const line = Number(block.dataset.line)
     const entry = doc.entries.find((it) => it.line === line)
@@ -91,31 +91,31 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
     clearPairing()
     block.classList.add("is-hover")
     container
-      .querySelectorAll(`.oneday-svg [data-line="${line}"]:not(rect)`)
+      .querySelectorAll(`.modular-diary-svg [data-line="${line}"]:not(rect)`)
       .forEach((el) => el.classList.add("is-hover"))
 
     const time = `${formatTimelineDisplayRange(entry.startMin, entry.endMin)} · ${formatHours(durationMinutes(entry.startMin, entry.endMin))}`
     tooltip.replaceChildren()
     const l1 = dom.createElement("div")
-    l1.className = "oneday-tooltip-time"
+    l1.className = "modular-diary-tooltip-time"
     l1.textContent = time
     tooltip.appendChild(l1)
     // When the block already shows its note inline, the tooltip only adds
     // what the block cannot: the exact start/end. Everything else would
     // repeat copy that sits right under the pointer.
     const noteInline = Boolean(entry.note) && Boolean(
-      svg.querySelector(`text.oneday-note[data-line="${line}"]:not(.oneday-side)`)
-      ?? Array.from(svg.querySelectorAll<SVGTextElement>(`text.oneday-duration[data-line="${line}"]:not(.oneday-thin)`))
+      svg.querySelector(`text.modular-diary-note[data-line="${line}"]:not(.modular-diary-side)`)
+      ?? Array.from(svg.querySelectorAll<SVGTextElement>(`text.modular-diary-duration[data-line="${line}"]:not(.modular-diary-thin)`))
         .find((label) => (label.textContent ?? "").includes(" · "))
     )
     if (!noteInline) {
       const l2 = dom.createElement("div")
-      l2.className = "oneday-tooltip-type"
+      l2.className = "modular-diary-tooltip-type"
       l2.textContent = (entry.plan ? t("planPrefix") : "") + entry.type
       tooltip.appendChild(l2)
       if (entry.note) {
         const l3 = dom.createElement("div")
-        l3.className = "oneday-tooltip-note"
+        l3.className = "modular-diary-tooltip-note"
         l3.textContent = entry.note
         tooltip.appendChild(l3)
       }
@@ -157,7 +157,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
     tooltip.style.top = `${box.bottom - rect.top + 6}px`
   })
   svg.addEventListener("focusout", (e: FocusEvent) => {
-    if ((e.target as Element | null)?.closest("rect.oneday-block, g.oneday-marker")) hideTooltip()
+    if ((e.target as Element | null)?.closest("rect.modular-diary-block, g.modular-diary-marker")) hideTooltip()
   })
 
   svg.addEventListener("pointermove", (e: PointerEvent) => {
@@ -167,7 +167,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
 
   svg.addEventListener("pointerout", (e: PointerEvent) => {
     const line = Number((e.target as Element | null)?.closest<SVGElement>("[data-line]")?.dataset.line)
-    if ((e.target as Element | null)?.closest("rect.oneday-block, g.oneday-marker") || doc.annotations.some((item) => item.line === line && item.type)) {
+    if ((e.target as Element | null)?.closest("rect.modular-diary-block, g.modular-diary-marker") || doc.annotations.some((item) => item.line === line && item.type)) {
       hideTooltip()
     }
   })

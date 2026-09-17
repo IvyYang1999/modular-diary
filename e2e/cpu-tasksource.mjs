@@ -20,7 +20,7 @@ while (true) {
   if (chunk.eof) break
 }
 await session.send("IO.close", { handle: stream })
-writeFileSync("/tmp/oneday-trace.json", data)
+writeFileSync("/tmp/modular-diary-trace.json", data)
 // 粗统计：按 name 数事件
 const events = JSON.parse(data).traceEvents
 const byName = new Map()

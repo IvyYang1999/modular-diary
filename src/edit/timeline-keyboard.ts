@@ -10,14 +10,14 @@
  * time points) because that is where the menu callbacks live.
  */
 
-export const TIMELINE_FOCUSABLE_SELECTOR = 'rect.oneday-block[tabindex="0"], g.oneday-marker[tabindex="0"]'
+export const TIMELINE_FOCUSABLE_SELECTOR = 'rect.modular-diary-block[tabindex="0"], g.modular-diary-marker[tabindex="0"]'
 
 interface NavigationArmedSvg extends SVGSVGElement {
-  __onedayKeyboardNavigation?: true
+  __modularDiaryKeyboardNavigation?: true
 }
 
 function focusOrder(node: Element): { y: number; x: number } {
-  if (node.matches("g.oneday-marker")) {
+  if (node.matches("g.modular-diary-marker")) {
     return { y: Number((node as HTMLElement).dataset.markerY), x: Number.NEGATIVE_INFINITY }
   }
   return { y: Number(node.getAttribute("y")), x: Number(node.getAttribute("x")) }
@@ -52,8 +52,8 @@ export function timelineObjectFromEvent(event: Event): SVGGraphicsElement | null
  */
 export function attachTimelineKeyboardNavigation(svg: SVGSVGElement): void {
   const armed = svg as NavigationArmedSvg
-  if (armed.__onedayKeyboardNavigation) return
-  armed.__onedayKeyboardNavigation = true
+  if (armed.__modularDiaryKeyboardNavigation) return
+  armed.__modularDiaryKeyboardNavigation = true
   svg.addEventListener("keydown", (event: KeyboardEvent) => {
     const step = event.key === "ArrowDown" || event.key === "ArrowRight"
       ? 1

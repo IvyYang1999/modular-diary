@@ -31,8 +31,8 @@ export function attachPointerRowSort(options: PointerRowSortOptions): void {
     const rect = row.getBoundingClientRect()
     const style = domWindow?.getComputedStyle(row)
     const ghost = row.cloneNode(true) as HTMLElement
-    ghost.classList.remove("is-dragging", "oneday-item-sort-placeholder")
-    ghost.classList.add("oneday-item-sort-ghost")
+    ghost.classList.remove("is-dragging", "modular-diary-item-sort-placeholder")
+    ghost.classList.add("modular-diary-item-sort-ghost")
     ghost.setAttribute("aria-hidden", "true")
     ghost.removeAttribute("tabindex")
     ghost.querySelectorAll<HTMLElement>("button, input, select, textarea, [tabindex]").forEach((element) => {
@@ -57,7 +57,7 @@ export function attachPointerRowSort(options: PointerRowSortOptions): void {
     }
     dom.body.appendChild(ghost)
     list.classList.add("is-ordering")
-    row.classList.add("oneday-item-sort-placeholder")
+    row.classList.add("modular-diary-item-sort-placeholder")
 
     let active = true
     const releaseCapture = (): void => {
@@ -71,7 +71,7 @@ export function attachPointerRowSort(options: PointerRowSortOptions): void {
       domWindow?.removeEventListener("blur", onWindowBlur)
       ghost.remove()
       list.classList.remove("is-ordering")
-      row.classList.remove("oneday-item-sort-placeholder")
+      row.classList.remove("modular-diary-item-sort-placeholder")
     }
     const restore = (): void => {
       if (originalNext?.parentNode === list) list.insertBefore(row, originalNext)

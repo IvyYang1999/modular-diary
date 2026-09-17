@@ -1,5 +1,5 @@
 /**
- * Pure SVG string builder for the oneday timeline (no DOM/Obsidian deps).
+ * Pure SVG string builder for the Modular Diary timeline (no DOM/Obsidian deps).
  * Layout mirrors the paper page: hour labels on the left, vertical track,
  * plan layer as translucent background, actual blocks on top (D3),
  * duration centered in the block (moved right when too thin, D6),
@@ -32,7 +32,7 @@ export interface RenderOptions {
   /** 视图：全部 / 只看记录 / 只看计划（yyt 2026-08-17） */
   view?: "all" | "actual" | "plan"
   /**
-   * Rendered pixel width of note copy at the note font (`.oneday-note`).
+   * Rendered pixel width of note copy at the note font (`.modular-diary-note`).
    * Hosts with a canvas pass `measureText`; omitted, notes wrap on a
    * script-aware estimate (CJK one em, Latin about half).
    */
@@ -64,7 +64,7 @@ const MIN_NOTE_H = 32
  */
 export const THIN_LEADER_H = 12
 const THIN_LABEL_INDENT = 8
-/** `.oneday-note` size: `--oneday-font-svg-label` = caption − 2px. */
+/** `.modular-diary-note` size: `--modular-diary-font-svg-label` = caption − 2px. */
 export const NOTE_FONT_PX = SVG_LABEL_MAX_FONT_PX - 2
 /** Right lane reserved for side labels & annotations (M4: no more clipping). */
 export const SIDE_LANE_W = 112
@@ -275,12 +275,12 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   const lastHour = Math.ceil(doc.rangeEnd / 60)
   for (let h = firstHour; h <= lastHour; h++) {
     const yy = y(h * 60)
-    parts.push(`<line class="oneday-grid" x1="${trackX}" y1="${yy}" x2="${trackX + trackW}" y2="${yy}"/>`)
-    parts.push(`<text class="oneday-hour" x="${LABEL_W - 6}" y="${yy + 4}" text-anchor="end">${h % 24}</text>`) // 跨零点回绕：25->1
+    parts.push(`<line class="modular-diary-grid" x1="${trackX}" y1="${yy}" x2="${trackX + trackW}" y2="${yy}"/>`)
+    parts.push(`<text class="modular-diary-hour" x="${LABEL_W - 6}" y="${yy + 4}" text-anchor="end">${h % 24}</text>`) // 跨零点回绕：25->1
   }
   // Track frame
   parts.push(
-    `<rect class="oneday-track" x="${trackX}" y="${y(doc.rangeStart)}" width="${trackW}" height="${y(doc.rangeEnd) - y(doc.rangeStart)}"/>`
+    `<rect class="modular-diary-track" x="${trackX}" y="${y(doc.rangeStart)}" width="${trackW}" height="${y(doc.rangeEnd) - y(doc.rangeStart)}"/>`
   )
 
   // Plan layer first (full-width translucent background + diagonal hatch, D3 覆盖语义)
@@ -291,7 +291,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     const defs = planColors
       .map(
         (c, i) =>
-          `<pattern id="oneday-hatch-${uid}-${i}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
+          `<pattern id="modular-diary-hatch-${uid}-${i}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
           `<line x1="0" y1="0" x2="0" y2="6" stroke="${escapeXml(c)}" stroke-width="1.6" stroke-opacity="0.8"/></pattern>`
       )
       .join("")
@@ -299,12 +299,12 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   }
   for (const e of entries.filter((e) => e.plan)) {
     const color = opts.typeColors[e.type] ?? hashTypeColor(e.type)
-    const hatchId = `oneday-hatch-${uid}-${planColors.indexOf(color)}`
+    const hatchId = `modular-diary-hatch-${uid}-${planColors.indexOf(color)}`
     const yy = y(e.startMin)
     const hh = Math.max(2, y(e.endMin) - yy)
     parts.push(
-      `<rect class="oneday-block oneday-plan" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${trackX + GAP_X}" y="${yy + GAP_X / 2}" width="${trackW - GAP_X * 2}" height="${hh - GAP_X}" rx="3" fill="${escapeXml(color)}" fill-opacity="${PLAN_OPACITY}" stroke="${escapeXml(color)}" stroke-opacity="0.7" stroke-width="1"${focusAttrs(entryLabel(e))}></rect>` +
-        `<rect pointer-events="none" class="oneday-plan-hatch" data-line="${e.line}" x="${trackX + GAP_X}" y="${yy + GAP_X / 2}" width="${trackW - GAP_X * 2}" height="${hh - GAP_X}" rx="3" fill="url(#${hatchId})"/>`
+      `<rect class="modular-diary-block modular-diary-plan" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${trackX + GAP_X}" y="${yy + GAP_X / 2}" width="${trackW - GAP_X * 2}" height="${hh - GAP_X}" rx="3" fill="${escapeXml(color)}" fill-opacity="${PLAN_OPACITY}" stroke="${escapeXml(color)}" stroke-opacity="0.7" stroke-width="1"${focusAttrs(entryLabel(e))}></rect>` +
+        `<rect pointer-events="none" class="modular-diary-plan-hatch" data-line="${e.line}" x="${trackX + GAP_X}" y="${yy + GAP_X / 2}" width="${trackW - GAP_X * 2}" height="${hh - GAP_X}" rx="3" fill="url(#${hatchId})"/>`
     )
     // plan 块也显示时长/备注（yyt 2026-08-17），样式淡一档
     const label = formatHours(durationMinutes(e.startMin, e.endMin))
@@ -322,18 +322,18 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
         const totalH = fs + noteLines.length * 11
         const startY = yy + GAP_X / 2 + (blockH - totalH) / 2
         parts.push(
-          `<text pointer-events="none" class="oneday-duration oneday-plan-label" data-line="${e.line}" font-size="${fs}" x="${trackX + trackW / 2}" y="${startY + fs - 2}" text-anchor="middle">${label}</text>`
+          `<text pointer-events="none" class="modular-diary-duration modular-diary-plan-label" data-line="${e.line}" font-size="${fs}" x="${trackX + trackW / 2}" y="${startY + fs - 2}" text-anchor="middle">${label}</text>`
         )
         noteLines.forEach((line, index) => parts.push(
-          `<text pointer-events="none" class="oneday-note oneday-plan-label" data-line="${e.line}" x="${trackX + trackW / 2}" y="${startY + fs + 11 * (index + 1)}" text-anchor="middle">${escapeXml(line)}</text>`
+          `<text pointer-events="none" class="modular-diary-note modular-diary-plan-label" data-line="${e.line}" x="${trackX + trackW / 2}" y="${startY + fs + 11 * (index + 1)}" text-anchor="middle">${escapeXml(line)}</text>`
         ))
       } else if (e.note && fsCombined > 0) {
         parts.push(
-          `<text pointer-events="none" class="oneday-duration oneday-plan-label" data-line="${e.line}" font-size="${fsCombined}" x="${trackX + trackW / 2}" y="${yy + hh / 2 + fsCombined / 2 - 1.5}" text-anchor="middle">${escapeXml(combined)}</text>`
+          `<text pointer-events="none" class="modular-diary-duration modular-diary-plan-label" data-line="${e.line}" font-size="${fsCombined}" x="${trackX + trackW / 2}" y="${yy + hh / 2 + fsCombined / 2 - 1.5}" text-anchor="middle">${escapeXml(combined)}</text>`
         )
       } else {
         parts.push(
-          `<text pointer-events="none" class="oneday-duration oneday-plan-label" data-line="${e.line}" font-size="${fs}" x="${trackX + trackW / 2}" y="${yy + hh / 2 + fs / 2 - 1.5}" text-anchor="middle">${label}</text>`
+          `<text pointer-events="none" class="modular-diary-duration modular-diary-plan-label" data-line="${e.line}" font-size="${fs}" x="${trackX + trackW / 2}" y="${yy + hh / 2 + fs / 2 - 1.5}" text-anchor="middle">${label}</text>`
         )
       }
     }
@@ -353,9 +353,9 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     // Record copy is colored from the fill it sits on. The dark theme blends
     // the page into every record fill (styles.css), so both variants are
     // precomputed here and CSS picks the pair that matches the theme.
-    const copyStyle = `--oneday-block-text-light:${relatedTextColor(color)};--oneday-block-text-dark:${relatedTextColor(darkThemeBlockFill(color))}`
+    const copyStyle = `--modular-diary-block-text-light:${relatedTextColor(color)};--modular-diary-block-text-dark:${relatedTextColor(darkThemeBlockFill(color))}`
     parts.push(
-      `<rect class="oneday-block" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${p.x}" y="${yy}" width="${p.w}" height="${hh}" rx="3" fill="${escapeXml(color)}" fill-opacity="${BLOCK_OPACITY}" style="--oneday-block-color:${escapeXml(color)}"${focusAttrs(entryLabel(e))}></rect>`
+      `<rect class="modular-diary-block" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${p.x}" y="${yy}" width="${p.w}" height="${hh}" rx="3" fill="${escapeXml(color)}" fill-opacity="${BLOCK_OPACITY}" style="--modular-diary-block-color:${escapeXml(color)}"${focusAttrs(entryLabel(e))}></rect>`
     )
     const label = formatHours(durationMinutes(e.startMin, e.endMin))
     // 备注排版（yyt 2026-08-17）：短备注与时长同行；长备注且块够高 ->
@@ -374,29 +374,29 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
       const totalH = fs + noteLines.length * 11
       const startY = yy + (hh - totalH) / 2
       parts.push(
-        `<text pointer-events="none" class="oneday-duration" data-line="${e.line}" style="font-size:${fs}px;${copyStyle}" x="${p.x + p.w / 2}" y="${startY + fs - 2}" text-anchor="middle">${label}</text>`
+        `<text pointer-events="none" class="modular-diary-duration" data-line="${e.line}" style="font-size:${fs}px;${copyStyle}" x="${p.x + p.w / 2}" y="${startY + fs - 2}" text-anchor="middle">${label}</text>`
       )
       noteLines.forEach((ln, i) => {
         parts.push(
-          `<text pointer-events="none" class="oneday-note" data-line="${e.line}" style="${copyStyle}" x="${p.x + p.w / 2}" y="${startY + fs + 11 * (i + 1)}" text-anchor="middle">${escapeXml(ln)}</text>`
+          `<text pointer-events="none" class="modular-diary-note" data-line="${e.line}" style="${copyStyle}" x="${p.x + p.w / 2}" y="${startY + fs + 11 * (i + 1)}" text-anchor="middle">${escapeXml(ln)}</text>`
         )
       })
     } else if (e.note && fsCombined > 0) {
       parts.push(
-        `<text pointer-events="none" class="oneday-duration" data-line="${e.line}" style="font-size:${fsCombined}px;${copyStyle}" x="${p.x + p.w / 2}" y="${yy + hh / 2 + fsCombined / 2 - 1.5}" text-anchor="middle">${escapeXml(combined)}</text>`
+        `<text pointer-events="none" class="modular-diary-duration" data-line="${e.line}" style="font-size:${fsCombined}px;${copyStyle}" x="${p.x + p.w / 2}" y="${yy + hh / 2 + fsCombined / 2 - 1.5}" text-anchor="middle">${escapeXml(combined)}</text>`
       )
     } else if (fs > 0) {
       parts.push(
-        `<text pointer-events="none" class="oneday-duration" data-line="${e.line}" style="font-size:${fs}px;${copyStyle}" x="${p.x + p.w / 2}" y="${yy + hh / 2 + fs / 2 - 1.5}" text-anchor="middle">${label}</text>`
+        `<text pointer-events="none" class="modular-diary-duration" data-line="${e.line}" style="font-size:${fs}px;${copyStyle}" x="${p.x + p.w / 2}" y="${yy + hh / 2 + fs / 2 - 1.5}" text-anchor="middle">${label}</text>`
       )
       if (e.note) {
         // 实在放不进 -> 右侧标注车道
-        sideItems.push({ naturalY: yy + hh / 2, text: truncate(e.note, 14), cls: "oneday-note oneday-side", dataLine: e.line, anchorX: p.x + p.w })
+        sideItems.push({ naturalY: yy + hh / 2, text: truncate(e.note, 14), cls: "modular-diary-note modular-diary-side", dataLine: e.line, anchorX: p.x + p.w })
       }
     } else {
       // 极端小块：时长(+备注)去标注车道
       const side = e.note ? `${label} · ${truncate(e.note, 14)}` : label
-      sideItems.push({ naturalY: yy + hh / 2, text: side, cls: "oneday-duration oneday-thin", dataLine: e.line, anchorX: p.x + p.w, thin: hh < THIN_LEADER_H })
+      sideItems.push({ naturalY: yy + hh / 2, text: side, cls: "modular-diary-duration modular-diary-thin", dataLine: e.line, anchorX: p.x + p.w, thin: hh < THIN_LEADER_H })
     }
   }
 
@@ -414,7 +414,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     const count = markerCounts.get(marker.timeMin) ?? 1
     const markerY = y(marker.timeMin) + (index - (count - 1) / 2) * 7
     const color = (opts.markerTypeColors ?? opts.typeColors)[marker.type ?? ""] ?? hashTypeColor(marker.type ?? "")
-    const cls = `oneday-marker${marker.plan ? " oneday-marker-plan" : ""}`
+    const cls = `modular-diary-marker${marker.plan ? " modular-diary-marker-plan" : ""}`
     // The visible line is painted only across the gaps between blocks that
     // show text at this height, so it never strikes through a label; the hit
     // line, the endpoint dots and the lane label still describe the full row.
@@ -430,20 +430,20 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     }
     if (cursor < trackX + trackW) segments.push([cursor, trackX + trackW])
     const lineParts = segments
-      .map(([x1, x2]) => `<line class="oneday-marker-line" x1="${x1}" y1="${markerY}" x2="${x2}" y2="${markerY}" stroke="${escapeXml(color)}"/>`)
+      .map(([x1, x2]) => `<line class="modular-diary-marker-line" x1="${x1}" y1="${markerY}" x2="${x2}" y2="${markerY}" stroke="${escapeXml(color)}"/>`)
       .join("")
     parts.push(
       `<g class="${cls}" data-line="${marker.line}" data-type="${escapeXml(marker.type ?? "")}" data-time-min="${marker.timeMin}" data-marker-y="${markerY}"${focusAttrs(`${marker.plan ? "plan " : ""}@${formatClock24(marker.timeMin)} ${marker.type ?? ""}${marker.text ? ` ${marker.text}` : ""}`)}>` +
-      `<line class="oneday-marker-hit" x1="${trackX}" y1="${markerY}" x2="${trackX + trackW}" y2="${markerY}" stroke="transparent" stroke-width="6"/>` +
+      `<line class="modular-diary-marker-hit" x1="${trackX}" y1="${markerY}" x2="${trackX + trackW}" y2="${markerY}" stroke="transparent" stroke-width="6"/>` +
       lineParts +
-      `<circle class="oneday-marker-dot" cx="${trackX}" cy="${markerY}" r="2.5" fill="${escapeXml(color)}"/>` +
-      `<circle class="oneday-marker-dot" cx="${trackX + trackW}" cy="${markerY}" r="2.5" fill="${escapeXml(color)}"/>` +
+      `<circle class="modular-diary-marker-dot" cx="${trackX}" cy="${markerY}" r="2.5" fill="${escapeXml(color)}"/>` +
+      `<circle class="modular-diary-marker-dot" cx="${trackX + trackW}" cy="${markerY}" r="2.5" fill="${escapeXml(color)}"/>` +
       `</g>`
     )
     sideItems.push({
       naturalY: markerY,
       text: truncate(marker.text || marker.type || "", 14),
-      cls: `oneday-marker-label${marker.plan ? " oneday-marker-plan-label" : ""}`,
+      cls: `modular-diary-marker-label${marker.plan ? " modular-diary-marker-plan-label" : ""}`,
       dataLine: marker.line,
       anchorX: trackX + trackW,
       markerColor: color,
@@ -452,7 +452,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   }
   // Legacy annotations keep their quiet, read-only label-lane rendering.
   for (const a of doc.annotations.filter((annotation) => !annotation.type)) {
-    sideItems.push({ naturalY: y(a.timeMin), text: truncate(a.text, 14), cls: "oneday-anno" })
+    sideItems.push({ naturalY: y(a.timeMin), text: truncate(a.text, 14), cls: "modular-diary-anno" })
   }
 
   const placedSide = layoutSideItems(sideItems)
@@ -466,13 +466,13 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
       : it.text
     if (it.anchorX !== undefined) {
       // 标注 ↔ 色块列的对应关系线；CSS 控制非常驻（避让偏移/focus 时才可见）
-      const cls = `oneday-side-leader${it.displaced ? " is-displaced" : ""}${it.thin ? " is-thin" : ""}`
+      const cls = `modular-diary-side-leader${it.displaced ? " is-displaced" : ""}${it.thin ? " is-thin" : ""}`
       laneParts.push(
         `<line class="${cls}" data-line="${it.dataLine ?? ""}" x1="${it.anchorX}" y1="${it.naturalY}" x2="${laneX - 2 + indent}" y2="${it.y}"/>`
       )
     } else if (it.displaced) {
       laneParts.push(
-        `<line class="oneday-side-leader" x1="${trackX + trackW}" y1="${it.naturalY}" x2="${laneX - 2}" y2="${it.y}"/>`
+        `<line class="modular-diary-side-leader" x1="${trackX + trackW}" y1="${it.naturalY}" x2="${laneX - 2}" y2="${it.y}"/>`
       )
     }
     const dataAttr = it.dataLine !== undefined ? ` data-line="${it.dataLine}"` : ""
@@ -480,14 +480,14 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
       const labelW = Math.min(laneW - 8, Math.max(36, text.length * SIDE_LANE_CHAR_W + 14))
       const opacity = it.markerPlan ? 0.08 : 0.14
       laneParts.push(
-        `<rect pointer-events="all" class="oneday-marker-label-bg${it.markerPlan ? " oneday-marker-plan-label" : ""}"${dataAttr} x="${laneX - 2}" y="${it.y - 7}" width="${labelW}" height="14" rx="4" fill="${escapeXml(it.markerColor)}" fill-opacity="${opacity}" stroke="${escapeXml(it.markerColor)}" stroke-opacity="0.55"/>`
+        `<rect pointer-events="all" class="modular-diary-marker-label-bg${it.markerPlan ? " modular-diary-marker-plan-label" : ""}"${dataAttr} x="${laneX - 2}" y="${it.y - 7}" width="${labelW}" height="14" rx="4" fill="${escapeXml(it.markerColor)}" fill-opacity="${opacity}" stroke="${escapeXml(it.markerColor)}" stroke-opacity="0.55"/>`
       )
     }
     laneParts.push(`<text pointer-events="none" class="${it.cls}"${dataAttr} x="${laneX + (it.markerColor ? 4 : 0) + indent}" y="${it.y + 3}">${escapeXml(text)}</text>`)
   }
   // The lane is one replaceable group so a slot resize can swap only the
   // labels while the track, blocks, markers and interaction-owned nodes stay.
-  parts.push(`<g class="oneday-side-lane" data-lane-width="${laneW}">${laneParts.join("")}</g>`)
+  parts.push(`<g class="modular-diary-side-lane" data-lane-width="${laneW}">${laneParts.join("")}</g>`)
 
   // Height follows the full label layout even when the lane is hidden, so a
   // narrow slot never oscillates between "lane hidden" and "lane shown"
@@ -499,6 +499,6 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   // The root is not a tab stop of its own (its blocks and points are), but
   // it may take focus from a press on a non-focusable overlay without
   // showing a ring; CSS suppresses the outline.
-  const out = [`<svg xmlns="http://www.w3.org/2000/svg" class="oneday-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" data-base-width="${baseWidth}"${laneAttr}>`, ...parts, "</svg>"]
+  const out = [`<svg xmlns="http://www.w3.org/2000/svg" class="modular-diary-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" data-base-width="${baseWidth}"${laneAttr}>`, ...parts, "</svg>"]
   return out.join("")
 }

@@ -37,7 +37,7 @@ export function applyGridToBody(body: HTMLElement, items: GridItem[]): void {
     body.style.width = `${(columns / GRID_COLS) * 100}%`
     body.style.minWidth = "100%"
   }
-  for (const slot of Array.from(body.querySelectorAll<HTMLElement>(".oneday-slot"))) {
+  for (const slot of Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot"))) {
     const item = normalized.find((it) => it.id === slot.dataset.slot)
     if (!item) continue
     slot.dataset.x = String(item.x)
@@ -63,7 +63,7 @@ const DIRS = ["n", "s", "e", "w", "ne", "nw", "se", "sw"] as const
 export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem[]) => void): void {
   const dom = body.ownerDocument
   const domWindow = dom.defaultView
-  const pointerOwner = body.closest<HTMLElement>(".oneday-container") ?? body
+  const pointerOwner = body.closest<HTMLElement>(".modular-diary-container") ?? body
   const requestFrame = domWindow?.requestAnimationFrame
     ? domWindow.requestAnimationFrame.bind(domWindow)
     : (callback: FrameRequestCallback): number => { callback(0); return 0 }
@@ -71,8 +71,8 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
     ? domWindow.cancelAnimationFrame.bind(domWindow)
     : (): void => undefined
   // 清理可能残留的拖拽克隆（pointer capture 中断时没删掉）
-  dom.querySelectorAll(".oneday-drag-clone").forEach((c) => c.remove())
-  const slots = Array.from(body.querySelectorAll<HTMLElement>(".oneday-slot"))
+  dom.querySelectorAll(".modular-diary-drag-clone").forEach((c) => c.remove())
+  const slots = Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot"))
 
   const finish = (priorityId?: SlotId, preserveColumns = false): void => {
     const resolved = resolveOverlaps(slots.map(itemFromSlot), priorityId)
@@ -85,14 +85,14 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
   }
 
   for (const slot of slots) {
-    if (slot.querySelector(".oneday-slot-grip")) continue
+    if (slot.querySelector(".modular-diary-slot-grip")) continue
 
     // ---- move grip ----
     const gripAnchor = dom.createElement("div")
-    gripAnchor.className = "oneday-slot-grip-anchor"
+    gripAnchor.className = "modular-diary-slot-grip-anchor"
     const grip = dom.createElement("button")
     grip.type = "button"
-    grip.className = "oneday-slot-grip"
+    grip.className = "modular-diary-slot-grip"
     // Obsidian uses aria-label for its black tooltip. Do not also set title,
     // otherwise Electron shows a second native tooltip for the same control.
     grip.setAttribute("aria-label", t("moveComponent"))
@@ -118,7 +118,7 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
       const grabDY = e.clientY - slotRect.top
 
       const clone = slot.cloneNode(true) as HTMLElement
-      clone.classList.add("oneday-drag-clone")
+      clone.classList.add("modular-diary-drag-clone")
       clone.style.width = `${slotRect.width}px`
       clone.style.height = `${slotRect.height}px`
       clone.style.left = `${slotRect.left}px`
@@ -210,7 +210,7 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
     // ---- 8 resize handles ----
     for (const dir of DIRS) {
       const h = dom.createElement("div")
-      h.className = `oneday-handle oneday-handle-${dir}`
+      h.className = `modular-diary-handle modular-diary-handle-${dir}`
       h.setAttribute("aria-hidden", "true")
       slot.appendChild(h)
 

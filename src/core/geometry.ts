@@ -32,7 +32,7 @@ export function snapMinutes(min: number, snap = SNAP_MINUTES): number {
  * any readable label (caller falls back to the side lane).
  */
 /**
- * Largest inline SVG label size, in px. Mirrors `--oneday-font-caption`
+ * Largest inline SVG label size, in px. Mirrors `--modular-diary-font-caption`
  * (12px `--font-ui-smaller` minus 1px) in styles.css; SVG labels are sized
  * numerically because their fit is computed before layout.
  */

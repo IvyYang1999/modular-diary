@@ -55,14 +55,14 @@ fs.writeFileSync(path.join(out, "index.html"), html)
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 480, height: 1100 } })
 await page.goto("file://" + path.join(out, "index.html"))
-await page.waitForSelector("svg.oneday-svg")
+await page.waitForSelector("svg.modular-diary-svg")
 
 const errors = await page.evaluate(() => window.__errors)
 if (errors.length > 0) {
   console.error("parse errors:", errors)
   process.exit(1)
 }
-const shot = path.join(out, "oneday-smoke.png")
+const shot = path.join(out, "modular-diary-smoke.png")
 await page.locator("#app").screenshot({ path: shot })
 await browser.close()
 console.log("OK screenshot:", shot)

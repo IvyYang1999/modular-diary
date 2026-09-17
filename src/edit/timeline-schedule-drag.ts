@@ -92,9 +92,9 @@ export function attachTimelineScheduleDrag(
   doc: TimelineDoc,
   deps: TimelineScheduleDragDeps,
 ): void {
-  const svg = container.querySelector<SVGSVGElement>("svg.oneday-svg")
-  const track = container.querySelector<SVGRectElement>("rect.oneday-track")
-  const holder = container.querySelector<HTMLElement>(".oneday-svg-holder")
+  const svg = container.querySelector<SVGSVGElement>("svg.modular-diary-svg")
+  const track = container.querySelector<SVGRectElement>("rect.modular-diary-track")
+  const holder = container.querySelector<HTMLElement>(".modular-diary-svg-holder")
   if (!svg || !track || !holder) return
   const dom = container.ownerDocument
   const domWindow = dom.defaultView
@@ -102,7 +102,7 @@ export function attachTimelineScheduleDrag(
   const trackX = Number(track.getAttribute("x"))
   const trackW = Number(track.getAttribute("width"))
 
-  container.querySelectorAll<HTMLElement>(".oneday-schedule-source").forEach((source) => {
+  container.querySelectorAll<HTMLElement>(".modular-diary-schedule-source").forEach((source) => {
     const item = itemFromSource(source)
     if (!item) return
     source.setAttribute("aria-label", t("dragToTimeline", { name: item.title }))
@@ -148,7 +148,7 @@ export function attachTimelineScheduleDrag(
         removePreview()
         if (!placement) return
         preview = dom.createElementNS(SVGNS, "g")
-        preview.setAttribute("class", "oneday-schedule-preview")
+        preview.setAttribute("class", "modular-diary-schedule-preview")
         preview.setAttribute("aria-hidden", "true")
         const rect = dom.createElementNS(SVGNS, "rect")
         const y = yFromMinutes(placement.startMin, doc.rangeStart, deps.hourHeight)
@@ -176,7 +176,7 @@ export function attachTimelineScheduleDrag(
         setPointerInteractionActive(container, true)
         source.classList.add("is-scheduling")
         ghost = dom.createElement("div")
-        ghost.className = "oneday-schedule-drag-ghost"
+        ghost.className = "modular-diary-schedule-drag-ghost"
         ghost.textContent = `${item.title} · ${formatHours(scheduledDurationMinutes(item.durationMin) ?? 0)}`
         dom.body.appendChild(ghost)
       }

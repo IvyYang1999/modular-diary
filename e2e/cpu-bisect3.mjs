@@ -15,32 +15,32 @@ const avg = async (ms) => {
 
 // 恢复 overflow，做逐组件二分：隐藏不同元素
 await page.evaluate(() => {
-  document.querySelectorAll("svg.oneday-svg").forEach((s) => (s.style.overflow = ""))
+  document.querySelectorAll("svg.modular-diary-svg").forEach((s) => (s.style.overflow = ""))
 })
 console.log("baseline(8s):", await avg(8000))
 
-// 隐藏整个 oneday-host（对照组）
-await page.evaluate(() => document.querySelectorAll(".oneday-host").forEach((h) => (h.style.display = "none")))
+// 隐藏整个 modular-diary-host（对照组）
+await page.evaluate(() => document.querySelectorAll(".modular-diary-host").forEach((h) => (h.style.display = "none")))
 console.log("host-hidden(8s):", await avg(8000))
-await page.evaluate(() => document.querySelectorAll(".oneday-host").forEach((h) => (h.style.display = "")))
+await page.evaluate(() => document.querySelectorAll(".modular-diary-host").forEach((h) => (h.style.display = "")))
 
 // 隐藏所有 grid slot 的 transition（看是不是 transition 循环触发）
 await page.evaluate(() => {
   const style = document.createElement("style")
-  style.id = "oneday-no-trans"
-  style.textContent = ".oneday-slot { transition: none !important }"
+  style.id = "modular-diary-no-trans"
+  style.textContent = ".modular-diary-slot { transition: none !important }"
   document.head.appendChild(style)
 })
 console.log("no-transition(8s):", await avg(8000))
-await page.evaluate(() => document.getElementById("oneday-no-trans")?.remove())
+await page.evaluate(() => document.getElementById("modular-diary-no-trans")?.remove())
 
 // 隐藏 slot hover outline 相关（outline-color transition）
 await page.evaluate(() => {
   const style = document.createElement("style")
-  style.id = "oneday-no-outl"
-  style.textContent = ".oneday-slot { outline: none !important; transition: none !important } .oneday-handle { display: none !important }"
+  style.id = "modular-diary-no-outl"
+  style.textContent = ".modular-diary-slot { outline: none !important; transition: none !important } .modular-diary-handle { display: none !important }"
   document.head.appendChild(style)
 })
 console.log("no-outline-handle(8s):", await avg(8000))
-await page.evaluate(() => document.getElementById("oneday-no-outl")?.remove())
+await page.evaluate(() => document.getElementById("modular-diary-no-outl")?.remove())
 await browser.close()

@@ -7,84 +7,84 @@
  * SVG labels keep one derived pixel size (body - 3px = 9px) because their
  * wrapping is computed from that value; the largest inline SVG label is the
  * caption size (SVG_LABEL_MAX_FONT_PX in core/geometry.ts).
- * Floating Oneday surfaces mount on body, outside the block, so they carry
+ * Floating Modular Diary surfaces mount on body, outside the block, so they carry
  * the same scale.
  */
-.oneday-container,
-.oneday-toolbar-menu,
-.oneday-tooltip,
-.oneday-note-popover,
-.oneday-time-popover,
-.oneday-date-popover,
-.oneday-schedule-drag-ghost {
-  --oneday-font-body: var(--font-ui-smaller, 12px);
-  --oneday-font-caption: calc(var(--oneday-font-body) - 1px);
-  --oneday-font-micro: calc(var(--oneday-font-body) - 2px);
-  --oneday-font-svg-label: calc(var(--oneday-font-body) - 3px);
+.modular-diary-container,
+.modular-diary-toolbar-menu,
+.modular-diary-tooltip,
+.modular-diary-note-popover,
+.modular-diary-time-popover,
+.modular-diary-date-popover,
+.modular-diary-schedule-drag-ghost {
+  --modular-diary-font-body: var(--font-ui-smaller, 12px);
+  --modular-diary-font-caption: calc(var(--modular-diary-font-body) - 1px);
+  --modular-diary-font-micro: calc(var(--modular-diary-font-body) - 2px);
+  --modular-diary-font-svg-label: calc(var(--modular-diary-font-body) - 3px);
 }
 
-.oneday-container {
+.modular-diary-container {
   /*
-   * Oneday micro design system.
+   * Modular Diary micro design system.
    *
    * Radius roles are semantic, not component-specific.  In particular, a
    * theme may make --radius-s and --button-radius visibly different, so the
    * block and its slots deliberately share the already-approved compact
    * control radius instead of mixing those two Obsidian scales.
    */
-  --oneday-radius-control: var(--button-radius, 5px);
-  --oneday-radius-surface: var(--oneday-radius-control);
-  --oneday-radius-group: calc(var(--oneday-radius-control) + 2px);
-  --oneday-radius-data: 4px;
+  --modular-diary-radius-control: var(--button-radius, 5px);
+  --modular-diary-radius-surface: var(--modular-diary-radius-control);
+  --modular-diary-radius-group: calc(var(--modular-diary-radius-control) + 2px);
+  --modular-diary-radius-data: 4px;
   /*
    * 中性控件只用这一种不透明灰。不能直接采用常见主题里带 alpha 的
    * --background-modifier-hover，否则手柄会透出下方文字，且同一灰色在
    * 不同底色上看起来不一致。10% text-normal 是当前手柄灰的实色近似。
    */
-  --oneday-surface-neutral-control: color-mix(in srgb, var(--text-normal) 10%, var(--background-primary));
-  --oneday-surface-control: var(--oneday-surface-neutral-control);
-  --oneday-surface-handle: var(--oneday-surface-neutral-control);
-  --oneday-surface-group: var(--background-secondary);
-  --oneday-surface-data-track: var(--background-secondary);
-  --oneday-layer-block-action: 200;
-  --oneday-control-gap: var(--size-4-1, 4px);
-  --oneday-control-padding-x: var(--size-4-2, 8px);
-  --oneday-grip-width: 20px;
-  --oneday-grip-inline-overhang: 2px;
+  --modular-diary-surface-neutral-control: color-mix(in srgb, var(--text-normal) 10%, var(--background-primary));
+  --modular-diary-surface-control: var(--modular-diary-surface-neutral-control);
+  --modular-diary-surface-handle: var(--modular-diary-surface-neutral-control);
+  --modular-diary-surface-group: var(--background-secondary);
+  --modular-diary-surface-data-track: var(--background-secondary);
+  --modular-diary-layer-block-action: 200;
+  --modular-diary-control-gap: var(--size-4-1, 4px);
+  --modular-diary-control-padding-x: var(--size-4-2, 8px);
+  --modular-diary-grip-width: 20px;
+  --modular-diary-grip-inline-overhang: 2px;
   /* 内容起始线由手柄的真实占位推导：统一，同时避免 hover 时盖住文字。 */
-  --oneday-content-inset: calc(var(--oneday-grip-width) + var(--oneday-grip-inline-overhang));
+  --modular-diary-content-inset: calc(var(--modular-diary-grip-width) + var(--modular-diary-grip-inline-overhang));
   /*
    * 所有常规元素块共享同一条纵向内容边界。网格高度按 20px 量化，
    * 内容放得下时由各内容根节点在剩余空间内安全居中；溢出时回退到顶部，
    * 避免为了“看起来居中”而把可滚动内容的开头裁掉。
    */
-  --oneday-slot-padding-block: var(--size-4-2, 8px);
-  --oneday-icon-button-size: 28px;
+  --modular-diary-slot-padding-block: var(--size-4-2, 8px);
+  --modular-diary-icon-button-size: 28px;
   /* 分类、创建模式和图层按钮属于同一 compact-control 层级。外层图层
    * 胶囊另有 padding/border，但三个按钮本体必须始终等高。 */
-  --oneday-compact-control-height: calc(var(--input-height, 30px) - var(--size-4-1, 4px));
-  --oneday-toolbar-control-height: var(--oneday-compact-control-height);
+  --modular-diary-compact-control-height: calc(var(--input-height, 30px) - var(--size-4-1, 4px));
+  --modular-diary-toolbar-control-height: var(--modular-diary-compact-control-height);
   /* Creation, Habit and Todo headers share one information tier. */
-  --oneday-component-title-font-size: var(--oneday-font-body);
+  --modular-diary-component-title-font-size: var(--modular-diary-font-body);
   /* Thin semantic strokes remain perceptually louder than filled blocks at
    * the same alpha. Focus mode therefore uses a quieter stroke-layer alpha
    * while filled surfaces keep the standard frozen-layer alpha. */
-  --oneday-focus-frozen-opacity: 0.3;
-  --oneday-focus-frozen-stroke-opacity: 0.16;
+  --modular-diary-focus-frozen-opacity: 0.3;
+  --modular-diary-focus-frozen-stroke-opacity: 0.16;
   /* Frozen copy stays readable: only the fill drops to the frozen alpha. */
-  --oneday-focus-frozen-text-opacity: 0.6;
+  --modular-diary-focus-frozen-text-opacity: 0.6;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--oneday-control-gap);
+  gap: var(--modular-diary-control-gap);
   padding: var(--size-4-1, 4px);
   box-sizing: border-box;
   position: relative;
   width: 100%;
   max-width: 100%;
   overflow: hidden;
-  border-radius: var(--oneday-radius-surface);
-  /* 产品可缩放边界属于 Oneday viewport，而不是占满编辑器整行的 CM6 外壳。 */
+  border-radius: var(--modular-diary-radius-surface);
+  /* 产品可缩放边界属于 Modular Diary viewport，而不是占满编辑器整行的 CM6 外壳。 */
   box-shadow: inset 0 0 0 1px var(--background-modifier-border);
 }
 
@@ -92,19 +92,19 @@
  * Dark pages need a higher frozen alpha: a 30% pastel over near-black turns
  * into mud and its derived dark copy disappears with it.
  */
-.theme-dark .oneday-container {
-  --oneday-focus-frozen-opacity: 0.45;
-  --oneday-focus-frozen-text-opacity: 0.8;
+.theme-dark .modular-diary-container {
+  --modular-diary-focus-frozen-opacity: 0.45;
+  --modular-diary-focus-frozen-text-opacity: 0.8;
 }
 
 /* Aria-hidden visual handoff across an Obsidian-owned processor remount. */
-.oneday-remount-overlay {
+.modular-diary-remount-overlay {
   pointer-events: none !important;
   user-select: none !important;
   contain: layout paint style;
 }
 
-.oneday-block-scroll {
+.modular-diary-block-scroll {
   width: 100%;
   min-width: 0;
   min-height: 0;
@@ -115,7 +115,7 @@
   scrollbar-gutter: stable;
 }
 
-.oneday-svg-holder {
+.modular-diary-svg-holder {
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
@@ -126,88 +126,88 @@
   line-height: 0;
 }
 
-.oneday-svg .oneday-grid {
+.modular-diary-svg .modular-diary-grid {
   stroke: var(--background-modifier-border);
   stroke-width: 0.5;
 }
 
-.oneday-svg .oneday-track {
+.modular-diary-svg .modular-diary-track {
   fill: none;
   stroke: var(--text-muted);
   stroke-width: 1;
 }
 
-.oneday-svg .oneday-hour {
-  font-size: var(--oneday-font-micro);
+.modular-diary-svg .modular-diary-hour {
+  font-size: var(--modular-diary-font-micro);
   fill: var(--text-muted);
   font-family: var(--font-monospace);
 }
 
-.oneday-svg .oneday-span-preview-labels {
+.modular-diary-svg .modular-diary-span-preview-labels {
   pointer-events: none;
 }
 
-.oneday-svg .oneday-span-preview-label-bg {
+.modular-diary-svg .modular-diary-span-preview-label-bg {
   fill: var(--background-primary);
   opacity: 0.96;
 }
 
-.oneday-svg .oneday-span-preview-label-text {
+.modular-diary-svg .modular-diary-span-preview-label-text {
   fill: var(--text-accent);
   font-family: var(--font-monospace);
-  font-size: var(--oneday-font-svg-label);
+  font-size: var(--modular-diary-font-svg-label);
   font-weight: 600;
 }
 
-.oneday-svg .oneday-span-preview-tick,
-.oneday-svg .oneday-span-preview-leader {
+.modular-diary-svg .modular-diary-span-preview-tick,
+.modular-diary-svg .modular-diary-span-preview-leader {
   stroke: var(--text-accent);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 
-.oneday-svg .oneday-span-preview-leader {
+.modular-diary-svg .modular-diary-span-preview-leader {
   opacity: 0.7;
 }
 
 /* 拖拽创建时的精确模式提示：跟随操作但不抢夺时间标签的视觉层级。 */
-.oneday-svg .oneday-precision-hint {
+.modular-diary-svg .modular-diary-precision-hint {
   pointer-events: none;
 }
 
-.oneday-svg .oneday-precision-hint-bg {
+.modular-diary-svg .modular-diary-precision-hint-bg {
   fill: var(--background-primary);
   fill-opacity: 0.92;
 }
 
-.oneday-svg .oneday-precision-hint-text {
+.modular-diary-svg .modular-diary-precision-hint-text {
   fill: var(--text-muted);
   font-family: var(--font-interface);
-  font-size: calc(var(--oneday-font-svg-label) - 1px);
+  font-size: calc(var(--modular-diary-font-svg-label) - 1px);
   font-weight: 500;
   opacity: 0.62;
 }
 
-.oneday-svg .oneday-precision-hint.is-active .oneday-precision-hint-text {
+.modular-diary-svg .modular-diary-precision-hint.is-active .modular-diary-precision-hint-text {
   opacity: 0.78;
 }
 
-.oneday-svg .oneday-duration {
-  font-size: var(--oneday-font-caption);
+.modular-diary-svg .modular-diary-duration {
+  font-size: var(--modular-diary-font-caption);
   /* Record copy carries its fill-derived color as custom properties. */
-  fill: var(--oneday-block-text-light, var(--text-normal));
+  fill: var(--modular-diary-block-text-light, var(--text-normal));
   font-weight: 600;
   pointer-events: none;
 }
 
-.oneday-svg .oneday-duration.oneday-thin {
-  font-size: var(--oneday-font-micro);
+.modular-diary-svg .modular-diary-duration.modular-diary-thin {
+  font-size: var(--modular-diary-font-micro);
   fill: var(--text-muted);
 }
 
-.oneday-svg .oneday-note {
-  font-size: var(--oneday-font-svg-label);
-  fill: var(--oneday-block-text-light, var(--text-muted));
+.modular-diary-svg .modular-diary-note {
+  font-size: var(--modular-diary-font-svg-label);
+  fill: var(--modular-diary-block-text-light, var(--text-muted));
   pointer-events: none;
 }
 
@@ -218,71 +218,71 @@
  * the color derived from that blended fill (svg-builder computes both).
  * Plans keep their 12% tint and the swatches keep the identity color.
  */
-.theme-dark .oneday-svg rect.oneday-block:not(.oneday-plan) {
-  fill: color-mix(in srgb, var(--oneday-block-color) 78%, var(--background-primary));
+.theme-dark .modular-diary-svg rect.modular-diary-block:not(.modular-diary-plan) {
+  fill: color-mix(in srgb, var(--modular-diary-block-color) 78%, var(--background-primary));
 }
 
-.theme-dark .oneday-svg .oneday-duration {
-  fill: var(--oneday-block-text-dark, var(--oneday-block-text-light, var(--text-normal)));
+.theme-dark .modular-diary-svg .modular-diary-duration {
+  fill: var(--modular-diary-block-text-dark, var(--modular-diary-block-text-light, var(--text-normal)));
 }
 
-.theme-dark .oneday-svg .oneday-note {
-  fill: var(--oneday-block-text-dark, var(--oneday-block-text-light, var(--text-muted)));
+.theme-dark .modular-diary-svg .modular-diary-note {
+  fill: var(--modular-diary-block-text-dark, var(--modular-diary-block-text-light, var(--text-muted)));
 }
 
-.oneday-svg .oneday-anno {
-  font-size: var(--oneday-font-micro);
+.modular-diary-svg .modular-diary-anno {
+  font-size: var(--modular-diary-font-micro);
   fill: var(--text-accent);
 }
 
-.oneday-svg .oneday-marker {
+.modular-diary-svg .modular-diary-marker {
   cursor: context-menu;
 }
 
-.oneday-svg .oneday-marker-line {
+.modular-diary-svg .modular-diary-marker-line {
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
 
-.oneday-svg .oneday-marker-hit {
+.modular-diary-svg .modular-diary-marker-hit {
   pointer-events: stroke;
 }
 
-.oneday-svg .oneday-marker-dot {
+.modular-diary-svg .modular-diary-marker-dot {
   pointer-events: none;
 }
 
-.oneday-svg .oneday-marker-plan {
+.modular-diary-svg .modular-diary-marker-plan {
   opacity: 0.58;
   stroke-dasharray: 4 3;
 }
 
-.oneday-svg .oneday-marker-label {
+.modular-diary-svg .modular-diary-marker-label {
   fill: var(--text-normal);
-  font-size: var(--oneday-font-svg-label);
+  font-size: var(--modular-diary-font-svg-label);
   font-weight: 500;
 }
 
-.oneday-svg .oneday-marker-label-bg {
+.modular-diary-svg .modular-diary-marker-label-bg {
   cursor: context-menu;
 }
 
-.oneday-svg .oneday-marker-ghost {
+.modular-diary-svg .modular-diary-marker-ghost {
   opacity: 0.55;
   pointer-events: none;
 }
 
-.oneday-svg .oneday-marker-ghost line {
+.modular-diary-svg .modular-diary-marker-ghost line {
   stroke-width: 1.5;
   stroke-dasharray: 3 2;
 }
 
-.oneday-block {
+.modular-diary-block {
   cursor: default;
 }
 
-.oneday-stats {
+.modular-diary-stats {
   display: flex;
   flex-direction: column;
   min-height: 100%;
@@ -295,7 +295,7 @@
 }
 
 /* 首次使用：直接演示拖拽手势。展示一次后，空时间轴不再承载常驻说明。 */
-.oneday-timeline-onboarding {
+.modular-diary-timeline-onboarding {
   position: absolute;
   z-index: 2;
   display: grid;
@@ -308,14 +308,14 @@
   pointer-events: none;
 }
 
-.oneday-timeline-onboarding-gesture {
+.modular-diary-timeline-onboarding-gesture {
   position: relative;
   align-self: stretch;
   min-height: 56px;
   color: var(--interactive-accent);
 }
 
-.oneday-timeline-onboarding-dot {
+.modular-diary-timeline-onboarding-dot {
   position: absolute;
   left: 4px;
   z-index: 1;
@@ -325,10 +325,10 @@
   background: currentColor;
 }
 
-.oneday-timeline-onboarding-dot.is-start { top: 0; }
-.oneday-timeline-onboarding-dot.is-end { bottom: 0; }
+.modular-diary-timeline-onboarding-dot.is-start { top: 0; }
+.modular-diary-timeline-onboarding-dot.is-end { bottom: 0; }
 
-.oneday-timeline-onboarding-line {
+.modular-diary-timeline-onboarding-line {
   position: absolute;
   top: 5px;
   bottom: 5px;
@@ -338,7 +338,7 @@
   background: currentColor;
 }
 
-.oneday-timeline-onboarding-line::after {
+.modular-diary-timeline-onboarding-line::after {
   content: "";
   position: absolute;
   right: -3px;
@@ -350,21 +350,21 @@
   transform: rotate(45deg);
 }
 
-.oneday-timeline-onboarding-label {
+.modular-diary-timeline-onboarding-label {
   position: absolute;
   left: 18px;
   color: currentColor;
-  font-size: var(--oneday-font-micro);
+  font-size: var(--modular-diary-font-micro);
   font-weight: var(--font-medium, 500);
   white-space: nowrap;
 }
 
-.oneday-timeline-onboarding-label.is-start { top: -1px; }
-.oneday-timeline-onboarding-label.is-end { bottom: -1px; }
+.modular-diary-timeline-onboarding-label.is-start { top: -1px; }
+.modular-diary-timeline-onboarding-label.is-end { bottom: -1px; }
 
-.oneday-timeline-onboarding-copy {
+.modular-diary-timeline-onboarding-copy {
   min-width: 0;
-  font-size: var(--oneday-font-caption);
+  font-size: var(--modular-diary-font-caption);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -375,7 +375,7 @@
  * Stats empty state (dashed, faint), but it is a real button because it opens
  * the category editor exactly like the toolbar's "Add first category".
  */
-.oneday-container button.oneday-timeline-empty {
+.modular-diary-container button.modular-diary-timeline-empty {
   position: absolute;
   z-index: 2;
   display: flex;
@@ -387,7 +387,7 @@
   padding: 4px 8px;
   height: auto;
   border: 1px dashed var(--background-modifier-border);
-  border-radius: var(--oneday-radius-surface);
+  border-radius: var(--modular-diary-radius-surface);
   background: transparent;
   box-shadow: none;
   color: var(--text-faint, var(--text-muted));
@@ -399,26 +399,26 @@
   overflow: hidden;
 }
 
-.oneday-container button.oneday-timeline-empty:hover {
+.modular-diary-container button.modular-diary-timeline-empty:hover {
   border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
   background: transparent;
   box-shadow: none;
   color: var(--text-muted);
 }
 
-.oneday-container button.oneday-timeline-empty:focus-visible {
+.modular-diary-container button.modular-diary-timeline-empty:focus-visible {
   border-color: var(--background-modifier-border-focus, var(--interactive-accent));
 }
 
-.oneday-timeline-empty-title {
-  font-size: var(--oneday-font-caption);
+.modular-diary-timeline-empty-title {
+  font-size: var(--modular-diary-font-caption);
   font-weight: var(--font-medium, 500);
   color: var(--text-muted);
 }
 
-.oneday-timeline-empty-copy {
+.modular-diary-timeline-empty-copy {
   max-width: 100%;
-  font-size: var(--oneday-font-micro);
+  font-size: var(--modular-diary-font-micro);
   white-space: normal;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -426,7 +426,7 @@
   overflow: hidden;
 }
 
-.oneday-stats-empty {
+.modular-diary-stats-empty {
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -443,23 +443,23 @@
   text-align: center;
 }
 
-.oneday-stats-empty-label {
+.modular-diary-stats-empty-label {
   min-width: 0;
   max-width: 100%;
-  font-size: var(--oneday-font-caption);
+  font-size: var(--modular-diary-font-caption);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.oneday-errors {
-  font-size: var(--oneday-font-caption);
+.modular-diary-errors {
+  font-size: var(--modular-diary-font-caption);
   color: var(--text-error);
   border-left: 2px solid var(--text-error);
   padding-left: 6px;
 }
 
-.oneday-dialog {
+.modular-diary-dialog {
   width: 100%;
   min-height: 100%;
   box-sizing: border-box;
@@ -472,9 +472,9 @@
 /* Scoped under the block instead of `!important`: Obsidian's own textarea
  * chrome (input shadow, focus ring) is out-styled by specificity alone, so
  * a theme that deliberately targets the block can still layer on top. */
-.oneday-container .oneday-dialog-input {
+.modular-diary-container .modular-diary-dialog-input {
   width: 100%;
-  font-size: var(--oneday-font-body);
+  font-size: var(--modular-diary-font-body);
   padding: 6px 10px;
   resize: none;
   overflow: hidden;
@@ -484,8 +484,8 @@
   border: 1px solid var(--background-modifier-border);
 }
 
-.oneday-container .oneday-dialog-input:focus,
-.oneday-container .oneday-dialog-input:focus-visible {
+.modular-diary-container .modular-diary-dialog-input:focus,
+.modular-diary-container .modular-diary-dialog-input:focus-visible {
   box-shadow: none;
   outline: none;
   border-color: var(--background-modifier-border-focus);
@@ -493,17 +493,17 @@
 
 /* The quick-capture glyph is a Lucide icon, never a text "✦": it sits on
  * the first line of the input (or beside the setup hint) and is aria-hidden. */
-.oneday-dialog-input-row {
+.modular-diary-dialog-input-row {
   position: relative;
   width: 100%;
 }
 
-.oneday-dialog-input-row .oneday-dialog-input {
+.modular-diary-dialog-input-row .modular-diary-dialog-input {
   display: block;
   padding-left: 30px;
 }
 
-.oneday-dialog-icon {
+.modular-diary-dialog-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -512,46 +512,46 @@
   pointer-events: none;
 }
 
-.oneday-dialog-input-row .oneday-dialog-icon {
+.modular-diary-dialog-input-row .modular-diary-dialog-icon {
   position: absolute;
   left: 10px;
   top: 6px;
-  height: calc(var(--oneday-font-body) * 1.5);
+  height: calc(var(--modular-diary-font-body) * 1.5);
 }
 
-.oneday-dialog-icon svg {
+.modular-diary-dialog-icon svg {
   width: 14px;
   height: 14px;
 }
 
-.oneday-dialog-status {
-  font-size: var(--oneday-font-caption);
+.modular-diary-dialog-status {
+  font-size: var(--modular-diary-font-caption);
   color: var(--text-muted);
   margin-top: 2px;
 }
 
-.oneday-dialog-status:empty {
+.modular-diary-dialog-status:empty {
   display: none; /* 不预留空行（yyt：空一行难看） */
 }
 
-.oneday-dialog-status.oneday-dialog-error {
+.modular-diary-dialog-status.modular-diary-dialog-error {
   color: var(--text-error);
 }
 
 /* M3 画板编辑 */
 
-.oneday-toolbar {
+.modular-diary-toolbar {
   display: flex;
   flex-wrap: wrap;
   min-height: 100%;
   box-sizing: border-box;
-  gap: var(--oneday-control-gap);
+  gap: var(--modular-diary-control-gap);
   align-items: center;
   align-content: safe center;
   margin-bottom: 0;
 }
 
-.oneday-toolbar.has-category-rows {
+.modular-diary-toolbar.has-category-rows {
   flex-flow: column nowrap;
   align-items: stretch;
   justify-content: safe center;
@@ -560,62 +560,62 @@
   width: 100%;
 }
 
-.oneday-slot-toolbar > .oneday-toolbar.has-category-rows {
+.modular-diary-slot-toolbar > .modular-diary-toolbar.has-category-rows {
   /* Creation always grows downward from the slot's shared top inset.  The
      number of categories must never recenter the controls inside a tall slot. */
   justify-content: flex-start;
 }
 
-.oneday-creation-controls {
+.modular-diary-creation-controls {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: var(--oneday-control-gap);
+  gap: var(--modular-diary-control-gap);
   width: 100%;
   min-width: 0;
 }
 
 /* Nothing on the first row may shrink or truncate: the row is measured at
  * its natural width and compacted (attachRowCompaction) until it fits. */
-.oneday-creation-controls > * {
+.modular-diary-creation-controls > * {
   flex-shrink: 0;
 }
 
-.oneday-creation-controls.is-compact-tools .oneday-tool-copy,
-.oneday-creation-controls.is-compact-plan .oneday-plan-mode-label {
+.modular-diary-creation-controls.is-compact-tools .modular-diary-tool-copy,
+.modular-diary-creation-controls.is-compact-plan .modular-diary-plan-mode-label {
   display: none;
 }
 
-.oneday-category-list {
+.modular-diary-category-list {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--oneday-control-gap);
+  gap: var(--modular-diary-control-gap);
   min-width: 0;
 }
 
 /* Categories are a separate choice set, so they always begin on a fresh row
  * instead of filling leftover space beside the creation tools. */
-.oneday-category-list {
+.modular-diary-category-list {
   width: 100%;
 }
 
-.oneday-plan-mode-group {
+.modular-diary-plan-mode-group {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
   margin-left: auto;
 }
 
-.oneday-toolbar.is-empty {
+.modular-diary-toolbar.is-empty {
   width: 100%;
   height: 100%;
   margin-bottom: 0;
 }
 
-.oneday-toolbar.is-empty .oneday-category-list {
+.modular-diary-toolbar.is-empty .modular-diary-category-list {
   flex: 1 1 auto;
-  min-height: var(--oneday-control-height);
+  min-height: var(--modular-diary-control-height);
   box-sizing: border-box;
   /* South resize hot zone is 8px tall; keep a visible 2px safety gap so the
    * category CTA never advertises a click where resize owns the pointer. */
@@ -624,14 +624,14 @@
 
 /* The category list owns the clearance above the slot's south resize edge.
  * Do not let the CTA's generic 100% height expand through that padding. */
-.oneday-toolbar.is-empty .oneday-category-list > .oneday-toolbar-empty {
+.modular-diary-toolbar.is-empty .modular-diary-category-list > .modular-diary-toolbar-empty {
   flex: 1 1 auto;
   align-self: stretch;
   height: auto;
-  min-height: var(--oneday-control-height);
+  min-height: var(--modular-diary-control-height);
 }
 
-.oneday-toolbar button.oneday-toolbar-empty {
+.modular-diary-toolbar button.modular-diary-toolbar-empty {
   appearance: none;
   -webkit-appearance: none;
   width: 100%;
@@ -643,65 +643,65 @@
   box-sizing: border-box;
   padding: 2px 8px;
   border: 0;
-  border-radius: calc(var(--oneday-radius-surface) - 1px);
+  border-radius: calc(var(--modular-diary-radius-surface) - 1px);
   background: transparent;
   color: var(--text-faint, var(--text-muted));
   box-shadow: none;
   cursor: pointer;
 }
 
-.oneday-toolbar button.oneday-toolbar-empty:is(:hover, :focus-visible) {
+.modular-diary-toolbar button.modular-diary-toolbar-empty:is(:hover, :focus-visible) {
   color: var(--text-muted);
   background: color-mix(in srgb, var(--interactive-accent) 4%, transparent);
   box-shadow: none;
 }
 
-.oneday-toolbar button.oneday-toolbar-empty:focus-visible {
+.modular-diary-toolbar button.modular-diary-toolbar-empty:focus-visible {
   outline: none;
 }
 
-.oneday-toolbar-empty-icon {
+.modular-diary-toolbar-empty-icon {
   display: inline-flex;
   line-height: 0;
 }
 
-.oneday-toolbar-empty-icon svg {
+.modular-diary-toolbar-empty-icon svg {
   width: 28px;
   height: 28px;
   stroke-width: 1.6;
 }
 
-.oneday-toolbar-empty-label {
-  font-size: var(--oneday-font-caption);
+.modular-diary-toolbar-empty-label {
+  font-size: var(--modular-diary-font-caption);
   line-height: 1.2;
   white-space: nowrap;
 }
 
-.oneday-toolbar button.oneday-swatch {
+.modular-diary-toolbar button.modular-diary-swatch {
   appearance: none;
   -webkit-appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--oneday-control-gap);
-  font-size: var(--oneday-font-caption);
-  padding: 1px var(--oneday-control-padding-x);
-  border-radius: var(--oneday-radius-control);
+  gap: var(--modular-diary-control-gap);
+  font-size: var(--modular-diary-font-caption);
+  padding: 1px var(--modular-diary-control-padding-x);
+  border-radius: var(--modular-diary-radius-control);
   border: 1px solid transparent;
-  background: var(--oneday-surface-control);
+  background: var(--modular-diary-surface-control);
   color: var(--text-normal);
   cursor: pointer;
   box-shadow: none;
   box-sizing: border-box;
-  height: var(--oneday-toolbar-control-height);
-  min-height: var(--oneday-toolbar-control-height);
+  height: var(--modular-diary-toolbar-control-height);
+  min-height: var(--modular-diary-toolbar-control-height);
 }
 
-.oneday-toolbar button.oneday-swatch.is-active {
+.modular-diary-toolbar button.modular-diary-swatch.is-active {
   border-color: var(--text-accent);
   box-shadow: none;
 }
 
-.oneday-swatch-dot {
+.modular-diary-swatch-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -709,9 +709,9 @@
   background: var(--c, #bdbdbd);
 }
 
-.oneday-draw-status {
+.modular-diary-draw-status {
   flex: 0 0 auto;
-  font-size: var(--oneday-font-caption);
+  font-size: var(--modular-diary-font-caption);
   color: var(--text-muted);
   height: 14px;
   overflow: hidden;
@@ -720,7 +720,7 @@
   font-family: var(--font-monospace);
 }
 
-.oneday-svg {
+.modular-diary-svg {
   cursor: crosshair;
   touch-action: none;
   -webkit-user-select: none !important;
@@ -728,15 +728,15 @@
   overflow: visible;
 }
 
-.oneday-svg .oneday-block {
+.modular-diary-svg .modular-diary-block {
   cursor: context-menu;
 }
 
-.oneday-svg .oneday-plan {
+.modular-diary-svg .modular-diary-plan {
   cursor: crosshair;
 }
 
-.oneday-ghost {
+.modular-diary-ghost {
   fill-opacity: 0.5;
   stroke: var(--text-accent);
   stroke-dasharray: 3 2;
@@ -746,13 +746,13 @@
 /* The live start/end labels already describe a creation drag precisely. Keep
    the fixed-size duration copy out of the provisional block so five-minute
    spans cannot overflow; it becomes visible as soon as the drag commits. */
-.oneday-svg .oneday-preview-duration.is-dragging {
+.modular-diary-svg .modular-diary-preview-duration.is-dragging {
   visibility: hidden;
 }
 
 /* M4 标注车道 */
 
-.oneday-svg .oneday-side-leader {
+.modular-diary-svg .modular-diary-side-leader {
   display: none;
   stroke: var(--text-faint);
   stroke-width: 0.6;
@@ -761,18 +761,18 @@
 /* 避让偏移的连线也不常驻（yyt 2026-08-17），只保留 class 供测试断言。
    例外：薄到只剩一条线的块（< 12px）常驻一根低 alpha 的 leader，否则车道里
    挤在一起的几条标签对不上是哪条线；hover/选中时按下方规则加深。 */
-.oneday-svg .oneday-side-leader.is-thin {
+.modular-diary-svg .modular-diary-side-leader.is-thin {
   display: inline;
   stroke-opacity: 0.55;
 }
 
-.oneday-svg .oneday-note.oneday-side {
+.modular-diary-svg .modular-diary-note.modular-diary-side {
   fill: var(--text-muted);
 }
 
 /* M4b hover 信息浮窗 + 联动高亮 */
 
-.oneday-tooltip {
+.modular-diary-tooltip {
   position: absolute;
   z-index: 20;
   pointer-events: none;
@@ -781,93 +781,93 @@
   border-radius: var(--radius-m, 8px);
   padding: 6px 10px;
   box-shadow: var(--shadow-s);
-  font-size: var(--oneday-font-body);
+  font-size: var(--modular-diary-font-body);
   max-width: 240px;
 }
 
-.oneday-tooltip-time {
+.modular-diary-tooltip-time {
   font-family: var(--font-monospace);
   font-weight: 600;
 }
 
-.oneday-tooltip-type {
+.modular-diary-tooltip-type {
   color: var(--text-accent);
-  font-size: var(--oneday-font-caption);
+  font-size: var(--modular-diary-font-caption);
 }
 
-.oneday-tooltip-note {
+.modular-diary-tooltip-note {
   color: var(--text-muted);
   margin-top: 2px;
 }
 
-.oneday-svg .oneday-block.is-hover {
+.modular-diary-svg .modular-diary-block.is-hover {
   stroke: var(--text-accent);
   stroke-width: 1.5;
 }
 
-.oneday-svg .is-hover.oneday-duration,
-.oneday-svg .is-hover.oneday-note,
-.oneday-svg .is-hover.oneday-anno {
+.modular-diary-svg .is-hover.modular-diary-duration,
+.modular-diary-svg .is-hover.modular-diary-note,
+.modular-diary-svg .is-hover.modular-diary-anno {
   font-weight: 700;
 }
 
-.oneday-svg .oneday-side-leader.is-hover,
-.oneday-svg .oneday-side-leader.is-focus {
+.modular-diary-svg .modular-diary-side-leader.is-hover,
+.modular-diary-svg .modular-diary-side-leader.is-focus {
   display: inline;
   stroke: var(--text-accent);
   stroke-width: 1.2;
 }
 
-.oneday-svg .oneday-block.is-focus {
+.modular-diary-svg .modular-diary-block.is-focus {
   stroke: var(--text-accent);
   stroke-width: 2;
   stroke-opacity: 1;
   vector-effect: non-scaling-stroke;
 }
 
-.oneday-svg .oneday-marker:is(.is-hover, .is-focus, .is-edit-target) .oneday-marker-line,
-.oneday-svg .oneday-marker:focus-visible .oneday-marker-line {
+.modular-diary-svg .modular-diary-marker:is(.is-hover, .is-focus, .is-edit-target) .modular-diary-marker-line,
+.modular-diary-svg .modular-diary-marker:focus-visible .modular-diary-marker-line {
   stroke-width: 2.5;
 }
 
-.oneday-svg .oneday-marker.is-edit-target .oneday-marker-dot,
-.oneday-svg .oneday-marker:focus-visible .oneday-marker-dot {
+.modular-diary-svg .modular-diary-marker.is-edit-target .modular-diary-marker-dot,
+.modular-diary-svg .modular-diary-marker:focus-visible .modular-diary-marker-dot {
   stroke: var(--text-accent);
   stroke-width: 1.5;
 }
 
 /* Keyboard focus on a block or time point looks exactly like its selected
    state; the browser outline is replaced by that stroke. */
-.oneday-svg:focus,
-.oneday-svg :is(rect.oneday-block, g.oneday-marker):focus {
+.modular-diary-svg:focus,
+.modular-diary-svg :is(rect.modular-diary-block, g.modular-diary-marker):focus {
   outline: none;
 }
 
-.oneday-svg rect.oneday-block:focus-visible {
+.modular-diary-svg rect.modular-diary-block:focus-visible {
   stroke: var(--text-accent);
   stroke-width: 2;
   stroke-opacity: 1;
   vector-effect: non-scaling-stroke;
 }
 
-.oneday-svg .is-focus.oneday-note,
-.oneday-svg .is-focus.oneday-duration,
-.oneday-svg .is-focus.oneday-anno {
+.modular-diary-svg .is-focus.modular-diary-note,
+.modular-diary-svg .is-focus.modular-diary-duration,
+.modular-diary-svg .is-focus.modular-diary-anno {
   font-weight: 700;
 }
 
 /* M5 工具栏：模式切换 + 荧光笔管理 */
 
-.oneday-mode {
+.modular-diary-mode {
   display: inline-flex;
   border: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   overflow: hidden;
   margin-left: auto; /* 钉到工具栏最右侧，与荧光笔视觉分离 */
 }
 
-.oneday-mode-btn {
-  font-size: var(--oneday-font-caption);
+.modular-diary-mode-btn {
+  font-size: var(--modular-diary-font-caption);
   padding: 1px 10px;
   border: none;
   background: var(--background-secondary);
@@ -877,13 +877,13 @@
   color: var(--text-muted);
 }
 
-.oneday-mode-btn.is-active {
+.modular-diary-mode-btn.is-active {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
 }
 
 /*
- * Oneday-built menus (swatch context menu, "+" manage menu, "More (n)"
+ * Modular Diary-built menus (swatch context menu, "+" manage menu, "More (n)"
  * categories, component context menu) and the category cascade are the same
  * surface as Obsidian's own `.menu`: they read Obsidian's menu tokens with
  * the same fallbacks app.css uses, and items copy `.menu-item` exactly
@@ -891,9 +891,9 @@
  * block's smaller type scale stops at the block edge; a menu is not block
  * content.
  */
-.oneday-add-menu,
-.oneday-ctx-menu,
-.oneday-cascade-menu {
+.modular-diary-add-menu,
+.modular-diary-ctx-menu,
+.modular-diary-cascade-menu {
   position: fixed;
   z-index: var(--layer-menu, 1000);
   display: flex;
@@ -909,16 +909,16 @@
   user-select: none;
 }
 
-.oneday-add-menu {
+.modular-diary-add-menu {
   min-width: 140px;
 }
 
-.oneday-ctx-menu {
+.modular-diary-ctx-menu {
   min-width: 110px;
 }
 
-.oneday-add-item,
-.oneday-cascade-item.menu-item {
+.modular-diary-add-item,
+.modular-diary-cascade-item.menu-item {
   display: flex;
   align-items: center;
   gap: var(--size-4-2, 8px);
@@ -939,10 +939,10 @@
   cursor: var(--cursor, pointer);
 }
 
-.oneday-add-item:hover,
-.oneday-add-item:focus-visible,
-.oneday-cascade-item.menu-item:hover:not(.is-disabled),
-.oneday-cascade-item.menu-item:focus-visible:not(.is-disabled) {
+.modular-diary-add-item:hover,
+.modular-diary-add-item:focus-visible,
+.modular-diary-cascade-item.menu-item:hover:not(.is-disabled),
+.modular-diary-cascade-item.menu-item:focus-visible:not(.is-disabled) {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
   box-shadow: none;
@@ -951,19 +951,19 @@
 }
 
 /* Category marks occupy the same 16px column as a `.menu-item-icon`. */
-.oneday-add-item > .oneday-swatch-dot {
+.modular-diary-add-item > .modular-diary-swatch-dot {
   flex: 0 0 auto;
   margin-inline: 3px;
 }
 
 /* A separator between groups: Obsidian draws it edge to edge, so the line
  * runs across the menu padding and never squares the item's own corners. */
-.oneday-add-new {
+.modular-diary-add-new {
   position: relative;
   margin-top: calc(var(--menu-padding, var(--size-2-3, 6px)) * 2 + 1px);
 }
 
-.oneday-add-new::before {
+.modular-diary-add-new::before {
   content: "";
   position: absolute;
   top: calc(-1 * var(--menu-padding, var(--size-2-3, 6px)) - 1px);
@@ -974,7 +974,7 @@
   pointer-events: none;
 }
 
-.oneday-menu-icon {
+.modular-diary-menu-icon {
   display: inline-flex;
   width: var(--icon-s, 16px);
   height: var(--icon-s, 16px);
@@ -984,13 +984,13 @@
   color: var(--text-muted);
 }
 
-.oneday-menu-icon svg {
+.modular-diary-menu-icon svg {
   width: var(--icon-s, 16px);
   height: var(--icon-s, 16px);
 }
 
-.oneday-add,
-.oneday-category-fold {
+.modular-diary-add,
+.modular-diary-category-fold {
   min-width: 28px;
   min-height: 24px;
   justify-content: center;
@@ -999,46 +999,46 @@
   box-shadow: none;
 }
 
-.oneday-add:hover,
-.oneday-category-fold:hover {
+.modular-diary-add:hover,
+.modular-diary-category-fold:hover {
   color: var(--text-normal);
   background: var(--background-modifier-hover);
 }
 
 /* Folded categories: the list shows at most MAX_CATEGORY_ROWS rows and a
  * quiet "More (n)" control that opens the rest in the shared menu. */
-.oneday-category-list > .oneday-swatch.is-overflowed {
+.modular-diary-category-list > .modular-diary-swatch.is-overflowed {
   display: none;
 }
 
-.oneday-toolbar button.oneday-category-more {
+.modular-diary-toolbar button.modular-diary-category-more {
   color: var(--text-muted);
 }
 
-.oneday-toolbar button.oneday-category-more:hover {
+.modular-diary-toolbar button.modular-diary-category-more:hover {
   color: var(--text-normal);
   background: var(--background-modifier-hover);
 }
 
-.oneday-category-more-icon {
+.modular-diary-category-more-icon {
   display: inline-flex;
   line-height: 0;
 }
 
-.oneday-category-more-icon svg {
+.modular-diary-category-more-icon svg {
   width: 12px;
   height: 12px;
 }
 
-.oneday-add svg,
-.oneday-category-fold svg {
+.modular-diary-add svg,
+.modular-diary-category-fold svg {
   width: 14px;
   height: 14px;
 }
 
 /* 计划模式提示：dock 在时间轴上的开关本身高亮即可，色板不再变样 */
 
-.oneday-menu-label {
+.modular-diary-menu-label {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1052,7 +1052,7 @@
 
 /* 色块类型级联菜单：作为一级 Menu 的子节点，hover 跨越时父菜单不关闭。 */
 
-.oneday-type-trigger-content {
+.modular-diary-type-trigger-content {
   display: flex;
   flex: 1;
   align-items: center;
@@ -1060,14 +1060,14 @@
   min-width: 0;
 }
 
-.oneday-submenu-caret {
+.modular-diary-submenu-caret {
   margin-left: auto;
   color: var(--text-muted);
   font-size: 16px;
   line-height: 1;
 }
 
-.oneday-cascade-menu {
+.modular-diary-cascade-menu {
   z-index: calc(var(--layer-menu, 1000) + 1);
   min-width: 128px;
   max-width: min(240px, calc(100vw - 16px));
@@ -1075,12 +1075,12 @@
   overflow-y: auto;
 }
 
-.oneday-cascade-item.is-disabled {
+.modular-diary-cascade-item.is-disabled {
   color: var(--text-muted);
   cursor: default;
 }
 
-.oneday-cascade-check {
+.modular-diary-cascade-check {
   flex: 0 0 16px;
   width: 16px;
   color: var(--text-accent);
@@ -1089,7 +1089,7 @@
 
 /* 分栏：居右浮动 + 拖拽手柄 */
 
-.oneday-host {
+.modular-diary-host {
   /* The plugin preserves its own visual anchor across full DOM replacement. */
   overflow-anchor: none;
   /* 宿主是 Obsidian 代码块容器：去掉默认边框/背景，允许手柄溢出 */
@@ -1100,31 +1100,31 @@
 }
 
 /*
- * CM6 的代码块外壳始终占满编辑器整行；若保留它的边框，拖动 Oneday
+ * CM6 的代码块外壳始终占满编辑器整行；若保留它的边框，拖动 Modular Diary
  * viewport 时内容会缩放而“整个 block 的右边线”留在原地。外壳只负责
- * 挂载，产品边界由真正可缩放的 .oneday-container 绘制。
+ * 挂载，产品边界由真正可缩放的 .modular-diary-container 绘制。
  */
-.cm-embed-block:has(.oneday-host) {
+.cm-embed-block:has(.modular-diary-host) {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
   background: transparent !important;
 }
 
-.oneday-host-float {
+.modular-diary-host-float {
   float: right;
   margin: 0 0 12px 16px;
   clear: right;
 }
 
-.oneday-container.is-resizing {
+.modular-diary-container.is-resizing {
   opacity: 0.85;
   user-select: none;
 }
 
-/* 整个 Oneday block 的视口缩放：只调外框，内部网格保持像素尺寸。 */
+/* 整个 Modular Diary block 的视口缩放：只调外框，内部网格保持像素尺寸。 */
 
-.oneday-block-resize-handle {
+.modular-diary-block-resize-handle {
   position: absolute;
   z-index: 13;
   opacity: 0;
@@ -1132,7 +1132,7 @@
   touch-action: none;
 }
 
-.oneday-block-resize-e {
+.modular-diary-block-resize-e {
   top: 12px;
   right: 0;
   bottom: 12px;
@@ -1140,7 +1140,7 @@
   cursor: ew-resize;
 }
 
-.oneday-block-resize-s {
+.modular-diary-block-resize-s {
   right: 12px;
   bottom: 0;
   left: 12px;
@@ -1148,7 +1148,7 @@
   cursor: ns-resize;
 }
 
-.oneday-block-resize-se {
+.modular-diary-block-resize-se {
   right: 0;
   bottom: 0;
   width: 12px;
@@ -1158,62 +1158,62 @@
 
 /* 设置页色号行：收起左侧空白，控件铺满 */
 
-.oneday-palette-setting .setting-item-info {
+.modular-diary-palette-setting .setting-item-info {
   display: none;
 }
 
-.oneday-palette-setting .setting-item-control {
+.modular-diary-palette-setting .setting-item-control {
   flex: 1;
   justify-content: flex-start;
   gap: 8px;
 }
 
-.oneday-palette-setting .setting-item-control input[type="text"] {
+.modular-diary-palette-setting .setting-item-control input[type="text"] {
   flex: 1;
 }
 
 /* 聚焦设置：分类与打卡共用后台数据，但从组件入口只呈现当前任务。 */
-.oneday-settings-modal {
+.modular-diary-settings-modal {
   width: min(760px, calc(100vw - 32px));
   max-width: 760px;
 }
 
-.oneday-focused-settings {
+.modular-diary-focused-settings {
   container-type: inline-size;
   color: var(--text-normal);
-  --oneday-settings-control-height: var(--input-height, 30px);
-  --oneday-settings-gap-xs: var(--size-4-1, 4px);
-  --oneday-settings-gap-sm: var(--size-4-2, 8px);
-  --oneday-settings-gap-md: var(--size-4-3, 12px);
+  --modular-diary-settings-control-height: var(--input-height, 30px);
+  --modular-diary-settings-gap-xs: var(--size-4-1, 4px);
+  --modular-diary-settings-gap-sm: var(--size-4-2, 8px);
+  --modular-diary-settings-gap-md: var(--size-4-3, 12px);
 }
 
-.oneday-settings-modal-description {
+.modular-diary-settings-modal-description {
   margin: 0 0 var(--size-4-4, 16px);
   color: var(--text-muted);
   font-size: var(--font-ui-small, 13px);
   line-height: var(--line-height-normal);
 }
 
-.oneday-category-scope-tabs {
+.modular-diary-category-scope-tabs {
   display: inline-flex;
   align-self: flex-start;
   padding: 2px;
   margin: 0 0 var(--size-4-4, 16px);
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: var(--background-secondary);
 }
 
-.oneday-category-scope-tabs > button {
-  min-height: var(--oneday-settings-control-height);
+.modular-diary-category-scope-tabs > button {
+  min-height: var(--modular-diary-settings-control-height);
   padding: 0 var(--size-4-3, 12px);
   border: 0;
-  border-radius: calc(var(--oneday-radius-control) - 2px);
+  border-radius: calc(var(--modular-diary-radius-control) - 2px);
   background: transparent;
   box-shadow: none;
   color: var(--text-muted);
 }
 
-.oneday-category-scope-tabs > button.is-active {
+.modular-diary-category-scope-tabs > button.is-active {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
 }
@@ -1221,59 +1221,59 @@
 /* The full settings tab and focused modals share the same editor primitives,
  * but the tab needs explicit section rhythm instead of relying on Obsidian's
  * adjacent heading margins (which vary between themes). */
-.oneday-settings-tab > h2 {
+.modular-diary-settings-tab > h2 {
   margin-bottom: 0;
 }
 
-.oneday-settings-section {
+.modular-diary-settings-section {
   margin-top: var(--size-4-6, 24px);
 }
 
-.oneday-settings-section > h3 {
-  margin: 0 0 var(--oneday-settings-gap-sm);
+.modular-diary-settings-section > h3 {
+  margin: 0 0 var(--modular-diary-settings-gap-sm);
 }
 
-.oneday-settings-section > .setting-item-description {
-  margin: 0 0 var(--oneday-settings-gap-md);
+.modular-diary-settings-section > .setting-item-description {
+  margin: 0 0 var(--modular-diary-settings-gap-md);
 }
 
-.oneday-settings-section-editor {
+.modular-diary-settings-section-editor {
   min-width: 0;
 }
 
-.oneday-settings-collapsible > summary::before {
+.modular-diary-settings-collapsible > summary::before {
   content: "";
   flex: 0 0 auto;
   width: 6px;
   height: 6px;
-  margin: 0 var(--oneday-settings-gap-xs) 0 2px;
+  margin: 0 var(--modular-diary-settings-gap-xs) 0 2px;
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
   transform: rotate(-45deg);
 }
 
-.oneday-settings-collapsible[open] > summary::before {
+.modular-diary-settings-collapsible[open] > summary::before {
   transform: rotate(45deg);
 }
 
-.oneday-settings-collapsible > summary:hover,
-.oneday-settings-collapsible[open] > summary {
+.modular-diary-settings-collapsible > summary:hover,
+.modular-diary-settings-collapsible[open] > summary {
   color: var(--text-normal);
   border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
 }
 
-.oneday-settings-collapsible[open] > summary {
-  margin-bottom: var(--oneday-settings-gap-md);
+.modular-diary-settings-collapsible[open] > summary {
+  margin-bottom: var(--modular-diary-settings-gap-md);
 }
 
-.oneday-settings-add-rule {
+.modular-diary-settings-add-rule {
   appearance: none;
   -webkit-appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--oneday-settings-gap-xs);
-  min-height: var(--oneday-settings-control-height);
-  padding: 0 var(--oneday-settings-gap-sm);
+  gap: var(--modular-diary-settings-gap-xs);
+  min-height: var(--modular-diary-settings-control-height);
+  padding: 0 var(--modular-diary-settings-gap-sm);
   border: 1px dashed var(--background-modifier-border);
   border-radius: var(--button-radius, 5px);
   background: transparent;
@@ -1281,52 +1281,52 @@
   box-shadow: none;
 }
 
-.oneday-settings-add-rule:hover {
+.modular-diary-settings-add-rule:hover {
   border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
 
-.oneday-settings-add-rule svg {
+.modular-diary-settings-add-rule svg {
   width: 14px;
   height: 14px;
 }
 
-.oneday-rule-editor-list {
+.modular-diary-rule-editor-list {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.oneday-category-editor-list {
+.modular-diary-category-editor-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--oneday-settings-gap-sm);
+  gap: var(--modular-diary-settings-gap-sm);
   min-width: 0;
   max-height: min(62vh, 640px);
-  padding: 1px var(--oneday-settings-gap-xs) 1px 1px;
+  padding: 1px var(--modular-diary-settings-gap-xs) 1px 1px;
   overflow-y: auto;
 }
 
-.oneday-category-editor-row {
+.modular-diary-category-editor-row {
   display: grid;
   grid-template-columns: 20px minmax(96px, 1fr) 28px;
   align-items: center;
-  gap: var(--oneday-settings-gap-sm);
+  gap: var(--modular-diary-settings-gap-sm);
   min-width: 0;
   min-height: 40px;
-  padding: var(--oneday-settings-gap-xs) var(--oneday-settings-gap-xs) var(--oneday-settings-gap-xs) var(--oneday-settings-gap-sm);
+  padding: var(--modular-diary-settings-gap-xs) var(--modular-diary-settings-gap-xs) var(--modular-diary-settings-gap-xs) var(--modular-diary-settings-gap-sm);
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--button-radius, 5px);
   background: var(--background-primary);
   box-sizing: border-box;
 }
 
-.oneday-category-editor-row:hover {
+.modular-diary-category-editor-row:hover {
   background: var(--background-modifier-hover);
 }
 
-.oneday-category-color-input {
+.modular-diary-category-color-input {
   appearance: none;
   width: 18px;
   height: 18px;
@@ -1341,38 +1341,38 @@
   cursor: pointer;
 }
 
-.oneday-category-color-input::-webkit-color-swatch-wrapper {
+.modular-diary-category-color-input::-webkit-color-swatch-wrapper {
   padding: 0;
 }
 
-.oneday-category-color-input::-webkit-color-swatch {
+.modular-diary-category-color-input::-webkit-color-swatch {
   border: 0;
   border-radius: 50%;
 }
 
-.oneday-category-color-input::-moz-color-swatch {
+.modular-diary-category-color-input::-moz-color-swatch {
   border: 0;
   border-radius: 50%;
 }
 
-.oneday-category-editor-row > input[type="text"] {
+.modular-diary-category-editor-row > input[type="text"] {
   width: 100%;
   min-width: 0;
-  height: var(--oneday-settings-control-height);
-  padding-inline: var(--oneday-settings-gap-xs);
+  height: var(--modular-diary-settings-control-height);
+  padding-inline: var(--modular-diary-settings-gap-xs);
   border-color: transparent;
   background: transparent;
   box-shadow: none;
   box-sizing: border-box;
 }
 
-.oneday-category-editor-row > input[type="text"]:focus {
+.modular-diary-category-editor-row > input[type="text"]:focus {
   border-color: var(--interactive-accent);
   background: var(--background-modifier-form-field, var(--background-primary));
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent);
 }
 
-.oneday-rule-editor {
+.modular-diary-rule-editor {
   position: relative;
   display: grid;
   grid-template-columns:
@@ -1393,42 +1393,42 @@
    target field. Grid auto-placement would otherwise pull recurrence and the
    delete action into the empty column, making every row use a different
    visual schema. */
-.oneday-rule-editor [data-field="name"] {
+.modular-diary-rule-editor [data-field="name"] {
   grid-column: 1;
 }
 
-.oneday-rule-editor [data-field="category"] {
+.modular-diary-rule-editor [data-field="category"] {
   grid-column: 2;
 }
 
-.oneday-rule-editor [data-field="goal"] {
+.modular-diary-rule-editor [data-field="goal"] {
   grid-column: 3;
 }
 
-.oneday-rule-editor [data-field="target"] {
+.modular-diary-rule-editor [data-field="target"] {
   grid-column: 4;
 }
 
-.oneday-rule-editor [data-field="repeat"] {
+.modular-diary-rule-editor [data-field="repeat"] {
   grid-column: 5;
 }
 
-.oneday-rule-editor > .oneday-settings-row-actions {
+.modular-diary-rule-editor > .modular-diary-settings-row-actions {
   grid-column: 6;
 }
 
-.oneday-rule-field {
+.modular-diary-rule-field {
   display: flex;
   flex-direction: column;
   min-width: 0;
   gap: 3px;
 }
 
-.oneday-rule-field.is-full {
+.modular-diary-rule-field.is-full {
   grid-column: 1 / -2;
 }
 
-.oneday-rule-field-label {
+.modular-diary-rule-field-label {
   overflow: hidden;
   color: var(--text-muted);
   font-size: 11px;
@@ -1437,19 +1437,19 @@
   white-space: nowrap;
 }
 
-.oneday-rule-field-control {
+.modular-diary-rule-field-control {
   display: flex;
   min-width: 0;
 }
 
-.oneday-category-picker,
-.oneday-duration-control,
-.oneday-count-control {
+.modular-diary-category-picker,
+.modular-diary-duration-control,
+.modular-diary-count-control {
   display: flex;
   align-items: center;
   width: 100%;
   min-width: 0;
-  height: var(--oneday-settings-control-height);
+  height: var(--modular-diary-settings-control-height);
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--input-radius, var(--button-radius, 5px));
   background: var(--background-modifier-form-field, var(--background-primary));
@@ -1457,26 +1457,26 @@
   overflow: hidden;
 }
 
-.oneday-category-picker:focus-within,
-.oneday-duration-control:focus-within,
-.oneday-count-control:focus-within {
+.modular-diary-category-picker:focus-within,
+.modular-diary-duration-control:focus-within,
+.modular-diary-count-control:focus-within {
   border-color: var(--interactive-accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent);
 }
 
-.oneday-category-picker-dot {
+.modular-diary-category-picker-dot {
   width: 12px;
   height: 12px;
   min-width: 12px;
-  margin-left: var(--oneday-settings-gap-sm);
+  margin-left: var(--modular-diary-settings-gap-sm);
   border-radius: 50%;
-  background: var(--oneday-category-color);
+  background: var(--modular-diary-category-color);
 }
 
-.oneday-category-picker > select,
-.oneday-duration-control > input,
-.oneday-duration-control > select,
-.oneday-count-control > input {
+.modular-diary-category-picker > select,
+.modular-diary-duration-control > input,
+.modular-diary-duration-control > select,
+.modular-diary-count-control > input {
   height: 100%;
   min-height: 0;
   border: 0;
@@ -1485,24 +1485,24 @@
   box-shadow: none;
 }
 
-.oneday-category-picker > select {
+.modular-diary-category-picker > select {
   flex: 1;
   min-width: 0;
-  padding-left: var(--oneday-settings-gap-sm);
+  padding-left: var(--modular-diary-settings-gap-sm);
 }
 
-.oneday-category-picker > select:hover,
-.oneday-category-picker > select:focus {
+.modular-diary-category-picker > select:hover,
+.modular-diary-category-picker > select:focus {
   background: transparent !important;
 }
 
-.oneday-duration-control > input {
+.modular-diary-duration-control > input {
   flex: 1 1 60%;
   width: 60%;
   min-width: 46px;
 }
 
-.oneday-duration-control > select {
+.modular-diary-duration-control > select {
   flex: 0 0 auto;
   width: auto;
   min-width: 58px;
@@ -1510,60 +1510,60 @@
   color: var(--text-muted);
 }
 
-.oneday-count-control > input {
+.modular-diary-count-control > input {
   flex: 1;
   width: 60%;
   min-width: 46px;
 }
 
-.oneday-count-unit {
+.modular-diary-count-unit {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   align-self: stretch;
-  padding-inline: var(--oneday-settings-gap-sm);
+  padding-inline: var(--modular-diary-settings-gap-sm);
   border-left: 1px solid var(--background-modifier-border);
   color: var(--text-muted);
   font-size: var(--font-ui-small, 12px);
 }
 
-.oneday-interval-control {
+.modular-diary-interval-control {
   display: grid;
   grid-template-columns: minmax(100px, 0.65fr) minmax(150px, 1fr);
-  gap: var(--oneday-settings-gap-sm);
+  gap: var(--modular-diary-settings-gap-sm);
   width: 100%;
   min-width: 0;
 }
 
-.oneday-interval-control > label {
+.modular-diary-interval-control > label {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--oneday-settings-gap-sm);
+  gap: var(--modular-diary-settings-gap-sm);
   min-width: 0;
   color: var(--text-muted);
   font-size: var(--font-ui-small, 12px);
 }
 
-.oneday-interval-control input {
+.modular-diary-interval-control input {
   width: 100%;
   min-width: 0;
-  height: var(--oneday-settings-control-height);
+  height: var(--modular-diary-settings-control-height);
   box-sizing: border-box;
 }
 
-.oneday-date-control {
+.modular-diary-date-control {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--oneday-settings-gap-xs);
+  gap: var(--modular-diary-settings-gap-xs);
   width: 100%;
   min-width: 0;
 }
 
-.oneday-date-item {
+.modular-diary-date-item {
   display: inline-flex;
   align-items: center;
-  height: var(--oneday-settings-control-height);
+  height: var(--modular-diary-settings-control-height);
   overflow: hidden;
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--input-radius, var(--button-radius, 5px));
@@ -1571,12 +1571,12 @@
   box-sizing: border-box;
 }
 
-.oneday-date-item:focus-within {
+.modular-diary-date-item:focus-within {
   border-color: var(--interactive-accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent);
 }
 
-.oneday-date-item > input[type="date"] {
+.modular-diary-date-item > input[type="date"] {
   width: 138px;
   min-width: 0;
   height: 100%;
@@ -1587,7 +1587,7 @@
   box-shadow: none;
 }
 
-.oneday-date-item > .oneday-date-remove {
+.modular-diary-date-item > .modular-diary-date-remove {
   width: 27px;
   height: 100%;
   min-height: 0;
@@ -1595,14 +1595,14 @@
   border-radius: 0;
 }
 
-.oneday-date-add {
+.modular-diary-date-add {
   appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--oneday-settings-gap-xs);
-  height: var(--oneday-settings-control-height);
-  min-height: var(--oneday-settings-control-height);
-  padding-inline: var(--oneday-settings-gap-sm);
+  gap: var(--modular-diary-settings-gap-xs);
+  height: var(--modular-diary-settings-control-height);
+  min-height: var(--modular-diary-settings-control-height);
+  padding-inline: var(--modular-diary-settings-gap-sm);
   border: 1px dashed var(--background-modifier-border);
   border-radius: var(--button-radius, 5px);
   background: transparent;
@@ -1610,19 +1610,19 @@
   box-shadow: none;
 }
 
-.oneday-date-add:hover {
+.modular-diary-date-add:hover {
   border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
   background: transparent;
   color: var(--text-normal);
 }
 
-.oneday-date-add svg {
+.modular-diary-date-add svg {
   width: 14px;
   height: 14px;
 }
 
-.oneday-rule-field-control > input,
-.oneday-rule-field-control > select {
+.modular-diary-rule-field-control > input,
+.modular-diary-rule-field-control > select {
   width: 100%;
   min-width: 0;
   height: 30px;
@@ -1630,14 +1630,14 @@
   box-sizing: border-box;
 }
 
-.oneday-settings-row-actions {
+.modular-diary-settings-row-actions {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   align-self: end;
 }
 
-.oneday-settings-icon-button {
+.modular-diary-settings-icon-button {
   appearance: none;
   display: inline-grid;
   place-items: center;
@@ -1652,18 +1652,18 @@
   box-shadow: none;
 }
 
-.oneday-settings-icon-button:hover {
+.modular-diary-settings-icon-button:hover {
   background: var(--background-modifier-hover);
   color: var(--text-error, var(--text-normal));
 }
 
-.oneday-settings-icon-button svg,
-.oneday-settings-add-icon svg {
+.modular-diary-settings-icon-button svg,
+.modular-diary-settings-add-icon svg {
   width: 15px;
   height: 15px;
 }
 
-.oneday-settings-add-button {
+.modular-diary-settings-add-button {
   appearance: none;
   display: inline-flex;
   align-items: center;
@@ -1679,60 +1679,60 @@
   box-shadow: none;
 }
 
-.oneday-settings-add-button:hover {
+.modular-diary-settings-add-button:hover {
   border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
   background: transparent;
   color: var(--text-normal);
 }
 
 @container (max-width: 480px) {
-  .oneday-category-editor-list {
+  .modular-diary-category-editor-list {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .oneday-rule-editor {
+  .modular-diary-rule-editor {
     grid-template-columns: repeat(2, minmax(0, 1fr)) 28px;
     padding-right: 0;
   }
 
-  .oneday-rule-editor [data-field="name"] {
+  .modular-diary-rule-editor [data-field="name"] {
     grid-column: 1 / 3;
   }
 
-  .oneday-rule-editor .oneday-settings-row-actions {
+  .modular-diary-rule-editor .modular-diary-settings-row-actions {
     grid-column: 3;
     grid-row: 1;
   }
 
-  .oneday-rule-editor [data-field="category"],
-  .oneday-rule-editor [data-field="goal"] {
+  .modular-diary-rule-editor [data-field="category"],
+  .modular-diary-rule-editor [data-field="goal"] {
     grid-column: 1;
   }
 
-  .oneday-rule-editor [data-field="target"],
-  .oneday-rule-editor [data-field="repeat"] {
+  .modular-diary-rule-editor [data-field="target"],
+  .modular-diary-rule-editor [data-field="repeat"] {
     grid-column: 2 / 4;
   }
 
-  .oneday-rule-field.is-full {
+  .modular-diary-rule-field.is-full {
     grid-column: 1 / 4;
   }
 
-  .oneday-interval-control {
+  .modular-diary-interval-control {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 /* 块内图文混排：左文右图 */
 
-.oneday-body {
+.modular-diary-body {
   position: relative; /* 网格容器：槽位绝对定位 */
   width: 100%; /* JS 按逻辑列数扩展到 >100%，容器负责横向滚动 */
   min-width: 100%;
   flex: 0 0 auto; /* 绝对定位子元素不能反向撑开 flex 子项，也不能被 flex 压回视口 */
 }
 
-.oneday-text-pane {
+.modular-diary-text-pane {
   flex: 1;
   min-width: 180px;
   height: 100%;
@@ -1745,14 +1745,14 @@
   cursor: text;
 }
 
-.oneday-text-placeholder {
+.modular-diary-text-placeholder {
   color: var(--text-faint);
   font-size: 13px;
   cursor: text;
   padding: 4px 0;
 }
 
-.oneday-text-inline {
+.modular-diary-text-inline {
   width: 100%;
   font-size: 14px;
   font-family: var(--font-text);
@@ -1767,8 +1767,8 @@
 }
 
 /* 打卡 / Todo：保持紧凑；打卡状态行使用无阴影描边以承载只读状态徽标。 */
-.oneday-habits,
-.oneday-todos {
+.modular-diary-habits,
+.modular-diary-todos {
   display: flex;
   flex-direction: column;
   gap: var(--size-4-1, 4px);
@@ -1777,11 +1777,11 @@
   min-height: 100%;
   box-sizing: border-box;
   color: var(--text-normal);
-  font-size: var(--oneday-font-body);
+  font-size: var(--modular-diary-font-body);
   line-height: 1.25;
 }
 
-.oneday-component-header {
+.modular-diary-component-header {
   display: flex;
   align-items: center;
   min-width: 0;
@@ -1789,30 +1789,30 @@
   gap: var(--size-4-1, 4px);
 }
 
-.oneday-component-title {
+.modular-diary-component-title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--oneday-component-title-font-size);
+  font-size: var(--modular-diary-component-title-font-size);
   line-height: 1.25;
   font-weight: var(--font-semibold, 600);
 }
 
-.oneday-component-count {
+.modular-diary-component-count {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
-.oneday-component-actions {
+.modular-diary-component-actions {
   display: inline-flex;
   gap: 2px;
   margin-left: auto;
 }
 
-.oneday-component-actions > button,
-.oneday-item-more,
-.oneday-todo-check {
+.modular-diary-component-actions > button,
+.modular-diary-item-more,
+.modular-diary-todo-check {
   appearance: none;
   -webkit-appearance: none;
   display: inline-grid;
@@ -1823,58 +1823,58 @@
   min-height: 22px;
   padding: 0;
   border: 0;
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: transparent;
   color: var(--text-muted);
   box-shadow: none;
 }
 
-.oneday-component-actions > button:hover,
-.oneday-item-more:hover {
-  background: var(--oneday-surface-control);
+.modular-diary-component-actions > button:hover,
+.modular-diary-item-more:hover {
+  background: var(--modular-diary-surface-control);
   color: var(--text-normal);
 }
 
-.oneday-todo-row button.oneday-todo-check,
-.oneday-todo-row button.oneday-todo-check:hover:not(:disabled) {
+.modular-diary-todo-row button.modular-diary-todo-check,
+.modular-diary-todo-row button.modular-diary-todo-check:hover:not(:disabled) {
   background: transparent;
   box-shadow: none;
 }
 
-.oneday-todo-row button.oneday-todo-check:hover:not(:disabled) {
+.modular-diary-todo-row button.modular-diary-todo-check:hover:not(:disabled) {
   color: var(--text-accent);
 }
 
-.oneday-todo-row button.oneday-todo-check:focus-visible {
+.modular-diary-todo-row button.modular-diary-todo-check:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 1px;
 }
 
-.oneday-component-actions svg,
-.oneday-item-more svg,
-.oneday-todo-check svg,
-.oneday-item-status svg {
+.modular-diary-component-actions svg,
+.modular-diary-item-more svg,
+.modular-diary-todo-check svg,
+.modular-diary-item-status svg {
   width: 14px;
   height: 14px;
 }
 
-.oneday-habit-list,
-.oneday-todo-list {
+.modular-diary-habit-list,
+.modular-diary-todo-list {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.oneday-habit-list {
-  gap: var(--oneday-control-gap);
+.modular-diary-habit-list {
+  gap: var(--modular-diary-control-gap);
 }
 
-.oneday-todo-list {
+.modular-diary-todo-list {
   gap: 2px;
 }
 
-.oneday-habit-row,
-.oneday-todo-row {
+.modular-diary-habit-row,
+.modular-diary-todo-row {
   position: relative;
   display: grid;
   align-items: center;
@@ -1887,50 +1887,50 @@
   box-sizing: border-box;
 }
 
-.oneday-habit-row {
+.modular-diary-habit-row {
   /* The status badge keeps its natural width until the body would drop
    * below 4em; past that the badge text truncates so the habit name stays
    * legible in a narrow pane. */
   grid-template-columns: 14px minmax(min(4em, 100%), 1fr) minmax(0, max-content);
   column-gap: 5px;
-  height: calc(var(--oneday-compact-control-height) + 8px);
-  min-height: calc(var(--oneday-compact-control-height) + 8px);
+  height: calc(var(--modular-diary-compact-control-height) + 8px);
+  min-height: calc(var(--modular-diary-compact-control-height) + 8px);
   padding: 3px 4px 3px 6px;
   border: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
 }
 
-.oneday-habit-row:focus-visible {
+.modular-diary-habit-row:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 1px;
 }
 
-.oneday-todo-row {
+.modular-diary-todo-row {
   grid-template-columns: 22px minmax(0, 1fr);
   column-gap: 4px;
   padding: 3px 4px;
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
 }
 
-.oneday-todo-row.is-manual {
+.modular-diary-todo-row.is-manual {
   grid-template-columns: 22px minmax(0, 1fr);
 }
 
-.oneday-todo-row:focus-visible {
+.modular-diary-todo-row:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: -1px;
 }
 
-.oneday-habit-row:hover,
-.oneday-todo-row:hover {
-  background: color-mix(in srgb, var(--oneday-surface-control) 72%, transparent);
+.modular-diary-habit-row:hover,
+.modular-diary-todo-row:hover {
+  background: color-mix(in srgb, var(--modular-diary-surface-control) 72%, transparent);
 }
 
-button.oneday-item-drag {
+button.modular-diary-item-drag {
   appearance: none;
   -webkit-appearance: none;
   position: absolute;
-  left: calc(0px - var(--oneday-content-inset));
+  left: calc(0px - var(--modular-diary-content-inset));
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
@@ -1939,12 +1939,12 @@ button.oneday-item-drag {
   gap: 2px 2px;
   grid-auto-flow: row;
   grid-template-columns: repeat(2, 1.5px);
-  width: var(--oneday-grip-width);
+  width: var(--modular-diary-grip-width);
   height: 22px;
   min-height: 22px;
   padding: 0;
   border: 0 !important;
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   /* Obsidian themes commonly restyle every button when its parent row is
      hovered. Row grips are deliberately dot-only, so their shell must remain
      transparent even under host/theme button chrome. */
@@ -1957,31 +1957,31 @@ button.oneday-item-drag {
   user-select: none;
 }
 
-.oneday-habit-row:is(:hover, :focus-within) button.oneday-item-drag,
-.oneday-todo-row:is(:hover, :focus-within) button.oneday-item-drag,
-button.oneday-item-drag:hover,
-button.oneday-item-drag:focus,
-button.oneday-item-drag:active {
+.modular-diary-habit-row:is(:hover, :focus-within) button.modular-diary-item-drag,
+.modular-diary-todo-row:is(:hover, :focus-within) button.modular-diary-item-drag,
+button.modular-diary-item-drag:hover,
+button.modular-diary-item-drag:focus,
+button.modular-diary-item-drag:active {
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
 }
 
-button.oneday-item-drag:active {
+button.modular-diary-item-drag:active {
   cursor: grabbing;
 }
 
-.oneday-item-sort-placeholder {
+.modular-diary-item-sort-placeholder {
   outline: 1px dashed var(--background-modifier-border-hover, var(--background-modifier-border));
   outline-offset: -1px;
-  background: color-mix(in srgb, var(--oneday-surface-control) 36%, transparent);
+  background: color-mix(in srgb, var(--modular-diary-surface-control) 36%, transparent);
 }
 
-.oneday-item-sort-placeholder > * {
+.modular-diary-item-sort-placeholder > * {
   visibility: hidden;
 }
 
-.oneday-item-sort-ghost {
+.modular-diary-item-sort-ghost {
   position: fixed !important;
   z-index: var(--layer-popover, 1000);
   margin: 0 !important;
@@ -1996,19 +1996,19 @@ button.oneday-item-drag:active {
 /* A pointer-owned sort gesture has one visual grip: the grip travelling with
    the source row. Candidate rows may still move to preview the drop position,
    but ordinary row hover must not reveal a second grip under the pointer. */
-.oneday-habit-list.is-ordering .oneday-habit-row .oneday-habit-drag,
-.oneday-todo-list.is-ordering .oneday-todo-row .oneday-todo-drag {
+.modular-diary-habit-list.is-ordering .modular-diary-habit-row .modular-diary-habit-drag,
+.modular-diary-todo-list.is-ordering .modular-diary-todo-row .modular-diary-todo-drag {
   opacity: 0 !important;
   pointer-events: none;
 }
 
-.oneday-item-sort-ghost button.oneday-item-drag {
+.modular-diary-item-sort-ghost button.modular-diary-item-drag {
   opacity: 1;
   pointer-events: none;
 }
 
-.oneday-todo-row:is(:hover, :focus-within) .oneday-todo-drag,
-.oneday-habit-row:is(:hover, :focus-within) .oneday-habit-drag {
+.modular-diary-todo-row:is(:hover, :focus-within) .modular-diary-todo-drag,
+.modular-diary-habit-row:is(:hover, :focus-within) .modular-diary-habit-drag {
   opacity: 1;
 }
 
@@ -2016,14 +2016,14 @@ button.oneday-item-drag:active {
    may keep :focus-within after the pointer moves to another row; suppress that
    stale visual while preserving focus visibility when the pointer leaves the
    list. */
-.oneday-todo-list:has(.oneday-todo-row:hover)
-  .oneday-todo-row:not(:hover) .oneday-todo-drag,
-.oneday-habit-list:has(.oneday-habit-row:hover)
-  .oneday-habit-row:not(:hover) .oneday-habit-drag {
+.modular-diary-todo-list:has(.modular-diary-todo-row:hover)
+  .modular-diary-todo-row:not(:hover) .modular-diary-todo-drag,
+.modular-diary-habit-list:has(.modular-diary-habit-row:hover)
+  .modular-diary-habit-row:not(:hover) .modular-diary-habit-drag {
   opacity: 0;
 }
 
-.oneday-item-dot {
+.modular-diary-item-dot {
   width: 8px;
   height: 8px;
   justify-self: center;
@@ -2031,8 +2031,8 @@ button.oneday-item-drag:active {
   background: var(--c, var(--text-muted));
 }
 
-.oneday-habit-body,
-.oneday-todo-body {
+.modular-diary-habit-body,
+.modular-diary-todo-body {
   display: grid;
   /* The meta column may take its natural width, but never the title's last
    * 4em: in a narrow pane the title stays legible (and truncates) while the
@@ -2044,33 +2044,33 @@ button.oneday-item-drag:active {
   gap: 2px 6px;
 }
 
-.oneday-item-title,
-.oneday-item-meta {
+.modular-diary-item-title,
+.modular-diary-item-meta {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.oneday-item-title {
+.modular-diary-item-title {
   font-weight: var(--font-medium, 500);
 }
 
-.oneday-item-meta {
+.modular-diary-item-meta {
   color: var(--text-muted);
-  font-size: var(--oneday-font-micro);
+  font-size: var(--modular-diary-font-micro);
   font-variant-numeric: tabular-nums;
 }
 
-.oneday-item-progress {
+.modular-diary-item-progress {
   grid-column: 1 / -1;
   height: 3px;
   overflow: hidden;
-  border-radius: var(--oneday-radius-data);
-  background: var(--oneday-surface-data-track);
+  border-radius: var(--modular-diary-radius-data);
+  background: var(--modular-diary-surface-data-track);
 }
 
-.oneday-item-progress-bar {
+.modular-diary-item-progress-bar {
   height: 100%;
   min-width: 0;
   max-width: 100%;
@@ -2078,29 +2078,29 @@ button.oneday-item-drag:active {
   transition: width 160ms ease-out;
 }
 
-.oneday-schedule-source {
+.modular-diary-schedule-source {
   cursor: grab;
   touch-action: none;
   user-select: none;
 }
 
-.oneday-schedule-source:active,
-.oneday-schedule-source.is-scheduling {
+.modular-diary-schedule-source:active,
+.modular-diary-schedule-source.is-scheduling {
   cursor: grabbing;
 }
 
-.oneday-schedule-source.is-scheduling {
+.modular-diary-schedule-source.is-scheduling {
   opacity: 0.58;
 }
 
-.oneday-schedule-drag-ghost {
+.modular-diary-schedule-drag-ghost {
   position: fixed;
   inset: 0 auto auto 0;
   z-index: var(--layer-popover, 1000);
   max-width: 240px;
   padding: 5px 8px;
   border: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: var(--background-primary);
   color: var(--text-muted);
   box-shadow: var(--shadow-s);
@@ -2113,40 +2113,40 @@ button.oneday-item-drag:active {
   will-change: transform;
 }
 
-.oneday-schedule-drag-ghost.is-valid {
+.modular-diary-schedule-drag-ghost.is-valid {
   border-color: var(--interactive-accent);
   color: var(--text-normal);
 }
 
-.oneday-svg .oneday-schedule-preview {
+.modular-diary-svg .modular-diary-schedule-preview {
   pointer-events: none;
 }
 
-.oneday-svg .oneday-schedule-preview rect {
+.modular-diary-svg .modular-diary-schedule-preview rect {
   fill-opacity: 0.24;
   stroke: var(--interactive-accent);
   stroke-width: 1;
   stroke-dasharray: 4 3;
 }
 
-.oneday-svg .oneday-schedule-preview text {
+.modular-diary-svg .modular-diary-schedule-preview text {
   fill: var(--text-normal);
-  font-size: var(--oneday-font-micro);
+  font-size: var(--modular-diary-font-micro);
   font-weight: var(--font-medium, 500);
 }
 
-.oneday-item-status {
+.modular-diary-item-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--oneday-control-gap);
-  height: calc(var(--oneday-compact-control-height) - 2px);
-  min-height: calc(var(--oneday-compact-control-height) - 2px);
+  gap: var(--modular-diary-control-gap);
+  height: calc(var(--modular-diary-compact-control-height) - 2px);
+  min-height: calc(var(--modular-diary-compact-control-height) - 2px);
   padding: 0 var(--size-4-2, 8px);
-  border-radius: var(--oneday-radius-control);
-  background: var(--oneday-surface-control);
+  border-radius: var(--modular-diary-radius-control);
+  background: var(--modular-diary-surface-control);
   color: var(--text-muted);
-  font-size: var(--oneday-font-caption);
+  font-size: var(--modular-diary-font-caption);
   line-height: 1;
   white-space: nowrap;
   min-width: 0;
@@ -2156,46 +2156,46 @@ button.oneday-item-drag:active {
   user-select: none;
 }
 
-.oneday-item-status > span {
+.modular-diary-item-status > span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.oneday-habit-row.is-complete .oneday-item-status {
+.modular-diary-habit-row.is-complete .modular-diary-item-status {
   background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-primary));
   color: var(--text-accent);
 }
 
-.oneday-todo-row.is-complete .oneday-todo-check {
+.modular-diary-todo-row.is-complete .modular-diary-todo-check {
   color: var(--text-accent);
 }
 
-.oneday-todo-row.is-complete .oneday-item-title {
+.modular-diary-todo-row.is-complete .modular-diary-item-title {
   color: var(--text-muted);
   text-decoration: line-through;
   text-decoration-thickness: 1px;
 }
 
-.oneday-item-more {
+.modular-diary-item-more {
   opacity: 0;
 }
 
-.oneday-habit-row:is(:hover, :focus-within) .oneday-item-more,
-.oneday-todo-row:is(:hover, :focus-within) .oneday-item-more {
+.modular-diary-habit-row:is(:hover, :focus-within) .modular-diary-item-more,
+.modular-diary-todo-row:is(:hover, :focus-within) .modular-diary-item-more {
   opacity: 1;
 }
 
-.oneday-todo-group {
+.modular-diary-todo-group {
   display: block;
   padding: 5px 0 2px;
   color: var(--text-faint);
-  font-size: var(--oneday-font-micro);
+  font-size: var(--modular-diary-font-micro);
   font-weight: var(--font-semibold, 600);
   line-height: 1;
 }
 
-.oneday-todo-form {
+.modular-diary-todo-form {
   display: grid;
   grid-template-columns: minmax(110px, 2fr) minmax(80px, 1fr) 108px 26px;
   gap: 3px;
@@ -2203,62 +2203,62 @@ button.oneday-item-drag:active {
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.oneday-todo-form-error {
+.modular-diary-todo-form-error {
   grid-column: 1 / -1;
   min-width: 0;
   margin: 0;
   padding: 0 4px;
   color: var(--text-error);
-  font-size: var(--oneday-font-micro);
+  font-size: var(--modular-diary-font-micro);
   line-height: 1.25;
 }
 
-.oneday-todo-form-error[hidden] {
+.modular-diary-todo-form-error[hidden] {
   display: none;
 }
 
-.oneday-todo-form [aria-invalid="true"] {
+.modular-diary-todo-form [aria-invalid="true"] {
   box-shadow: inset 0 0 0 1px var(--text-error) !important;
 }
 
-.oneday-todo-edit-form {
+.modular-diary-todo-edit-form {
   grid-column: 1 / -1;
   padding: 0;
   border-bottom: 0;
 }
 
-.oneday-todo-row.is-editing > :not(.oneday-todo-edit-form) {
+.modular-diary-todo-row.is-editing > :not(.modular-diary-todo-edit-form) {
   display: none;
 }
 
-.oneday-todo-form[hidden] {
+.modular-diary-todo-form[hidden] {
   display: none;
 }
 
-.oneday-todo-form input,
-.oneday-todo-form select,
-.oneday-todo-form button {
+.modular-diary-todo-form input,
+.modular-diary-todo-form select,
+.modular-diary-todo-form button {
   width: 100%;
   min-width: 0;
   height: 26px;
   min-height: 26px;
   padding-block: 0;
-  border-radius: var(--oneday-radius-control);
-  font-size: var(--oneday-font-caption);
+  border-radius: var(--modular-diary-radius-control);
+  font-size: var(--modular-diary-font-caption);
 }
 
-.oneday-todo-estimate-field {
+.modular-diary-todo-estimate-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(44px, auto);
   align-items: center;
   height: 26px;
   min-width: 0;
   border: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: var(--background-modifier-form-field);
 }
 
-.oneday-todo-form input.oneday-todo-estimate-input {
+.modular-diary-todo-form input.modular-diary-todo-estimate-input {
   height: 24px;
   min-height: 24px;
   padding-inline: 7px 2px;
@@ -2267,26 +2267,26 @@ button.oneday-item-drag:active {
   box-shadow: none !important;
 }
 
-.oneday-todo-form select.oneday-todo-estimate-unit-select {
+.modular-diary-todo-form select.modular-diary-todo-estimate-unit-select {
   width: auto;
   height: 24px;
   min-height: 24px;
   padding: 0 16px 0 5px;
   border: 0;
   border-left: 1px solid var(--background-modifier-border);
-  border-radius: 0 var(--oneday-radius-control) var(--oneday-radius-control) 0;
+  border-radius: 0 var(--modular-diary-radius-control) var(--modular-diary-radius-control) 0;
   background-color: transparent;
   box-shadow: none;
   color: var(--text-muted);
-  font-size: var(--oneday-font-micro);
+  font-size: var(--modular-diary-font-micro);
   line-height: 1;
 }
 
-.oneday-todo-form button {
+.modular-diary-todo-form button {
   padding-inline: 4px;
 }
 
-.oneday-container button.oneday-component-empty {
+.modular-diary-container button.modular-diary-component-empty {
   appearance: none;
   -webkit-appearance: none;
   display: flex;
@@ -2299,83 +2299,83 @@ button.oneday-item-drag:active {
   min-height: 34px;
   padding: 3px 8px;
   border: 1px dashed var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: transparent;
   color: var(--text-muted);
   box-shadow: none;
 }
 
-.oneday-container button.oneday-component-empty:hover {
+.modular-diary-container button.modular-diary-component-empty:hover {
   border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
   background: transparent;
   color: var(--text-normal);
 }
 
-.oneday-container button.oneday-component-empty:focus-visible {
+.modular-diary-container button.modular-diary-component-empty:focus-visible {
   border-color: var(--background-modifier-border-focus, var(--interactive-accent));
   outline: 2px solid var(--background-modifier-border-focus, var(--interactive-accent));
   outline-offset: 1px;
 }
 
-.oneday-component-empty-icon {
+.modular-diary-component-empty-icon {
   display: inline-grid;
   place-items: center;
 }
 
-.oneday-component-empty-icon svg {
+.modular-diary-component-empty-icon svg {
   width: 16px;
   height: 16px;
 }
 
 @media (max-width: 700px) {
-  .oneday-todo-form {
+  .modular-diary-todo-form {
     grid-template-columns: minmax(100px, 1fr) minmax(70px, 1fr) 52px 26px;
   }
 
-  .oneday-todo-title-input {
+  .modular-diary-todo-title-input {
     grid-column: 1 / 3;
     grid-row: 1;
   }
 
-  .oneday-todo-save {
+  .modular-diary-todo-save {
     grid-column: 4;
     grid-row: 1;
   }
 
-  .oneday-todo-category-select {
+  .modular-diary-todo-category-select {
     grid-column: 1 / 3;
     grid-row: 2;
   }
 
-  .oneday-todo-estimate-field {
+  .modular-diary-todo-estimate-field {
     grid-column: 3 / 5;
     grid-row: 2;
   }
 }
 
-.oneday-rules-settings .setting-item {
+.modular-diary-rules-settings .setting-item {
   align-items: flex-start;
 }
 
-.oneday-rule-setting .setting-item-control {
+.modular-diary-rule-setting .setting-item-control {
   flex: 1 1 520px;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--size-4-1, 4px);
 }
 
-.oneday-rule-setting input[type="text"],
-.oneday-rule-setting input[type="number"],
-.oneday-rule-setting select {
+.modular-diary-rule-setting input[type="text"],
+.modular-diary-rule-setting input[type="number"],
+.modular-diary-rule-setting select {
   min-width: 92px;
 }
 
-.oneday-weekday-control {
+.modular-diary-weekday-control {
   display: inline-flex;
   gap: 2px;
 }
 
-.oneday-weekday-control > button {
+.modular-diary-weekday-control > button {
   width: 26px;
   height: 26px;
   min-height: 26px;
@@ -2383,21 +2383,21 @@ button.oneday-item-drag:active {
   border-radius: var(--button-radius, 5px);
 }
 
-.oneday-weekday-control > button[aria-pressed="true"] {
+.modular-diary-weekday-control > button[aria-pressed="true"] {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
 }
 
 /* 插槽化布局 + 组件拖动手柄 + 窄屏横向滚动 */
 
-.oneday-slot {
+.modular-diary-slot {
   position: absolute;
   overflow: auto;
-  border-radius: var(--oneday-radius-surface);
+  border-radius: var(--modular-diary-radius-surface);
   /* 1px 内边框 + 4px padding 保持原来的 5px 内容起点；真实 border
      不会像 outline 一样在横向滚动视口右缘被裁掉。 */
   border: 1px solid transparent;
-  padding: var(--oneday-slot-padding-block) 4px;
+  padding: var(--modular-diary-slot-padding-block) 4px;
   box-sizing: border-box;
   transition: left 0.15s ease, top 0.15s ease, width 0.15s ease, height 0.15s ease, border-color 0.1s;
 }
@@ -2406,26 +2406,26 @@ button.oneday-item-drag:active {
  * 常规内容槽共享同一条左右内容起始线。时间轴不在此列：它的小时标签、
  * 轨道和右侧标注车道使用独立坐标系，改变 slot padding 会移动几何基准。
  */
-.oneday-slot:is(.oneday-slot-dialog, .oneday-slot-toolbar, .oneday-slot-stats, .oneday-slot-habits, .oneday-slot-todos, .oneday-slot-quote, [data-slot^="text"]) {
-  padding-inline: var(--oneday-content-inset);
+.modular-diary-slot:is(.modular-diary-slot-dialog, .modular-diary-slot-toolbar, .modular-diary-slot-stats, .modular-diary-slot-habits, .modular-diary-slot-todos, .modular-diary-slot-quote, [data-slot^="text"]) {
+  padding-inline: var(--modular-diary-content-inset);
 }
 
 /* slot padding 变宽不应把固定在左上角的拖拽手柄一起推向内侧。 */
-.oneday-slot:is(.oneday-slot-dialog, .oneday-slot-toolbar, .oneday-slot-stats, .oneday-slot-habits, .oneday-slot-todos, .oneday-slot-quote, [data-slot^="text"])
-  > .oneday-slot-grip-anchor {
+.modular-diary-slot:is(.modular-diary-slot-dialog, .modular-diary-slot-toolbar, .modular-diary-slot-stats, .modular-diary-slot-habits, .modular-diary-slot-todos, .modular-diary-slot-quote, [data-slot^="text"])
+  > .modular-diary-slot-grip-anchor {
   transform: translate(
-    calc(var(--size-4-1, 4px) - var(--oneday-content-inset)),
-    calc(var(--size-4-1, 4px) - var(--oneday-slot-padding-block))
+    calc(var(--size-4-1, 4px) - var(--modular-diary-content-inset)),
+    calc(var(--size-4-1, 4px) - var(--modular-diary-slot-padding-block))
   );
 }
 
 /* 文本槽位的外框不能成为滚动容器，否则作为其子元素的缩放手柄会被正文卷走。 */
-.oneday-slot[data-slot^="text"] {
+.modular-diary-slot[data-slot^="text"] {
   overflow: hidden;
 }
 
 /* 时间轴外框固定承载八向手柄；只有 SVG 内容层滚动。 */
-.oneday-slot[data-slot="timeline"] {
+.modular-diary-slot[data-slot="timeline"] {
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2436,11 +2436,11 @@ button.oneday-item-drag:active {
  * 但移动手柄仍应和其它元素块一样锚在外壳顶边，而不是被 8px 上内边距
  * 推低。这里只抵消纵向 padding，保留时间轴原本的横向几何。
  */
-.oneday-slot[data-slot="timeline"] > .oneday-slot-grip-anchor {
-  transform: translateY(calc(var(--size-4-1, 4px) - var(--oneday-slot-padding-block)));
+.modular-diary-slot[data-slot="timeline"] > .modular-diary-slot-grip-anchor {
+  transform: translateY(calc(var(--size-4-1, 4px) - var(--modular-diary-slot-padding-block)));
 }
 
-.oneday-slot:hover {
+.modular-diary-slot:hover {
   border-color: var(--background-modifier-border);
   /* 当前交互槽位整体抬高，确保 grip 不会被相邻槽位覆盖。 */
   z-index: 20;
@@ -2450,25 +2450,25 @@ button.oneday-item-drag:active {
  * 空状态的虚线就是元素块边界本身，不再在共享 content inset 内嵌第二张卡片。
  * 子元素只承载文案/点击；hover 只改变同一根虚线的颜色。
  */
-.oneday-slot.is-empty-state {
+.modular-diary-slot.is-empty-state {
   padding: 0;
   border-style: dashed;
   border-color: var(--background-modifier-border);
 }
 
-.oneday-slot.is-empty-state:hover {
+.modular-diary-slot.is-empty-state:hover {
   border-style: dashed;
   border-color: var(--background-modifier-border-hover, var(--background-modifier-border));
 }
 
-.oneday-slot.is-empty-state:has(.oneday-toolbar-empty:focus-visible) {
+.modular-diary-slot.is-empty-state:has(.modular-diary-toolbar-empty:focus-visible) {
   border-color: var(--background-modifier-border-focus, var(--interactive-accent));
   outline: 2px solid var(--background-modifier-border-focus, var(--interactive-accent));
   outline-offset: 1px;
 }
 
 /* 共享 inset 被清零后，仍把移动手柄放回普通元素块统一的 4px 锚点。 */
-.oneday-slot.is-empty-state > .oneday-slot-grip-anchor {
+.modular-diary-slot.is-empty-state > .modular-diary-slot-grip-anchor {
   transform: translateX(var(--size-4-1, 4px));
 }
 
@@ -2476,26 +2476,26 @@ button.oneday-item-drag:active {
  * 空状态的虚线仍是 slot 的真实边界，只在移动手柄周围开一个 legend 式
  * 缺口。整体内缩虚线会让空状态再次变成“卡片套卡片”，也无法撑满元素块。
  */
-.oneday-slot.is-empty-state > .oneday-slot-grip-anchor::before {
+.modular-diary-slot.is-empty-state > .modular-diary-slot-grip-anchor::before {
   content: "";
   position: absolute;
   z-index: 99;
   left: calc(0px - var(--size-4-1, 4px));
   top: calc(0px - var(--size-4-1, 4px));
-  width: calc(var(--oneday-grip-width) + var(--size-4-2, 8px));
+  width: calc(var(--modular-diary-grip-width) + var(--size-4-2, 8px));
   height: calc(22px + var(--size-4-2, 8px));
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: var(--background-primary);
   opacity: 0;
   pointer-events: none;
 }
 
-.oneday-slot.is-empty-state:is(:hover, :focus-within) > .oneday-slot-grip-anchor::before {
+.modular-diary-slot.is-empty-state:is(:hover, :focus-within) > .modular-diary-slot-grip-anchor::before {
   opacity: 1;
 }
 
-.oneday-slot.is-placeholder,
-.oneday-slot.is-resizing {
+.modular-diary-slot.is-placeholder,
+.modular-diary-slot.is-resizing {
   transition: none;
   /*
    * 缩放/换位预览必须完整属于 slot 自身。向外的 outline 在第 0 行或
@@ -2504,14 +2504,14 @@ button.oneday-item-drag:active {
    */
   outline: 2px dashed var(--text-accent);
   outline-offset: -2px;
-  border-radius: var(--oneday-radius-surface);
+  border-radius: var(--modular-diary-radius-surface);
 }
 
-.oneday-body.is-grid-interacting .oneday-slot {
+.modular-diary-body.is-grid-interacting .modular-diary-slot {
   transition: none !important;
 }
 
-.oneday-slot-grip-anchor {
+.modular-diary-slot-grip-anchor {
   position: sticky;
   top: 0;
   left: 0;
@@ -2522,25 +2522,25 @@ button.oneday-item-drag:active {
   pointer-events: none;
 }
 
-.oneday-slot button.oneday-slot-grip {
+.modular-diary-slot button.modular-diary-slot-grip {
   appearance: none;
   -webkit-appearance: none;
   position: absolute;
   top: 0;
   left: 0;
-  transform: translate(calc(0px - var(--oneday-grip-inline-overhang)), -2px);
+  transform: translate(calc(0px - var(--modular-diary-grip-inline-overhang)), -2px);
   z-index: 100;
   pointer-events: auto;
   opacity: 0;
   border: 1px solid var(--background-modifier-border);
   /* 使用设计系统里的不透明手柄表面，避免透出下方内容。 */
-  background: var(--oneday-surface-handle);
-  border-radius: var(--oneday-radius-control);
+  background: var(--modular-diary-surface-handle);
+  border-radius: var(--modular-diary-radius-control);
   cursor: grab;
   touch-action: none;
   user-select: none;
   box-shadow: none;
-  width: var(--oneday-grip-width);
+  width: var(--modular-diary-grip-width);
   height: 22px;
   padding: 0;
   display: grid;
@@ -2551,8 +2551,8 @@ button.oneday-item-drag:active {
 }
 
 /* 六点手柄（2 列 × 3 行竖排）：JS 生成 span */
-.oneday-slot button.oneday-slot-grip span,
-.oneday-item-drag span {
+.modular-diary-slot button.modular-diary-slot-grip span,
+.modular-diary-item-drag span {
   width: 1.5px;
   height: 1.5px;
   border-radius: 50%;
@@ -2560,39 +2560,39 @@ button.oneday-item-drag:active {
 }
 
 /* 常规工具栏已由共享 inset 给 grip 让位；时间轴顶栏仍使用自己的坐标系。 */
-.oneday-slot-toolbar .oneday-toolbar {
+.modular-diary-slot-toolbar .modular-diary-toolbar {
   padding-left: 0;
 }
 
-.oneday-slot-timeline .oneday-timeline-topbar {
+.modular-diary-slot-timeline .modular-diary-timeline-topbar {
   box-sizing: border-box;
   padding-left: 22px;
 }
 
-.oneday-slot:hover .oneday-slot-grip {
+.modular-diary-slot:hover .modular-diary-slot-grip {
   opacity: 1;
 }
 
 /* 拖拽换位：浮动克隆 + 虚线占位（rbd/SortableJS 模式） */
 
-.oneday-drag-clone {
+.modular-diary-drag-clone {
   position: fixed;
   z-index: 100;
   pointer-events: none;
   opacity: 0.92;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-surface, var(--button-radius, 5px));
+  border-radius: var(--modular-diary-radius-surface, var(--button-radius, 5px));
   box-shadow: var(--shadow-s);
 }
 
-.oneday-slot.is-placeholder > * {
+.modular-diary-slot.is-placeholder > * {
   visibility: hidden;
 }
 
 /* 网格：八向缩放手柄（hover 显示） */
 
-.oneday-handle {
+.modular-diary-handle {
   position: absolute;
   z-index: 13;
   opacity: 0;
@@ -2602,40 +2602,40 @@ button.oneday-item-drag:active {
   user-select: none;
 }
 
-.oneday-slot:hover .oneday-handle {
+.modular-diary-slot:hover .modular-diary-handle {
   opacity: 1;
 }
 
-.oneday-handle:hover {
+.modular-diary-handle:hover {
   background: transparent;
 }
 
-.oneday-handle-n { top: 0; left: 28px; right: 8px; height: 8px; cursor: ns-resize; } /* 顶边左端避开 grip */
-.oneday-handle-s { bottom: 0; left: 10px; right: 8px; height: 8px; cursor: ns-resize; }
-.oneday-handle-w { top: 28px; bottom: 8px; left: 0; width: 8px; cursor: ew-resize; }
-.oneday-handle-e { top: 10px; bottom: 8px; right: 0; width: 8px; cursor: ew-resize; }
-.oneday-handle-ne, .oneday-handle-nw, .oneday-handle-se, .oneday-handle-sw { width: 10px; height: 10px; }
-.oneday-handle-ne { top: 0; right: 0; cursor: nesw-resize; }
-.oneday-handle-sw { bottom: 0; left: 0; cursor: nesw-resize; }
-.oneday-handle-se { bottom: 0; right: 0; cursor: nwse-resize; }
-.oneday-handle-nw { top: 0; left: 0; cursor: nwse-resize; }
+.modular-diary-handle-n { top: 0; left: 28px; right: 8px; height: 8px; cursor: ns-resize; } /* 顶边左端避开 grip */
+.modular-diary-handle-s { bottom: 0; left: 10px; right: 8px; height: 8px; cursor: ns-resize; }
+.modular-diary-handle-w { top: 28px; bottom: 8px; left: 0; width: 8px; cursor: ew-resize; }
+.modular-diary-handle-e { top: 10px; bottom: 8px; right: 0; width: 8px; cursor: ew-resize; }
+.modular-diary-handle-ne, .modular-diary-handle-nw, .modular-diary-handle-se, .modular-diary-handle-sw { width: 10px; height: 10px; }
+.modular-diary-handle-ne { top: 0; right: 0; cursor: nesw-resize; }
+.modular-diary-handle-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.modular-diary-handle-se { bottom: 0; right: 0; cursor: nwse-resize; }
+.modular-diary-handle-nw { top: 0; left: 0; cursor: nwse-resize; }
 
 /* 块级快捷入口（右下角，hover 淡入） */
 
-.oneday-more-actions,
-.oneday-open-settings {
+.modular-diary-more-actions,
+.modular-diary-open-settings {
   appearance: none;
   -webkit-appearance: none;
   position: absolute;
   bottom: 4px;
   /* block 级操作必须高于 slot(20) 及其缩放热区，但低于菜单浮层(1000)。 */
-  z-index: var(--oneday-layer-block-action);
+  z-index: var(--modular-diary-layer-block-action);
   pointer-events: auto;
-  width: var(--oneday-icon-button-size);
-  height: var(--oneday-icon-button-size);
-  border-radius: var(--oneday-radius-control);
+  width: var(--modular-diary-icon-button-size);
+  height: var(--modular-diary-icon-button-size);
+  border-radius: var(--modular-diary-radius-control);
   border: 1px solid transparent;
-  background: var(--oneday-surface-control);
+  background: var(--modular-diary-surface-control);
   color: var(--text-muted);
   cursor: pointer;
   box-shadow: none;
@@ -2647,58 +2647,58 @@ button.oneday-item-drag:active {
   justify-content: center;
 }
 
-.oneday-more-actions {
+.modular-diary-more-actions {
   right: 4px;
 }
 
-.oneday-open-settings {
-  right: calc(4px + var(--oneday-icon-button-size) + var(--oneday-control-gap));
+.modular-diary-open-settings {
+  right: calc(4px + var(--modular-diary-icon-button-size) + var(--modular-diary-control-gap));
 }
 
-.oneday-more-actions:hover,
-.oneday-open-settings:hover {
-  background: var(--oneday-surface-control);
+.modular-diary-more-actions:hover,
+.modular-diary-open-settings:hover {
+  background: var(--modular-diary-surface-control);
   color: var(--text-normal);
   box-shadow: none;
 }
 
-.oneday-more-actions svg,
-.oneday-open-settings svg {
+.modular-diary-more-actions svg,
+.modular-diary-open-settings svg {
   width: 15px;
   height: 15px;
 }
 
-.oneday-layout-edit-toggle {
+.modular-diary-layout-edit-toggle {
   display: none;
 }
 
 /* Block-level source mode: an opaque editor plane over the live visual block. */
 
-.oneday-source-mode {
+.modular-diary-source-mode {
   position: absolute;
   /* 贴顶、按内容定高：四行源码不该撑满一个 1400px 的 Block。
      高度 = clamp(320px, 内容, Block 内高)，超过 Block 时编辑区内部滚动。 */
   inset: var(--size-4-1, 4px) var(--size-4-1, 4px) auto;
-  z-index: calc(var(--oneday-layer-block-action) + 1);
+  z-index: calc(var(--modular-diary-layer-block-action) + 1);
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: min(320px, calc(100% - var(--size-4-2, 8px)));
   max-height: calc(100% - var(--size-4-2, 8px));
   overflow: hidden;
-  border-radius: var(--oneday-radius-surface);
+  border-radius: var(--modular-diary-radius-surface);
   background: var(--background-primary);
   color: var(--text-normal);
   box-shadow: inset 0 0 0 1px var(--background-modifier-border);
 }
 
 /* 源码面板下方仍可见的可视 Block 只作上下文，草稿打开期间不接受直接操作。 */
-.oneday-container.is-source-mode > .oneday-block-scroll {
+.modular-diary-container.is-source-mode > .modular-diary-block-scroll {
   pointer-events: none;
   user-select: none;
 }
 
-.oneday-source-header {
+.modular-diary-source-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2709,20 +2709,20 @@ button.oneday-item-drag:active {
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.oneday-source-heading {
+.modular-diary-source-heading {
   display: flex;
   align-items: baseline;
   gap: var(--size-4-2, 8px);
   min-width: 0;
 }
 
-.oneday-source-title {
+.modular-diary-source-title {
   flex: 0 0 auto;
-  font-size: var(--oneday-component-title-font-size);
+  font-size: var(--modular-diary-component-title-font-size);
   font-weight: var(--font-semibold, 600);
 }
 
-.oneday-source-subtitle {
+.modular-diary-source-subtitle {
   overflow: hidden;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
@@ -2730,40 +2730,40 @@ button.oneday-item-drag:active {
   white-space: nowrap;
 }
 
-.oneday-source-actions {
+.modular-diary-source-actions {
   display: flex;
   align-items: center;
-  gap: var(--oneday-control-gap);
+  gap: var(--modular-diary-control-gap);
   flex: 0 0 auto;
 }
 
-.oneday-source-actions button {
+.modular-diary-source-actions button {
   appearance: none;
-  min-height: var(--oneday-compact-control-height);
-  padding: 0 var(--oneday-control-padding-x);
+  min-height: var(--modular-diary-compact-control-height);
+  padding: 0 var(--modular-diary-control-padding-x);
   border: 1px solid transparent;
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   box-shadow: none;
   font-size: var(--font-ui-smaller);
   cursor: pointer;
 }
 
-.oneday-source-cancel {
-  background: var(--oneday-surface-control);
+.modular-diary-source-cancel {
+  background: var(--modular-diary-surface-control);
   color: var(--text-normal);
 }
 
-.oneday-source-apply {
+.modular-diary-source-apply {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
 }
 
-.oneday-source-actions button:disabled {
+.modular-diary-source-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
-.oneday-source-editor {
+.modular-diary-source-editor {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -2772,11 +2772,11 @@ button.oneday-item-drag:active {
   margin: var(--size-4-2, 8px) var(--size-4-3, 12px) 0;
   overflow: hidden;
   border: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: var(--background-secondary);
 }
 
-.oneday-source-fence {
+.modular-diary-source-fence {
   flex: 0 0 auto;
   padding: 3px var(--size-4-2, 8px);
   color: var(--text-faint);
@@ -2786,7 +2786,7 @@ button.oneday-item-drag:active {
   user-select: none;
 }
 
-.oneday-source-textarea {
+.modular-diary-source-textarea {
   appearance: none;
   display: block;
   flex: 1 1 auto;
@@ -2810,17 +2810,17 @@ button.oneday-item-drag:active {
   white-space: pre;
 }
 
-.oneday-source-textarea:focus {
+.modular-diary-source-textarea:focus {
   border: 0;
   outline: none;
   box-shadow: none;
 }
 
-.oneday-source-textarea[aria-invalid="true"] {
+.modular-diary-source-textarea[aria-invalid="true"] {
   background: color-mix(in srgb, var(--text-error) 5%, transparent);
 }
 
-.oneday-source-footer {
+.modular-diary-source-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2831,42 +2831,42 @@ button.oneday-item-drag:active {
   font-size: var(--font-ui-smaller);
 }
 
-.oneday-source-feedback,
-.oneday-source-shortcut {
+.modular-diary-source-feedback,
+.modular-diary-source-shortcut {
   overflow: hidden;
   color: var(--text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.oneday-source-feedback.is-error {
+.modular-diary-source-feedback.is-error {
   color: var(--text-error);
 }
 
-.oneday-source-shortcut {
+.modular-diary-source-shortcut {
   flex: 0 1 auto;
   color: var(--text-faint);
 }
 
 @container (max-width: 520px) {
-  .oneday-source-header {
+  .modular-diary-source-header {
     align-items: flex-start;
   }
 
-  .oneday-source-heading {
+  .modular-diary-source-heading {
     flex-direction: column;
     gap: 0;
   }
 
-  .oneday-source-subtitle,
-  .oneday-source-shortcut {
+  .modular-diary-source-subtitle,
+  .modular-diary-source-shortcut {
     display: none;
   }
 }
 
 /* 轨道宽度手柄：只让时间轴本体的右边线成为命中区 */
 
-.oneday-width-handle {
+.modular-diary-width-handle {
   position: absolute;
   width: 3px;
   /* JS 读取实际轨道矩形；3px 热区以右边线为中心。 */
@@ -2880,73 +2880,73 @@ button.oneday-item-drag:active {
 
 /* 轴向范围：轨道外的绘制矩形就是完整热区，绝不借用边线透明命中。 */
 
-.oneday-svg .oneday-range-step-controls {
+.modular-diary-svg .modular-diary-range-step-controls {
   opacity: 0;
   pointer-events: all;
 }
 
-.oneday-svg .oneday-range-step-controls:hover,
-.oneday-svg .oneday-range-step-controls:focus-within {
+.modular-diary-svg .modular-diary-range-step-controls:hover,
+.modular-diary-svg .modular-diary-range-step-controls:focus-within {
   opacity: 1;
 }
 
-.oneday-svg .oneday-range-step-button {
+.modular-diary-svg .modular-diary-range-step-button {
   cursor: pointer;
   outline: none;
 }
 
-.oneday-svg .oneday-range-step-button[aria-disabled="true"] {
+.modular-diary-svg .modular-diary-range-step-button[aria-disabled="true"] {
   cursor: not-allowed;
 }
 
-.oneday-svg .oneday-range-step-button-bg {
+.modular-diary-svg .modular-diary-range-step-button-bg {
   fill: var(--background-modifier-hover);
   stroke: var(--background-modifier-border);
   stroke-width: 1;
 }
 
-.oneday-svg .oneday-range-step-button:hover .oneday-range-step-button-bg,
-.oneday-svg .oneday-range-step-button:focus .oneday-range-step-button-bg {
+.modular-diary-svg .modular-diary-range-step-button:hover .modular-diary-range-step-button-bg,
+.modular-diary-svg .modular-diary-range-step-button:focus .modular-diary-range-step-button-bg {
   fill: var(--background-modifier-active-hover);
   stroke: var(--interactive-accent);
 }
 
-.oneday-svg .oneday-range-step-button[aria-disabled="true"] .oneday-range-step-button-bg {
+.modular-diary-svg .modular-diary-range-step-button[aria-disabled="true"] .modular-diary-range-step-button-bg {
   fill: var(--background-secondary);
   stroke: var(--background-modifier-border);
 }
 
-.oneday-svg .oneday-range-step-button-text {
+.modular-diary-svg .modular-diary-range-step-button-text {
   fill: var(--text-muted);
-  font-size: calc(var(--oneday-font-svg-label) - 1px);
+  font-size: calc(var(--modular-diary-font-svg-label) - 1px);
   font-weight: 500;
 }
 
-.oneday-svg .oneday-range-step-button[aria-disabled="true"] .oneday-range-step-button-text {
+.modular-diary-svg .modular-diary-range-step-button[aria-disabled="true"] .modular-diary-range-step-button-text {
   fill: var(--text-faint);
 }
 
-.oneday-svg .oneday-preview-block {
+.modular-diary-svg .modular-diary-preview-block {
   pointer-events: none; /* 乐观渲染的临时块不吃事件（盖在真块上会吞掉 hover/右键） */
 }
 
 /* 文字区编辑态：彻底无框；隐藏移动 grip，但保留八向缩放热区。 */
 
-.oneday-text-inline,
-.oneday-text-inline:focus {
+.modular-diary-text-inline,
+.modular-diary-text-inline:focus {
   background: none !important;
   box-shadow: none !important;
   outline: none !important;
   border: none !important;
 }
 
-.oneday-slot.is-editing .oneday-slot-grip {
+.modular-diary-slot.is-editing .modular-diary-slot-grip {
   display: none;
 }
 
 /* 计划模式：色板圆点变斜线（双线、方向与 plan 块一致） */
 
-.oneday-toolbar.is-plan .oneday-swatch-dot {
+.modular-diary-toolbar.is-plan .modular-diary-swatch-dot {
   /* 方形+边框斜纹（yyt 拍板：与图层切换按钮同语言） */
   border-radius: 2px;
   border: 1px solid var(--c, #bdbdbd);
@@ -2955,41 +2955,41 @@ button.oneday-item-drag:active {
 
 /* 标记工具用“时间点的横线”而不是时段色块。符号本身同时编码
    记录/计划：记录为实线，计划为虚线；10px 占位保持文字不跳动。 */
-.oneday-swatch-dot.is-marker {
+.modular-diary-swatch-dot.is-marker {
   border: 0;
   border-radius: 0;
   background: linear-gradient(90deg, var(--c, #bdbdbd), var(--c, #bdbdbd)) center / 100% 2px no-repeat;
 }
 
-.oneday-swatch-dot.is-marker.is-plan {
+.modular-diary-swatch-dot.is-marker.is-plan {
   border: 0;
   border-radius: 0;
   background: repeating-linear-gradient(90deg, var(--c, #bdbdbd) 0 3px, transparent 3px 5px) center / 100% 2px no-repeat;
 }
 
-.oneday-body.is-settling .oneday-slot {
+.modular-diary-body.is-settling .modular-diary-slot {
   transition: none !important; /* 初始量体/拟合不动画，否则创建色块时块会缩一下 */
 }
 
 /* 对话框 loading 内联 */
-.oneday-dialog-loading {
+.modular-diary-dialog-loading {
   position: absolute;
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: var(--oneday-font-caption);
+  font-size: var(--modular-diary-font-caption);
   color: var(--text-muted);
   pointer-events: none;
-  animation: oneday-pulse 1s ease-in-out infinite;
+  animation: modular-diary-pulse 1s ease-in-out infinite;
 }
 
-@keyframes oneday-pulse {
+@keyframes modular-diary-pulse {
   50% { opacity: 0.4; }
 }
 
 /* 时间轴顶栏：日期+星期 / 模式开关 */
 
-.oneday-timeline-topbar {
+.modular-diary-timeline-topbar {
   display: flex;
   flex: 0 0 auto;
   flex-wrap: nowrap;
@@ -3003,11 +3003,11 @@ button.oneday-item-drag:active {
 /* Narrow slots keep the topbar on one line (its height is part of the slot
  * chrome constant): the layer toggles keep only their eye icons, and their
  * accessible names still say which layer each one shows or hides. */
-.oneday-timeline-topbar.is-compact-labels .oneday-layer-btn > span:not(.oneday-eye) {
+.modular-diary-timeline-topbar.is-compact-labels .modular-diary-layer-btn > span:not(.modular-diary-eye) {
   display: none;
 }
 
-.oneday-timeline-topbar > button.oneday-timeline-date-control {
+.modular-diary-timeline-topbar > button.modular-diary-timeline-date-control {
   appearance: none;
   display: inline-flex;
   align-items: center;
@@ -3016,15 +3016,15 @@ button.oneday-item-drag:active {
   box-sizing: border-box;
   /* Same tier as the layer buttons beside it: Obsidian's button
    * --input-height would make it the only 30px control on the row. */
-  height: var(--oneday-compact-control-height);
-  min-height: var(--oneday-compact-control-height);
+  height: var(--modular-diary-compact-control-height);
+  min-height: var(--modular-diary-compact-control-height);
   margin: 0;
   padding: 0 4px;
   border: 1px solid transparent;
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: transparent;
   box-shadow: none;
-  font-size: var(--oneday-font-body);
+  font-size: var(--modular-diary-font-body);
   color: var(--text-muted);
   font-family: var(--font-monospace);
   line-height: 1;
@@ -3032,18 +3032,18 @@ button.oneday-item-drag:active {
   cursor: pointer;
 }
 
-.oneday-timeline-topbar > button.oneday-timeline-date-control:hover,
-.oneday-timeline-topbar > button.oneday-timeline-date-control:focus-visible,
-.oneday-timeline-topbar > button.oneday-timeline-date-control[aria-expanded="true"] {
+.modular-diary-timeline-topbar > button.modular-diary-timeline-date-control:hover,
+.modular-diary-timeline-topbar > button.modular-diary-timeline-date-control:focus-visible,
+.modular-diary-timeline-topbar > button.modular-diary-timeline-date-control[aria-expanded="true"] {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
 
-.oneday-timeline-topbar > button.oneday-timeline-date-control:active {
+.modular-diary-timeline-topbar > button.modular-diary-timeline-date-control:active {
   transform: translateY(1px);
 }
 
-.oneday-date-popover {
+.modular-diary-date-popover {
   position: fixed;
   z-index: 1000;
   width: 220px;
@@ -3056,22 +3056,22 @@ button.oneday-item-drag:active {
   user-select: none;
 }
 
-.oneday-date-picker-header {
+.modular-diary-date-picker-header {
   display: flex;
   align-items: center;
   gap: 4px;
   margin-bottom: 6px;
 }
 
-.oneday-date-picker-title {
+.modular-diary-date-picker-title {
   flex: 1;
   color: var(--text-normal);
-  font-size: var(--oneday-font-body);
+  font-size: var(--modular-diary-font-body);
   font-weight: var(--font-semibold, 600);
   text-align: center;
 }
 
-.oneday-date-picker-nav {
+.modular-diary-date-picker-nav {
   display: grid;
   place-items: center;
   width: 24px;
@@ -3087,30 +3087,30 @@ button.oneday-item-drag:active {
   line-height: 1;
 }
 
-.oneday-date-picker-nav:hover {
+.modular-diary-date-picker-nav:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
 
-.oneday-date-picker-weekdays,
-.oneday-date-picker-grid {
+.modular-diary-date-picker-weekdays,
+.modular-diary-date-picker-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
 }
 
-.oneday-date-picker-weekdays {
+.modular-diary-date-picker-weekdays {
   margin-bottom: 2px;
 }
 
-.oneday-date-picker-weekdays span {
+.modular-diary-date-picker-weekdays span {
   color: var(--text-faint);
-  font-size: var(--oneday-font-svg-label);
+  font-size: var(--modular-diary-font-svg-label);
   line-height: 18px;
   text-align: center;
 }
 
-.oneday-date-picker-day {
+.modular-diary-date-picker-day {
   width: 26px;
   height: 26px;
   min-height: 26px;
@@ -3121,26 +3121,26 @@ button.oneday-item-drag:active {
   background: transparent;
   box-shadow: none;
   color: var(--text-normal);
-  font-size: var(--oneday-font-caption);
+  font-size: var(--modular-diary-font-caption);
   line-height: 1;
 }
 
-.oneday-date-picker-day.is-outside-month {
+.modular-diary-date-picker-day.is-outside-month {
   color: var(--text-faint);
   opacity: 0.55;
 }
 
-.oneday-date-picker-day:hover,
-.oneday-date-picker-day:focus-visible {
+.modular-diary-date-picker-day:hover,
+.modular-diary-date-picker-day:focus-visible {
   background: var(--background-modifier-hover);
   outline: none;
 }
 
-.oneday-date-picker-day.is-today:not(.is-selected) {
+.modular-diary-date-picker-day.is-today:not(.is-selected) {
   box-shadow: inset 0 0 0 1px var(--background-modifier-border-hover, var(--background-modifier-border));
 }
 
-.oneday-date-picker-day.is-selected {
+.modular-diary-date-picker-day.is-selected {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
   font-weight: var(--font-semibold, 600);
@@ -3148,43 +3148,43 @@ button.oneday-item-drag:active {
 
 /* plan 块标注（比实际块淡一档） */
 
-.oneday-svg .oneday-plan-label {
+.modular-diary-svg .modular-diary-plan-label {
   fill: var(--text-muted);
   font-weight: 500;
 }
 
 /* 色块编辑态：目标高亮，其余冻结 */
 
-.oneday-svg.is-editing-block .oneday-block.is-frozen,
-.oneday-svg.is-editing-block .oneday-plan-hatch.is-frozen,
-.oneday-svg.is-editing-block .oneday-marker-label-bg.is-frozen,
-.oneday-svg.is-editing-block .oneday-side-leader.is-frozen {
-  opacity: var(--oneday-focus-frozen-opacity);
+.modular-diary-svg.is-editing-block .modular-diary-block.is-frozen,
+.modular-diary-svg.is-editing-block .modular-diary-plan-hatch.is-frozen,
+.modular-diary-svg.is-editing-block .modular-diary-marker-label-bg.is-frozen,
+.modular-diary-svg.is-editing-block .modular-diary-side-leader.is-frozen {
+  opacity: var(--modular-diary-focus-frozen-opacity);
   pointer-events: none;
 }
 
-.oneday-svg.is-editing-block .oneday-marker.is-frozen,
-.oneday-svg.is-editing-marker .oneday-marker.is-frozen {
-  opacity: var(--oneday-focus-frozen-stroke-opacity);
+.modular-diary-svg.is-editing-block .modular-diary-marker.is-frozen,
+.modular-diary-svg.is-editing-marker .modular-diary-marker.is-frozen {
+  opacity: var(--modular-diary-focus-frozen-stroke-opacity);
   filter: grayscale(0.65);
   pointer-events: none;
 }
 
-.oneday-svg.is-editing-marker :is(.oneday-block, .oneday-plan-hatch).is-frozen {
-  opacity: var(--oneday-focus-frozen-opacity);
+.modular-diary-svg.is-editing-marker :is(.modular-diary-block, .modular-diary-plan-hatch).is-frozen {
+  opacity: var(--modular-diary-focus-frozen-opacity);
   pointer-events: none;
 }
 
-.oneday-svg.is-editing-marker :is(.oneday-marker-label-bg, .oneday-side-leader).is-frozen {
-  opacity: var(--oneday-focus-frozen-opacity);
+.modular-diary-svg.is-editing-marker :is(.modular-diary-marker-label-bg, .modular-diary-side-leader).is-frozen {
+  opacity: var(--modular-diary-focus-frozen-opacity);
   pointer-events: none;
 }
 
-.oneday-svg.is-editing-marker {
+.modular-diary-svg.is-editing-marker {
   cursor: default;
 }
 
-.oneday-svg .oneday-block.is-edit-target {
+.modular-diary-svg .modular-diary-block.is-edit-target {
   stroke: var(--text-accent);
   stroke-width: 2;
   stroke-opacity: 1;
@@ -3193,7 +3193,7 @@ button.oneday-item-drag:active {
 
 /* Delete is optimistic: remove every visual belonging to the source line in
  * the click/key frame, then let the Markdown transaction remount the canvas. */
-.oneday-svg [data-line].is-pending-delete {
+.modular-diary-svg [data-line].is-pending-delete {
   visibility: hidden !important;
   pointer-events: none !important;
 }
@@ -3201,7 +3201,7 @@ button.oneday-item-drag:active {
 /* Selected time blocks own two real edge hit targets. The hot zones remain
  * transparent: the block itself is the single visual owner of the four-sided
  * selection frame, so top/bottom can never double-paint over that frame. */
-.oneday-svg .oneday-edit-edge {
+.modular-diary-svg .modular-diary-edit-edge {
   fill: transparent;
   pointer-events: all;
   cursor: ns-resize;
@@ -3209,7 +3209,7 @@ button.oneday-item-drag:active {
 
 /* 备注小浮窗（色块右侧） */
 
-.oneday-note-popover {
+.modular-diary-note-popover {
   position: fixed;
   z-index: 1000;
   background: var(--background-primary);
@@ -3219,43 +3219,43 @@ button.oneday-item-drag:active {
   padding: 4px;
 }
 
-.oneday-note-popover input {
+.modular-diary-note-popover input {
   width: 160px;
-  font-size: var(--oneday-font-body);
+  font-size: var(--modular-diary-font-body);
   border: none;
   background: transparent;
   box-shadow: none;
 }
 
-.oneday-note-popover input:focus {
+.modular-diary-note-popover input:focus {
   outline: none;
   box-shadow: none;
 }
 
 /* 编辑态光标：边缘 ns-resize / 中部 grab（yyt：全是十字不直观） */
 
-.oneday-svg.is-editing-block {
+.modular-diary-svg.is-editing-block {
   cursor: default;
 }
 
 /* 荧光笔模式小开关（色板前） */
 
-.oneday-tool-toggle {
-  /* 创建模式紧跟“新增为”；通用 .oneday-mode 的 auto 只属于右侧图层开关。 */
+.modular-diary-tool-toggle {
+  /* 创建模式紧跟“新增为”；通用 .modular-diary-mode 的 auto 只属于右侧图层开关。 */
   margin-left: 0;
   margin-right: 0;
   display: inline-flex;
   align-items: stretch;
   box-sizing: border-box;
-  height: var(--oneday-toolbar-control-height);
-  min-height: var(--oneday-toolbar-control-height);
+  height: var(--modular-diary-toolbar-control-height);
+  min-height: var(--modular-diary-toolbar-control-height);
   /* 与荧光笔同层：默认态靠中性底色分组，不常驻一圈灰线。 */
   /* A transparent 1px border still subtracts 2px from the children's 100%
    * height, making Record/Plan visibly shorter than category buttons. */
   border: 0 solid transparent;
 }
 
-.oneday-tool-toggle .oneday-mode-btn {
+.modular-diary-tool-toggle .modular-diary-mode-btn {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -3264,63 +3264,63 @@ button.oneday-item-drag:active {
   min-height: 0;
 }
 
-.oneday-tool-toggle .oneday-mode-btn:not(.is-active) {
+.modular-diary-tool-toggle .modular-diary-mode-btn:not(.is-active) {
   /* 与荧光笔、拖拽手柄和块级按钮共享同一个不透明中性表面。 */
-  background: var(--oneday-surface-neutral-control);
+  background: var(--modular-diary-surface-neutral-control);
 }
 
-.oneday-tool-symbol {
+.modular-diary-tool-symbol {
   display: inline-block;
   width: 12px;
   flex: 0 0 12px;
   color: currentColor;
 }
 
-.oneday-tool-symbol.is-span {
+.modular-diary-tool-symbol.is-span {
   height: 8px;
   border-radius: 2px;
   background: currentColor;
 }
 
-.oneday-tool-symbol.is-marker {
+.modular-diary-tool-symbol.is-marker {
   height: 0;
   border-top: 2px solid currentColor;
 }
 
-button.oneday-plan-mode-toggle {
+button.modular-diary-plan-mode-toggle {
   appearance: none;
   -webkit-appearance: none;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: var(--oneday-toolbar-control-height);
-  min-height: var(--oneday-toolbar-control-height);
+  height: var(--modular-diary-toolbar-control-height);
+  min-height: var(--modular-diary-toolbar-control-height);
   padding: 0 2px;
   border: 0;
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: transparent;
   color: var(--text-normal);
   box-shadow: none;
   cursor: pointer;
 }
 
-button.oneday-plan-mode-toggle:hover,
-button.oneday-plan-mode-toggle:focus-visible {
+button.modular-diary-plan-mode-toggle:hover,
+button.modular-diary-plan-mode-toggle:focus-visible {
   background: transparent;
   box-shadow: none;
 }
 
-.oneday-plan-mode-track {
+.modular-diary-plan-mode-track {
   position: relative;
   width: 24px;
   height: 14px;
   flex: 0 0 24px;
   border-radius: 999px;
-  background-color: var(--oneday-surface-neutral-control, var(--background-secondary));
+  background-color: var(--modular-diary-surface-neutral-control, var(--background-secondary));
   transition: background-color 120ms ease-out;
 }
 
-.oneday-plan-mode-thumb {
+.modular-diary-plan-mode-thumb {
   position: absolute;
   top: 2px;
   left: 2px;
@@ -3331,24 +3331,24 @@ button.oneday-plan-mode-toggle:focus-visible {
   transition: transform 120ms ease-out, background-color 120ms ease-out;
 }
 
-.oneday-plan-mode-toggle.is-plan .oneday-plan-mode-track {
-  background-color: color-mix(in srgb, var(--interactive-accent) 30%, var(--oneday-surface-neutral-control, var(--background-secondary)));
+.modular-diary-plan-mode-toggle.is-plan .modular-diary-plan-mode-track {
+  background-color: color-mix(in srgb, var(--interactive-accent) 30%, var(--modular-diary-surface-neutral-control, var(--background-secondary)));
 }
 
-.oneday-plan-mode-toggle.is-plan .oneday-plan-mode-thumb {
+.modular-diary-plan-mode-toggle.is-plan .modular-diary-plan-mode-thumb {
   transform: translateX(10px);
   background-color: var(--interactive-accent);
 }
 
-.oneday-plan-mode-label {
-  font-size: var(--oneday-font-caption);
+.modular-diary-plan-mode-label {
+  font-size: var(--modular-diary-font-caption);
   line-height: 1;
   white-space: nowrap;
 }
 
 /* 视图三态开关（时间轴顶栏右侧） */
 
-.oneday-view-toggle {
+.modular-diary-view-toggle {
   display: flex;
   width: fit-content;
   margin-left: auto;
@@ -3356,8 +3356,8 @@ button.oneday-plan-mode-toggle:focus-visible {
 
 /* 快速记录：未配置 API 引导 */
 
-.oneday-dialog-needskey {
-  font-size: var(--oneday-font-body);
+.modular-diary-dialog-needskey {
+  font-size: var(--modular-diary-font-body);
   color: var(--text-muted);
   display: flex;
   align-items: center;
@@ -3368,20 +3368,20 @@ button.oneday-plan-mode-toggle:focus-visible {
 /* The setup link is a block-level compact control (same height and neutral
  * surface as highlighters, accent text), not Obsidian's 30px shadowed
  * default button. */
-.oneday-container .oneday-dialog-needskey button {
+.modular-diary-container .modular-diary-dialog-needskey button {
   appearance: none;
   -webkit-appearance: none;
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
-  height: var(--oneday-compact-control-height);
-  min-height: var(--oneday-compact-control-height);
-  padding: 0 var(--oneday-control-padding-x);
+  height: var(--modular-diary-compact-control-height);
+  min-height: var(--modular-diary-compact-control-height);
+  padding: 0 var(--modular-diary-control-padding-x);
   border: 0;
-  border-radius: var(--oneday-radius-control);
-  background: var(--oneday-surface-control);
+  border-radius: var(--modular-diary-radius-control);
+  background: var(--modular-diary-surface-control);
   color: var(--text-accent);
-  font-size: var(--oneday-font-body);
+  font-size: var(--modular-diary-font-body);
   font-weight: var(--font-medium, 500);
   line-height: 1;
   white-space: nowrap;
@@ -3389,14 +3389,14 @@ button.oneday-plan-mode-toggle:focus-visible {
   cursor: pointer;
 }
 
-.oneday-container .oneday-dialog-needskey button:hover,
-.oneday-container .oneday-dialog-needskey button:focus-visible {
+.modular-diary-container .modular-diary-dialog-needskey button:hover,
+.modular-diary-container .modular-diary-dialog-needskey button:focus-visible {
   background: var(--background-modifier-hover);
   color: var(--text-accent);
   box-shadow: none;
 }
 
-.oneday-container .oneday-dialog-needskey button:focus-visible {
+.modular-diary-container .modular-diary-dialog-needskey button:focus-visible {
   outline: 2px solid var(--text-accent);
   outline-offset: 1px;
 }
@@ -3404,27 +3404,27 @@ button.oneday-plan-mode-toggle:focus-visible {
 
 /* 视图过滤（CSS 类即时切换）：记录=隐藏规划层；计划=隐藏实际层 */
 
-.oneday-view-actual .oneday-svg .oneday-plan,
-.oneday-view-actual .oneday-svg .oneday-plan-hatch,
-.oneday-view-actual .oneday-svg .oneday-plan-label,
-.oneday-view-actual .oneday-svg .oneday-marker-plan,
-.oneday-view-actual .oneday-svg .oneday-marker-plan-label {
+.modular-diary-view-actual .modular-diary-svg .modular-diary-plan,
+.modular-diary-view-actual .modular-diary-svg .modular-diary-plan-hatch,
+.modular-diary-view-actual .modular-diary-svg .modular-diary-plan-label,
+.modular-diary-view-actual .modular-diary-svg .modular-diary-marker-plan,
+.modular-diary-view-actual .modular-diary-svg .modular-diary-marker-plan-label {
   display: none;
 }
 
-.oneday-view-plan .oneday-svg .oneday-block:not(.oneday-plan):not(.oneday-preview-block) {
+.modular-diary-view-plan .modular-diary-svg .modular-diary-block:not(.modular-diary-plan):not(.modular-diary-preview-block) {
   display: none;
 }
 
-.oneday-view-plan .oneday-svg .oneday-marker:not(.oneday-marker-plan),
-.oneday-view-plan .oneday-svg .oneday-marker-label:not(.oneday-marker-plan-label),
-.oneday-view-plan .oneday-svg .oneday-marker-label-bg:not(.oneday-marker-plan-label) {
+.modular-diary-view-plan .modular-diary-svg .modular-diary-marker:not(.modular-diary-marker-plan),
+.modular-diary-view-plan .modular-diary-svg .modular-diary-marker-label:not(.modular-diary-marker-plan-label),
+.modular-diary-view-plan .modular-diary-svg .modular-diary-marker-label-bg:not(.modular-diary-marker-plan-label) {
   display: none;
 }
 
 /* 图层显示开关：两项可独立选中，视觉上不能粘成一整块。 */
 
-.oneday-view-toggle.oneday-mode {
+.modular-diary-view-toggle.modular-diary-mode {
   display: inline-flex;
   align-items: center;
   gap: 1px;
@@ -3432,24 +3432,24 @@ button.oneday-plan-mode-toggle:focus-visible {
   margin-left: auto;
   padding: 2px;
   overflow: visible;
-  background: var(--oneday-surface-group);
+  background: var(--modular-diary-surface-group);
   border: 1px solid color-mix(in srgb, var(--background-modifier-border) 78%, transparent);
-  border-radius: var(--oneday-radius-group);
+  border-radius: var(--modular-diary-radius-group);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--background-primary) 72%, transparent);
   position: relative;
   z-index: 6;
 }
 
-.oneday-view-toggle .oneday-mode-btn {
+.modular-diary-view-toggle .modular-diary-mode-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: var(--oneday-compact-control-height);
-  min-height: var(--oneday-compact-control-height);
+  height: var(--modular-diary-compact-control-height);
+  min-height: var(--modular-diary-compact-control-height);
   padding: 2px 8px;
   border: 0;
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: transparent;
   color: var(--text-muted);
   font-size: 11px;
@@ -3460,57 +3460,57 @@ button.oneday-plan-mode-toggle:focus-visible {
   transition: color 140ms ease-out, background-color 140ms ease-out, box-shadow 140ms ease-out, transform 80ms ease-out;
 }
 
-.oneday-view-toggle .oneday-mode-btn:hover:not(.is-active) {
+.modular-diary-view-toggle .modular-diary-mode-btn:hover:not(.is-active) {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
 
-.oneday-view-toggle .oneday-mode-btn.is-active {
+.modular-diary-view-toggle .modular-diary-mode-btn.is-active {
   background: color-mix(in srgb, var(--interactive-accent) 16%, var(--background-primary));
   color: var(--text-accent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 34%, transparent), 0 1px 2px color-mix(in srgb, var(--text-normal) 8%, transparent);
 }
 
-.oneday-view-toggle .oneday-mode-btn:active {
+.modular-diary-view-toggle .modular-diary-mode-btn:active {
   transform: scale(0.97);
 }
 
-.oneday-view-toggle .oneday-mode-btn:focus-visible {
+.modular-diary-view-toggle .modular-diary-mode-btn:focus-visible {
   outline: 2px solid var(--text-accent);
   outline-offset: 1px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .oneday-view-toggle .oneday-mode-btn {
+  .modular-diary-view-toggle .modular-diary-mode-btn {
     transition: none;
   }
 }
 
 /* 预览线只在拖动时出现；位置和高度由实际轨道矩形决定。 */
 
-.oneday-width-preview {
+.modular-diary-width-preview {
   position: absolute;
   width: 0;
   border-left: 2px dashed var(--text-accent);
   z-index: 12;
   pointer-events: none;
-  font-size: var(--oneday-font-micro);
+  font-size: var(--modular-diary-font-micro);
   color: var(--text-accent);
   padding-left: 3px;
 }
 
 /* 计划视图：连实际块的标注一起隐藏（yyt 2026-08-17） */
 
-.oneday-view-plan .oneday-svg .oneday-duration:not(.oneday-plan-label),
-.oneday-view-plan .oneday-svg .oneday-note:not(.oneday-plan-label),
-.oneday-view-plan .oneday-svg .oneday-side-leader {
+.modular-diary-view-plan .modular-diary-svg .modular-diary-duration:not(.modular-diary-plan-label),
+.modular-diary-view-plan .modular-diary-svg .modular-diary-note:not(.modular-diary-plan-label),
+.modular-diary-view-plan .modular-diary-svg .modular-diary-side-leader {
   display: none;
 }
 
 /* 开关前缀标签（新增为 / 显示） */
 
-.oneday-toggle-label {
-  font-size: var(--oneday-font-caption);
+.modular-diary-toggle-label {
+  font-size: var(--modular-diary-font-caption);
   color: var(--text-muted);
   align-self: center;
   /* 相邻控件间距统一由 toolbar 的 gap token 管理，避免重复叠加。 */
@@ -3518,52 +3518,52 @@ button.oneday-plan-mode-toggle:focus-visible {
   white-space: nowrap;
 }
 
-.oneday-creation-title {
+.modular-diary-creation-title {
   color: var(--text-normal);
 }
 
-.oneday-layer-btn {
+.modular-diary-layer-btn {
   gap: 5px;
   display: inline-flex;
   align-items: center;
 }
 
-.oneday-brush-btn {
+.modular-diary-brush-btn {
   display: inline-flex;
   align-items: center;
 }
 
 /* 统计柱状图 */
 
-.oneday-stat-row {
+.modular-diary-stat-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.oneday-stat-type {
+.modular-diary-stat-type {
   flex-shrink: 0;
   min-width: 42px;
-  font-size: var(--oneday-font-body);
+  font-size: var(--modular-diary-font-body);
   color: var(--text-normal);
 }
 
-.oneday-stat-bar-wrap {
+.modular-diary-stat-bar-wrap {
   flex: 1;
   display: flex;
   align-items: center;
-  background: var(--oneday-surface-data-track);
-  border-radius: var(--oneday-radius-data);
+  background: var(--modular-diary-surface-data-track);
+  border-radius: var(--modular-diary-radius-data);
   height: 16px;
   overflow: hidden;
 }
 
-.oneday-stat-bar {
+.modular-diary-stat-bar {
   height: 100%;
   /* 宽度是 wrap 的百分比：padding 必须算在里面，否则柱子越出轨道 4px，
      柱内标签的右缘就贴在轨道外沿上，亚像素取整不同的平台会判成裁切。 */
   box-sizing: border-box;
-  border-radius: var(--oneday-radius-data);
+  border-radius: var(--modular-diary-radius-data);
   display: flex;
   /* 百分比宽度只是 flex 基准：标签外置后柱子让出标签需要的空间，
      数字永远完整地留在轨道里，而不是被 wrap 的 overflow 裁掉。 */
@@ -3577,38 +3577,38 @@ button.oneday-plan-mode-toggle:focus-visible {
 
 /* 极窄轨道：短柱的最小宽度也要给外置标签让位；实在放不下时标签可以
    越过轨道右缘进入槽位的 content-inset，但绝不被裁成半个数字。 */
-.oneday-stat-bar-wrap.is-label-out {
+.modular-diary-stat-bar-wrap.is-label-out {
   overflow: visible;
 }
 
-.oneday-stat-bar-wrap.is-label-out .oneday-stat-bar {
+.modular-diary-stat-bar-wrap.is-label-out .modular-diary-stat-bar {
   min-width: 6px;
 }
 
-.oneday-stat-hours {
-  font-size: var(--oneday-font-micro);
+.modular-diary-stat-hours {
+  font-size: var(--modular-diary-font-micro);
   font-weight: 600;
   /* 颜色由 JS 派生（relatedTextColor），不需要 blend hack */
 }
 
 /* 全灭视图：什么都不显示 */
 
-.oneday-view-none .oneday-svg .oneday-block,
-.oneday-view-none .oneday-svg .oneday-plan-hatch,
-.oneday-view-none .oneday-svg .oneday-duration,
-.oneday-view-none .oneday-svg .oneday-note,
-.oneday-view-none .oneday-svg .oneday-plan-label {
+.modular-diary-view-none .modular-diary-svg .modular-diary-block,
+.modular-diary-view-none .modular-diary-svg .modular-diary-plan-hatch,
+.modular-diary-view-none .modular-diary-svg .modular-diary-duration,
+.modular-diary-view-none .modular-diary-svg .modular-diary-note,
+.modular-diary-view-none .modular-diary-svg .modular-diary-plan-label {
   display: none;
 }
 
 
-.oneday-view-none .oneday-svg .oneday-marker,
-.oneday-view-none .oneday-svg .oneday-marker-label,
-.oneday-view-none .oneday-svg .oneday-marker-label-bg {
+.modular-diary-view-none .modular-diary-svg .modular-diary-marker,
+.modular-diary-view-none .modular-diary-svg .modular-diary-marker-label,
+.modular-diary-view-none .modular-diary-svg .modular-diary-marker-label-bg {
   display: none;
 }
 
-.oneday-stat-hours-out {
+.modular-diary-stat-hours-out {
   color: var(--text-normal) !important;
   flex: 0 0 auto;
   margin-left: 5px;
@@ -3618,45 +3618,45 @@ button.oneday-plan-mode-toggle:focus-visible {
 
 /* 冻结态：文字跟着变淡，但保持可读（只降 fill 不降到文字不可读） */
 
-.oneday-svg text.is-frozen {
-  opacity: var(--oneday-focus-frozen-text-opacity);
+.modular-diary-svg text.is-frozen {
+  opacity: var(--modular-diary-focus-frozen-text-opacity);
 }
 
 /* 文字区跳变：渲染态首段抹平上边距（与编辑态 textarea 对齐） */
 
-.oneday-text-host > *:first-child {
+.modular-diary-text-host > *:first-child {
   margin-top: 0 !important;
 }
 
 /* 文字区：编辑/渲染两态行距一致（yyt 2026-08-19） */
 
-.oneday-text-host,
-.oneday-text-inline {
+.modular-diary-text-host,
+.modular-diary-text-inline {
   line-height: 1.6;
   font-size: 14px;
 }
 
-.oneday-text-host p {
+.modular-diary-text-host p {
   margin: 0;
   /* 不用 pre-wrap：渲染器对硬换行输出 <br>+字面\n，pre-wrap 会二次换行出幻影空行（CDP 实证 2026-08-19） */
 }
 
-.oneday-text-host p + p {
+.modular-diary-text-host p + p {
   margin-top: 1.6em; /* 段落空行 = 恰好一个空行高度，与编辑态一致 */
 }
 
 /*
  * 隐藏 CM6 代码块的「编辑这个区块」按钮。
  * 不依赖按钮是否为直接子节点，并压过 Obsidian/主题对按钮重新声明的
- * display:flex；只要当前代码块内渲染了 Oneday，就隐藏其后代按钮。
+ * display:flex；只要当前代码块内渲染了 Modular Diary，就隐藏其后代按钮。
  */
-.cm-embed-block:has(.oneday-host) .edit-block-button {
+.cm-embed-block:has(.modular-diary-host) .edit-block-button {
   display: none !important;
 }
 
 /* 精确起止小浮窗 */
 
-.oneday-time-popover {
+.modular-diary-time-popover {
   position: fixed;
   z-index: 1000;
   background: var(--background-primary);
@@ -3670,16 +3670,16 @@ button.oneday-plan-mode-toggle:focus-visible {
   gap: 2px;
 }
 
-.oneday-time-popover-row {
+.modular-diary-time-popover-row {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.oneday-time-popover input {
+.modular-diary-time-popover input {
   width: 52px;
   font-family: var(--font-monospace);
-  font-size: var(--oneday-font-body);
+  font-size: var(--modular-diary-font-body);
   border: none;
   background: transparent;
   box-shadow: none;
@@ -3687,98 +3687,98 @@ button.oneday-plan-mode-toggle:focus-visible {
   padding: 2px 4px;
 }
 
-.oneday-time-popover span {
+.modular-diary-time-popover span {
   color: var(--text-muted);
 }
 
 /* Invalid input is never silent: red ring, a short shake, and the reason. */
-.oneday-time-popover input[aria-invalid="true"] {
+.modular-diary-time-popover input[aria-invalid="true"] {
   box-shadow: inset 0 0 0 1px var(--text-error, #e93147);
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
 }
 
-.oneday-time-popover input.is-invalid {
-  animation: oneday-shake 0.3s ease-in-out;
+.modular-diary-time-popover input.is-invalid {
+  animation: modular-diary-shake 0.3s ease-in-out;
 }
 
-.oneday-time-popover-error {
+.modular-diary-time-popover-error {
   padding: 0 4px 2px;
-  font-size: var(--oneday-font-caption);
+  font-size: var(--modular-diary-font-caption);
   color: var(--text-error, #e93147);
   white-space: nowrap;
 }
 
-@keyframes oneday-shake {
+@keyframes modular-diary-shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-3px); }
   75% { transform: translateX(3px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .oneday-time-popover input.is-invalid {
+  .modular-diary-time-popover input.is-invalid {
     animation: none;
   }
 }
 
 /* 统一键盘焦点，不依赖主题是否给自定义按钮补样式。 */
-.oneday-container button:focus-visible {
+.modular-diary-container button:focus-visible {
   outline: 2px solid var(--background-modifier-border-focus);
   outline-offset: 2px;
 }
 
 /* Obsidian 移动端：布局手柄只在显式编辑态出现。 */
-body.is-mobile .oneday-layout-edit-toggle,
-body.is-tablet .oneday-layout-edit-toggle {
+body.is-mobile .modular-diary-layout-edit-toggle,
+body.is-tablet .modular-diary-layout-edit-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   align-self: flex-end;
   min-height: 44px;
-  gap: var(--oneday-control-gap);
+  gap: var(--modular-diary-control-gap);
   padding: 0 var(--size-4-3, 12px);
   border: 1px solid var(--background-modifier-border);
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: var(--interactive-normal);
   color: var(--text-normal);
   box-shadow: var(--input-shadow);
 }
 
-body.is-mobile .oneday-layout-edit-toggle[aria-pressed="true"],
-body.is-tablet .oneday-layout-edit-toggle[aria-pressed="true"] {
+body.is-mobile .modular-diary-layout-edit-toggle[aria-pressed="true"],
+body.is-tablet .modular-diary-layout-edit-toggle[aria-pressed="true"] {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
   box-shadow: var(--input-shadow-hover);
 }
 
-body.is-mobile .oneday-layout-edit-icon,
-body.is-tablet .oneday-layout-edit-icon {
+body.is-mobile .modular-diary-layout-edit-icon,
+body.is-tablet .modular-diary-layout-edit-icon {
   display: inline-flex;
 }
 
-body.is-mobile .oneday-layout-edit-icon svg,
-body.is-tablet .oneday-layout-edit-icon svg {
+body.is-mobile .modular-diary-layout-edit-icon svg,
+body.is-tablet .modular-diary-layout-edit-icon svg {
   width: 18px;
   height: 18px;
 }
 
-body.is-mobile .oneday-container:not(.is-layout-editing) .oneday-slot-grip,
-body.is-mobile .oneday-container:not(.is-layout-editing) .oneday-handle,
-body.is-mobile .oneday-container:not(.is-layout-editing) .oneday-width-handle,
-body.is-mobile .oneday-container:not(.is-layout-editing) .oneday-block-resize-handle,
-body.is-tablet .oneday-container:not(.is-layout-editing) .oneday-slot-grip,
-body.is-tablet .oneday-container:not(.is-layout-editing) .oneday-handle,
-body.is-tablet .oneday-container:not(.is-layout-editing) .oneday-width-handle,
-body.is-tablet .oneday-container:not(.is-layout-editing) .oneday-block-resize-handle {
+body.is-mobile .modular-diary-container:not(.is-layout-editing) .modular-diary-slot-grip,
+body.is-mobile .modular-diary-container:not(.is-layout-editing) .modular-diary-handle,
+body.is-mobile .modular-diary-container:not(.is-layout-editing) .modular-diary-width-handle,
+body.is-mobile .modular-diary-container:not(.is-layout-editing) .modular-diary-block-resize-handle,
+body.is-tablet .modular-diary-container:not(.is-layout-editing) .modular-diary-slot-grip,
+body.is-tablet .modular-diary-container:not(.is-layout-editing) .modular-diary-handle,
+body.is-tablet .modular-diary-container:not(.is-layout-editing) .modular-diary-width-handle,
+body.is-tablet .modular-diary-container:not(.is-layout-editing) .modular-diary-block-resize-handle {
   display: none;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-slot,
-body.is-tablet .oneday-container.is-layout-editing .oneday-slot {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-slot,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-slot {
   outline-color: var(--background-modifier-border-hover);
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-slot-grip,
-body.is-tablet .oneday-container.is-layout-editing .oneday-slot-grip {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-slot-grip,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-slot-grip {
   display: grid;
   width: 44px;
   height: 44px;
@@ -3786,49 +3786,49 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-slot-grip {
   touch-action: none;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-handle,
-body.is-tablet .oneday-container.is-layout-editing .oneday-handle {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-handle,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-handle {
   display: block;
   opacity: 1;
   touch-action: none;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-handle-n,
-body.is-tablet .oneday-container.is-layout-editing .oneday-handle-n {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-handle-n,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-handle-n {
   left: 48px;
   right: 32px;
   height: 20px;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-handle-s,
-body.is-tablet .oneday-container.is-layout-editing .oneday-handle-s {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-handle-s,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-handle-s {
   left: 32px;
   right: 32px;
   height: 20px;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-handle-w,
-body.is-tablet .oneday-container.is-layout-editing .oneday-handle-w {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-handle-w,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-handle-w {
   top: 48px;
   bottom: 32px;
   width: 20px;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-handle-e,
-body.is-tablet .oneday-container.is-layout-editing .oneday-handle-e {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-handle-e,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-handle-e {
   top: 32px;
   bottom: 32px;
   width: 20px;
 }
 
-body.is-mobile .oneday-container.is-layout-editing :is(.oneday-handle-ne, .oneday-handle-nw, .oneday-handle-se, .oneday-handle-sw),
-body.is-tablet .oneday-container.is-layout-editing :is(.oneday-handle-ne, .oneday-handle-nw, .oneday-handle-se, .oneday-handle-sw) {
+body.is-mobile .modular-diary-container.is-layout-editing :is(.modular-diary-handle-ne, .modular-diary-handle-nw, .modular-diary-handle-se, .modular-diary-handle-sw),
+body.is-tablet .modular-diary-container.is-layout-editing :is(.modular-diary-handle-ne, .modular-diary-handle-nw, .modular-diary-handle-se, .modular-diary-handle-sw) {
   width: 32px;
   height: 32px;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-width-handle,
-body.is-tablet .oneday-container.is-layout-editing .oneday-width-handle {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-width-handle,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-width-handle {
   display: block;
   width: 20px;
   opacity: 1;
@@ -3836,67 +3836,67 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-width-handle {
   touch-action: none;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-block-resize-handle,
-body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-handle {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-block-resize-handle,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-resize-handle {
   display: block;
   opacity: 1;
   z-index: 15;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-block-resize-e,
-body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-e {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-block-resize-e,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-resize-e {
   top: 32px;
   bottom: 32px;
   width: 20px;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-block-resize-s,
-body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-s {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-block-resize-s,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-resize-s {
   right: 32px;
   left: 32px;
   height: 20px;
 }
 
-body.is-mobile .oneday-container.is-layout-editing .oneday-block-resize-se,
-body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
+body.is-mobile .modular-diary-container.is-layout-editing .modular-diary-block-resize-se,
+body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-resize-se {
   width: 32px;
   height: 32px;
 }
 
 /* Daily Quote — a quiet line on a highlighter-tinted slot (2026-09-10).
  * The slot carries the colour; the sentence uses the block's body type. */
-.oneday-slot-quote {
+.modular-diary-slot-quote {
   overflow: hidden;
 }
 
-.oneday-slot-quote.has-ink {
-  background: color-mix(in srgb, var(--oneday-quote-ink) 26%, var(--background-primary));
+.modular-diary-slot-quote.has-ink {
+  background: color-mix(in srgb, var(--modular-diary-quote-ink) 26%, var(--background-primary));
 }
 
-.theme-dark .oneday-slot-quote.has-ink {
-  background: color-mix(in srgb, var(--oneday-quote-ink) 32%, var(--background-primary));
+.theme-dark .modular-diary-slot-quote.has-ink {
+  background: color-mix(in srgb, var(--modular-diary-quote-ink) 32%, var(--background-primary));
 }
 
-.oneday-daily-quote {
+.modular-diary-daily-quote {
   display: flex;
   flex-direction: column;
-  gap: var(--oneday-control-gap);
+  gap: var(--modular-diary-control-gap);
   min-width: 0;
   flex: 1 1 auto;
 }
 
-.oneday-daily-quote .oneday-component-header {
+.modular-diary-daily-quote .modular-diary-component-header {
   display: flex;
   align-items: center;
-  gap: var(--oneday-control-gap);
-  min-height: var(--oneday-icon-button-size);
+  gap: var(--modular-diary-control-gap);
+  min-height: var(--modular-diary-icon-button-size);
 }
 
-.oneday-daily-quote .oneday-component-title {
+.modular-diary-daily-quote .modular-diary-component-title {
   flex: 1 1 auto;
 }
 
-.oneday-component-icon-button {
+.modular-diary-component-icon-button {
   display: inline-grid;
   place-items: center;
   width: 22px;
@@ -3905,23 +3905,23 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
   margin-left: auto;
   padding: 0;
   border: 0;
-  border-radius: var(--oneday-radius-control);
+  border-radius: var(--modular-diary-radius-control);
   background: transparent;
   box-shadow: none;
   color: var(--text-muted);
 }
 
-.oneday-component-icon-button svg {
+.modular-diary-component-icon-button svg {
   width: 14px;
   height: 14px;
 }
 
-.oneday-daily-quote-body {
+.modular-diary-daily-quote-body {
   padding: 0 2px 2px;
   min-width: 0;
 }
 
-.oneday-daily-quote-text {
+.modular-diary-daily-quote-text {
   margin: 0;
   font-size: var(--font-ui-small, 13px);
   font-weight: 500;
@@ -3931,14 +3931,14 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
   overflow-wrap: anywhere;
 }
 
-.oneday-daily-quote-author {
+.modular-diary-daily-quote-author {
   display: block;
   margin-top: 4px;
-  font-size: var(--oneday-font-caption);
+  font-size: var(--modular-diary-font-caption);
   color: var(--text-muted);
 }
 
-.oneday-daily-quote-empty {
+.modular-diary-daily-quote-empty {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
@@ -3946,29 +3946,29 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
   gap: 8px;
   min-height: 48px;
   border: 1px dashed var(--background-modifier-border);
-  border-radius: var(--oneday-radius-surface);
+  border-radius: var(--modular-diary-radius-surface);
   background: transparent;
   box-shadow: none;
   color: var(--text-muted);
 }
 
-.oneday-daily-quote-empty:hover { border-color: var(--interactive-accent); color: var(--text-normal); }
-.oneday-daily-quote-empty-icon { display: inline-flex; }
+.modular-diary-daily-quote-empty:hover { border-color: var(--interactive-accent); color: var(--text-normal); }
+.modular-diary-daily-quote-empty-icon { display: inline-flex; }
 
 /* Daily Quote settings: the library is plain text, the tint is one row of dots. */
-.oneday-quote-settings {
+.modular-diary-quote-settings {
   display: flex;
   flex-direction: column;
-  gap: var(--oneday-settings-gap-sm, 8px);
+  gap: var(--modular-diary-settings-gap-sm, 8px);
   min-width: 0;
 }
 
-.oneday-quote-settings .oneday-quote-library-hint,
-.oneday-quote-settings .oneday-quote-save-hint {
+.modular-diary-quote-settings .modular-diary-quote-library-hint,
+.modular-diary-quote-settings .modular-diary-quote-save-hint {
   margin: 0;
 }
 
-.oneday-quote-library {
+.modular-diary-quote-library {
   width: 100%;
   min-height: 132px;
   resize: vertical;
@@ -3978,16 +3978,16 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
   box-sizing: border-box;
 }
 
-.oneday-quote-ink-row {
+.modular-diary-quote-ink-row {
   display: flex;
   align-items: center;
-  gap: var(--oneday-settings-gap-sm, 8px);
+  gap: var(--modular-diary-settings-gap-sm, 8px);
   flex-wrap: wrap;
   font-size: var(--font-ui-small, 13px);
   color: var(--text-muted);
 }
 
-.oneday-quote-ink-dots {
+.modular-diary-quote-ink-dots {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -3995,11 +3995,11 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
 
 /* Obsidian styles `button:not(.clickable-icon)` (0,1,1); these selectors carry
  * two classes so the chip, not the theme button, wins background and shadow. */
-.oneday-quote-settings .oneday-quote-ink-dot {
+.modular-diary-quote-settings .modular-diary-quote-ink-dot {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: var(--oneday-compact-control-height, 26px);
+  height: var(--modular-diary-compact-control-height, 26px);
   min-height: 0;
   padding: 0 10px 0 8px;
   border: 1.5px solid transparent;
@@ -4012,21 +4012,21 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
   cursor: pointer;
 }
 
-.oneday-quote-settings .oneday-quote-ink-dot:hover {
+.modular-diary-quote-settings .modular-diary-quote-ink-dot:hover {
   background-color: color-mix(in srgb, var(--text-normal) 14%, var(--background-primary));
 }
 
-.oneday-quote-settings .oneday-quote-ink-dot.is-checked {
+.modular-diary-quote-settings .modular-diary-quote-ink-dot.is-checked {
   border-color: var(--interactive-accent);
   background-color: var(--background-primary);
 }
 
-.oneday-quote-settings .oneday-quote-ink-dot:focus-visible {
+.modular-diary-quote-settings .modular-diary-quote-ink-dot:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 2px;
 }
 
-.oneday-quote-ink-mark {
+.modular-diary-quote-ink-mark {
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -4035,21 +4035,37 @@ body.is-tablet .oneday-container.is-layout-editing .oneday-block-resize-se {
   flex: none;
 }
 
-.oneday-quote-ink-dot.is-none .oneday-quote-ink-mark {
+.modular-diary-quote-ink-dot.is-none .modular-diary-quote-ink-mark {
   background: transparent;
   box-shadow: inset 0 0 0 1.5px var(--text-muted);
 }
 
-.oneday-quote-status {
+.modular-diary-quote-status {
   min-height: 1.2em;
   font-size: var(--font-ui-smaller, 12px);
   color: var(--text-muted);
 }
 
 /* Off-screen probe that resolves the note font for canvas measurement. */
-.oneday-note-measure-probe {
+.modular-diary-note-measure-probe {
   position: absolute;
   visibility: hidden;
   pointer-events: none;
-  font-size: var(--oneday-font-svg-label);
+  font-size: var(--modular-diary-font-svg-label);
+}
+
+/* A failed save stays local to its draft; no focus trap or toast loop. */
+.modular-diary-save-retry[hidden] { display: none !important; }
+.modular-diary-note-popover .modular-diary-save-retry {
+  display: block;
+  margin-top: 4px;
+  max-width: 100%;
+  font-size: var(--modular-diary-font-body);
+}
+.modular-diary-text-pane .modular-diary-save-retry {
+  position: sticky;
+  bottom: 4px;
+  display: block;
+  margin-left: auto;
+  max-width: 100%;
 }

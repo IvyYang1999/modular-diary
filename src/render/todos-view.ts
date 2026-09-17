@@ -57,14 +57,14 @@ function createTodoForm(
   onClose?: () => void,
   onDraftChange?: (draft: NewTodoInput | null) => void,
 ): TodoFormController {
-  const form = parent.createEl("form", { cls: `oneday-todo-form ${className}` })
+  const form = parent.createEl("form", { cls: `modular-diary-todo-form ${className}` })
   // Chromium validates before `submit`, which would replace our interaction
   // with a native step-mismatch bubble. Keep the semantic form, but validate
-  // against Oneday's real Markdown contract in the handler below.
+  // against Modular Diary's real Markdown contract in the handler below.
   form.noValidate = true
   form.hidden = true
-  const title = form.createEl("input", { cls: "oneday-todo-title-input", attr: { type: "text", placeholder: t("todoTitle") } })
-  const category = form.createEl("select", { cls: "oneday-todo-category-select", attr: { "aria-label": t("category") } })
+  const title = form.createEl("input", { cls: "modular-diary-todo-title-input", attr: { type: "text", placeholder: t("todoTitle") } })
+  const category = form.createEl("select", { cls: "modular-diary-todo-category-select", attr: { "aria-label": t("category") } })
   const fillCategories = (selected?: string): void => {
     category.replaceChildren()
     category.createEl("option", { text: t("noCategory"), attr: { value: "" } })
@@ -72,9 +72,9 @@ function createTodoForm(
     categories.forEach((value) => category.createEl("option", { text: value, attr: { value } }))
     category.value = selected ?? ""
   }
-  const estimateField = form.createDiv({ cls: "oneday-todo-estimate-field" })
-  const estimate = estimateField.createEl("input", { cls: "oneday-todo-estimate-input", attr: { type: "number", step: "any", inputmode: "decimal", "aria-label": t("estimatedDuration") } })
-  const estimateUnit = estimateField.createEl("select", { cls: "oneday-todo-estimate-unit-select", attr: { "aria-label": t("durationUnit") } })
+  const estimateField = form.createDiv({ cls: "modular-diary-todo-estimate-field" })
+  const estimate = estimateField.createEl("input", { cls: "modular-diary-todo-estimate-input", attr: { type: "number", step: "any", inputmode: "decimal", "aria-label": t("estimatedDuration") } })
+  const estimateUnit = estimateField.createEl("select", { cls: "modular-diary-todo-estimate-unit-select", attr: { "aria-label": t("durationUnit") } })
   estimateUnit.createEl("option", { text: t("minutesUnit"), attr: { value: "minutes" } })
   estimateUnit.createEl("option", { text: t("hoursUnit"), attr: { value: "hours" } })
   let currentUnit: DurationInputUnit = "minutes"
@@ -86,9 +86,9 @@ function createTodoForm(
     estimate.value = durationInputValue(minutes, currentUnit)
     estimateUnit.value = currentUnit
   }
-  const save = form.createEl("button", { cls: "oneday-todo-save", attr: { type: "submit", "aria-label": t("save") } })
+  const save = form.createEl("button", { cls: "modular-diary-todo-save", attr: { type: "submit", "aria-label": t("save") } })
   setIcon(save, "check")
-  const error = form.createDiv({ cls: "oneday-todo-form-error", attr: { role: "status", "aria-live": "polite" } })
+  const error = form.createDiv({ cls: "modular-diary-todo-form-error", attr: { role: "status", "aria-live": "polite" } })
   error.hidden = true
   const clearError = (): void => {
     error.hidden = true
@@ -162,13 +162,13 @@ function createTodoForm(
 }
 
 export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: TodoViewDeps): void {
-  const root = slot.createDiv({ cls: "oneday-todos" })
+  const root = slot.createDiv({ cls: "modular-diary-todos" })
   const canDrag = deps.view.groupBy === "none" && deps.view.sortBy === "manual"
-  const header = root.createDiv({ cls: "oneday-component-header" })
-  header.createEl("span", { cls: "oneday-component-title", text: t("todoList") })
+  const header = root.createDiv({ cls: "modular-diary-component-header" })
+  header.createEl("span", { cls: "modular-diary-component-title", text: t("todoList") })
   const completedAtRender = items.filter((item) => item.completed).length
-  const count = header.createEl("span", { cls: "oneday-component-count", text: `${completedAtRender}/${items.length}` })
-  const actions = header.createDiv({ cls: "oneday-component-actions" })
+  const count = header.createEl("span", { cls: "modular-diary-component-count", text: `${completedAtRender}/${items.length}` })
+  const actions = header.createDiv({ cls: "modular-diary-component-actions" })
   const group = actions.createEl("button", { attr: { type: "button", "aria-label": t("todoGroupRule") } })
   setIcon(group, "list-tree")
   group.addEventListener("click", () => {
@@ -185,22 +185,22 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   const add = actions.createEl("button", { attr: { type: "button", "aria-label": t("addTodo") } })
   setIcon(add, "plus")
 
-  const addForm = createTodoForm(root, deps.categories, "oneday-todo-add-form", deps.onAdd, undefined, deps.onDraftChange)
+  const addForm = createTodoForm(root, deps.categories, "modular-diary-todo-add-form", deps.onAdd, undefined, deps.onDraftChange)
   add.addEventListener("click", () => addForm.form.hidden
     ? addForm.open({ title: "", estimateMinutes: 30, estimateUnit: "minutes" })
     : addForm.close())
   if (deps.draft) addForm.open(deps.draft, { focus: false })
 
   if (items.length === 0) {
-    const empty = root.createEl("button", { cls: "oneday-component-empty", attr: { type: "button" } })
-    const icon = empty.createEl("span", { cls: "oneday-component-empty-icon" })
+    const empty = root.createEl("button", { cls: "modular-diary-component-empty", attr: { type: "button" } })
+    const icon = empty.createEl("span", { cls: "modular-diary-component-empty-icon" })
     setIcon(icon, "plus")
     empty.createEl("span", { text: t("addFirstTodo") })
     empty.addEventListener("click", () => addForm.open({ title: "", estimateMinutes: 30, estimateUnit: "minutes" }))
     return
   }
 
-  const list = root.createDiv({ cls: "oneday-todo-list" })
+  const list = root.createDiv({ cls: "modular-diary-todo-list" })
   let lastGroup = "\0"
   const displayed = items.map((item, sourceIndex) => ({ item, sourceIndex }))
   if (deps.view.sortBy === "estimate") displayed.sort((a, b) => b.item.estimateMinutes - a.item.estimateMinutes || a.sourceIndex - b.sourceIndex)
@@ -215,26 +215,26 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   displayed.forEach(({ item, sourceIndex }) => {
     const groupName = groupFor(item)
     if (deps.view.groupBy !== "none" && groupName !== lastGroup) {
-      list.createEl("span", { cls: "oneday-todo-group", text: groupName })
+      list.createEl("span", { cls: "modular-diary-todo-group", text: groupName })
       lastGroup = groupName
     }
-    const row = list.createDiv({ cls: `oneday-todo-row${item.completed ? " is-complete" : ""}${canDrag ? " is-manual" : ""}` })
+    const row = list.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${canDrag ? " is-manual" : ""}` })
     row.tabIndex = 0
-    const drag = canDrag ? row.createEl("button", { cls: "oneday-item-drag oneday-todo-drag", attr: { type: "button", "aria-label": t("dragTodo", { name: item.title }) } }) : null
+    const drag = canDrag ? row.createEl("button", { cls: "modular-diary-item-drag modular-diary-todo-drag", attr: { type: "button", "aria-label": t("dragTodo", { name: item.title }) } }) : null
     if (drag) {
       appendSixDotGrip(drag)
       attachPointerRowSort({
         list,
         row,
         handle: drag,
-        rowSelector: ".oneday-todo-row",
+        rowSelector: ".modular-diary-todo-row",
         onMove: (targetIndex) => deps.onMove(item.id, targetIndex),
       })
     }
     const editForm = createTodoForm(
       row,
       deps.categories,
-      "oneday-todo-edit-form",
+      "modular-diary-todo-edit-form",
       (input) => deps.onEdit(item.id, input),
       () => row.classList.remove("is-editing"),
       (draft) => deps.onEditDraftChange?.(draft ? { id: item.id, input: draft } : null),
@@ -259,7 +259,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
         deps.onMenu(item, rect.left, rect.bottom, edit)
       }
     })
-    const check = row.createEl("button", { cls: "oneday-todo-check", attr: { type: "button", "aria-pressed": String(item.completed), "aria-label": item.completed ? t("markIncomplete") : t("markComplete") } })
+    const check = row.createEl("button", { cls: "modular-diary-todo-check", attr: { type: "button", "aria-pressed": String(item.completed), "aria-label": item.completed ? t("markIncomplete") : t("markComplete") } })
     let completed = item.completed
     let toggleGeneration = 0
     const paintCompletion = (): void => {
@@ -283,27 +283,27 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
         if (generation !== toggleGeneration) return
         completed = previous
         paintCompletion()
-        console.error("Oneday: failed to update todo completion", error)
+        console.error("Modular Diary: failed to update todo completion", error)
       })
     })
-    const body = row.createDiv({ cls: "oneday-todo-body" })
+    const body = row.createDiv({ cls: "modular-diary-todo-body" })
     if (item.estimateMinutes > 0 && item.type) {
-      body.classList.add("oneday-schedule-source")
+      body.classList.add("modular-diary-schedule-source")
       body.dataset.scheduleSource = "todo"
       body.dataset.scheduleId = item.id
       body.dataset.scheduleTitle = item.title
       body.dataset.scheduleType = item.type
       body.dataset.scheduleDuration = String(item.estimateMinutes)
     }
-    body.createEl("span", { cls: "oneday-item-title", text: item.title })
+    body.createEl("span", { cls: "modular-diary-item-title", text: item.title })
     const metaParts = [item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) })].filter(Boolean)
-    body.createEl("span", { cls: "oneday-item-meta", text: metaParts.join(" · ") })
+    body.createEl("span", { cls: "modular-diary-item-meta", text: metaParts.join(" · ") })
     // A zero-progress track is just a full-width grey underline that reads
     // as a row divider; quiet flat rows only paint the track once there is
     // progress to show.
     if (item.estimateMinutes > 0 && item.actualMinutes > 0) {
-      const track = body.createDiv({ cls: "oneday-item-progress" })
-      const bar = track.createDiv({ cls: "oneday-item-progress-bar" })
+      const track = body.createDiv({ cls: "modular-diary-item-progress" })
+      const bar = track.createDiv({ cls: "modular-diary-item-progress-bar" })
       bar.style.width = `${Math.min(100, item.actualMinutes / item.estimateMinutes * 100)}%`
       bar.style.background = item.type ? (deps.typeColors[item.type] ?? "var(--interactive-accent)") : "var(--interactive-accent)"
     }

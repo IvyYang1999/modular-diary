@@ -27,7 +27,7 @@ export function attachCascadeMenu(
   const dom = primaryMenu.ownerDocument
   let submenu: HTMLElement | null = null
 
-  trigger.classList.add("oneday-cascade-trigger")
+  trigger.classList.add("modular-diary-cascade-trigger")
   trigger.setAttribute("aria-haspopup", "menu")
   trigger.setAttribute("aria-expanded", "false")
 
@@ -51,15 +51,15 @@ export function attachCascadeMenu(
     if (activeClose && activeClose !== close) activeClose()
     activeCascadeByMenu.set(primaryMenu, close)
     const menu = dom.createElement("div")
-    menu.id = `oneday-cascade-menu-${++cascadeSequence}`
-    menu.className = "menu oneday-cascade-menu"
+    menu.id = `modular-diary-cascade-menu-${++cascadeSequence}`
+    menu.className = "menu modular-diary-cascade-menu"
     menu.setAttribute("role", "menu")
     menu.setAttribute("aria-label", accessibleLabel)
 
     options.forEach((option, index) => {
       const item = dom.createElement("button")
       item.type = "button"
-      item.className = "menu-item tappable oneday-cascade-item"
+      item.className = "menu-item tappable modular-diary-cascade-item"
       item.setAttribute("role", "menuitemradio")
       item.setAttribute("aria-checked", String(option.checked))
       if (option.checked) {
@@ -67,7 +67,7 @@ export function attachCascadeMenu(
         item.setAttribute("aria-disabled", "true")
       }
       const check = dom.createElement("span")
-      check.className = "oneday-cascade-check"
+      check.className = "modular-diary-cascade-check"
       check.setAttribute("aria-hidden", "true")
       check.textContent = option.checked ? "✓" : ""
       const title = dom.createElement("span")

@@ -3,7 +3,7 @@ const browser = await chromium.connectOverCDP("http://127.0.0.1:9333")
 for (const ctx of browser.contexts()) {
   for (const page of ctx.pages()) {
     const hosts = await page.evaluate(() => {
-      return [...document.querySelectorAll(".oneday-host")].map((h) => {
+      return [...document.querySelectorAll(".modular-diary-host")].map((h) => {
         let hiddenAncestor = null
         let el = h
         while (el) {

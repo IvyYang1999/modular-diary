@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Oneday 荧光笔时间轴 · Obsidian 插件</title>
+<title>Modular Diary · 模块日记 · Obsidian 插件</title>
 <meta name="description" content="在 Obsidian 笔记里，用荧光笔把一天涂在时间轴上。拖一下就是一段时间，也能一句话让 AI 帮你画。全部存成 Markdown。">
-<meta property="og:title" content="Oneday 荧光笔时间轴 · Obsidian 插件">
+<meta property="og:title" content="Modular Diary · 模块日记 · Obsidian 插件">
 <meta property="og:description" content="一天的时间去哪了，在笔记里涂出来。拖一下就是一段时间；说一句「刚跑步半小时」也行。">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
@@ -39,11 +39,12 @@ h2{font-size:clamp(26px,3.2vw,32px);line-height:1.3;letter-spacing:-.02em;font-w
 /* nav */
 .nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.86);backdrop-filter:blur(14px) saturate(140%);border-bottom:1px solid var(--line)}
 .nav .wrap{display:flex;align-items:center;justify-content:space-between;height:58px}
-.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;white-space:nowrap;flex-shrink:0}
 .brand .mark{width:28px;height:28px;display:block}
 .nav nav{display:flex;gap:4px}
-.nav nav a{padding:6px 12px;border-radius:8px;font-size:14.5px;color:var(--ink-2)}
+.nav nav a{padding:6px 12px;border-radius:8px;font-size:14.5px;color:var(--ink-2);white-space:nowrap}
 .nav nav a:hover{background:var(--bg-2);color:var(--ink)}
+@media (max-width:480px){.nav nav{gap:0}.nav nav a{padding-inline:6px;font-size:13px}}
 
 /* ── screen 1: hero + live block ── */
 .hero{padding-top:48px;text-align:center}
@@ -85,7 +86,7 @@ h2{font-size:clamp(26px,3.2vw,32px);line-height:1.3;letter-spacing:-.02em;font-w
 .src .at{color:var(--at)}
 .note.source .prose{display:none}.note.source .src{display:block}
 
-/* right: the oneday block */
+/* right: the Modular Diary block */
 .block{padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px;background:#fff}
 .tb{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .seg{display:inline-flex;background:var(--bg-2);border-radius:8px;padding:2px}
@@ -214,8 +215,8 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
 <body>
 
 <header class="nav"><div class="wrap">
-  <a class="brand" href="#"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 8v48" stroke="#1c1c1a" stroke-width="2" stroke-linecap="round"/><rect x="20" y="9" width="36" height="15" rx="4" fill="#7fd4c1"/><rect x="20" y="27" width="36" height="9" rx="3" fill="#f6c667"/><rect x="20" y="39" width="36" height="17" rx="4" fill="#f5a3b7"/></svg>Oneday</a>
-  <nav><a href="#who">适合谁</a><a href="#install">安装</a><a href="https://github.com/IvyYang1999/oneday" target="_blank" rel="noopener">GitHub</a></nav>
+  <a class="brand" href="#"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 8v48" stroke="#1c1c1a" stroke-width="2" stroke-linecap="round"/><rect x="20" y="9" width="36" height="15" rx="4" fill="#7fd4c1"/><rect x="20" y="27" width="36" height="9" rx="3" fill="#f6c667"/><rect x="20" y="39" width="36" height="17" rx="4" fill="#f5a3b7"/></svg>Modular Diary</a>
+  <nav><a href="#who">适合谁</a><a href="#install">安装</a><a href="https://github.com/IvyYang1999/modular-diary" target="_blank" rel="noopener">GitHub</a></nav>
 </div></header>
 
 <main>
@@ -298,15 +299,16 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
   <p class="lead">还没上社区目录，先用 BRAT 装。三步，不用手动复制文件。</p>
   <div class="steps">
     <div class="step"><b>1 · 装 BRAT</b>Obsidian 设置 → 第三方插件 → 浏览，搜 <code>BRAT</code>，安装并启用。</div>
-    <div class="step"><b>2 · 加仓库</b>BRAT 设置里点「Add Beta plugin」，填 <code>IvyYang1999/oneday</code>。</div>
-    <div class="step"><b>3 · 启用</b>回到第三方插件列表启用 Oneday。在任何笔记里输入 <code>```timeline</code>，或用命令面板「插入 Oneday 时间轴」。</div>
+    <div class="step"><b>2 · 加仓库</b>BRAT 设置里点「Add Beta plugin」，填 <code>IvyYang1999/modular-diary</code>。</div>
+    <div class="step"><b>3 · 启用</b>回到第三方插件列表启用 Modular Diary。在任何笔记里输入 <code>```timeline</code>，或用命令面板「插入 Modular Diary 时间轴」。</div>
   </div>
-  <p class="spec">v0.1.0 · 免费 · 开源 · 桌面与手机 · Obsidian 1.8.7 以上 · 编辑与阅读视图都能画 · 快速记录需要你自己的模型 API Key（GLM / DeepSeek / OpenAI / Claude 都行）</p>
+  <p class="spec">v0.2.0 · 免费 · 开源 · 桌面与手机 · Obsidian 1.8.7 以上 · 编辑与阅读视图都能画 · 快速记录需要你自己的模型 API Key（GLM / DeepSeek / OpenAI / Claude 都行）</p>
   <div class="qs">
     <details open><summary>数据存在哪里？</summary><p>就在那篇笔记里，一个 <code>timeline</code> 代码块。没有数据库、没有附属文件。随 iCloud / Git / Obsidian Sync 一起走，没装插件的地方打开也能读。</p></details>
     <details><summary>不配 AI 能用吗？</summary><p>完全可以。画色块、备注、计划层、统计都不联网。快速记录是可选项：没填 API Key 时那一行只是一句「去设置填 Key」的提示，不想看见可以在块菜单里把这个组件隐藏。</p></details>
     <details><summary>手机上能用吗？</summary><p>能看也能画，Obsidian 移动端一样渲染。快速记录在手机上走模型 API；本机 Claude CLI 这个后端只有桌面端有。</p></details>
     <details><summary>颜色和分类怎么定？</summary><p>设置里维护一张「分类 → 颜色」表，这就是你的荧光笔色号。笔记里只写分类名，改颜色不会动历史记录。</p></details>
+    <details><summary>已经装过旧版 Oneday，怎么迁移？</summary><p>新版的插件 ID 是 <code>modular-diary</code>，不是旧版的原位更新。先在本机备份旧插件目录和设置；关闭旧插件，安装新版后把旧目录的 <code>data.json</code> 私下复制到新目录，再启用新版。不要同时启用两份：它们都会接管 <code>timeline</code> 代码块。旧的快捷键和自定义 CSS 也需要重新对应。<a class="link" href="https://github.com/IvyYang1999/modular-diary#readme" target="_blank" rel="noopener">完整迁移步骤</a></p></details>
   </div>
 </section>
 
@@ -329,14 +331,14 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
 </main>
 
 <footer><div class="wrap">
-  <div class="me"><b>yytyyf</b><span>Oneday · MIT</span></div>
+  <div class="me"><b>yytyyf</b><span>Modular Diary · MIT</span></div>
   <div class="links">
     <a href="https://yytyyf.com" target="_blank" rel="noopener">yytyyf.com</a>
     <a href="https://github.com/IvyYang1999" target="_blank" rel="noopener">GitHub</a>
     <a href="https://x.com/ivyadams1999" target="_blank" rel="noopener">X</a>
     <a href="https://www.xiaohongshu.com/user/profile/5a099fb94eacab47629e53bc" target="_blank" rel="noopener">小红书</a>
     <a href="mailto:ivyyang1999@gmail.com">邮件</a>
-    <a href="https://github.com/IvyYang1999/oneday/issues" target="_blank" rel="noopener">问题反馈</a>
+    <a href="https://github.com/IvyYang1999/modular-diary/issues" target="_blank" rel="noopener">问题反馈</a>
   </div>
 </div></footer>
 

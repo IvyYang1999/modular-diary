@@ -43,19 +43,19 @@ export function renderDailyQuoteInto(
   deps: DailyQuoteViewDeps
 ): void {
   slot.empty()
-  slot.classList.add("oneday-quote-slot")
+  slot.classList.add("modular-diary-quote-slot")
   if (options.inkColor) {
-    slot.style.setProperty("--oneday-quote-ink", options.inkColor)
+    slot.style.setProperty("--modular-diary-quote-ink", options.inkColor)
     slot.classList.add("has-ink")
   } else {
-    slot.style.removeProperty("--oneday-quote-ink")
+    slot.style.removeProperty("--modular-diary-quote-ink")
     slot.classList.remove("has-ink")
   }
-  const root = slot.createDiv({ cls: "oneday-daily-quote" })
-  const header = root.createDiv({ cls: "oneday-component-header" })
-  header.createEl("strong", { cls: "oneday-component-title", text: t("dailyQuote") })
+  const root = slot.createDiv({ cls: "modular-diary-daily-quote" })
+  const header = root.createDiv({ cls: "modular-diary-component-header" })
+  header.createEl("strong", { cls: "modular-diary-component-title", text: t("dailyQuote") })
   const edit = header.createEl("button", {
-    cls: "oneday-component-icon-button clickable-icon",
+    cls: "modular-diary-component-icon-button clickable-icon",
     attr: { type: "button", "aria-label": t("editDailyQuote") },
   })
   setIcon(edit, "pencil")
@@ -63,16 +63,16 @@ export function renderDailyQuoteInto(
 
   if (!quote) {
     const empty = root.createEl("button", {
-      cls: "oneday-daily-quote-empty",
+      cls: "modular-diary-daily-quote-empty",
       attr: { type: "button", "aria-label": t("addFirstQuote") },
     })
-    setIcon(empty.createSpan({ cls: "oneday-daily-quote-empty-icon" }), "quote")
+    setIcon(empty.createSpan({ cls: "modular-diary-daily-quote-empty-icon" }), "quote")
     empty.createSpan({ text: t("addFirstQuote") })
     bindEditorIsolatedClick(empty, deps.onEdit)
     return
   }
 
-  const body = root.createDiv({ cls: "oneday-daily-quote-body" })
-  body.createEl("p", { cls: "oneday-daily-quote-text", text: quote.text.trim() })
-  if (quote.author.trim()) body.createEl("span", { cls: "oneday-daily-quote-author", text: quote.author.trim() })
+  const body = root.createDiv({ cls: "modular-diary-daily-quote-body" })
+  body.createEl("p", { cls: "modular-diary-daily-quote-text", text: quote.text.trim() })
+  if (quote.author.trim()) body.createEl("span", { cls: "modular-diary-daily-quote-author", text: quote.author.trim() })
 }

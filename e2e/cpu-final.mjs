@@ -14,10 +14,10 @@ const avg = async (ms) => {
 }
 await page.waitForTimeout(2000)
 console.log("A baseline:", await avg(8000))
-// 把 oneday 宿主整体 visibility hidden（保留布局，不参与绘制）
+// 把 modular-diary 宿主整体 visibility hidden（保留布局，不参与绘制）
 await page.evaluate(() => {
   const st = document.createElement("style"); st.id = "x1"
-  st.textContent = ".oneday-host { visibility: hidden !important }"
+  st.textContent = ".modular-diary-host { visibility: hidden !important }"
   document.head.appendChild(st)
 })
 console.log("B host-invisible:", await avg(8000))
@@ -31,7 +31,7 @@ await page.evaluate(() => {
 console.log("C sync-icon-hidden:", await avg(8000))
 await page.evaluate(() => {
   const st = document.createElement("style"); st.id = "x3"
-  st.textContent = ".sync-status-icon { display: none !important } .oneday-host { visibility: hidden !important }"
+  st.textContent = ".sync-status-icon { display: none !important } .modular-diary-host { visibility: hidden !important }"
   document.head.appendChild(st)
 })
 console.log("D both:", await avg(8000))

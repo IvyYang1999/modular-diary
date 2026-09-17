@@ -70,14 +70,14 @@ const PLUS_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" st
 function showSwatchMenu(anchor: HTMLElement, type: string, deps: ToolbarDeps): void {
   const dom = anchor.ownerDocument
   const menu = dom.createElement("div")
-  menu.className = "oneday-ctx-menu"
+  menu.className = "modular-diary-ctx-menu"
   menu.setAttribute("role", "menu")
   // Obsidian turns aria-label on hovered surfaces into a visual tooltip.
   // aria-labelledby keeps the accessible name without duplicating the menu as a black bubble.
   labelCustomMenu(menu, t("categoryActions", { name: type }), dom)
   const hide = dom.createElement("button")
   hide.type = "button"
-  hide.className = "oneday-add-item"
+  hide.className = "modular-diary-add-item"
   hide.setAttribute("role", "menuitem")
   hide.textContent = t("hide")
   let close = (): void => {}
@@ -92,12 +92,12 @@ function showSwatchMenu(anchor: HTMLElement, type: string, deps: ToolbarDeps): v
 export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   const dom = deps.domDocument ?? document
   const el = dom.createElement("div")
-  el.className = "oneday-toolbar"
+  el.className = "modular-diary-toolbar"
   el.setAttribute("role", "toolbar")
   el.setAttribute("aria-label", t("categoryToolbar"))
 
   const statusEl = dom.createElement("div")
-  statusEl.className = "oneday-draw-status"
+  statusEl.className = "modular-diary-draw-status"
   statusEl.setAttribute("role", "status")
   statusEl.setAttribute("aria-live", "polite")
 
@@ -119,14 +119,14 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   const createCategoryMark = (type: string): HTMLElement => {
     const mark = dom.createElement("span")
     mark.setAttribute("aria-hidden", "true")
-    mark.className = "oneday-swatch-dot"
+    mark.className = "modular-diary-swatch-dot"
     mark.style.setProperty("--c", colorsByTool[currentDrawTool][type])
     syncCategoryMark(mark)
     return mark
   }
 
   const syncCategoryMarks = (): void => {
-    el.querySelectorAll<HTMLElement>(".oneday-swatch-dot").forEach(syncCategoryMark)
+    el.querySelectorAll<HTMLElement>(".modular-diary-swatch-dot").forEach(syncCategoryMark)
   }
 
   const syncToolbarSemanticState = (): void => {
@@ -140,37 +140,37 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   // 创建工具优先：先选几何（时间段/时间点），计划只是一个次级修饰模式。
   el.classList.add("has-category-rows")
   const creationControls = dom.createElement("div")
-  creationControls.className = "oneday-creation-controls"
+  creationControls.className = "modular-diary-creation-controls"
   const categoryList = dom.createElement("div")
-  categoryList.className = "oneday-category-list"
+  categoryList.className = "modular-diary-category-list"
   el.append(creationControls, categoryList)
 
   const brushLabel = dom.createElement("span")
-  brushLabel.className = "oneday-component-title oneday-creation-title"
+  brushLabel.className = "modular-diary-component-title modular-diary-creation-title"
   brushLabel.textContent = t("addToTimeline")
   creationControls.appendChild(brushLabel)
 
   const toolWrap = dom.createElement("span")
-  toolWrap.className = "oneday-mode oneday-tool-toggle"
+  toolWrap.className = "modular-diary-mode modular-diary-tool-toggle"
   toolWrap.setAttribute("role", "group")
   toolWrap.setAttribute("aria-label", t("drawTool"))
   const initialTool = currentDrawTool
   for (const [tool, label] of [["span", t("spanTool")], ["marker", t("markerTool")]] as Array<[TimelineDrawTool, string]>) {
     const btn = dom.createElement("button")
     btn.type = "button"
-    btn.className = "oneday-mode-btn" + (tool === initialTool ? " is-active" : "")
+    btn.className = "modular-diary-mode-btn" + (tool === initialTool ? " is-active" : "")
     btn.dataset.tool = tool
     const symbol = dom.createElement("span")
-    symbol.className = `oneday-tool-symbol is-${tool}`
+    symbol.className = `modular-diary-tool-symbol is-${tool}`
     symbol.setAttribute("aria-hidden", "true")
     const copy = dom.createElement("span")
-    copy.className = "oneday-tool-copy"
+    copy.className = "modular-diary-tool-copy"
     copy.textContent = label
     btn.append(symbol, copy)
     btn.setAttribute("aria-label", t("selectDrawTool", { name: label }))
     btn.setAttribute("aria-pressed", String(tool === initialTool))
     btn.addEventListener("click", () => {
-      toolWrap.querySelectorAll<HTMLButtonElement>(".oneday-mode-btn").forEach((candidate) => {
+      toolWrap.querySelectorAll<HTMLButtonElement>(".modular-diary-mode-btn").forEach((candidate) => {
         const active = candidate === btn
         candidate.classList.toggle("is-active", active)
         candidate.setAttribute("aria-pressed", String(active))
@@ -186,22 +186,22 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   creationControls.appendChild(toolWrap)
 
   const planGroup = dom.createElement("span")
-  planGroup.className = "oneday-plan-mode-group"
+  planGroup.className = "modular-diary-plan-mode-group"
   creationControls.appendChild(planGroup)
 
   const planToggle = dom.createElement("button")
   planToggle.type = "button"
-  planToggle.className = "oneday-plan-mode-toggle oneday-brush-toggle"
+  planToggle.className = "modular-diary-plan-mode-toggle modular-diary-brush-toggle"
   planToggle.setAttribute("role", "switch")
   planToggle.setAttribute("aria-label", t("planMode"))
   const planTrack = dom.createElement("span")
-  planTrack.className = "oneday-plan-mode-track"
+  planTrack.className = "modular-diary-plan-mode-track"
   planTrack.setAttribute("aria-hidden", "true")
   const planThumb = dom.createElement("span")
-  planThumb.className = "oneday-plan-mode-thumb"
+  planThumb.className = "modular-diary-plan-mode-thumb"
   planTrack.appendChild(planThumb)
   const planLabel = dom.createElement("span")
-  planLabel.className = "oneday-plan-mode-label"
+  planLabel.className = "modular-diary-plan-mode-label"
   planLabel.textContent = t("planMode")
   planToggle.append(planTrack, planLabel)
 
@@ -233,14 +233,14 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     if (configured.length === 0) {
       const emptyButton = dom.createElement("button")
       emptyButton.type = "button"
-      emptyButton.className = "oneday-toolbar-empty"
+      emptyButton.className = "modular-diary-toolbar-empty"
       emptyButton.setAttribute("aria-label", t("addFirstCategory"))
       const icon = dom.createElement("span")
-      icon.className = "oneday-toolbar-empty-icon"
+      icon.className = "modular-diary-toolbar-empty-icon"
       icon.setAttribute("aria-hidden", "true")
       icon.innerHTML = PLUS_SVG
       const copy = dom.createElement("span")
-      copy.className = "oneday-toolbar-empty-label"
+      copy.className = "modular-diary-toolbar-empty-label"
       copy.textContent = t("addFirstCategory")
       emptyButton.append(icon, copy)
       emptyButton.addEventListener("click", (event) => { event.stopPropagation(); deps.onAddNew() })
@@ -250,7 +250,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
 
     const visible = configured.filter((type) => !hiddenTypes.includes(type))
     const selectCategory = (type: string): void => {
-      el.querySelectorAll<HTMLButtonElement>(".oneday-swatch[data-type]").forEach((b) => {
+      el.querySelectorAll<HTMLButtonElement>(".modular-diary-swatch[data-type]").forEach((b) => {
         const active = b.dataset.type === type
         b.classList.toggle("is-active", active)
         b.setAttribute("aria-pressed", String(active))
@@ -264,7 +264,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     for (const type of visible) {
     const btn = dom.createElement("button")
     btn.type = "button"
-    btn.className = "oneday-swatch" + (type === activeType ? " is-active" : "")
+    btn.className = "modular-diary-swatch" + (type === activeType ? " is-active" : "")
     btn.dataset.type = type
     btn.setAttribute("aria-label", t("selectCategory", { name: type }))
     btn.setAttribute("aria-pressed", String(type === activeType))
@@ -285,31 +285,31 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   // reachable by keyboard through that menu.
   const moreBtn = dom.createElement("button")
   moreBtn.type = "button"
-  moreBtn.className = "oneday-swatch oneday-category-more"
+  moreBtn.className = "modular-diary-swatch modular-diary-category-more"
   moreBtn.hidden = true
   moreBtn.setAttribute("aria-haspopup", "menu")
   moreBtn.setAttribute("aria-expanded", "false")
   moreBtn.setAttribute("aria-label", t("moreCategoriesMenu"))
   const moreLabel = dom.createElement("span")
-  moreLabel.className = "oneday-category-more-label"
+  moreLabel.className = "modular-diary-category-more-label"
   const moreIcon = dom.createElement("span")
-  moreIcon.className = "oneday-category-more-icon"
+  moreIcon.className = "modular-diary-category-more-icon"
   moreIcon.setAttribute("aria-hidden", "true")
   moreIcon.innerHTML = CHEVRON_SVG
   moreBtn.append(moreLabel, moreIcon)
   moreBtn.addEventListener("click", (e) => {
     e.stopPropagation()
-    const folded = visible.filter((type) => categoryList.querySelector(`.oneday-swatch[data-type="${CSS.escape(type)}"]`)?.classList.contains("is-overflowed"))
+    const folded = visible.filter((type) => categoryList.querySelector(`.modular-diary-swatch[data-type="${CSS.escape(type)}"]`)?.classList.contains("is-overflowed"))
     if (folded.length === 0) return
     const menu = dom.createElement("div")
-    menu.className = "oneday-add-menu"
+    menu.className = "modular-diary-add-menu"
     menu.setAttribute("role", "menu")
     labelCustomMenu(menu, t("moreCategoriesMenu"), dom)
     let close = (): void => {}
     for (const type of folded) {
       const item = dom.createElement("button")
       item.type = "button"
-      item.className = "oneday-add-item"
+      item.className = "modular-diary-add-item"
       item.setAttribute("role", "menuitem")
       item.setAttribute("aria-label", t("selectCategory", { name: type }))
       item.appendChild(createCategoryMark(type))
@@ -323,7 +323,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     // Same edge-to-edge separator treatment as the manage menu's "add new" row.
     const expandItem = dom.createElement("button")
     expandItem.type = "button"
-    expandItem.className = "oneday-add-item oneday-add-new oneday-category-expand"
+    expandItem.className = "modular-diary-add-item modular-diary-add-new modular-diary-category-expand"
     expandItem.setAttribute("role", "menuitem")
     expandItem.innerHTML = CHEVRON_SVG
     expandItem.appendChild(dom.createTextNode(t("expandAllCategories")))
@@ -334,7 +334,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     menu.appendChild(expandItem)
     moreBtn.setAttribute("aria-expanded", "true")
     close = showCustomMenu(menu, { anchor: moreBtn }, () => moreBtn.setAttribute("aria-expanded", "false"))
-    menu.querySelector<HTMLButtonElement>(".oneday-add-item")?.focus()
+    menu.querySelector<HTMLButtonElement>(".modular-diary-add-item")?.focus()
   })
   categoryList.appendChild(moreBtn)
 
@@ -342,7 +342,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   const hidden = hiddenTypes.filter((type) => type in colors)
   const addBtn = dom.createElement("button")
   addBtn.type = "button"
-  addBtn.className = "oneday-swatch oneday-add"
+  addBtn.className = "modular-diary-swatch modular-diary-add"
   addBtn.innerHTML = PLUS_SVG
   addBtn.setAttribute("aria-label", hidden.length > 0 ? t("manageCategories") : t("addCategory"))
   if (hidden.length > 0) {
@@ -351,14 +351,14 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     addBtn.addEventListener("click", (e) => {
       e.stopPropagation()
       const menu = dom.createElement("div")
-      menu.className = "oneday-add-menu"
+      menu.className = "modular-diary-add-menu"
       menu.setAttribute("role", "menu")
       labelCustomMenu(menu, t("manageCategories"), dom)
       let close = (): void => {}
       for (const type of hidden) {
         const item = dom.createElement("button")
         item.type = "button"
-        item.className = "oneday-add-item"
+        item.className = "modular-diary-add-item"
         item.setAttribute("role", "menuitem")
         const dot = createCategoryMark(type)
         item.appendChild(dot)
@@ -371,10 +371,10 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
       }
       const addNew = dom.createElement("button")
       addNew.type = "button"
-      addNew.className = "oneday-add-item oneday-add-new"
+      addNew.className = "modular-diary-add-item modular-diary-add-new"
       addNew.setAttribute("role", "menuitem")
       const icon = dom.createElement("span")
-      icon.className = "oneday-menu-icon"
+      icon.className = "modular-diary-menu-icon"
       icon.setAttribute("aria-hidden", "true")
       icon.innerHTML = PLUS_SVG
       addNew.append(icon, dom.createTextNode(`${t("addCategory")}…`))
@@ -397,7 +397,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   // Opt-in fold: shown only while the expanded list runs past MAX_CATEGORY_ROWS.
   const foldBtn = dom.createElement("button")
   foldBtn.type = "button"
-  foldBtn.className = "oneday-swatch oneday-category-fold"
+  foldBtn.className = "modular-diary-swatch modular-diary-category-fold"
   foldBtn.hidden = true
   foldBtn.innerHTML = CHEVRON_UP_SVG
   foldBtn.setAttribute("aria-label", t("collapseCategories"))
@@ -422,9 +422,9 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     applyCategoryOverflow()
   }
   const applyCategoryOverflow = (): void => {
-    const swatches = Array.from(categoryList.querySelectorAll<HTMLButtonElement>(".oneday-swatch[data-type]"))
-    const moreBtn = categoryList.querySelector<HTMLButtonElement>(".oneday-category-more")
-    const foldBtn = categoryList.querySelector<HTMLButtonElement>(".oneday-category-fold")
+    const swatches = Array.from(categoryList.querySelectorAll<HTMLButtonElement>(".modular-diary-swatch[data-type]"))
+    const moreBtn = categoryList.querySelector<HTMLButtonElement>(".modular-diary-category-more")
+    const foldBtn = categoryList.querySelector<HTMLButtonElement>(".modular-diary-category-fold")
     for (const swatch of swatches) swatch.classList.remove("is-overflowed")
     if (moreBtn) moreBtn.hidden = true
     if (foldBtn) foldBtn.hidden = true
@@ -454,7 +454,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
       folded += 1
     }
     categoryList.dataset.foldedCategories = String(folded)
-    const label = moreBtn.querySelector<HTMLElement>(".oneday-category-more-label")
+    const label = moreBtn.querySelector<HTMLElement>(".modular-diary-category-more-label")
     if (label) label.textContent = t("moreCategories", { count: folded })
     moreBtn.setAttribute("aria-label", t("showMoreCategories", { count: folded }))
   }
@@ -479,7 +479,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   }
 
   const setDrawTool = (tool: TimelineDrawTool): void => {
-    toolWrap.querySelectorAll<HTMLButtonElement>(".oneday-mode-btn").forEach((button) => {
+    toolWrap.querySelectorAll<HTMLButtonElement>(".modular-diary-mode-btn").forEach((button) => {
       const active = button.dataset.tool === tool
       button.classList.toggle("is-active", active)
       button.setAttribute("aria-pressed", String(active))
@@ -509,21 +509,21 @@ export interface LayerView {
 /** 图层开关：记录/计划各自独立点亮，都亮=全部；允许全灭。 */
 export function buildLayerToggles(view: LayerView, onChange: (view: LayerView) => void, dom: Document = document): HTMLElement {
   const wrap = dom.createElement("div")
-  wrap.className = "oneday-mode oneday-view-toggle"
+  wrap.className = "modular-diary-mode modular-diary-view-toggle"
   wrap.setAttribute("role", "group")
   wrap.setAttribute("aria-label", t("layerVisibility"))
   const state = { ...view }
   for (const [key, label] of [["actual", t("record")], ["plan", t("plan")]] as Array<["actual" | "plan", string]>) {
     const btn = dom.createElement("button")
     btn.type = "button"
-    btn.className = "oneday-mode-btn oneday-layer-btn" + (state[key] ? " is-active" : "")
+    btn.className = "modular-diary-mode-btn modular-diary-layer-btn" + (state[key] ? " is-active" : "")
     btn.dataset.layer = key
     // 文字 + Lucide eye/eye-off 图标（yyt 2026-08-19：不要 emoji）
     const text = dom.createElement("span")
     text.textContent = label
     const eye = dom.createElement("span")
     eye.setAttribute("aria-hidden", "true")
-    eye.className = "oneday-eye"
+    eye.className = "modular-diary-eye"
     btn.append(text, eye)
     const syncAria = (on: boolean): void => {
       btn.setAttribute("aria-pressed", String(on))

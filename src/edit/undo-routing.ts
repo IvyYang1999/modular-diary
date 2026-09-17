@@ -37,10 +37,10 @@ export function isEditingSurfaceTarget(target: ClosestCapableTarget | null): boo
 
   // Live Preview embeds rendered code-block widgets inside `.cm-content`.
   // The CodeMirror ancestor alone therefore does not prove that the key event
-  // came from its text-editing surface. Oneday chrome must route Ctrl/Cmd+Z
+  // came from its text-editing surface. Modular Diary chrome must route Ctrl/Cmd+Z
   // back to the owning Markdown editor, while actual CM text outside the
   // widget keeps CodeMirror's native keyboard handling.
-  return Boolean(target.closest(".cm-content") && !target.closest(".oneday-container"))
+  return Boolean(target.closest(".cm-content") && !target.closest(".modular-diary-container"))
 }
 
 /**
@@ -71,7 +71,7 @@ export function shouldLeaveUndoToFocusedEditor(target: ClosestCapableTarget | nu
   return isEditingSurfaceTarget(target)
 }
 
-/** Route Ctrl/Cmd+Z from rendered Oneday chrome to its Markdown owner. */
+/** Route Ctrl/Cmd+Z from rendered Modular Diary chrome to its Markdown owner. */
 export function routeMarkdownUndo(
   event: MarkdownUndoKeyEvent,
   resolveEditor: () => MarkdownUndoEditor | null

@@ -32,7 +32,7 @@ const RANGE_EDGE_HIT_PX = 1
 const activeMarkerOwnerByDocument = new WeakMap<Document, SVGSVGElement>()
 const markerKeyRouterOwner = {}
 type MarkerKeyRoutedDocument = Document & {
-  __onedayMarkerKeyRouter?: {
+  __modularDiaryMarkerKeyRouter?: {
     owner: object
     handler: (event: KeyboardEvent) => void
   }
@@ -40,15 +40,15 @@ type MarkerKeyRoutedDocument = Document & {
 
 function ensureDocumentMarkerKeyRouter(dom: Document): void {
   const routed = dom as MarkerKeyRoutedDocument
-  if (routed.__onedayMarkerKeyRouter?.owner === markerKeyRouterOwner) return
-  if (routed.__onedayMarkerKeyRouter) {
-    dom.removeEventListener("keydown", routed.__onedayMarkerKeyRouter.handler, true)
+  if (routed.__modularDiaryMarkerKeyRouter?.owner === markerKeyRouterOwner) return
+  if (routed.__modularDiaryMarkerKeyRouter) {
+    dom.removeEventListener("keydown", routed.__modularDiaryMarkerKeyRouter.handler, true)
   }
   const handler = (event: KeyboardEvent): void => {
     if (!["Escape", "Delete", "Backspace"].includes(event.key)) return
-    const editingSvgs = Array.from(dom.querySelectorAll<SVGSVGElement>(".oneday-svg.is-editing-marker"))
+    const editingSvgs = Array.from(dom.querySelectorAll<SVGSVGElement>(".modular-diary-svg.is-editing-marker"))
     if (editingSvgs.length === 0) return
-    const explicitOwners = editingSvgs.filter((candidate) => candidate.dataset.onedayMarkerOwnerActive === "1")
+    const explicitOwners = editingSvgs.filter((candidate) => candidate.dataset.modularDiaryMarkerOwnerActive === "1")
     const rememberedOwner = activeMarkerOwnerByDocument.get(dom)
     const editingSvg = explicitOwners.length === 1
       ? explicitOwners[0]
@@ -59,21 +59,21 @@ function ensureDocumentMarkerKeyRouter(dom: Document): void {
     event.preventDefault()
     event.stopPropagation()
     const CustomEventCtor = dom.defaultView?.CustomEvent ?? CustomEvent
-    editingSvg.dispatchEvent(new CustomEventCtor("oneday-marker-key", { detail: { key: event.key } }))
+    editingSvg.dispatchEvent(new CustomEventCtor("modular-diary-marker-key", { detail: { key: event.key } }))
     editingSvgs.forEach((candidate) => {
-      if (candidate !== editingSvg) candidate.dispatchEvent(new CustomEventCtor("oneday-marker-sync-visual"))
+      if (candidate !== editingSvg) candidate.dispatchEvent(new CustomEventCtor("modular-diary-marker-sync-visual"))
     })
   }
   dom.addEventListener("keydown", handler, true)
-  routed.__onedayMarkerKeyRouter = { owner: markerKeyRouterOwner, handler }
+  routed.__modularDiaryMarkerKeyRouter = { owner: markerKeyRouterOwner, handler }
 }
 
 export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc, deps: MarkerInteractionDeps): void {
-  const svg = container.querySelector<SVGSVGElement>("svg.oneday-svg")
-  const track = svg?.querySelector<SVGRectElement>("rect.oneday-track")
+  const svg = container.querySelector<SVGSVGElement>("svg.modular-diary-svg")
+  const track = svg?.querySelector<SVGRectElement>("rect.modular-diary-track")
   if (!svg || !track) return
   const dom = svg.ownerDocument
-  const statusEl = container.querySelector<HTMLElement>(".oneday-draw-status")
+  const statusEl = container.querySelector<HTMLElement>(".modular-diary-draw-status")
   const setStatus = (text: string): void => {
     if (statusEl) statusEl.textContent = text
   }
@@ -89,14 +89,14 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
   let ghost: SVGGElement | null = null
 
   const activateMarkerOwner = (): void => {
-    dom.querySelectorAll<SVGSVGElement>('.oneday-svg[data-oneday-marker-owner-active="1"]').forEach((candidate) => {
-      if (candidate !== svg) delete candidate.dataset.onedayMarkerOwnerActive
+    dom.querySelectorAll<SVGSVGElement>('.modular-diary-svg[data-modular-diary-marker-owner-active="1"]').forEach((candidate) => {
+      if (candidate !== svg) delete candidate.dataset.modularDiaryMarkerOwnerActive
     })
-    svg.dataset.onedayMarkerOwnerActive = "1"
+    svg.dataset.modularDiaryMarkerOwnerActive = "1"
     activeMarkerOwnerByDocument.set(dom, svg)
   }
   const deactivateMarkerOwner = (): void => {
-    delete svg.dataset.onedayMarkerOwnerActive
+    delete svg.dataset.modularDiaryMarkerOwnerActive
     if (activeMarkerOwnerByDocument.get(dom) === svg) activeMarkerOwnerByDocument.delete(dom)
   }
 
@@ -111,15 +111,15 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
   }
   const editingMarker = (): SVGGElement | null => {
     const line = deps.getEditingLine()
-    return line === null ? null : svg.querySelector<SVGGElement>(`.oneday-marker[data-line="${line}"]`)
+    return line === null ? null : svg.querySelector<SVGGElement>(`.modular-diary-marker[data-line="${line}"]`)
   }
   const markerFromTarget = (target: EventTarget | null): SVGGElement | null => {
     const element = target as Element | null
-    const direct = element?.closest<SVGGElement>("g.oneday-marker") ?? null
+    const direct = element?.closest<SVGGElement>("g.modular-diary-marker") ?? null
     if (direct) return direct
     const line = Number(element?.closest<SVGElement>("[data-line]")?.dataset.line)
     if (!Number.isFinite(line) || !doc.annotations.some((item) => item.line === line && item.type)) return null
-    return svg.querySelector<SVGGElement>(`g.oneday-marker[data-line="${line}"]`)
+    return svg.querySelector<SVGGElement>(`g.modular-diary-marker[data-line="${line}"]`)
   }
   const markerFromPoint = (clientX: number, clientY: number): SVGGElement | null => {
     const direct = markerFromTarget(dom.elementFromPoint(clientX, clientY))
@@ -134,7 +134,7 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
         const rect = node.getBoundingClientRect()
         return clientX >= rect.left - 2 && clientX <= rect.right + 2
           && clientY >= rect.top - 2 && clientY <= rect.bottom + 2
-      })) return svg.querySelector<SVGGElement>(`g.oneday-marker[data-line="${marker.line}"]`)
+      })) return svg.querySelector<SVGGElement>(`g.modular-diary-marker[data-line="${marker.line}"]`)
     }
     return null
   }
@@ -145,7 +145,7 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
       selected = null
     }
     svg.classList.toggle("is-editing-marker", Boolean(selected))
-    svg.querySelectorAll<SVGElement>(".oneday-marker, rect.oneday-block, rect.oneday-plan-hatch").forEach((node) => {
+    svg.querySelectorAll<SVGElement>(".modular-diary-marker, rect.modular-diary-block, rect.modular-diary-plan-hatch").forEach((node) => {
       const mine = selected !== null && Number(node.dataset.line) === Number(selected.dataset.line)
       node.classList.toggle("is-edit-target", mine)
       node.classList.toggle("is-frozen", selected !== null && !mine)
@@ -179,7 +179,7 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
   const createGhost = (type: string): void => {
     const color = deps.typeColor(type)
     ghost = dom.createElementNS(SVGNS, "g")
-    ghost.setAttribute("class", "oneday-marker-ghost")
+    ghost.setAttribute("class", "modular-diary-marker-ghost")
     const line = dom.createElementNS(SVGNS, "line")
     line.setAttribute("x1", String(trackX)); line.setAttribute("x2", String(trackX + trackW)); line.setAttribute("stroke", color)
     ghost.appendChild(line)
@@ -299,7 +299,7 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
   attachTimelineKeyboardNavigation(svg)
   svg.addEventListener("keydown", (e: KeyboardEvent) => {
     const hit = timelineObjectFromEvent(e)
-    if (!hit?.matches("g.oneday-marker")) return
+    if (!hit?.matches("g.modular-diary-marker")) return
     const line = Number(hit.dataset.line)
     if (!Number.isInteger(line)) return
     if (e.key === "Enter" || e.key === " ") {
@@ -313,13 +313,13 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
       deps.onDelete(line)
     }
   })
-  svg.addEventListener("oneday-marker-sync-edit", () => {
+  svg.addEventListener("modular-diary-marker-sync-edit", () => {
     activateMarkerOwner()
     syncVisual()
   })
-  svg.addEventListener("oneday-marker-sync-visual", syncVisual)
-  svg.addEventListener("oneday-marker-exit-edit", exitEdit)
-  svg.addEventListener("oneday-marker-key", (event: Event) => {
+  svg.addEventListener("modular-diary-marker-sync-visual", syncVisual)
+  svg.addEventListener("modular-diary-marker-exit-edit", exitEdit)
+  svg.addEventListener("modular-diary-marker-key", (event: Event) => {
     const key = (event as CustomEvent<{ key: string }>).detail?.key
     const line = deps.getEditingLine()
     if (line === null) return
@@ -329,12 +329,12 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
       deps.onDelete(line)
     }
   })
-  if (!dom.body.dataset.onedayMarkerOutsideEditArmed) {
-    dom.body.dataset.onedayMarkerOutsideEditArmed = "1"
+  if (!dom.body.dataset.modularDiaryMarkerOutsideEditArmed) {
+    dom.body.dataset.modularDiaryMarkerOutsideEditArmed = "1"
     dom.addEventListener("pointerdown", (e: PointerEvent) => {
-      const targets = Array.from(dom.querySelectorAll<SVGSVGElement>(".oneday-svg.is-editing-marker"))
+      const targets = Array.from(dom.querySelectorAll<SVGSVGElement>(".modular-diary-svg.is-editing-marker"))
       if (!targets.length || targets.some((target) => target.contains(e.target as Node))) return
-      targets.forEach((target) => target.dispatchEvent(new (dom.defaultView?.Event ?? Event)("oneday-marker-exit-edit")))
+      targets.forEach((target) => target.dispatchEvent(new (dom.defaultView?.Event ?? Event)("modular-diary-marker-exit-edit")))
     }, { capture: true })
   }
   ensureDocumentMarkerKeyRouter(dom)

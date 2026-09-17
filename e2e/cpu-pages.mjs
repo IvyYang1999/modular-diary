@@ -5,8 +5,8 @@ const browser = await chromium.connectOverCDP("http://127.0.0.1:9333")
 for (const ctx of browser.contexts()) {
   for (const page of ctx.pages()) {
     const t = await page.title().catch(() => "?")
-    const n = await page.evaluate(() => document.querySelectorAll(".oneday-host").length).catch(() => -1)
-    console.log(`page: ${t} | oneday hosts: ${n}`)
+    const n = await page.evaluate(() => document.querySelectorAll(".modular-diary-host").length).catch(() => -1)
+    console.log(`page: ${t} | modular-diary hosts: ${n}`)
   }
 }
 const page = browser.contexts()[0].pages()[0]
@@ -16,7 +16,7 @@ await page.evaluate(async () => {
   if (file) await app.workspace.getLeaf(false).openFile(file)
 })
 await new Promise((r) => setTimeout(r, 2500))
-const n2 = await page.evaluate(() => document.querySelectorAll(".oneday-host").length)
+const n2 = await page.evaluate(() => document.querySelectorAll(".modular-diary-host").length)
 console.log("after open:", n2, "hosts")
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const avg = async (ms) => {

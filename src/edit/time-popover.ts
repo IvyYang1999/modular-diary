@@ -38,10 +38,10 @@ function flagInvalid(pop: HTMLElement, input: HTMLInputElement, message: string)
   // Restart the shake even when the same field was already flagged.
   void input.offsetWidth
   input.classList.add("is-invalid")
-  let error = pop.querySelector<HTMLElement>(".oneday-time-popover-error")
+  let error = pop.querySelector<HTMLElement>(".modular-diary-time-popover-error")
   if (!error) {
     error = dom.createElement("div")
-    error.className = "oneday-time-popover-error"
+    error.className = "modular-diary-time-popover-error"
     error.setAttribute("role", "alert")
     pop.appendChild(error)
   }
@@ -55,7 +55,7 @@ function clearInvalid(pop: HTMLElement, input: HTMLInputElement): void {
   input.removeAttribute("aria-invalid")
   input.classList.remove("is-invalid")
   if (!pop.querySelector('[aria-invalid="true"]')) {
-    pop.querySelector(".oneday-time-popover-error")?.remove()
+    pop.querySelector(".modular-diary-time-popover-error")?.remove()
     pop.classList.remove("has-error")
   }
 }
@@ -74,10 +74,10 @@ export function openTimePopover(
   const dom = container.ownerDocument
   const domWindow = dom.defaultView
   if (!domWindow) return
-  dom.querySelectorAll(".oneday-time-popover").forEach((el) => el.remove())
+  dom.querySelectorAll(".modular-diary-time-popover").forEach((el) => el.remove())
 
   const pop = dom.createElement("div")
-  pop.className = "oneday-time-popover"
+  pop.className = "modular-diary-time-popover"
   pop.setAttribute("role", "dialog")
   pop.setAttribute("aria-label", t("editBlockTimes"))
   const start = dom.createElement("input")
@@ -94,7 +94,7 @@ export function openTimePopover(
   end.value = initial.end
   end.placeholder = "HH:MM"
   const row = dom.createElement("div")
-  row.className = "oneday-time-popover-row"
+  row.className = "modular-diary-time-popover-row"
   row.append(start, dash, end)
   pop.appendChild(row)
 
@@ -172,9 +172,9 @@ export function openPointTimePopover(
   const dom = container.ownerDocument
   const domWindow = dom.defaultView
   if (!domWindow) return
-  dom.querySelectorAll(".oneday-time-popover").forEach((el) => el.remove())
+  dom.querySelectorAll(".modular-diary-time-popover").forEach((el) => el.remove())
   const pop = dom.createElement("div")
-  pop.className = "oneday-time-popover oneday-point-time-popover"
+  pop.className = "modular-diary-time-popover modular-diary-point-time-popover"
   pop.setAttribute("role", "dialog")
   pop.setAttribute("aria-label", t("editMarkerTime"))
   const input = dom.createElement("input")
@@ -183,7 +183,7 @@ export function openPointTimePopover(
   input.placeholder = "HH:MM"
   input.setAttribute("aria-label", t("markerTime"))
   const row = dom.createElement("div")
-  row.className = "oneday-time-popover-row"
+  row.className = "modular-diary-time-popover-row"
   row.appendChild(input)
   pop.appendChild(row)
   const place = (rect: { x: number; width: number; y: number; height: number }): void => {

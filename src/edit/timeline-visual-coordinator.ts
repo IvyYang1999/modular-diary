@@ -26,7 +26,7 @@ export class TimelineVisualCoordinator<Host extends object, Owner extends object
   /**
    * Resolve the one currently mounted host for a concrete pane and timeline
    * fence. A path alone is never sufficient: one note may be open in several
-   * panes and may contain several Oneday blocks.
+   * panes and may contain several Modular Diary blocks.
    */
   findHost(path: string, owner: Owner, blockOrdinal: number): Host | null {
     const matches: Host[] = []

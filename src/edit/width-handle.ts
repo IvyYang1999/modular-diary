@@ -11,25 +11,25 @@ export function attachWidthHandle(
   onCommit: (baseWidth: number) => void
 ): void {
   const dom = container.ownerDocument
-  const slot = container.querySelector<HTMLElement>(".oneday-slot-timeline")
+  const slot = container.querySelector<HTMLElement>(".modular-diary-slot-timeline")
   if (!slot) return
-  const scrollPane = slot.querySelector<HTMLElement>(".oneday-svg-holder")
+  const scrollPane = slot.querySelector<HTMLElement>(".modular-diary-svg-holder")
   if (!scrollPane) return
-  const previous = slot.querySelector<WidthHandleElement>(".oneday-width-handle")
-  previous?.onedayCleanup?.()
+  const previous = slot.querySelector<WidthHandleElement>(".modular-diary-width-handle")
+  previous?.modularDiaryCleanup?.()
   previous?.remove()
   // 清掉上次中断拖拽的预览残影（yyt：两条线之谜）
-  dom.querySelectorAll(".oneday-width-preview").forEach((c) => c.remove())
+  dom.querySelectorAll(".modular-diary-width-preview").forEach((c) => c.remove())
 
   // The rendered track is the source of truth. Formula-based coordinates drift
   // when the slot is padded, scrolled, zoomed, or laid out differently.
-  const track = slot.querySelector<SVGRectElement>("rect.oneday-track")
+  const track = slot.querySelector<SVGRectElement>("rect.modular-diary-track")
   if (!track) return
   let trackRight = 0
   let trackTop = 0
   let trackHeight = 0
   const handle = dom.createElement("div") as WidthHandleElement
-  handle.className = "oneday-width-handle"
+  handle.className = "modular-diary-width-handle"
   handle.setAttribute("aria-hidden", "true")
   scrollPane.appendChild(handle)
 
@@ -61,7 +61,7 @@ export function attachWidthHandle(
   observer?.observe(scrollPane)
   observer?.observe(track)
   const frame = dom.defaultView?.requestAnimationFrame(syncGeometry)
-  handle.onedayCleanup = (): void => {
+  handle.modularDiaryCleanup = (): void => {
     observer?.disconnect()
     if (frame !== undefined) dom.defaultView?.cancelAnimationFrame(frame)
   }
@@ -78,7 +78,7 @@ export function attachWidthHandle(
 
     // 竖线预览（不动 svg，listener 安全）
     const preview = dom.createElement("div")
-    preview.className = "oneday-width-preview"
+    preview.className = "modular-diary-width-preview"
     preview.style.top = `${trackTop}px`
     preview.style.height = `${trackHeight}px`
     scrollPane.appendChild(preview)
@@ -113,5 +113,5 @@ export function attachWidthHandle(
 }
 
 interface WidthHandleElement extends HTMLDivElement {
-  onedayCleanup?: () => void
+  modularDiaryCleanup?: () => void
 }

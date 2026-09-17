@@ -1,5 +1,5 @@
 /**
- * System prompt builder for the oneday dialog agent (D7: agent returns
+ * System prompt builder for the Modular Diary dialog agent (D7: agent returns
  * structured JSON only; the plugin is the sole writer of markdown).
  */
 import { TimelineDoc } from "../core/types"
@@ -14,11 +14,11 @@ export interface PromptContext {
   history?: Array<{ role: "user" | "assistant"; content: string }>
 }
 
-const GRAMMAR_ZH = `oneday 时间轴语法：每个色块一行，格式为「HH:MM-HH:MM <type> [备注]」。
+const GRAMMAR_ZH = `Modular Diary 时间轴语法：每个色块一行，格式为「HH:MM-HH:MM <type> [备注]」。
 - plan 前缀表示规划层；@HH:MM 是点批注（本任务不需要）。
 - 24 小时制；过了零点的时段属于当天（如 00:30-01:30 是今天凌晨）。`
 
-const GRAMMAR_EN = `Oneday timeline syntax: one time block per line, formatted as “HH:MM-HH:MM <type> [note]”.
+const GRAMMAR_EN = `Modular Diary timeline syntax: one time block per line, formatted as “HH:MM-HH:MM <type> [note]”.
 - The plan prefix marks the plan layer; @HH:MM is a point annotation (not needed for this task).
 - Use 24-hour time. Times after midnight still belong to this logical day (for example, 00:30-01:30 is early this morning).`
 
@@ -41,7 +41,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 
   if (currentLocale() === "en") {
     return [
-      "You generate structured time blocks for the Oneday timeline. The user describes something they just did, are doing, or plan to do; convert it into one or more timeline blocks.",
+      "You generate structured time blocks for the Modular Diary timeline. The user describes something they just did, are doing, or plan to do; convert it into one or more timeline blocks.",
       GRAMMAR_EN,
       `Current time: ${hh}:${mm}. Timeline start: ${formatClock(ctx.doc.rangeStart)} (sleep inferred from a wake-up statement starts here). Registered time categories (type must be selected exactly from this list; if unsure, use misc): ${types}.`,
       existing ? `Existing record blocks for this day (numbers are targets for updates/deletes; overlaps are allowed):\n${existing}` : "There are no record blocks yet today.",
@@ -62,7 +62,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   }
 
   return [
-    "你是 oneday 时间轴助手的条目生成器。用户会用自然语言描述刚做/在做/计划做的事，你把它转成时间轴色块（可能多个）。",
+    "你是 Modular Diary 时间轴助手的条目生成器。用户会用自然语言描述刚做/在做/计划做的事，你把它转成时间轴色块（可能多个）。",
     GRAMMAR_ZH,
     `当前时间：${hh}:${mm}。时间轴起点：${formatClock(ctx.doc.rangeStart)}（「起床」类表述从这里开始算睡觉时段）。已登记的时间分类（type 必须从这里选，拿不准用 misc）：${types}。`,
     existing ? `当天已有实际色块（编号供修改/删除引用；可与之并列重叠）：\n${existing}` : "当天还没有实际色块。",

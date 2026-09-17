@@ -11,7 +11,7 @@ import fs from "node:fs"
 import os from "node:os"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const out = path.join(os.tmpdir(), "oneday-draw-smoke")
+const out = path.join(os.tmpdir(), "modular-diary-draw-smoke")
 fs.rmSync(out, { recursive: true, force: true })
 fs.mkdirSync(out, { recursive: true })
 
@@ -92,10 +92,10 @@ window.__exerciseTimelineVisualPreview = () => {
     parseTimeline("range: 7-11\\n---\\n08:00-09:00 math 新备注立刻出现\\n"),
     options,
   )
-  const noteImmediate = Array.from(host.querySelectorAll('.oneday-note[data-line="' + line + '"]'))
+  const noteImmediate = Array.from(host.querySelectorAll('.modular-diary-note[data-line="' + line + '"]'))
     .map((node) => node.textContent).join("")
   rollbackNote?.()
-  const noteRollback = Array.from(host.querySelectorAll('.oneday-note[data-line="' + line + '"]'))
+  const noteRollback = Array.from(host.querySelectorAll('.modular-diary-note[data-line="' + line + '"]'))
     .map((node) => node.textContent).join("")
 
   previewTimelineVisual(
@@ -103,12 +103,12 @@ window.__exerciseTimelineVisualPreview = () => {
     parseTimeline("range: 7-11\\n---\\n08:00-09:00 math 旧备注\\nplan 09:00-10:00 sleep\\n"),
     options,
   )
-  const plan = host.querySelector('rect.oneday-plan[data-type="sleep"]')
+  const plan = host.querySelector('rect.modular-diary-plan[data-type="sleep"]')
   const planLine = plan?.dataset.line
   const created = {
     block: Boolean(plan),
-    hatch: Boolean(planLine && host.querySelector('rect.oneday-plan-hatch[data-line="' + planLine + '"]')),
-    duration: planLine ? host.querySelector('text.oneday-duration[data-line="' + planLine + '"]')?.textContent : "",
+    hatch: Boolean(planLine && host.querySelector('rect.modular-diary-plan-hatch[data-line="' + planLine + '"]')),
+    duration: planLine ? host.querySelector('text.modular-diary-duration[data-line="' + planLine + '"]')?.textContent : "",
   }
 
   previewTimelineVisual(host, parseTimeline("range: 7-11\\n---\\n"), options)
@@ -208,7 +208,7 @@ window.__mountManyCategories = (width) => {
   document.querySelector("#many-categories-slot")?.remove()
   const slot = document.createElement("div")
   slot.id = "many-categories-slot"
-  slot.className = "oneday-slot oneday-slot-toolbar"
+  slot.className = "modular-diary-slot modular-diary-slot-toolbar"
   slot.style.cssText = "position:relative;inset:auto;width:" + width + "px;height:auto"
   container.appendChild(slot)
   const names = ["开发", "自媒体", "运动", "睡觉", "阅读", "生活", "wasted", "看剧", "画画", "写作", "游泳", "信息摄取", "战略思考", "环境搭建", "洗澡", "聊天", "发布产品", "复盘反思", "装修", "按摩", "出门"]
@@ -329,7 +329,7 @@ attachDrawInteraction(container, doc, {
   onDeleteEntry: (line) => window.__deleted.push({
     line,
     editingAtMutation: window.__editing,
-    editingSvgCount: document.querySelectorAll(".oneday-svg.is-editing-block").length,
+    editingSvgCount: document.querySelectorAll(".modular-diary-svg.is-editing-block").length,
     frozenCount: document.querySelectorAll(".is-frozen").length,
     focusCount: document.querySelectorAll(".is-focus").length,
   }),
@@ -338,7 +338,7 @@ attachDrawInteraction(container, doc, {
 window.__mountRangeEdgeFixture = () => {
   const host = document.createElement("div")
   host.id = "range-edge-fixture"
-  host.className = "oneday-container"
+  host.className = "modular-diary-container"
   host.style.cssText = "width:200px;position:relative;margin-top:12px"
   const rangeDoc = parseTimeline("range: 7-23\\n---\\n09:00-10:00 math\\n")
   const rangeHolder = document.createElement("div")
@@ -369,7 +369,7 @@ window.__mountDeleteTransactionFixture = () => {
   document.querySelector("#delete-transaction-fixture")?.remove()
   const host = document.createElement("div")
   host.id = "delete-transaction-fixture"
-  host.className = "oneday-container"
+  host.className = "modular-diary-container"
   host.style.cssText = "width:220px;position:relative;margin-top:12px"
   const deleteDoc = parseTimeline("range: 7-10\\n---\\n08:00-09:00 math 删除事务\\n")
   const deleteHolder = document.createElement("div")
@@ -399,12 +399,12 @@ window.__mountDeleteTransactionFixture = () => {
     }),
   })
   window.__deleteFromContextMenu = (line) => {
-    const event = new CustomEvent("oneday-delete-entry-request", {
+    const event = new CustomEvent("modular-diary-delete-entry-request", {
       bubbles: false,
       cancelable: true,
       detail: { line },
     })
-    const handled = !host.querySelector("svg.oneday-svg").dispatchEvent(event)
+    const handled = !host.querySelector("svg.modular-diary-svg").dispatchEvent(event)
     return {
       handled,
       hidden: Array.from(host.querySelectorAll('[data-line="' + line + '"]'))
@@ -416,7 +416,7 @@ window.__mountInterruptedDragFixture = () => {
   document.querySelector("#interrupted-drag-fixture")?.remove()
   const host = document.createElement("div")
   host.id = "interrupted-drag-fixture"
-  host.className = "oneday-container"
+  host.className = "modular-diary-container"
   host.style.cssText = "width:220px;position:relative;margin-top:12px"
   const interruptedDoc = parseTimeline("range: 7-10\\n---\\n")
   const interruptedHolder = document.createElement("div")
@@ -450,7 +450,7 @@ window.__mountFocusedRefreshFixture = () => {
   document.querySelector("#focused-refresh-fixture")?.remove()
   const host = document.createElement("div")
   host.id = "focused-refresh-fixture"
-  host.className = "oneday-container"
+  host.className = "modular-diary-container"
   const title = document.createElement("input")
   title.id = "focused-refresh-title"
   title.value = "输入到一半"
@@ -472,7 +472,7 @@ window.__mountImmediateUndoFixture = () => {
   cm.id = "immediate-undo-cm"
   cm.className = "cm-content"
   const host = document.createElement("div")
-  host.className = "oneday-container"
+  host.className = "modular-diary-container"
   const control = document.createElement("button")
   control.id = "immediate-undo-control"
   control.textContent = "create"
@@ -498,7 +498,7 @@ window.__mountOverlapEditFixture = () => {
   document.querySelector("#overlap-edit-fixture")?.remove()
   const host = document.createElement("div")
   host.id = "overlap-edit-fixture"
-  host.className = "oneday-container"
+  host.className = "modular-diary-container"
   host.style.cssText = "width:240px;position:relative;margin-top:12px"
   const overlapDoc = parseTimeline("range: 13-16\\n---\\n13:15-14:45 sleep 看怪奇物语看到一半\\n13:30-14:10 math\\n")
   const overlapHolder = document.createElement("div")
@@ -525,13 +525,13 @@ window.__mountOverlapEditFixture = () => {
   })
   window.__enterOverlapEditFromMenu = (line) => {
     window.__overlapEditing = line
-    host.querySelector("svg.oneday-svg")?.dispatchEvent(new CustomEvent("oneday-sync-edit"))
+    host.querySelector("svg.modular-diary-svg")?.dispatchEvent(new CustomEvent("modular-diary-sync-edit"))
   }
 }
 
 window.__mountDuplicateEditingFixture = () => {
-  document.querySelectorAll(".oneday-svg.is-editing-block").forEach((svg) => {
-    svg.dispatchEvent(new CustomEvent("oneday-exit-edit"))
+  document.querySelectorAll(".modular-diary-svg.is-editing-block").forEach((svg) => {
+    svg.dispatchEvent(new CustomEvent("modular-diary-exit-edit"))
   })
   const duplicateDoc = parseTimeline("range: 23-25\\n---\\n23:30-24:00 math\\n")
   const selectedLine = duplicateDoc.entries[0].line
@@ -542,7 +542,7 @@ window.__mountDuplicateEditingFixture = () => {
   for (const owner of ["first", "second"]) {
     const host = document.createElement("div")
     host.id = "duplicate-editing-" + owner
-    host.className = "oneday-container"
+    host.className = "modular-diary-container"
     host.style.cssText = "width:200px;position:relative;margin-top:12px"
     const holder = document.createElement("div")
     holder.innerHTML = renderTimelineSvg(duplicateDoc, { typeColors: COLORS })
@@ -567,8 +567,8 @@ window.__mountDuplicateEditingFixture = () => {
   }
   window.__syncDuplicateOwner = (owner) => {
     window.__duplicateEditing = selectedLine
-    document.querySelector("#duplicate-editing-" + owner + " svg.oneday-svg")
-      ?.dispatchEvent(new CustomEvent("oneday-sync-edit"))
+    document.querySelector("#duplicate-editing-" + owner + " svg.modular-diary-svg")
+      ?.dispatchEvent(new CustomEvent("modular-diary-sync-edit"))
   }
 }
 window.__mountMarkerFixture = () => {
@@ -582,7 +582,7 @@ window.__mountMarkerFixture = () => {
   embed.className = "cm-embed-block"
   const host = document.createElement("div")
   host.id = "marker-fixture"
-  host.className = "oneday-container"
+  host.className = "modular-diary-container"
   host.style.cssText = "width:240px;position:relative;margin-top:12px"
   const markerDoc = parseTimeline("range: 7-12\\n---\\n@10:00 [math] 起床\\n@10:00 [fitness] 拉伸\\n")
   const holder = document.createElement("div")
@@ -628,7 +628,7 @@ window.__mountMarkerFixture = () => {
   })
   embed.addEventListener("contextmenu", (event) => {
     const target = event.target
-    if (target instanceof Element && !target.closest("button, input, textarea, a, rect, .oneday-text-host, .oneday-add-menu")) {
+    if (target instanceof Element && !target.closest("button, input, textarea, a, rect, .modular-diary-text-host, .modular-diary-add-menu")) {
       window.__markerBlockMenus.push(target.className?.baseVal ?? target.className ?? target.tagName)
     }
   })
@@ -640,7 +640,7 @@ await esbuild.build({
   outfile: path.join(out, "bundle.js"),
 })
 const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
-const html = `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body style="margin:0"><div id="app" class="oneday-container" style="width:200px;position:relative"></div><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`
+const html = `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body style="margin:0"><div id="app" class="modular-diary-container" style="width:200px;position:relative"></div><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`
 fs.writeFileSync(path.join(out, "index.html"), html)
 
 const browser = await chromium.launch()
@@ -664,13 +664,13 @@ const setTheme = async (dark) => page.evaluate((isDark) => {
   document.body.classList.toggle("theme-dark", isDark)
 }, dark)
 await setTheme(false)
-await page.waitForSelector("svg.oneday-svg")
+await page.waitForSelector("svg.modular-diary-svg")
 // Timeline gestures own this surface. Creating, moving, and resizing blocks
 // must never leak into Chromium's native text selection (the purple highlight
 // that otherwise catches hour labels and block copy mid-drag).
 const timelineSelectionContract = await page.evaluate(() => {
-  const svg = document.querySelector("svg.oneday-svg")
-  const target = svg?.querySelector(".oneday-duration") ?? svg
+  const svg = document.querySelector("svg.modular-diary-svg")
+  const target = svg?.querySelector(".modular-diary-duration") ?? svg
   if (!svg || !target) return null
   const selectionStart = new Event("selectstart", { bubbles: true, cancelable: true })
   target.dispatchEvent(selectionStart)
@@ -699,18 +699,18 @@ if (
 // Candidate confirmation in a Chinese IME must not be mistaken for the
 // normal Enter-to-save command.
 await page.evaluate(() => window.__mountNotePopover("", "marker"))
-const markerNoteCopy = await page.locator('.oneday-note-popover').evaluate((popover) => ({
+const markerNoteCopy = await page.locator('.modular-diary-note-popover').evaluate((popover) => ({
   ariaLabel: popover.getAttribute("aria-label"),
   placeholder: popover.querySelector("input")?.getAttribute("placeholder"),
 }))
-await page.locator('.oneday-note-popover').screenshot({ path: path.join(out, "marker-note-popover.png") })
-await page.locator('.oneday-note-popover input').press("Escape")
+await page.locator('.modular-diary-note-popover').screenshot({ path: path.join(out, "marker-note-popover.png") })
+await page.locator('.modular-diary-note-popover input').press("Escape")
 if (markerNoteCopy.ariaLabel !== "编辑时间点备注" || markerNoteCopy.placeholder !== "这个时间点有什么要记录？") {
   console.error("time-point note editor reused time-span copy", markerNoteCopy); process.exit(1)
 }
 
 await page.evaluate(() => window.__mountNotePopover(""))
-const composingNote = page.locator('.oneday-note-popover input')
+const composingNote = page.locator('.modular-diary-note-popover input')
 await composingNote.evaluate((input) => {
   input.value = "和春枝聊天、看《我的nv"
   input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "nv" }))
@@ -718,7 +718,7 @@ await composingNote.evaluate((input) => {
   input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter", code: "Enter", isComposing: true, keyCode: 229 }))
 })
 const imeCandidateState = await page.evaluate(() => ({
-  open: Boolean(document.querySelector('.oneday-note-popover')),
+  open: Boolean(document.querySelector('.modular-diary-note-popover')),
   saves: [...window.__noteSaves],
 }))
 if (!imeCandidateState.open || imeCandidateState.saves.length !== 0) {
@@ -730,7 +730,7 @@ await composingNote.evaluate((input) => {
   input.dispatchEvent(new InputEvent("input", { bubbles: true, data: "女孩", inputType: "insertText" }))
 })
 await composingNote.press("Enter")
-const imeCommitted = await page.evaluate(() => ({ open: Boolean(document.querySelector('.oneday-note-popover')), saves: [...window.__noteSaves] }))
+const imeCommitted = await page.evaluate(() => ({ open: Boolean(document.querySelector('.modular-diary-note-popover')), saves: [...window.__noteSaves] }))
 if (imeCommitted.open || imeCommitted.saves.at(-1) !== "和春枝聊天、看《我的女孩》") {
   console.error("normal Enter did not save the complete composed note", imeCommitted); process.exit(1)
 }
@@ -739,14 +739,14 @@ if (imeCommitted.open || imeCommitted.saves.at(-1) !== "和春枝聊天、看《
 // remains active. The next scroll must commit the complete draft rather than
 // removing the editor behind the save lifecycle.
 await page.evaluate(() => window.__mountNotePopover("旧备注"))
-await page.locator('.oneday-note-popover input').fill("重渲染前已经输入完整的第五句")
+await page.locator('.modular-diary-note-popover input').fill("重渲染前已经输入完整的第五句")
 await page.evaluate(() => {
   document.querySelector("#note-anchor")?.remove()
   window.dispatchEvent(new Event("scroll"))
 })
 await page.waitForTimeout(40)
 const detachedAnchorState = await page.evaluate(() => ({
-  open: Boolean(document.querySelector('.oneday-note-popover')),
+  open: Boolean(document.querySelector('.modular-diary-note-popover')),
   saves: [...window.__noteSaves],
 }))
 if (detachedAnchorState.open || detachedAnchorState.saves.at(-1) !== "重渲染前已经输入完整的第五句") {
@@ -756,12 +756,12 @@ if (detachedAnchorState.open || detachedAnchorState.saves.at(-1) !== "重渲染�
 // A failed Markdown write must not dismiss the only copy of the draft. The
 // same editor remains retryable and closes only after persistence succeeds.
 await page.evaluate(() => window.__mountFailingNotePopover("旧值"))
-const retryingNote = page.locator('.oneday-note-popover input')
+const retryingNote = page.locator('.modular-diary-note-popover input')
 await retryingNote.fill("不能丢失的备注")
 await retryingNote.press("Enter")
 await page.waitForTimeout(20)
 const failedSaveState = await page.evaluate(() => {
-  const input = document.querySelector('.oneday-note-popover input')
+  const input = document.querySelector('.modular-diary-note-popover input')
   return { open: Boolean(input), disabled: input?.disabled, value: input?.value, failures: window.__noteFailures }
 })
 if (!failedSaveState.open || failedSaveState.disabled || failedSaveState.value !== "不能丢失的备注" || failedSaveState.failures !== 1) {
@@ -770,7 +770,7 @@ if (!failedSaveState.open || failedSaveState.disabled || failedSaveState.value !
 await retryingNote.press("Enter")
 await page.waitForTimeout(20)
 const retriedSaveState = await page.evaluate(() => ({
-  open: Boolean(document.querySelector('.oneday-note-popover')),
+  open: Boolean(document.querySelector('.modular-diary-note-popover')),
   saved: window.__noteSaves.at(-1),
   failures: window.__noteFailures,
 }))
@@ -778,9 +778,9 @@ if (retriedSaveState.open || retriedSaveState.saved !== "不能丢失的备注" 
   console.error("retrying note persistence did not complete cleanly", retriedSaveState); process.exit(1)
 }
 
-await page.locator(".oneday-toolbar").first().screenshot({ path: path.join(out, "toolbar-with-marker-tool.png") })
+await page.locator(".modular-diary-toolbar").first().screenshot({ path: path.join(out, "toolbar-with-marker-tool.png") })
 
-const box = await page.locator("svg.oneday-svg").boundingBox()
+const box = await page.locator("svg.modular-diary-svg").boundingBox()
 // geometry: hourHeight 48, rangeStart 420 (7:00), PAD_TOP 26, LABEL_W 36, TRACK_PAD 6
 const yFor = (min) => box.y + 26 + ((min - 420) / 60) * 48
 const trackCX = box.x + 36 + (200 - 36 - 6) / 2
@@ -798,18 +798,18 @@ const clock = (min) => {
 async function assertLiveSpan(fromMin, toMin, { short = false, screenshot = "", creation = false } = {}) {
   const expectedMinutes = [snap5(fromMin), snap5(toMin)].sort((a, b) => a - b)
   const state = await page.evaluate(() => {
-    const labels = [...document.querySelectorAll(".oneday-span-preview-label")].map((label) => ({
-      text: label.querySelector(".oneday-span-preview-label-text")?.textContent,
+    const labels = [...document.querySelectorAll(".modular-diary-span-preview-label")].map((label) => ({
+      text: label.querySelector(".modular-diary-span-preview-label-text")?.textContent,
       minute: Number(label.dataset.minute),
       edgeY: Number(label.dataset.edgeY),
       labelY: Number(label.dataset.labelY),
-      leaderCount: label.querySelectorAll(".oneday-span-preview-leader").length,
+      leaderCount: label.querySelectorAll(".modular-diary-span-preview-leader").length,
     }))
     return {
       labels,
-      status: document.querySelector(".oneday-draw-status")?.textContent ?? "",
+      status: document.querySelector(".modular-diary-draw-status")?.textContent ?? "",
       liveDuration: (() => {
-        const node = Array.from(document.querySelectorAll(".oneday-preview-duration.is-dragging")).at(-1)
+        const node = Array.from(document.querySelectorAll(".modular-diary-preview-duration.is-dragging")).at(-1)
         return node ? {
           copy: node.textContent ?? "",
           visibility: getComputedStyle(node).visibility,
@@ -835,7 +835,7 @@ async function assertLiveSpan(fromMin, toMin, { short = false, screenshot = "", 
   } else if (state.labels.some((label) => Math.abs(label.labelY - label.edgeY) > 0.5 || label.leaderCount !== 0)) {
     console.error("normal-span labels drifted from their edges", state); process.exit(1)
   }
-  if (screenshot) await page.locator("svg.oneday-svg").screenshot({ path: path.join(out, screenshot) })
+  if (screenshot) await page.locator("svg.modular-diary-svg").screenshot({ path: path.join(out, screenshot) })
 }
 
 async function drag(fromMin, toMin, preview = null) {
@@ -847,7 +847,7 @@ async function drag(fromMin, toMin, preview = null) {
   }
   if (preview) await assertLiveSpan(fromMin, toMin, { ...preview, creation: true })
   await page.mouse.up()
-  if (await page.locator(".oneday-span-preview-labels").count() !== 0) {
+  if (await page.locator(".modular-diary-span-preview-labels").count() !== 0) {
     console.error("live boundary labels survived pointerup"); process.exit(1)
   }
   const nativeSelection = await page.evaluate(() => ({
@@ -862,8 +862,8 @@ async function drag(fromMin, toMin, preview = null) {
 // 1. creation snaps independently to a 5-minute grid (10:07 -> 11:32 becomes 10:05 -> 11:30)
 await drag(607, 692, { screenshot: "live-span-normal.png" })
 const optimisticActualVisual = await page.evaluate(() => ({
-  blocks: document.querySelectorAll(".oneday-preview-block").length,
-  durations: [...document.querySelectorAll(".oneday-preview-duration")].map((node) => node.textContent),
+  blocks: document.querySelectorAll(".modular-diary-preview-block").length,
+  durations: [...document.querySelectorAll(".modular-diary-preview-duration")].map((node) => node.textContent),
 }))
 if (optimisticActualVisual.blocks < 1 || optimisticActualVisual.durations.at(-1) !== "1.42h") {
   console.error("optimistic actual block was only a rectangle instead of a complete visual", optimisticActualVisual); process.exit(1)
@@ -874,10 +874,10 @@ await page.mouse.move(trackCX, yFor(617))
 await page.mouse.down()
 await page.mouse.move(trackCX, yFor(622), { steps: 3 })
 const quietHint = await page.evaluate(() => {
-  const group = document.querySelector(".oneday-precision-hint")
-  const text = group?.querySelector(".oneday-precision-hint-text")
+  const group = document.querySelector(".modular-diary-precision-hint")
+  const text = group?.querySelector(".modular-diary-precision-hint-text")
   return {
-    count: document.querySelectorAll(".oneday-precision-hint").length,
+    count: document.querySelectorAll(".modular-diary-precision-hint").length,
     copy: text?.textContent ?? "",
     opacity: text ? Number(getComputedStyle(text).opacity) : 1,
     fill: text ? getComputedStyle(text).fill : "",
@@ -886,36 +886,36 @@ const quietHint = await page.evaluate(() => {
 if (quietHint.count !== 1 || !quietHint.copy.includes("精确创建") || quietHint.opacity > 0.65 || quietHint.fill !== "rgb(100, 100, 100)") {
   console.error("precision hint is missing or visually too loud", quietHint); process.exit(1)
 }
-await page.locator("svg.oneday-svg").screenshot({ path: path.join(out, "precision-hint-light.png") })
+await page.locator("svg.modular-diary-svg").screenshot({ path: path.join(out, "precision-hint-light.png") })
 await setTheme(true)
 await page.keyboard.down("Alt")
 await page.mouse.move(trackCX, yFor(623), { steps: 2 })
 const preciseDrag = await page.evaluate(() => ({
-  active: document.querySelector(".oneday-precision-hint")?.classList.contains("is-active") ?? false,
-  copy: document.querySelector(".oneday-precision-hint-text")?.textContent ?? "",
-  opacity: Number(getComputedStyle(document.querySelector(".oneday-precision-hint-text")).opacity),
-  minutes: [...document.querySelectorAll(".oneday-span-preview-label")].map((label) => Number(label.dataset.minute)),
+  active: document.querySelector(".modular-diary-precision-hint")?.classList.contains("is-active") ?? false,
+  copy: document.querySelector(".modular-diary-precision-hint-text")?.textContent ?? "",
+  opacity: Number(getComputedStyle(document.querySelector(".modular-diary-precision-hint-text")).opacity),
+  minutes: [...document.querySelectorAll(".modular-diary-span-preview-label")].map((label) => Number(label.dataset.minute)),
 }))
 if (!preciseDrag.active || !preciseDrag.copy.includes("1 分钟") || preciseDrag.opacity > 0.8 || JSON.stringify(preciseDrag.minutes) !== JSON.stringify([617, 623])) {
   console.error("mid-drag precision mode did not re-snap the whole span", preciseDrag); process.exit(1)
 }
-await page.locator("svg.oneday-svg").screenshot({ path: path.join(out, "precision-hint-dark-active.png") })
+await page.locator("svg.modular-diary-svg").screenshot({ path: path.join(out, "precision-hint-dark-active.png") })
 await page.mouse.up()
 await page.keyboard.up("Alt")
 await setTheme(false)
-if (await page.locator(".oneday-precision-hint").count() !== 0) {
+if (await page.locator(".modular-diary-precision-hint").count() !== 0) {
   console.error("precision hint survived pointerup"); process.exit(1)
 }
 // 2. drag up 14:00 -> 12:30 also works
 await drag(840, 750)
-const optimistic = await page.evaluate(() => document.querySelectorAll(".oneday-preview-block").length)
+const optimistic = await page.evaluate(() => document.querySelectorAll(".modular-diary-preview-block").length)
 if (optimistic < 2) { console.error("no optimistic preview blocks", optimistic); process.exit(1) }
 // A newly committed block remains optimistic until the Markdown renderer
 // remounts. Its copy must already use the exact canonical text treatment;
 // otherwise users see a muted/overlay label that changes only after redraw.
 const optimisticTextStyle = await page.evaluate(() => {
-  const preview = Array.from(document.querySelectorAll("text.oneday-preview-duration")).at(-1)
-  const canonical = document.querySelector('text.oneday-duration[data-line="3"]')
+  const preview = Array.from(document.querySelectorAll("text.modular-diary-preview-duration")).at(-1)
+  const canonical = document.querySelector('text.modular-diary-duration[data-line="3"]')
   if (!preview || !canonical) return null
   const previewStyle = getComputedStyle(preview)
   const canonicalStyle = getComputedStyle(canonical)
@@ -963,18 +963,18 @@ await page.mouse.click(trackCX, yFor(450), { button: "right" })
 
 // 5. plan mode: drag creates a plan-prefixed entry
 const initialPlanMode = await page.evaluate(() => ({
-  label: document.querySelector('.oneday-plan-mode-label')?.textContent,
-  checked: document.querySelector('.oneday-plan-mode-toggle')?.getAttribute("aria-checked"),
+  label: document.querySelector('.modular-diary-plan-mode-label')?.textContent,
+  checked: document.querySelector('.modular-diary-plan-mode-toggle')?.getAttribute("aria-checked"),
 }))
 if (initialPlanMode.label !== "计划模式" || initialPlanMode.checked !== "false") {
   console.error("plan mode did not keep a fixed label in its default off state", initialPlanMode); process.exit(1)
 }
-await page.locator('.oneday-plan-mode-toggle').click()
+await page.locator('.modular-diary-plan-mode-toggle').click()
 await drag(900, 960) // 15:00-16:00 in plan mode
 const optimisticPlanVisual = await page.evaluate(() => ({
-  blocks: document.querySelectorAll(".oneday-preview-block.is-plan").length,
-  hatches: document.querySelectorAll(".oneday-preview-hatch").length,
-  durations: [...document.querySelectorAll(".oneday-preview-duration.is-plan")].map((node) => node.textContent),
+  blocks: document.querySelectorAll(".modular-diary-preview-block.is-plan").length,
+  hatches: document.querySelectorAll(".modular-diary-preview-hatch").length,
+  durations: [...document.querySelectorAll(".modular-diary-preview-duration.is-plan")].map((node) => node.textContent),
 }))
 if (optimisticPlanVisual.blocks < 1 || optimisticPlanVisual.hatches < 1 || optimisticPlanVisual.durations.at(-1) !== "1h") {
   console.error("optimistic plan block did not paint fill, hatch and duration together", optimisticPlanVisual); process.exit(1)
@@ -983,16 +983,16 @@ if (optimisticPlanVisual.blocks < 1 || optimisticPlanVisual.hatches < 1 || optim
 // hatch, border and copy must share the new geometry before pointerup.
 await page.evaluate(() => {
   window.__editing = 2
-  document.querySelector("#app svg.oneday-svg")?.dispatchEvent(new CustomEvent("oneday-sync-edit"))
+  document.querySelector("#app svg.modular-diary-svg")?.dispatchEvent(new CustomEvent("modular-diary-sync-edit"))
 })
-const planBottomEdge = page.locator('#app rect.oneday-edit-edge[data-edge="bottom"]')
+const planBottomEdge = page.locator('#app rect.modular-diary-edit-edge[data-edge="bottom"]')
 await planBottomEdge.scrollIntoViewIfNeeded()
 const planBottomBox = await planBottomEdge.boundingBox()
 if (!planBottomBox) { console.error("plan resize handle missing"); process.exit(1) }
 const planVisualState = () => page.evaluate(() => {
   const host = document.querySelector("#app")
-  const block = host.querySelector('rect.oneday-plan[data-line="2"]')
-  const hatch = host.querySelector('rect.oneday-plan-hatch[data-line="2"]')
+  const block = host.querySelector('rect.modular-diary-plan[data-line="2"]')
+  const hatch = host.querySelector('rect.modular-diary-plan-hatch[data-line="2"]')
   const labels = Array.from(host.querySelectorAll('text[data-line="2"]'))
   const blockBox = block.getBoundingClientRect()
   const labelBoxes = labels.map((label) => label.getBoundingClientRect())
@@ -1003,7 +1003,7 @@ const planVisualState = () => page.evaluate(() => {
     hatchH: Number(hatch.getAttribute("height")),
     blockCenter: blockBox.top + blockBox.height / 2,
     labelCenter: (Math.min(...labelBoxes.map((box) => box.top)) + Math.max(...labelBoxes.map((box) => box.bottom))) / 2,
-    duration: host.querySelector('text.oneday-duration[data-line="2"]')?.textContent,
+    duration: host.querySelector('text.modular-diary-duration[data-line="2"]')?.textContent,
   }
 })
 const planBeforeResize = await planVisualState()
@@ -1011,7 +1011,7 @@ await page.mouse.move(planBottomBox.x + planBottomBox.width / 2, planBottomBox.y
 await page.mouse.down()
 await page.mouse.move(planBottomBox.x + planBottomBox.width / 2, planBottomBox.y + planBottomBox.height / 2 + 24, { steps: 4 })
 const planDuringResize = await planVisualState()
-await page.locator("#app svg.oneday-svg").screenshot({ path: path.join(out, "plan-live-resize.png") })
+await page.locator("#app svg.modular-diary-svg").screenshot({ path: path.join(out, "plan-live-resize.png") })
 const planBeforeInset = planBeforeResize.labelCenter - planBeforeResize.blockCenter
 const planDuringInset = planDuringResize.labelCenter - planDuringResize.blockCenter
 if (
@@ -1025,7 +1025,7 @@ if (
     editing: window.__editing,
     spans: window.__span,
     hit: document.elementFromPoint(x, y)?.outerHTML,
-    edges: Array.from(document.querySelectorAll("#app rect.oneday-edit-edge"), (edge) => edge.outerHTML),
+    edges: Array.from(document.querySelectorAll("#app rect.modular-diary-edit-edge"), (edge) => edge.outerHTML),
   }), { x: planBottomBox.x + planBottomBox.width / 2, y: planBottomBox.y + planBottomBox.height / 2 })
   console.error("plan resize painted fill, hatch, border or copy in different frames", {
     planBeforeResize, planDuringResize, planBeforeInset, planDuringInset, planResizeDebug,
@@ -1033,17 +1033,17 @@ if (
 }
 await setTheme(true)
 const darkPlanSelection = await page.evaluate(() => {
-  const block = document.querySelector('rect.oneday-plan[data-line="2"]')
+  const block = document.querySelector('rect.modular-diary-plan[data-line="2"]')
   const style = getComputedStyle(block)
   return {
     accentStroke: getComputedStyle(document.documentElement).getPropertyValue("--text-accent").trim(),
     stroke: style.stroke,
     strokeWidth: style.strokeWidth,
     strokeOpacity: style.strokeOpacity,
-    visibleEdgeLines: document.querySelectorAll("line.oneday-edit-edge-line").length,
+    visibleEdgeLines: document.querySelectorAll("line.modular-diary-edit-edge-line").length,
   }
 })
-await page.locator("#app svg.oneday-svg").screenshot({ path: path.join(out, "plan-selected-border-dark.png") })
+await page.locator("#app svg.modular-diary-svg").screenshot({ path: path.join(out, "plan-selected-border-dark.png") })
 if (
   darkPlanSelection.stroke !== darkPlanSelection.accentStroke
   || darkPlanSelection.strokeWidth !== "2px"
@@ -1056,25 +1056,25 @@ await setTheme(false)
 await page.mouse.up()
 await page.evaluate(() => {
   window.__editing = null
-  document.querySelector("#app svg.oneday-svg")?.dispatchEvent(new CustomEvent("oneday-sync-edit-visual"))
+  document.querySelector("#app svg.modular-diary-svg")?.dispatchEvent(new CustomEvent("modular-diary-sync-edit-visual"))
 })
 
 // 5-tool. Shape is an explicit tool state; the pressed affordance must match
 // the callback instead of relying on an ambiguous icon.
-await page.locator('.oneday-tool-toggle .oneday-mode-btn[data-tool="marker"]').click()
+await page.locator('.modular-diary-tool-toggle .modular-diary-mode-btn[data-tool="marker"]').click()
 const toolState = await page.evaluate(() => ({
   tool: window.__tool,
-  labels: [...document.querySelectorAll('.oneday-tool-toggle .oneday-mode-btn')].map((button) => button.textContent?.trim()),
-  ariaLabels: [...document.querySelectorAll('.oneday-tool-toggle .oneday-mode-btn')].map((button) => button.getAttribute("aria-label")),
-  planSwitchRole: document.querySelector('.oneday-plan-mode-toggle')?.getAttribute("role"),
-  planSwitchChecked: document.querySelector('.oneday-plan-mode-toggle')?.getAttribute("aria-checked"),
-  visibleMode: document.querySelector('.oneday-plan-mode-label')?.textContent,
-  redundantCurrentCopy: document.querySelectorAll('.oneday-plan-mode-current').length,
-  duplicateModeButtons: document.querySelectorAll('.oneday-brush-toggle .oneday-mode-btn').length,
-  markerPressed: document.querySelector('.oneday-tool-toggle [data-tool="marker"]')?.getAttribute("aria-pressed"),
-  spanPressed: document.querySelector('.oneday-tool-toggle [data-tool="span"]')?.getAttribute("aria-pressed"),
-  categoryMarks: [...document.querySelectorAll('.oneday-toolbar:first-of-type .oneday-swatch[data-type] .oneday-swatch-dot')].map((mark) => ({
-    type: mark.closest('.oneday-swatch')?.dataset.type,
+  labels: [...document.querySelectorAll('.modular-diary-tool-toggle .modular-diary-mode-btn')].map((button) => button.textContent?.trim()),
+  ariaLabels: [...document.querySelectorAll('.modular-diary-tool-toggle .modular-diary-mode-btn')].map((button) => button.getAttribute("aria-label")),
+  planSwitchRole: document.querySelector('.modular-diary-plan-mode-toggle')?.getAttribute("role"),
+  planSwitchChecked: document.querySelector('.modular-diary-plan-mode-toggle')?.getAttribute("aria-checked"),
+  visibleMode: document.querySelector('.modular-diary-plan-mode-label')?.textContent,
+  redundantCurrentCopy: document.querySelectorAll('.modular-diary-plan-mode-current').length,
+  duplicateModeButtons: document.querySelectorAll('.modular-diary-brush-toggle .modular-diary-mode-btn').length,
+  markerPressed: document.querySelector('.modular-diary-tool-toggle [data-tool="marker"]')?.getAttribute("aria-pressed"),
+  spanPressed: document.querySelector('.modular-diary-tool-toggle [data-tool="span"]')?.getAttribute("aria-pressed"),
+  categoryMarks: [...document.querySelectorAll('.modular-diary-toolbar:first-of-type .modular-diary-swatch[data-type] .modular-diary-swatch-dot')].map((mark) => ({
+    type: mark.closest('.modular-diary-swatch')?.dataset.type,
     marker: mark.classList.contains("is-marker"),
     plan: mark.classList.contains("is-plan"),
     tool: mark.dataset.tool,
@@ -1099,16 +1099,16 @@ if (
   console.error("timeline draw tool toggle regressed", toolState); process.exit(1)
 }
 await setTheme(false)
-await page.locator(".oneday-toolbar").first().screenshot({ path: path.join(out, "toolbar-marker-plan-light.png") })
+await page.locator(".modular-diary-toolbar").first().screenshot({ path: path.join(out, "toolbar-marker-plan-light.png") })
 await setTheme(true)
-await page.locator(".oneday-toolbar").first().screenshot({ path: path.join(out, "toolbar-marker-plan-dark.png") })
+await page.locator(".modular-diary-toolbar").first().screenshot({ path: path.join(out, "toolbar-marker-plan-dark.png") })
 await setTheme(false)
 
 // Programmatic state synchronization is used when another view changes the
 // active tool. It must update the category symbols just like a direct click.
 const syncedActualMarker = await page.evaluate(() => {
   window.__setToolbarState("actual", "marker")
-  return [...document.querySelectorAll('.oneday-toolbar:first-of-type .oneday-swatch[data-type] .oneday-swatch-dot')].map((mark) => ({
+  return [...document.querySelectorAll('.modular-diary-toolbar:first-of-type .modular-diary-swatch[data-type] .modular-diary-swatch-dot')].map((mark) => ({
     marker: mark.classList.contains("is-marker"),
     plan: mark.classList.contains("is-plan"),
     tool: mark.dataset.tool,
@@ -1119,12 +1119,12 @@ const syncedActualMarker = await page.evaluate(() => {
 if (syncedActualMarker.some((mark) => !mark.marker || mark.plan || mark.tool !== "marker" || mark.mode !== "actual" || mark.backgroundImage.includes("repeating-linear-gradient"))) {
   console.error("programmatic actual-marker symbol sync regressed", syncedActualMarker); process.exit(1)
 }
-await page.locator(".oneday-toolbar").first().screenshot({ path: path.join(out, "toolbar-marker-actual-light.png") })
+await page.locator(".modular-diary-toolbar").first().screenshot({ path: path.join(out, "toolbar-marker-actual-light.png") })
 
 // The restoration menu is rendered outside the toolbar, so its symbols must
 // be stamped with the current semantic state instead of relying on ancestry.
-await page.locator(".oneday-add").click()
-const hiddenMarker = await page.locator('.oneday-add-menu .oneday-add-item:has-text("wake") .oneday-swatch-dot').evaluate((mark) => ({
+await page.locator(".modular-diary-add").click()
+const hiddenMarker = await page.locator('.modular-diary-add-menu .modular-diary-add-item:has-text("wake") .modular-diary-swatch-dot').evaluate((mark) => ({
   marker: mark.classList.contains("is-marker"),
   plan: mark.classList.contains("is-plan"),
   tool: mark.dataset.tool,
@@ -1134,7 +1134,7 @@ if (!hiddenMarker.marker || hiddenMarker.plan || hiddenMarker.tool !== "marker" 
   console.error("hidden-category marker symbol did not inherit current state", hiddenMarker); process.exit(1)
 }
 await page.keyboard.press("Escape")
-await page.locator('.oneday-tool-toggle .oneday-mode-btn[data-tool="span"]').click()
+await page.locator('.modular-diary-tool-toggle .modular-diary-mode-btn[data-tool="span"]').click()
 
 // 5a. no visible highlighter: blank track cannot invent a hidden "misc" block.
 const createdBeforeDisabledDraw = await page.evaluate(() => {
@@ -1144,7 +1144,7 @@ const createdBeforeDisabledDraw = await page.evaluate(() => {
 await drag(1200, 1260)
 const disabledDrawState = await page.evaluate(() => ({
   created: window.__created.length,
-  cursor: document.querySelector("svg.oneday-svg").style.cursor,
+  cursor: document.querySelector("svg.modular-diary-svg").style.cursor,
 }))
 if (disabledDrawState.created !== createdBeforeDisabledDraw || disabledDrawState.cursor !== "default") {
   console.error("drawing without a visible highlighter was not disabled", disabledDrawState); process.exit(1)
@@ -1156,7 +1156,7 @@ await page.evaluate(() => { window.__active = "math" })
 // pending, but a failed commit must never leave a block that only exists on
 // screen and disappears after restart.
 const failedCreateBefore = await page.evaluate(() => ({
-  previewCount: document.querySelectorAll(".oneday-preview-block").length,
+  previewCount: document.querySelectorAll(".modular-diary-preview-block").length,
   errorCount: window.__mutationErrors.length,
   createdCount: window.__created.length,
 }))
@@ -1164,7 +1164,7 @@ await page.evaluate(() => { window.__rejectNextCreate = true })
 await drag(1320, 1350)
 await page.waitForTimeout(20)
 const failedCreateAfter = await page.evaluate(() => ({
-  previewCount: document.querySelectorAll(".oneday-preview-block").length,
+  previewCount: document.querySelectorAll(".modular-diary-preview-block").length,
   errorCount: window.__mutationErrors.length,
   createdCount: window.__created.length,
   lastError: window.__mutationErrors.at(-1),
@@ -1181,42 +1181,42 @@ if (
 }
 
 await page.mouse.move(trackCX, yFor(455))
-await page.waitForSelector(".oneday-tooltip", { state: "visible" })
-const tooltipText = await page.locator(".oneday-tooltip").innerText()
+await page.waitForSelector(".modular-diary-tooltip", { state: "visible" })
+const tooltipText = await page.locator(".modular-diary-tooltip").innerText()
 if (!tooltipText.includes("07:00") || !tooltipText.includes("1h") || !tooltipText.includes("sleep")) {
   console.error("tooltip mismatch:", tooltipText); process.exit(1)
 }
 // The tooltip sits above-left of the pointer so it never covers the lane
 // label to the right of the hovered object.
 const tooltipPlacement = await page.evaluate(() => {
-  const tooltip = document.querySelector(".oneday-tooltip").getBoundingClientRect()
-  const lane = document.querySelector("svg.oneday-svg g.oneday-side-lane").getBoundingClientRect()
+  const tooltip = document.querySelector(".modular-diary-tooltip").getBoundingClientRect()
+  const lane = document.querySelector("svg.modular-diary-svg g.modular-diary-side-lane").getBoundingClientRect()
   return { tooltipRight: tooltip.right, laneLeft: lane.left, tooltipBottom: tooltip.bottom }
 })
 if (tooltipPlacement.tooltipRight > tooltipPlacement.laneLeft || tooltipPlacement.tooltipBottom > yFor(455)) {
   console.error("tooltip covered the lane or the pointer", tooltipPlacement); process.exit(1)
 }
 await page.evaluate(() => window.__mountAfterMidnightHover())
-const overnightBlock = page.locator("#after-midnight-hover rect.oneday-block")
+const overnightBlock = page.locator("#after-midnight-hover rect.modular-diary-block")
 const overnightBox = await overnightBlock.boundingBox()
 if (!overnightBox) { console.error("after-midnight block missing"); process.exit(1) }
 await overnightBlock.dispatchEvent("pointerover", { pointerType: "mouse" })
-await page.waitForSelector("#after-midnight-hover .oneday-tooltip", { state: "visible" })
-const overnightTooltip = await page.locator("#after-midnight-hover .oneday-tooltip").innerText()
+await page.waitForSelector("#after-midnight-hover .modular-diary-tooltip", { state: "visible" })
+const overnightTooltip = await page.locator("#after-midnight-hover .modular-diary-tooltip").innerText()
 if (!overnightTooltip.includes("次日 02:30 – 03:15") || overnightTooltip.includes("26:30") || overnightTooltip.includes("27:15")) {
   console.error("after-midnight tooltip leaked monotonic coordinates:", overnightTooltip); process.exit(1)
 }
 // A block that already shows its note inline gets only the exact times and
 // duration; the type and note are not repeated under the pointer.
 const inlineNoteTooltip = await page.evaluate(() => {
-  const lines = [...document.querySelector("#after-midnight-hover .oneday-tooltip").children].map((node) => node.textContent)
-  const inline = Boolean(document.querySelector('#after-midnight-hover text.oneday-note:not(.oneday-side), #after-midnight-hover text.oneday-duration:not(.oneday-thin)'))
+  const lines = [...document.querySelector("#after-midnight-hover .modular-diary-tooltip").children].map((node) => node.textContent)
+  const inline = Boolean(document.querySelector('#after-midnight-hover text.modular-diary-note:not(.modular-diary-side), #after-midnight-hover text.modular-diary-duration:not(.modular-diary-thin)'))
   return { lines, inline }
 })
 if (!inlineNoteTooltip.inline || inlineNoteTooltip.lines.length !== 1 || inlineNoteTooltip.lines[0] !== overnightTooltip.trim()) {
   console.error("tooltip repeated copy that is already inside the block", inlineNoteTooltip); process.exit(1)
 }
-await page.locator("#after-midnight-hover .oneday-tooltip").screenshot({ path: path.join(out, "after-midnight-tooltip.png") })
+await page.locator("#after-midnight-hover .modular-diary-tooltip").screenshot({ path: path.join(out, "after-midnight-tooltip.png") })
 await page.locator("#after-midnight-hover").evaluate((element) => element.remove())
 const hoverCount = await page.evaluate(() => document.querySelectorAll(".is-hover").length)
 if (hoverCount < 1) { console.error("no hover pairing"); process.exit(1) }
@@ -1227,16 +1227,16 @@ if (hoverCount < 1) { console.error("no hover pairing"); process.exit(1) }
 {
   const yBottom = yFor(23 * 60)
   await page.mouse.move(trackCX, yBottom)
-  const bottomBoundaryCursor = await page.evaluate(() => document.querySelector("svg.oneday-svg").style.cursor)
+  const bottomBoundaryCursor = await page.evaluate(() => document.querySelector("svg.modular-diary-svg").style.cursor)
   if (bottomBoundaryCursor !== "crosshair") {
     console.error("bottom boundary did not keep the creation cursor", bottomBoundaryCursor); process.exit(1)
   }
-  const bottomPlus = page.locator('svg.oneday-svg .oneday-range-step-button[data-edge="bottom"][data-action="extend"]')
+  const bottomPlus = page.locator('svg.modular-diary-svg .modular-diary-range-step-button[data-edge="bottom"][data-action="extend"]')
   await bottomPlus.hover()
   const outsideState = await bottomPlus.evaluate((button) => {
-    const controls = button.closest(".oneday-range-step-controls")
-    const background = button.querySelector(".oneday-range-step-button-bg")
-    const text = button.querySelector(".oneday-range-step-button-text")
+    const controls = button.closest(".modular-diary-range-step-controls")
+    const background = button.querySelector(".modular-diary-range-step-button-bg")
+    const text = button.querySelector(".modular-diary-range-step-button-text")
     const box = button.getBBox()
     const svg = button.closest("svg")
     const point = svg.createSVGPoint()
@@ -1265,7 +1265,7 @@ if (hoverCount < 1) { console.error("no hover pairing"); process.exit(1) }
     || outsideState.text?.fill === "none" || outsideState.text?.fill === "rgba(0, 0, 0, 0)") {
     console.error("outer extension button was not a concrete hit target", outsideState); process.exit(1)
   }
-  const protectedTopContract = await page.locator('svg.oneday-svg .oneday-range-step-button[data-edge="top"][data-action="contract"]').first().getAttribute("aria-disabled")
+  const protectedTopContract = await page.locator('svg.modular-diary-svg .modular-diary-range-step-button[data-edge="top"][data-action="contract"]').first().getAttribute("aria-disabled")
   if (protectedTopContract !== "true") {
     console.error("range contraction could hide an entry at the first visible hour", protectedTopContract); process.exit(1)
   }
@@ -1279,19 +1279,19 @@ if (hoverCount < 1) { console.error("no hover pairing"); process.exit(1) }
 // prove resize and move share the same canonical 5-minute grid as creation.
 await page.mouse.click(trackCX, yFor(450))
 const editLayerState = await page.evaluate(() => {
-  const frozenActual = document.querySelector('rect.oneday-block[data-line="1"]')
-  const planHatch = document.querySelector('rect.oneday-plan-hatch[data-line="2"]')
-  const frozenMarker = document.querySelector('g.oneday-marker[data-line="4"]')
-  const frozenMarkerLabel = document.querySelector('text.oneday-marker-label[data-line="4"]')
-  const frozenMarkerLabelBg = document.querySelector('rect.oneday-marker-label-bg[data-line="4"]')
-  const selectedActual = document.querySelector('rect.oneday-block[data-line="0"]')
+  const frozenActual = document.querySelector('rect.modular-diary-block[data-line="1"]')
+  const planHatch = document.querySelector('rect.modular-diary-plan-hatch[data-line="2"]')
+  const frozenMarker = document.querySelector('g.modular-diary-marker[data-line="4"]')
+  const frozenMarkerLabel = document.querySelector('text.modular-diary-marker-label[data-line="4"]')
+  const frozenMarkerLabelBg = document.querySelector('rect.modular-diary-marker-label-bg[data-line="4"]')
+  const selectedActual = document.querySelector('rect.modular-diary-block[data-line="0"]')
   const selectedStyle = getComputedStyle(selectedActual)
   return {
     accentStroke: getComputedStyle(document.documentElement).getPropertyValue("--text-accent").trim(),
     selectedFillOpacity: getComputedStyle(selectedActual).fillOpacity,
     selectedStroke: selectedStyle.stroke,
     selectedStrokeWidth: selectedStyle.strokeWidth,
-    visibleEdgeLines: document.querySelectorAll("line.oneday-edit-edge-line").length,
+    visibleEdgeLines: document.querySelectorAll("line.modular-diary-edit-edge-line").length,
     frozenActualOpacity: getComputedStyle(frozenActual).opacity,
     planHatchOpacity: getComputedStyle(planHatch).opacity,
     frozenMarker: frozenMarker?.classList.contains("is-frozen") ?? false,
@@ -1299,7 +1299,7 @@ const editLayerState = await page.evaluate(() => {
     frozenMarkerFilter: frozenMarker ? getComputedStyle(frozenMarker).filter : "missing",
     frozenMarkerLabelOpacity: frozenMarkerLabel ? getComputedStyle(frozenMarkerLabel).opacity : "missing",
     frozenMarkerLabelBgOpacity: frozenMarkerLabelBg ? getComputedStyle(frozenMarkerLabelBg).opacity : "missing",
-    edgeHandles: Array.from(document.querySelectorAll("rect.oneday-edit-edge"), (edge) => ({
+    edgeHandles: Array.from(document.querySelectorAll("rect.modular-diary-edit-edge"), (edge) => ({
       edge: edge.dataset.edge,
       line: Number(edge.dataset.line),
       cursor: getComputedStyle(edge).cursor,
@@ -1326,26 +1326,26 @@ if (
 ) {
   console.error("edit compositing exposed the plan above records", editLayerState); process.exit(1)
 }
-await page.locator("svg.oneday-svg").screenshot({ path: path.join(out, "record-above-plan-edit-state.png") })
+await page.locator("svg.modular-diary-svg").screenshot({ path: path.join(out, "record-above-plan-edit-state.png") })
 await setTheme(true)
 const darkFrozenMarkerState = await page.evaluate(() => ({
-  marker: getComputedStyle(document.querySelector('g.oneday-marker[data-line="4"]')).opacity,
-  markerFilter: getComputedStyle(document.querySelector('g.oneday-marker[data-line="4"]')).filter,
-  label: getComputedStyle(document.querySelector('text.oneday-marker-label[data-line="4"]')).opacity,
-  labelBg: getComputedStyle(document.querySelector('rect.oneday-marker-label-bg[data-line="4"]')).opacity,
+  marker: getComputedStyle(document.querySelector('g.modular-diary-marker[data-line="4"]')).opacity,
+  markerFilter: getComputedStyle(document.querySelector('g.modular-diary-marker[data-line="4"]')).filter,
+  label: getComputedStyle(document.querySelector('text.modular-diary-marker-label[data-line="4"]')).opacity,
+  labelBg: getComputedStyle(document.querySelector('rect.modular-diary-marker-label-bg[data-line="4"]')).opacity,
 }))
 // Dark pages freeze fills at 45% and copy at 80%; strokes keep their alpha.
 if (JSON.stringify(darkFrozenMarkerState) !== JSON.stringify({ marker: "0.16", markerFilter: "grayscale(0.65)", label: "0.8", labelBg: "0.45" })) {
   console.error("dark-theme time point did not share the selected-span freeze layer", darkFrozenMarkerState); process.exit(1)
 }
-await page.locator("svg.oneday-svg").screenshot({ path: path.join(out, "record-focus-freezes-time-point-dark.png") })
+await page.locator("svg.modular-diary-svg").screenshot({ path: path.join(out, "record-focus-freezes-time-point-dark.png") })
 await setTheme(false)
 await page.mouse.move(trackCX, yFor(480) - 2) // 底沿
 await page.mouse.down()
 await page.mouse.move(trackCX, yFor(547), { steps: 4 }) // 09:07 -> 09:05
 await assertLiveSpan(420, 545)
 await page.mouse.up()
-if (await page.locator(".oneday-span-preview-labels").count() !== 0) {
+if (await page.locator(".modular-diary-span-preview-labels").count() !== 0) {
   console.error("resize labels survived pointerup"); process.exit(1)
 }
 await page.mouse.move(trackCX, yFor(450)) // 中部
@@ -1353,7 +1353,7 @@ await page.mouse.down()
 await page.mouse.move(trackCX, yFor(637), { steps: 4 }) // 10:37 -> start 10:05
 await assertLiveSpan(605, 665)
 await page.mouse.up()
-if (await page.locator(".oneday-span-preview-labels").count() !== 0) {
+if (await page.locator(".modular-diary-span-preview-labels").count() !== 0) {
   console.error("move labels survived pointerup"); process.exit(1)
 }
 await page.mouse.move(trackCX, yFor(1200)) // 空白处 -> 退出编辑
@@ -1363,7 +1363,7 @@ await page.mouse.up()
 // 5f. A selected 20-minute block is only ~14 SVG px high. It must retain
 // top/bottom resize zones and a distinct move zone instead of falling back to
 // move-only behaviour.
-const shortEditBlock = page.locator('rect.oneday-block[data-line="3"]')
+const shortEditBlock = page.locator('rect.modular-diary-block[data-line="3"]')
 const shortEditBox = await shortEditBlock.boundingBox()
 if (!shortEditBox) { console.error("short edit fixture missing"); process.exit(1) }
 await page.mouse.click(shortEditBox.x + shortEditBox.width / 2, shortEditBox.y + shortEditBox.height / 2)
@@ -1385,19 +1385,19 @@ await page.mouse.down()
 await page.mouse.move(trackCX, yFor(830), { steps: 4 }) // 13:50, canonical 5-minute grid
 await assertLiveSpan(795, 830)
 await page.mouse.up()
-await page.locator("svg.oneday-svg").screenshot({ path: path.join(out, "short-block-resize-state.png") })
+await page.locator("svg.modular-diary-svg").screenshot({ path: path.join(out, "short-block-resize-state.png") })
 // Selection is scoped to the block, not the timeline. A pointer press anywhere
-// outside the selected rect—including outside the whole Oneday component—exits.
+// outside the selected rect—including outside the whole Modular Diary component—exits.
 await page.mouse.click(320, 500)
 const outsideExitState = await page.evaluate(() => ({
   editing: window.__editing,
-  editingSvgCount: document.querySelectorAll(".oneday-svg.is-editing-block").length,
+  editingSvgCount: document.querySelectorAll(".modular-diary-svg.is-editing-block").length,
   focusedCount: document.querySelectorAll(".is-focus").length,
 }))
 if (outsideExitState.editing !== null || outsideExitState.editingSvgCount !== 0 || outsideExitState.focusedCount !== 0) {
   console.error("outside pointer did not clear block focus", outsideExitState); process.exit(1)
 }
-await page.locator("svg.oneday-svg").screenshot({ path: path.join(out, "outside-focus-cleared.png") })
+await page.locator("svg.modular-diary-svg").screenshot({ path: path.join(out, "outside-focus-cleared.png") })
 
 // Deleting the selected block must end focus before the source mutation. In
 // Obsidian that mutation can synchronously replace the renderer, so checking
@@ -1446,7 +1446,7 @@ await page.keyboard.press("Delete")
 const deleteFocusState = await page.evaluate(() => ({
   deleted: window.__deleted,
   editing: window.__editing,
-  editingSvgCount: document.querySelectorAll(".oneday-svg.is-editing-block").length,
+  editingSvgCount: document.querySelectorAll(".modular-diary-svg.is-editing-block").length,
   frozenCount: document.querySelectorAll(".is-frozen").length,
   focusCount: document.querySelectorAll(".is-focus").length,
 }))
@@ -1462,32 +1462,32 @@ if (JSON.stringify(deleteFocusState.deleted) !== JSON.stringify([{
 await page.evaluate(() => document.querySelector("#timeline-cm-focus-owner")?.remove())
 await page.mouse.move(320, 900)
 const deleteRestOpacity = await page.evaluate(() => ({
-  blocks: Array.from(document.querySelectorAll(".oneday-svg .oneday-block"), (el) => getComputedStyle(el).opacity),
-  labels: Array.from(document.querySelectorAll(".oneday-svg text[data-line]"), (el) => getComputedStyle(el).opacity),
-  tooltipVisible: getComputedStyle(document.querySelector(".oneday-tooltip")).display !== "none",
+  blocks: Array.from(document.querySelectorAll(".modular-diary-svg .modular-diary-block"), (el) => getComputedStyle(el).opacity),
+  labels: Array.from(document.querySelectorAll(".modular-diary-svg text[data-line]"), (el) => getComputedStyle(el).opacity),
+  tooltipVisible: getComputedStyle(document.querySelector(".modular-diary-tooltip")).display !== "none",
 }))
 if (deleteRestOpacity.blocks.some((value) => value !== "1") || deleteRestOpacity.labels.some((value) => value !== "1") || deleteRestOpacity.tooltipVisible) {
   console.error("deleting selected block left dimmed content", deleteRestOpacity); process.exit(1)
 }
-await page.locator("svg.oneday-svg").screenshot({ path: path.join(out, "delete-focus-cleared.png") })
+await page.locator("svg.modular-diary-svg").screenshot({ path: path.join(out, "delete-focus-cleared.png") })
 
 // 5g. Overlapping actual entries are rendered as narrow side-by-side columns.
 // Selection must still create real top/bottom handles matching the selected
 // column—not a full-track overlay—and both click and context-menu entry paths
 // must activate the exact same edit state.
 await page.evaluate(() => window.__mountOverlapEditFixture())
-const overlapBlock = page.locator('#overlap-edit-fixture rect.oneday-block[data-line="2"]')
+const overlapBlock = page.locator('#overlap-edit-fixture rect.modular-diary-block[data-line="2"]')
 await overlapBlock.scrollIntoViewIfNeeded()
 const overlapBlockBox = await overlapBlock.boundingBox()
 if (!overlapBlockBox) { console.error("overlap edit fixture missing selected column"); process.exit(1) }
 const overlapLabelInset = await page.evaluate(() => {
   const host = document.querySelector("#overlap-edit-fixture")
-  const block = host.querySelector('rect.oneday-block[data-line="2"]')
+  const block = host.querySelector('rect.modular-diary-block[data-line="2"]')
   const blockBox = block.getBBox()
-  const labels = Array.from(host.querySelectorAll('text[data-line="2"]:not(.oneday-side)'))
+  const labels = Array.from(host.querySelectorAll('text[data-line="2"]:not(.modular-diary-side)'))
   const boxes = labels.map((label) => label.getBBox())
   return {
-    noteLines: labels.filter((label) => label.classList.contains("oneday-note")).length,
+    noteLines: labels.filter((label) => label.classList.contains("modular-diary-note")).length,
     leftInset: Math.min(...boxes.map((box) => box.x)) - blockBox.x,
     rightInset: blockBox.x + blockBox.width - Math.max(...boxes.map((box) => box.x + box.width)),
   }
@@ -1498,8 +1498,8 @@ if (overlapLabelInset.noteLines < 2 || overlapLabelInset.leftInset < 4 || overla
 await page.mouse.click(overlapBlockBox.x + overlapBlockBox.width / 2, overlapBlockBox.y + overlapBlockBox.height / 2)
 const overlapGeometry = await page.evaluate(() => {
   const host = document.querySelector("#overlap-edit-fixture")
-  const block = host.querySelector('rect.oneday-block[data-line="2"]')
-  const edges = Array.from(host.querySelectorAll("rect.oneday-edit-edge"))
+  const block = host.querySelector('rect.modular-diary-block[data-line="2"]')
+  const edges = Array.from(host.querySelectorAll("rect.modular-diary-edit-edge"))
   return {
     blockX: Number(block.getAttribute("x")),
     blockWidth: Number(block.getAttribute("width")),
@@ -1516,7 +1516,7 @@ if (
 ) {
   console.error("split-column edit handles do not match the selected block", overlapGeometry); process.exit(1)
 }
-const overlapBottom = page.locator('#overlap-edit-fixture rect.oneday-edit-edge[data-edge="bottom"]')
+const overlapBottom = page.locator('#overlap-edit-fixture rect.modular-diary-edit-edge[data-edge="bottom"]')
 await overlapBottom.scrollIntoViewIfNeeded()
 const overlapBottomBox = await overlapBottom.boundingBox()
 if (!overlapBottomBox) { console.error("overlap bottom resize handle missing"); process.exit(1) }
@@ -1524,13 +1524,13 @@ const overlapHitBeforeDrag = await page.evaluate(({ x, y }) => {
   const target = document.elementFromPoint(x, y)
   return target ? { tag: target.tagName, cls: target.getAttribute("class"), edge: target.getAttribute("data-edge") } : null
 }, { x: overlapBottomBox.x + overlapBottomBox.width / 2, y: overlapBottomBox.y + overlapBottomBox.height / 2 })
-if (overlapHitBeforeDrag?.cls !== "oneday-edit-edge" || overlapHitBeforeDrag.edge !== "bottom") {
+if (overlapHitBeforeDrag?.cls !== "modular-diary-edit-edge" || overlapHitBeforeDrag.edge !== "bottom") {
   console.error("split-column bottom handle is not the top hit target", { overlapBottomBox, overlapHitBeforeDrag }); process.exit(1)
 }
 await page.mouse.move(overlapBottomBox.x + overlapBottomBox.width / 2, overlapBottomBox.y + overlapBottomBox.height / 2)
 const overlapResizeVisualBefore = await page.evaluate(() => {
   const host = document.querySelector("#overlap-edit-fixture")
-  const block = host.querySelector('rect.oneday-block[data-line="2"]')
+  const block = host.querySelector('rect.modular-diary-block[data-line="2"]')
   const labels = Array.from(host.querySelectorAll('text[data-line="2"]'))
   const blockBox = block.getBoundingClientRect()
   const labelBoxes = labels.map((label) => label.getBoundingClientRect())
@@ -1543,7 +1543,7 @@ await page.mouse.down()
 await page.mouse.move(overlapBottomBox.x + overlapBottomBox.width / 2, overlapBottomBox.y + overlapBottomBox.height / 2 + 12, { steps: 3 })
 const overlapResizeVisualDuring = await page.evaluate(() => {
   const host = document.querySelector("#overlap-edit-fixture")
-  const block = host.querySelector('rect.oneday-block[data-line="2"]')
+  const block = host.querySelector('rect.modular-diary-block[data-line="2"]')
   const labels = Array.from(host.querySelectorAll('text[data-line="2"]'))
   const blockBox = block.getBoundingClientRect()
   const labelBoxes = labels.map((label) => label.getBoundingClientRect())
@@ -1565,20 +1565,20 @@ if (JSON.stringify(overlapResize) !== JSON.stringify({ line: 2, startMin: 795, e
   const overlapDebug = await page.evaluate(({ x, y }) => ({
     editing: window.__overlapEditing,
     hit: document.elementFromPoint(x, y)?.outerHTML,
-    handles: Array.from(document.querySelectorAll("#overlap-edit-fixture rect.oneday-edit-edge"), (edge) => edge.outerHTML),
+    handles: Array.from(document.querySelectorAll("#overlap-edit-fixture rect.modular-diary-edit-edge"), (edge) => edge.outerHTML),
   }), { x: overlapBottomBox.x + overlapBottomBox.width / 2, y: overlapBottomBox.y + overlapBottomBox.height / 2 })
   console.error("split-column bottom edge did not resize the selected block", { overlapResize, overlapDebug }); process.exit(1)
 }
 await page.evaluate(() => {
   const host = document.querySelector("#overlap-edit-fixture")
-  host.querySelectorAll(".oneday-edit-edge, .oneday-edit-edge-line").forEach((edge) => edge.remove())
+  host.querySelectorAll(".modular-diary-edit-edge, .modular-diary-edit-edge-line").forEach((edge) => edge.remove())
   window.__enterOverlapEditFromMenu(2)
 })
-const menuEnteredEdges = await page.locator("#overlap-edit-fixture rect.oneday-edit-edge").count()
+const menuEnteredEdges = await page.locator("#overlap-edit-fixture rect.modular-diary-edit-edge").count()
 if (menuEnteredEdges !== 2) {
   console.error("context-menu edit path did not enter the complete resize state", menuEnteredEdges); process.exit(1)
 }
-await page.locator("#overlap-edit-fixture svg.oneday-svg").screenshot({ path: path.join(out, "split-column-edit-handles.png") })
+await page.locator("#overlap-edit-fixture svg.modular-diary-svg").screenshot({ path: path.join(out, "split-column-edit-handles.png") })
 
 // Moving a selected block is one live visual gesture: its rect, duration and
 // every wrapped note line must follow the pointer before pointerup. Waiting for
@@ -1587,14 +1587,14 @@ await page.locator("#overlap-edit-fixture svg.oneday-svg").screenshot({ path: pa
 // records its mutation and therefore cannot stand in for Obsidian's redraw.
 await page.evaluate(() => window.__mountOverlapEditFixture())
 await page.evaluate(() => window.__enterOverlapEditFromMenu(2))
-const moveWholeBlock = page.locator('#overlap-edit-fixture rect.oneday-block[data-line="2"]')
+const moveWholeBlock = page.locator('#overlap-edit-fixture rect.modular-diary-block[data-line="2"]')
 const moveWholeBlockBox = await moveWholeBlock.boundingBox()
 if (!moveWholeBlockBox) { console.error("whole-block move fixture missing"); process.exit(1) }
 const moveVisualBefore = await page.evaluate(() => {
   const host = document.querySelector("#overlap-edit-fixture")
   const top = (el) => el.getBoundingClientRect().top
   return {
-    block: top(host.querySelector('rect.oneday-block[data-line="2"]')),
+    block: top(host.querySelector('rect.modular-diary-block[data-line="2"]')),
     labels: Array.from(host.querySelectorAll('text[data-line="2"]'), top),
   }
 })
@@ -1605,7 +1605,7 @@ const moveVisualDuring = await page.evaluate(() => {
   const host = document.querySelector("#overlap-edit-fixture")
   const top = (el) => el.getBoundingClientRect().top
   return {
-    block: top(host.querySelector('rect.oneday-block[data-line="2"]')),
+    block: top(host.querySelector('rect.modular-diary-block[data-line="2"]')),
     labels: Array.from(host.querySelectorAll('text[data-line="2"]'), top),
   }
 })
@@ -1614,23 +1614,23 @@ const labelMoveDeltas = moveVisualDuring.labels.map((top, index) => top - moveVi
 if (Math.abs(blockMoveDelta) < 10 || labelMoveDeltas.length < 2 || labelMoveDeltas.some((delta) => Math.abs(delta - blockMoveDelta) > 0.5)) {
   console.error("moving a block left its duration or note behind", { blockMoveDelta, labelMoveDeltas }); process.exit(1)
 }
-await page.locator("#overlap-edit-fixture svg.oneday-svg").screenshot({ path: path.join(out, "whole-block-live-move.png") })
+await page.locator("#overlap-edit-fixture svg.modular-diary-svg").screenshot({ path: path.join(out, "whole-block-live-move.png") })
 await page.mouse.up()
 
-await page.locator('.oneday-plan-mode-toggle').click()
+await page.locator('.modular-diary-plan-mode-toggle').click()
 await page.mouse.click(trackCX, yFor(635)) // sleep 块已被移到 10:05-11:05
 // 7. toolbar: right-click a swatch hides it; "+" menu shows hidden ones back
-const mathSwatch = page.locator('.oneday-swatch[data-type="math"]')
+const mathSwatch = page.locator('.modular-diary-swatch[data-type="math"]')
 await mathSwatch.click({ button: "right" })
-await page.waitForSelector(".oneday-ctx-menu")
+await page.waitForSelector(".modular-diary-ctx-menu")
 const swatchBox = await mathSwatch.boundingBox()
-const contextBox = await page.locator(".oneday-ctx-menu").boundingBox()
+const contextBox = await page.locator(".modular-diary-ctx-menu").boundingBox()
 const expectedContextX = swatchBox ? Math.max(8, swatchBox.x) : 0
 if (!swatchBox || !contextBox || Math.abs(contextBox.x - expectedContextX) > 2 || contextBox.y < swatchBox.y + swatchBox.height || contextBox.y - (swatchBox.y + swatchBox.height) > 8) {
   console.error("swatch menu is not anchored", { swatchBox, contextBox }); process.exit(1)
 }
-const contextStyle = await page.locator(".oneday-ctx-menu").evaluate((menu) => {
-  const item = menu.querySelector(".oneday-add-item")
+const contextStyle = await page.locator(".modular-diary-ctx-menu").evaluate((menu) => {
+  const item = menu.querySelector(".modular-diary-add-item")
   const menuStyle = getComputedStyle(menu)
   const itemStyle = getComputedStyle(item)
   return {
@@ -1657,17 +1657,17 @@ if (contextStyle.itemFontSize !== "13px" || contextStyle.menuFontSize !== "13px"
 // Keyboard parity with Obsidian's Menu: the first arrow enters the menu, Escape closes it.
 await page.keyboard.press("ArrowDown")
 const contextKeyboard = await page.evaluate(() => ({
-  focused: document.activeElement?.closest(".oneday-ctx-menu") !== null && document.activeElement?.getAttribute("role") === "menuitem",
+  focused: document.activeElement?.closest(".modular-diary-ctx-menu") !== null && document.activeElement?.getAttribute("role") === "menuitem",
 }))
 if (!contextKeyboard.focused) {
   console.error("ArrowDown did not move focus into the custom menu", contextKeyboard); process.exit(1)
 }
-await page.locator('.oneday-ctx-menu .oneday-add-item:has-text("隐藏")').click()
-await page.locator(".oneday-add").click()
-if (await page.locator('.oneday-add-menu .oneday-add-new:has-text("添加分类")').count() !== 1) {
+await page.locator('.modular-diary-ctx-menu .modular-diary-add-item:has-text("隐藏")').click()
+await page.locator(".modular-diary-add").click()
+if (await page.locator('.modular-diary-add-menu .modular-diary-add-new:has-text("添加分类")').count() !== 1) {
   console.error("add-new option missing from hidden menu"); process.exit(1)
 }
-const addNewStyle = await page.locator('.oneday-add-menu .oneday-add-new').evaluate((item) => {
+const addNewStyle = await page.locator('.modular-diary-add-menu .modular-diary-add-new').evaluate((item) => {
   const style = getComputedStyle(item)
   const separator = getComputedStyle(item, "::before")
   return {
@@ -1686,26 +1686,26 @@ if (
 ) {
   console.error("add-new menu item rounding regressed", addNewStyle); process.exit(1)
 }
-await page.locator('.oneday-add-menu .oneday-add-new:has-text("添加分类")').click()
-await page.locator(".oneday-add").click()
-await page.locator('.oneday-add-item:has-text("fitness")').click()
+await page.locator('.modular-diary-add-menu .modular-diary-add-new:has-text("添加分类")').click()
+await page.locator(".modular-diary-add").click()
+await page.locator('.modular-diary-add-item:has-text("fitness")').click()
 
 // 7a. Grid component hide uses the exact same custom menu and short action copy.
 await page.evaluate(() => window.__showComponentMenu(180, 240))
-const componentMenu = page.locator('.oneday-ctx-menu[aria-labelledby]')
+const componentMenu = page.locator('.modular-diary-ctx-menu[aria-labelledby]')
 const componentMenuBox = await componentMenu.boundingBox()
 if (!componentMenuBox || Math.abs(componentMenuBox.x - 180) > 2 || componentMenuBox.y < 240 || componentMenuBox.y > 250) {
   console.error("component menu is not cursor-anchored", componentMenuBox); process.exit(1)
 }
-await componentMenu.locator('.oneday-add-item:has-text("隐藏")').click()
+await componentMenu.locator('.modular-diary-add-item:has-text("隐藏")').click()
 if (await page.evaluate(() => window.__componentHidden) !== 1) {
   console.error("component custom hide action did not route"); process.exit(1)
 }
 
 // 7b. no hidden swatches: tail "+" opens settings directly and never opens an empty menu.
 await page.evaluate(() => window.__mountNoHiddenToolbar())
-await page.locator("#no-hidden-toolbar .oneday-add").click()
-if (await page.locator(".oneday-add-menu").count() !== 0) {
+await page.locator("#no-hidden-toolbar .modular-diary-add").click()
+if (await page.locator(".modular-diary-add-menu").count() !== 0) {
   console.error("empty hidden menu should not open"); process.exit(1)
 }
 
@@ -1714,21 +1714,21 @@ if (await page.locator(".oneday-add-menu").count() !== 0) {
 // (and selectable) through the menu, and a wide pane shows them all.
 const readManyCategories = () => page.evaluate(() => {
   const slot = document.querySelector("#many-categories-slot")
-  const list = slot.querySelector(".oneday-category-list")
+  const list = slot.querySelector(".modular-diary-category-list")
   const visible = [...list.children].filter((child) => !child.hidden && child.getBoundingClientRect().width > 0)
-  const more = list.querySelector(".oneday-category-more")
+  const more = list.querySelector(".modular-diary-category-more")
   return {
     rows: new Set(visible.map((child) => child.offsetTop)).size,
     folded: Number(list.dataset.foldedCategories),
     visibleSwatches: visible.filter((child) => child.dataset.type).map((child) => child.dataset.type),
     moreVisible: !more.hidden && more.getBoundingClientRect().width > 0,
-    moreLabel: more.querySelector(".oneday-category-more-label")?.textContent,
+    moreLabel: more.querySelector(".modular-diary-category-more-label")?.textContent,
     moreAria: more.getAttribute("aria-label"),
     moreFocusable: more.tabIndex >= 0,
-    moreLast: visible.at(-1)?.classList.contains("oneday-add") && visible.at(-2) === more,
-    active: list.querySelector(".oneday-swatch[data-type].is-active")?.dataset.type,
+    moreLast: visible.at(-1)?.classList.contains("modular-diary-add") && visible.at(-2) === more,
+    active: list.querySelector(".modular-diary-swatch[data-type].is-active")?.dataset.type,
     listHeight: list.getBoundingClientRect().height,
-    foldVisible: (() => { const fold = list.querySelector(".oneday-category-fold"); return Boolean(fold) && !fold.hidden && fold.getBoundingClientRect().width > 0 })(),
+    foldVisible: (() => { const fold = list.querySelector(".modular-diary-category-fold"); return Boolean(fold) && !fold.hidden && fold.getBoundingClientRect().width > 0 })(),
     collapsed: list.dataset.categoriesCollapsed,
   }
 })
@@ -1741,7 +1741,7 @@ if (manyExpanded.rows <= 2 || manyExpanded.folded !== 0 || manyExpanded.moreVisi
   console.error("categories must stay expanded until the user folds them", manyExpanded); process.exit(1)
 }
 await page.locator("#many-categories-slot").screenshot({ path: path.join(out, "toolbar-many-categories-expanded.png") })
-await page.locator("#many-categories-slot .oneday-category-fold").click()
+await page.locator("#many-categories-slot .modular-diary-category-fold").click()
 await page.waitForTimeout(80)
 if (await page.evaluate(() => window.__manyCollapsed) !== true) { console.error("fold button did not persist the preference"); process.exit(1) }
 const manyNarrow = await readManyCategories()
@@ -1751,38 +1751,38 @@ if (manyNarrow.rows !== 2 || manyNarrow.folded < 5 || !manyNarrow.moreVisible ||
   console.error("many categories did not fold after two rows", manyNarrow); process.exit(1)
 }
 await page.locator("#many-categories-slot").screenshot({ path: path.join(out, "toolbar-many-categories-folded.png") })
-await page.locator("#many-categories-slot .oneday-category-more").click()
+await page.locator("#many-categories-slot .modular-diary-category-more").click()
 const foldedMenu = await page.evaluate(() => {
-  const menu = document.querySelector(".oneday-add-menu")
+  const menu = document.querySelector(".modular-diary-add-menu")
   return {
     open: Boolean(menu),
-    items: [...(menu?.querySelectorAll('.oneday-add-item[role="menuitem"]:not(.oneday-category-expand)') ?? [])].map((item) => item.textContent),
-    expandItem: menu?.querySelector(".oneday-category-expand")?.textContent ?? null,
+    items: [...(menu?.querySelectorAll('.modular-diary-add-item[role="menuitem"]:not(.modular-diary-category-expand)') ?? [])].map((item) => item.textContent),
+    expandItem: menu?.querySelector(".modular-diary-category-expand")?.textContent ?? null,
     focusedInMenu: menu?.contains(document.activeElement) ?? false,
-    expanded: document.querySelector("#many-categories-slot .oneday-category-more").getAttribute("aria-expanded"),
+    expanded: document.querySelector("#many-categories-slot .modular-diary-category-more").getAttribute("aria-expanded"),
   }
 })
 const lastName = "出门"
 if (!foldedMenu.open || foldedMenu.items.length !== manyNarrow.folded || foldedMenu.items.at(-1) !== lastName || !foldedMenu.focusedInMenu || foldedMenu.expanded !== "true" || foldedMenu.expandItem !== "展开全部分类") {
   console.error("More menu did not list the folded categories", foldedMenu); process.exit(1)
 }
-await page.locator('.oneday-add-menu .oneday-add-item:has-text("出门")').click()
+await page.locator('.modular-diary-add-menu .modular-diary-add-item:has-text("出门")').click()
 const manyAfterPick = await readManyCategories()
 const pickedSelected = await page.evaluate(() => window.__manySelected)
 if (manyAfterPick.rows !== 2 || manyAfterPick.active !== lastName || !manyAfterPick.visibleSwatches.includes(lastName) || pickedSelected.join() !== lastName
-  || manyAfterPick.folded !== manyNarrow.folded || await page.locator(".oneday-add-menu").count() !== 0) {
+  || manyAfterPick.folded !== manyNarrow.folded || await page.locator(".modular-diary-add-menu").count() !== 0) {
   console.error("picking a folded category did not surface it as the active swatch", { manyAfterPick, pickedSelected }); process.exit(1)
 }
 // The More menu's last entry expands the palette again and clears the preference.
-await page.locator("#many-categories-slot .oneday-category-more").click()
-await page.locator(".oneday-add-menu .oneday-category-expand").click()
+await page.locator("#many-categories-slot .modular-diary-category-more").click()
+await page.locator(".modular-diary-add-menu .modular-diary-category-expand").click()
 await page.waitForTimeout(80)
 const manyReexpanded = await readManyCategories()
 if (manyReexpanded.folded !== 0 || manyReexpanded.moreVisible || manyReexpanded.visibleSwatches.length !== 21 || await page.evaluate(() => window.__manyCollapsed) !== false) {
   console.error("expand-all did not restore the full palette", manyReexpanded); process.exit(1)
 }
 // Fold once more so widening is checked against the collapsed preference.
-await page.locator("#many-categories-slot .oneday-category-fold").click()
+await page.locator("#many-categories-slot .modular-diary-category-fold").click()
 await page.waitForTimeout(80)
 await page.evaluate(() => { document.querySelector("#many-categories-slot").style.width = "1400px" })
 await page.waitForTimeout(80)
@@ -1796,7 +1796,7 @@ await page.evaluate(() => { document.querySelector("#many-categories-slot").remo
 // to the other independent set; its category row is one full-size creation entry.
 await page.evaluate(() => window.__mountEmptyToolbars())
 const zeroToolbarState = await page.locator("#zero-toolbar").evaluate((toolbar) => {
-  const button = toolbar.querySelector(".oneday-toolbar-empty")
+  const button = toolbar.querySelector(".modular-diary-toolbar-empty")
   const toolbarRect = button.parentElement.getBoundingClientRect()
   const buttonRect = button.getBoundingClientRect()
   const style = getComputedStyle(button)
@@ -1804,36 +1804,36 @@ const zeroToolbarState = await page.locator("#zero-toolbar").evaluate((toolbar) 
   const contentWidth = toolbarRect.width - parseFloat(parentStyle.paddingLeft) - parseFloat(parentStyle.paddingRight)
   const contentHeight = toolbarRect.height - parseFloat(parentStyle.paddingTop) - parseFloat(parentStyle.paddingBottom)
   return {
-    label: toolbar.querySelector(".oneday-toolbar-empty-label")?.textContent,
+    label: toolbar.querySelector(".modular-diary-toolbar-empty-label")?.textContent,
     borderStyle: style.borderStyle,
     fillsWidth: Math.abs(contentWidth - buttonRect.width) <= 1,
     fillsHeight: Math.abs(contentHeight - buttonRect.height) <= 1,
-    modeCount: toolbar.querySelectorAll(".oneday-plan-mode-toggle").length,
-    swatchCount: toolbar.querySelectorAll(".oneday-swatch").length,
+    modeCount: toolbar.querySelectorAll(".modular-diary-plan-mode-toggle").length,
+    swatchCount: toolbar.querySelectorAll(".modular-diary-swatch").length,
     markerPressed: toolbar.querySelector('[data-tool="marker"]')?.getAttribute("aria-pressed"),
   }
 })
 if (zeroToolbarState.label !== "添加第一个分类" || zeroToolbarState.borderStyle !== "none" || !zeroToolbarState.fillsWidth || !zeroToolbarState.fillsHeight || zeroToolbarState.modeCount !== 1 || zeroToolbarState.swatchCount !== 0 || zeroToolbarState.markerPressed !== "true") {
   console.error("zero-highlighter empty state regressed", zeroToolbarState); process.exit(1)
 }
-await page.locator("#zero-toolbar .oneday-toolbar-empty").click()
+await page.locator("#zero-toolbar .modular-diary-toolbar-empty").click()
 await page.locator("#zero-toolbar").screenshot({ path: path.join(out, "zero-toolbar.png") })
 await page.locator('#zero-toolbar [data-tool="span"]').click()
-if (await page.locator('#zero-toolbar .oneday-swatch[data-type="math"]').count() !== 1) {
+if (await page.locator('#zero-toolbar .modular-diary-swatch[data-type="math"]').count() !== 1) {
   console.error("switching away from an empty point set did not restore the independent span set"); process.exit(1)
 }
-if (await page.locator("#all-hidden-toolbar .oneday-toolbar-empty").count() !== 0 || await page.locator("#all-hidden-toolbar .oneday-add").count() !== 1) {
+if (await page.locator("#all-hidden-toolbar .modular-diary-toolbar-empty").count() !== 0 || await page.locator("#all-hidden-toolbar .modular-diary-add").count() !== 1) {
   console.error("all-hidden toolbar was mistaken for a zero palette"); process.exit(1)
 }
 
-await page.locator("#all-hidden-toolbar .oneday-add").click()
-await page.locator('.oneday-add-menu .oneday-add-item:has-text("math")').click()
+await page.locator("#all-hidden-toolbar .modular-diary-add").click()
+await page.locator('.modular-diary-add-menu .modular-diary-add-item:has-text("math")').click()
 
 // 7d. English copy is rendered from the same components when Obsidian's
 // language provider reports English; category data itself is not translated.
 await page.evaluate(() => window.__mountEnglishToolbar())
 const englishCopy = await page.evaluate(() => ({
-  empty: document.querySelector("#english-toolbar .oneday-toolbar-empty-label")?.textContent,
+  empty: document.querySelector("#english-toolbar .modular-diary-toolbar-empty-label")?.textContent,
   actual: document.querySelector('#english-layers [data-layer="actual"]')?.getAttribute("aria-label"),
   plan: document.querySelector('#english-layers [data-layer="plan"]')?.getAttribute("aria-label"),
 }))
@@ -1847,7 +1847,7 @@ await page.locator("#english-toolbar").screenshot({ path: path.join(out, "englis
 await page.evaluate(() => window.__mountCascadeFixture(80))
 const cascadeTrigger = page.locator("#cascade-fixture > .menu-item").first()
 await cascadeTrigger.hover()
-const cascade = page.locator("#cascade-fixture > .oneday-cascade-menu")
+const cascade = page.locator("#cascade-fixture > .modular-diary-cascade-menu")
 await cascade.waitFor({ state: "visible" })
 const cascadeTriggerBox = await cascadeTrigger.boundingBox()
 const cascadeBox = await cascade.boundingBox()
@@ -1869,12 +1869,12 @@ await keyboardCascadeTrigger.focus()
 await page.keyboard.press("ArrowRight")
 const keyboardCascadeItemFocused = await page.locator('[role="menuitemradio"]:has-text("运动")')
   .evaluate((item) => item === document.activeElement)
-if (await page.locator("#cascade-fixture > .oneday-cascade-menu").count() !== 1 || !keyboardCascadeItemFocused) {
+if (await page.locator("#cascade-fixture > .modular-diary-cascade-menu").count() !== 1 || !keyboardCascadeItemFocused) {
   console.error("cascade keyboard fallback regressed"); process.exit(1)
 }
 await page.keyboard.press("ArrowLeft")
 const keyboardCascadeTriggerFocused = await keyboardCascadeTrigger.evaluate((item) => item === document.activeElement)
-if (await page.locator("#cascade-fixture > .oneday-cascade-menu").count() !== 0 || !keyboardCascadeTriggerFocused) {
+if (await page.locator("#cascade-fixture > .modular-diary-cascade-menu").count() !== 0 || !keyboardCascadeTriggerFocused) {
   console.error("cascade keyboard return regressed"); process.exit(1)
 }
 
@@ -1882,7 +1882,7 @@ await page.evaluate(() => window.__mountCascadeFixture(244))
 const edgeCascadeTrigger = page.locator("#cascade-fixture > .menu-item").first()
 await edgeCascadeTrigger.hover()
 const edgeTriggerBox = await edgeCascadeTrigger.boundingBox()
-const edgeCascadeBox = await page.locator("#cascade-fixture > .oneday-cascade-menu").boundingBox()
+const edgeCascadeBox = await page.locator("#cascade-fixture > .modular-diary-cascade-menu").boundingBox()
 if (!edgeTriggerBox || !edgeCascadeBox || edgeCascadeBox.x + edgeCascadeBox.width > edgeTriggerBox.x + 0.5) {
   console.error("cascade did not flip left near the viewport edge", { edgeTriggerBox, edgeCascadeBox }); process.exit(1)
 }
@@ -1895,14 +1895,14 @@ await page.evaluate(() => window.__mountCascadeSwitchFixture())
 const switchFixture = page.locator("#cascade-switch-fixture")
 await switchFixture.getByRole("button", { name: "更改分类…" }).hover()
 await switchFixture.getByRole("button", { name: "绑定待办…" }).hover()
-let switchMenus = switchFixture.locator(":scope > .oneday-cascade-menu")
+let switchMenus = switchFixture.locator(":scope > .modular-diary-cascade-menu")
 if (await switchMenus.count() !== 1 || !await switchMenus.getByText("任务 A", { exact: true }).isVisible()) {
   console.error("cascade did not switch from category to todo", {
     count: await switchMenus.count(), text: await switchMenus.allTextContents(),
   }); process.exit(1)
 }
 await switchFixture.getByRole("button", { name: "更改分类…" }).dispatchEvent("pointerover")
-switchMenus = switchFixture.locator(":scope > .oneday-cascade-menu")
+switchMenus = switchFixture.locator(":scope > .modular-diary-cascade-menu")
 if (await switchMenus.count() !== 1 || !await switchMenus.getByText("开发", { exact: true }).isVisible()) {
   console.error("cascade did not switch back from todo to category", {
     count: await switchMenus.count(), text: await switchMenus.allTextContents(),
@@ -1942,7 +1942,7 @@ if (extend.length !== 0) {
 // its exact span. 15:30-15:55 is 0.42h; the lower text area overlaps the
 // visual edge hot zone on this 18px-high block.
 await page.keyboard.press("Escape")
-const exactBlock = page.locator('rect.oneday-block[data-line="1"]')
+const exactBlock = page.locator('rect.modular-diary-block[data-line="1"]')
 // Toolbar rows above the timeline compact instead of widening the page, so
 // the block's viewport position depends on wrapping; bring it into view first.
 await exactBlock.scrollIntoViewIfNeeded()
@@ -1960,7 +1960,7 @@ if (JSON.stringify(await page.evaluate(() => window.__editnotes)) !== JSON.strin
 await page.keyboard.press("Escape")
 await page.evaluate(() => { window.__editnotes = []; window.__focus = [] })
 // 5g. dblclick on a block -> edit its note
-await page.locator('rect.oneday-block[data-line="0"]').dispatchEvent("dblclick")
+await page.locator('rect.modular-diary-block[data-line="0"]').dispatchEvent("dblclick")
 
 const editnotes = await page.evaluate(() => window.__editnotes)
 if (editnotes.length !== 1 || editnotes[0] !== 0) { console.error("editnote mismatch", JSON.stringify(editnotes)); process.exit(1) }
@@ -1972,17 +1972,17 @@ const hidden = await page.evaluate(() => window.__hidden)
 const shown = await page.evaluate(() => window.__shown)
 const addNew = await page.evaluate(() => window.__addNew)
 const toolbarControlSize = await page.evaluate(() => {
-  const toolbar = document.querySelector(".oneday-toolbar")
-  const label = document.querySelector(".oneday-creation-title").getBoundingClientRect()
-  const mode = document.querySelector(".oneday-tool-toggle").getBoundingClientRect()
-  const planMode = document.querySelector(".oneday-plan-mode-toggle").getBoundingClientRect()
-  const swatch = document.querySelector('.oneday-swatch[data-type="math"]').getBoundingClientRect()
+  const toolbar = document.querySelector(".modular-diary-toolbar")
+  const label = document.querySelector(".modular-diary-creation-title").getBoundingClientRect()
+  const mode = document.querySelector(".modular-diary-tool-toggle").getBoundingClientRect()
+  const planMode = document.querySelector(".modular-diary-plan-mode-toggle").getBoundingClientRect()
+  const swatch = document.querySelector('.modular-diary-swatch[data-type="math"]').getBoundingClientRect()
   return {
     labelModeGap: mode.left - label.right,
     toolbarGap: parseFloat(getComputedStyle(toolbar).columnGap),
     modeHeight: mode.height,
     planModeHeight: planMode.height,
-    dividerCount: document.querySelectorAll(".oneday-create-divider").length,
+    dividerCount: document.querySelectorAll(".modular-diary-create-divider").length,
     swatchHeight: swatch.height,
     topDelta: mode.top - swatch.top,
     bottomDelta: mode.bottom - swatch.bottom,
@@ -1994,27 +1994,27 @@ const toolbarCornerRadius = await page.evaluate(() => {
     return [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius]
       .map((value) => parseFloat(value))
   }
-  const mode = document.querySelector(".oneday-tool-toggle")
+  const mode = document.querySelector(".modular-diary-tool-toggle")
   return {
-    mode: radii(".oneday-tool-toggle"),
-    swatch: radii('.oneday-swatch[data-type="math"]'),
-    add: radii(".oneday-add"),
+    mode: radii(".modular-diary-tool-toggle"),
+    swatch: radii('.modular-diary-swatch[data-type="math"]'),
+    add: radii(".modular-diary-add"),
     overflow: getComputedStyle(mode).overflow,
   }
 })
 const layerToggleSize = await page.evaluate(() => {
   const wrap = document.querySelector("#layer-toggle-size-check")
-  const button = wrap.querySelector(".oneday-mode-btn")
+  const button = wrap.querySelector(".modular-diary-mode-btn")
   const wr = wrap.getBoundingClientRect()
   const br = button.getBoundingClientRect()
   return { wrapHeight: wr.height, buttonHeight: br.height }
 })
 const tooltipContract = await page.evaluate(() => ({
-  nativeTitleCount: document.querySelectorAll(".oneday-toolbar [title], .oneday-view-toggle [title]").length,
-  unlabelledButtonCount: [...document.querySelectorAll(".oneday-toolbar button, .oneday-view-toggle button")]
+  nativeTitleCount: document.querySelectorAll(".modular-diary-toolbar [title], .modular-diary-view-toggle [title]").length,
+  unlabelledButtonCount: [...document.querySelectorAll(".modular-diary-toolbar button, .modular-diary-view-toggle button")]
     .filter((button) => !button.getAttribute("aria-label")).length,
   swatchStyle: (() => {
-    const style = getComputedStyle(document.querySelector('.oneday-swatch[data-type="math"]'))
+    const style = getComputedStyle(document.querySelector('.modular-diary-swatch[data-type="math"]'))
     return { appearance: style.appearance, background: style.backgroundColor, shadow: style.boxShadow }
   })(),
 }))
@@ -2051,7 +2051,7 @@ if (tooltipContract.swatchStyle.appearance !== "none" || tooltipContract.swatchS
 // outward. Their boxes are fully outside the track and the buttons—not an
 // unrelated invisible lane—own pointer hit testing.
 await page.evaluate(() => window.__mountRangeEdgeFixture())
-const rangeSvg = page.locator("#range-edge-fixture svg.oneday-svg")
+const rangeSvg = page.locator("#range-edge-fixture svg.modular-diary-svg")
 await rangeSvg.scrollIntoViewIfNeeded()
 const rangeBox = await rangeSvg.boundingBox()
 if (!rangeBox) { console.error("range edge fixture has no box"); process.exit(1) }
@@ -2071,13 +2071,13 @@ const dragRangeBoundary = async (fromMin, toMin) => {
   await page.mouse.move(rangeTrackCX, rangeYFor(toMin), { steps: 5 })
   await page.mouse.up()
 }
-const rangeButtons = page.locator("#range-edge-fixture .oneday-range-step-button")
+const rangeButtons = page.locator("#range-edge-fixture .modular-diary-range-step-button")
 if (await rangeButtons.count() !== 4) {
   console.error("range step controls must expose four concrete buttons", await rangeButtons.count()); process.exit(1)
 }
-const rangeControlGeometry = await page.locator("#range-edge-fixture svg.oneday-svg").evaluate((svg) => {
-  const track = svg.querySelector("rect.oneday-track").getBBox()
-  const buttons = Array.from(svg.querySelectorAll(".oneday-range-step-button")).map((button) => {
+const rangeControlGeometry = await page.locator("#range-edge-fixture svg.modular-diary-svg").evaluate((svg) => {
+  const track = svg.querySelector("rect.modular-diary-track").getBBox()
+  const buttons = Array.from(svg.querySelectorAll(".modular-diary-range-step-button")).map((button) => {
     const box = button.getBBox()
     return {
       edge: button.dataset.edge,
@@ -2096,7 +2096,7 @@ if (topButtons.some((button) => button.box.y + button.box.height > rangeControlG
   || rangeControlGeometry.buttons.some((button) => button.cursor !== "pointer" || button.box.height !== 18)) {
   console.error("range step buttons overlapped the creation track", rangeControlGeometry); process.exit(1)
 }
-await page.locator('#range-edge-fixture .oneday-range-step-button[data-edge="top"][data-action="extend"]').hover()
+await page.locator('#range-edge-fixture .modular-diary-range-step-button[data-edge="top"][data-action="extend"]').hover()
 await page.locator("#range-edge-fixture").screenshot({ path: path.join(out, "range-step-controls-top.png") })
 await page.mouse.move(rangeTrackCX, rangePointerY(1380, -4))
 const bottomInnerCursor = await cursorAt(rangeTrackCX, rangePointerY(1380, -4))
@@ -2112,10 +2112,10 @@ if (bottomInnerCursor !== "crosshair" || rangeTopBoundaryCursor !== "crosshair" 
 
 await dragRangeBoundary(420, 480)   // exact top line creates 07:00 -> 08:00
 await dragRangeBoundary(1380, 1320) // exact bottom line creates 22:00 -> 23:00
-await page.locator('#range-edge-fixture .oneday-range-step-button[data-edge="top"][data-action="contract"]').click()
-await page.locator('#range-edge-fixture .oneday-range-step-button[data-edge="top"][data-action="extend"]').click()
-await page.locator('#range-edge-fixture .oneday-range-step-button[data-edge="bottom"][data-action="contract"]').click()
-await page.locator('#range-edge-fixture .oneday-range-step-button[data-edge="bottom"][data-action="extend"]').click()
+await page.locator('#range-edge-fixture .modular-diary-range-step-button[data-edge="top"][data-action="contract"]').click()
+await page.locator('#range-edge-fixture .modular-diary-range-step-button[data-edge="top"][data-action="extend"]').click()
+await page.locator('#range-edge-fixture .modular-diary-range-step-button[data-edge="bottom"][data-action="contract"]').click()
+await page.locator('#range-edge-fixture .modular-diary-range-step-button[data-edge="bottom"][data-action="extend"]').click()
 
 await page.evaluate(() => { window.__rangeActive = "" })
 await page.mouse.move(rangeTrackCX, rangePointerY(420))
@@ -2131,7 +2131,7 @@ if (noCategoryBoundaryCursor !== "default" || createdAfterDisabledBoundary !== c
     noCategoryBoundaryCursor, createdBeforeDisabledBoundary, createdAfterDisabledBoundary,
   }); process.exit(1)
 }
-await page.locator('#range-edge-fixture .oneday-range-step-button[data-edge="top"][data-action="extend"]').click()
+await page.locator('#range-edge-fixture .modular-diary-range-step-button[data-edge="top"][data-action="extend"]').click()
 // Range adjustment remains available without categories.
 const rangeEdgeState = await page.evaluate(() => ({
   ranges: window.__rangeExtend,
@@ -2157,7 +2157,7 @@ if (JSON.stringify(rangeEdgeState.ranges) !== JSON.stringify(expectedRangeEdges)
 // Hover and pointerdown must agree: a resize cursor can only start a resize,
 // never fall through to drawing a new block.
 await page.evaluate(() => window.__mountDuplicateEditingFixture())
-const duplicateBottomEdge = page.locator('#duplicate-editing-second rect.oneday-edit-edge[data-edge="bottom"]')
+const duplicateBottomEdge = page.locator('#duplicate-editing-second rect.modular-diary-edit-edge[data-edge="bottom"]')
 await duplicateBottomEdge.scrollIntoViewIfNeeded()
 const duplicateEdgeBox = await duplicateBottomEdge.boundingBox()
 if (!duplicateEdgeBox) { console.error("duplicate selected edge fixture missing"); process.exit(1) }
@@ -2187,7 +2187,7 @@ if (
 ) {
   console.error("second renderer edge resize fell through to creation", duplicateGesture); process.exit(1)
 }
-await page.locator("#duplicate-editing-second svg.oneday-svg").screenshot({ path: path.join(out, "duplicate-renderer-edge-resized.png") })
+await page.locator("#duplicate-editing-second svg.modular-diary-svg").screenshot({ path: path.join(out, "duplicate-renderer-edge-resized.png") })
 // Once a block is selected, a press anywhere outside its explicit block/edge
 // target belongs to the same edit-dismiss gesture. It must neither inherit the
 // previous resize cursor nor fall through to creating a new block.
@@ -2219,7 +2219,7 @@ if (
 await page.mouse.click(10, 10)
 const duplicateOutsideExit = await page.evaluate(() => ({
   editing: window.__duplicateEditing,
-  editingSvgCount: document.querySelectorAll('#duplicate-editing-first .oneday-svg.is-editing-block, #duplicate-editing-second .oneday-svg.is-editing-block').length,
+  editingSvgCount: document.querySelectorAll('#duplicate-editing-first .modular-diary-svg.is-editing-block, #duplicate-editing-second .modular-diary-svg.is-editing-block').length,
 }))
 if (duplicateOutsideExit.editing !== null || duplicateOutsideExit.editingSvgCount !== 0) {
   console.error("outside click did not clear every duplicate renderer", duplicateOutsideExit); process.exit(1)
@@ -2241,8 +2241,8 @@ await page.keyboard.press("Delete")
 const duplicateDelete = await page.evaluate(() => ({
   deleted: window.__duplicateDeleted,
   editing: window.__duplicateEditing,
-  activeOwners: document.querySelectorAll('[data-oneday-edit-owner-active="1"]').length,
-  editingSvgCount: document.querySelectorAll('#duplicate-editing-first .oneday-svg.is-editing-block, #duplicate-editing-second .oneday-svg.is-editing-block').length,
+  activeOwners: document.querySelectorAll('[data-modular-diary-edit-owner-active="1"]').length,
+  editingSvgCount: document.querySelectorAll('#duplicate-editing-first .modular-diary-svg.is-editing-block, #duplicate-editing-second .modular-diary-svg.is-editing-block').length,
 }))
 if (
   JSON.stringify(duplicateDelete.deleted) !== JSON.stringify([{ owner: "second", line: 2 }])
@@ -2258,7 +2258,7 @@ await page.evaluate(() => document.querySelector("#duplicate-delete-cm-owner")?.
 // visual row disappears synchronously, before Markdown persistence/remount,
 // so a slow processor cannot leave a stale block visible after menu click.
 await page.evaluate(() => window.__mountDeleteTransactionFixture())
-const deleteTransactionBlock = page.locator('#delete-transaction-fixture rect.oneday-block[data-line="2"]')
+const deleteTransactionBlock = page.locator('#delete-transaction-fixture rect.modular-diary-block[data-line="2"]')
 await deleteTransactionBlock.scrollIntoViewIfNeeded()
 await deleteTransactionBlock.click({ button: "right" })
 const deleteMenuState = await page.evaluate(() => window.__deleteTransactionMenus)
@@ -2281,7 +2281,7 @@ if (
 // down. It must wait for the gesture to finish instead of replacing the SVG
 // that owns pointer capture and silently aborting block creation.
 await page.evaluate(() => window.__mountInterruptedDragFixture())
-const interruptedSvg = page.locator("#interrupted-drag-fixture svg.oneday-svg")
+const interruptedSvg = page.locator("#interrupted-drag-fixture svg.modular-diary-svg")
 await interruptedSvg.scrollIntoViewIfNeeded()
 const interruptedBox = await interruptedSvg.boundingBox()
 if (!interruptedBox) { console.error("interrupted drag fixture has no box"); process.exit(1) }
@@ -2292,15 +2292,15 @@ await page.mouse.down()
 await page.mouse.move(interruptedX, interruptedYFor(500), { steps: 3 })
 await page.evaluate(() => window.__requestInterruptedRefresh())
 const interruptedMidGesture = await page.evaluate(() => ({
-  active: document.querySelector("#interrupted-drag-fixture")?.dataset.onedayPointerActive ?? "",
+  active: document.querySelector("#interrupted-drag-fixture")?.dataset.modularDiaryPointerActive ?? "",
   refreshRuns: window.__interruptedRefreshRuns,
   sideEffects: window.__interruptedRefreshSideEffects,
-  ghostCount: document.querySelectorAll("#interrupted-drag-fixture .oneday-ghost").length,
+  ghostCount: document.querySelectorAll("#interrupted-drag-fixture .modular-diary-ghost").length,
 }))
 await page.mouse.move(interruptedX, interruptedYFor(540), { steps: 4 })
 await page.mouse.up()
 const interruptedFinished = await page.evaluate(() => ({
-  active: document.querySelector("#interrupted-drag-fixture")?.dataset.onedayPointerActive ?? "",
+  active: document.querySelector("#interrupted-drag-fixture")?.dataset.modularDiaryPointerActive ?? "",
   refreshRuns: window.__interruptedRefreshRuns,
   created: window.__interruptedCreated,
 }))
@@ -2353,7 +2353,7 @@ if (
   console.error("focused edit/select session was replaced by background refresh", { titleRefreshState, categoryRefreshState, focusedRefreshFinished }); process.exit(1)
 }
 
-// 10c. In Live Preview, rendered Oneday chrome is nested inside `.cm-content`.
+// 10c. In Live Preview, rendered Modular Diary chrome is nested inside `.cm-content`.
 // Ctrl/Cmd+Z immediately after a component write must still reach Markdown
 // undo instead of being mistaken for a CodeMirror text-editing target.
 await page.evaluate(() => window.__mountImmediateUndoFixture())
@@ -2372,13 +2372,13 @@ if (immediateUndoState.created || immediateUndoState.calls !== 1 || immediateUnd
 // 11. Time markers are point gestures, remain separate at the same minute,
 // and an already selected marker moves instead of creating another marker.
 await page.evaluate(() => window.__mountMarkerFixture())
-const markerSvg = page.locator("#marker-fixture svg.oneday-svg")
+const markerSvg = page.locator("#marker-fixture svg.modular-diary-svg")
 await markerSvg.scrollIntoViewIfNeeded()
 const markerBox = await markerSvg.boundingBox()
 if (!markerBox) { console.error("marker fixture has no box"); process.exit(1) }
 const markerX = markerBox.x + 36 + (220 - 36 - 6) / 2
 const markerYFor = (min) => markerBox.y + 26 + ((min - 420) / 60) * 48
-const sameTimeLines = await page.locator('#marker-fixture .oneday-marker[data-time-min="600"]').evaluateAll((nodes) => nodes.map((node) => Number(node.dataset.markerY)))
+const sameTimeLines = await page.locator('#marker-fixture .modular-diary-marker[data-time-min="600"]').evaluateAll((nodes) => nodes.map((node) => Number(node.dataset.markerY)))
 if (sameTimeLines.length !== 2 || new Set(sameTimeLines).size !== 2) {
   console.error("same-time marker stack collapsed", sameTimeLines); process.exit(1)
 }
@@ -2392,12 +2392,12 @@ const createdMarker = await page.evaluate(() => window.__markerCreated)
 if (createdMarker.length !== 1 || createdMarker[0].timeMin !== 553 || createdMarker[0].line !== "@09:13 [math]") {
   console.error("precise marker creation regressed", createdMarker); process.exit(1)
 }
-const firstMarker = page.locator('#marker-fixture .oneday-marker[data-line="2"]')
+const firstMarker = page.locator('#marker-fixture .modular-diary-marker[data-line="2"]')
 await firstMarker.click()
 const markerFocus = await page.evaluate(() => ({
   editing: window.__markerEditing,
-  target: document.querySelector('#marker-fixture .oneday-marker[data-line="2"]')?.classList.contains("is-edit-target"),
-  frozen: document.querySelector('#marker-fixture .oneday-marker[data-line="3"]')?.classList.contains("is-frozen"),
+  target: document.querySelector('#marker-fixture .modular-diary-marker[data-line="2"]')?.classList.contains("is-edit-target"),
+  frozen: document.querySelector('#marker-fixture .modular-diary-marker[data-line="3"]')?.classList.contains("is-frozen"),
 }))
 if (markerFocus.editing !== 2 || !markerFocus.target || !markerFocus.frozen) {
   console.error("marker focus/freeze regressed", markerFocus); process.exit(1)
@@ -2421,8 +2421,8 @@ await page.mouse.move(firstMarkerBox.x + firstMarkerBox.width / 2, firstMarkerBo
 await page.mouse.down()
 await page.mouse.move(markerX, markerMoveYFor(630), { steps: 4 })
 const movePreview = await page.evaluate(() => {
-  const group = document.querySelector('#marker-fixture .oneday-marker[data-line="2"]')
-  const label = document.querySelector('#marker-fixture .oneday-marker-label-bg[data-line="2"]')
+  const group = document.querySelector('#marker-fixture .modular-diary-marker[data-line="2"]')
+  const label = document.querySelector('#marker-fixture .modular-diary-marker-label-bg[data-line="2"]')
   return { group: group?.getAttribute("transform"), label: label?.getAttribute("transform") }
 })
 if (!movePreview.group || movePreview.group !== movePreview.label) {
@@ -2434,14 +2434,14 @@ if (movedMarker.moved.length !== 1 || movedMarker.moved[0].line !== 2 || movedMa
   console.error("selected marker drag fell through to creation", movedMarker); process.exit(1)
 }
 await firstMarker.click()
-await firstMarker.locator(".oneday-marker-hit").dblclick({ force: true })
-const markerLabel = page.locator('#marker-fixture .oneday-marker-label-bg[data-line="2"]')
+await firstMarker.locator(".modular-diary-marker-hit").dblclick({ force: true })
+const markerLabel = page.locator('#marker-fixture .modular-diary-marker-label-bg[data-line="2"]')
 const markerLabelBox = await markerLabel.boundingBox()
 if (!markerLabelBox) { console.error("marker label has no box"); process.exit(1) }
 // Obsidian/WebKit can retarget a side-lane SVG contextmenu to the enclosing
-// CodeMirror embed, bypassing the inner Oneday container entirely.
+// CodeMirror embed, bypassing the inner Modular Diary container entirely.
 // The pointer coordinates must still resolve ownership to the marker label,
-// otherwise the enclosing Oneday Block menu steals the gesture.
+// otherwise the enclosing Modular Diary Block menu steals the gesture.
 await page.locator("#marker-embed-fixture").evaluate((embed, point) => {
   embed.dispatchEvent(new MouseEvent("contextmenu", {
     bubbles: true,
@@ -2486,19 +2486,19 @@ if (markerBackspaceDeleted.editing !== null || markerBackspaceDeleted.deleted.fi
 await page.evaluate(() => { document.querySelector("#app").style.width = "780px" })
 await setTheme(false)
 const wideCreationControls = await page.evaluate(() => {
-  const controls = document.querySelector(".oneday-creation-controls")
-  const categories = document.querySelector(".oneday-category-list")
-  const tool = document.querySelector(".oneday-tool-toggle").getBoundingClientRect()
-  const plan = document.querySelector(".oneday-plan-mode-toggle").getBoundingClientRect()
-  const planTrackEl = document.querySelector(".oneday-plan-mode-track")
-  const planThumbEl = document.querySelector(".oneday-plan-mode-thumb")
+  const controls = document.querySelector(".modular-diary-creation-controls")
+  const categories = document.querySelector(".modular-diary-category-list")
+  const tool = document.querySelector(".modular-diary-tool-toggle").getBoundingClientRect()
+  const plan = document.querySelector(".modular-diary-plan-mode-toggle").getBoundingClientRect()
+  const planTrackEl = document.querySelector(".modular-diary-plan-mode-track")
+  const planThumbEl = document.querySelector(".modular-diary-plan-mode-thumb")
   const planTrack = planTrackEl.getBoundingClientRect()
   const planThumb = planThumbEl.getBoundingClientRect()
-  const firstCategory = document.querySelector(".oneday-swatch[data-type]").getBoundingClientRect()
-  const toolbar = document.querySelector(".oneday-toolbar").getBoundingClientRect()
+  const firstCategory = document.querySelector(".modular-diary-swatch[data-type]").getBoundingClientRect()
+  const toolbar = document.querySelector(".modular-diary-toolbar").getBoundingClientRect()
   const controlsRect = controls?.getBoundingClientRect()
   const categoriesRect = categories?.getBoundingClientRect()
-  const title = document.querySelector(".oneday-creation-title")
+  const title = document.querySelector(".modular-diary-creation-title")
   const titleRect = title?.getBoundingClientRect()
   const titleStyle = title ? getComputedStyle(title) : null
   return {
@@ -2506,7 +2506,7 @@ const wideCreationControls = await page.evaluate(() => {
     titleText: title?.textContent?.trim() ?? "",
     titleWeight: Number(titleStyle?.fontWeight ?? 0),
     titleSize: Number.parseFloat(titleStyle?.fontSize ?? "0"),
-    componentTitleSize: Number.parseFloat(titleStyle?.getPropertyValue("--oneday-component-title-font-size") ?? "0"),
+    componentTitleSize: Number.parseFloat(titleStyle?.getPropertyValue("--modular-diary-component-title-font-size") ?? "0"),
     titleCenter: titleRect ? titleRect.top + titleRect.height / 2 : 0,
     toolTop: tool.top,
     toolCenter: tool.top + tool.height / 2,
@@ -2553,17 +2553,17 @@ if (
 ) {
   console.error("plan mode switch lost its visible track or thumb", wideCreationControls); process.exit(1)
 }
-await page.locator(".oneday-toolbar").first().screenshot({ path: path.join(out, "toolbar-tool-mode-wide-light.png") })
+await page.locator(".modular-diary-toolbar").first().screenshot({ path: path.join(out, "toolbar-tool-mode-wide-light.png") })
 await setTheme(true)
-await page.locator(".oneday-toolbar").first().screenshot({ path: path.join(out, "toolbar-tool-mode-wide-dark.png") })
+await page.locator(".modular-diary-toolbar").first().screenshot({ path: path.join(out, "toolbar-tool-mode-wide-dark.png") })
 await setTheme(false)
 await page.evaluate(() => { document.querySelector("#app").style.width = "360px" })
 const narrowCreationControls = await page.evaluate(() => {
-  const controls = document.querySelector(".oneday-creation-controls").getBoundingClientRect()
-  const title = document.querySelector(".oneday-creation-title").getBoundingClientRect()
-  const tool = document.querySelector(".oneday-tool-toggle").getBoundingClientRect()
-  const plan = document.querySelector(".oneday-plan-mode-toggle").getBoundingClientRect()
-  const categories = document.querySelector(".oneday-category-list").getBoundingClientRect()
+  const controls = document.querySelector(".modular-diary-creation-controls").getBoundingClientRect()
+  const title = document.querySelector(".modular-diary-creation-title").getBoundingClientRect()
+  const tool = document.querySelector(".modular-diary-tool-toggle").getBoundingClientRect()
+  const plan = document.querySelector(".modular-diary-plan-mode-toggle").getBoundingClientRect()
+  const categories = document.querySelector(".modular-diary-category-list").getBoundingClientRect()
   return {
     sameRow: Math.abs((title.top + title.height / 2) - (tool.top + tool.height / 2)) <= 0.5 && Math.abs(tool.top - plan.top) <= 0.5,
     orderedWithoutOverlap: title.right <= tool.left && tool.right <= plan.left,
@@ -2574,26 +2574,26 @@ const narrowCreationControls = await page.evaluate(() => {
 if (!narrowCreationControls.sameRow || !narrowCreationControls.orderedWithoutOverlap || Math.abs(narrowCreationControls.planRightInset) > 0.5 || !narrowCreationControls.categoriesBelow) {
   console.error("narrow creation toolbar lost its approved hierarchy", narrowCreationControls); process.exit(1)
 }
-await page.locator(".oneday-toolbar").first().screenshot({ path: path.join(out, "toolbar-tool-mode-narrow-light.png") })
+await page.locator(".modular-diary-toolbar").first().screenshot({ path: path.join(out, "toolbar-tool-mode-narrow-light.png") })
 // A split pane too narrow for the copy keeps the whole first row visible:
 // geometry buttons go icon-only, then Plan mode keeps only its switch. Every
 // control keeps its accessible name, and widening restores the copy.
 const readCompaction = () => page.evaluate(() => {
-  const toolbar = document.querySelector(".oneday-toolbar")
-  const controls = toolbar.querySelector(".oneday-creation-controls")
+  const toolbar = document.querySelector(".modular-diary-toolbar")
+  const controls = toolbar.querySelector(".modular-diary-creation-controls")
   const rect = controls.getBoundingClientRect()
-  const plan = toolbar.querySelector(".oneday-plan-mode-toggle").getBoundingClientRect()
-  const toolButtons = [...toolbar.querySelectorAll(".oneday-tool-toggle .oneday-mode-btn")]
+  const plan = toolbar.querySelector(".modular-diary-plan-mode-toggle").getBoundingClientRect()
+  const toolButtons = [...toolbar.querySelectorAll(".modular-diary-tool-toggle .modular-diary-mode-btn")]
   return {
     compaction: controls.dataset.compaction,
     overflows: controls.scrollWidth > controls.clientWidth,
     planRightInset: rect.right - plan.right,
-    toolCopyVisible: toolButtons.map((button) => button.querySelector(".oneday-tool-copy").getBoundingClientRect().width > 0),
-    toolSymbolVisible: toolButtons.map((button) => button.querySelector(".oneday-tool-symbol").getBoundingClientRect().width > 0),
+    toolCopyVisible: toolButtons.map((button) => button.querySelector(".modular-diary-tool-copy").getBoundingClientRect().width > 0),
+    toolSymbolVisible: toolButtons.map((button) => button.querySelector(".modular-diary-tool-symbol").getBoundingClientRect().width > 0),
     toolLabels: toolButtons.map((button) => button.getAttribute("aria-label")),
-    planLabelVisible: toolbar.querySelector(".oneday-plan-mode-label").getBoundingClientRect().width > 0,
-    planLabel: toolbar.querySelector(".oneday-plan-mode-toggle").getAttribute("aria-label"),
-    categoriesBelow: toolbar.querySelector(".oneday-category-list").getBoundingClientRect().top > rect.bottom,
+    planLabelVisible: toolbar.querySelector(".modular-diary-plan-mode-label").getBoundingClientRect().width > 0,
+    planLabel: toolbar.querySelector(".modular-diary-plan-mode-toggle").getAttribute("aria-label"),
+    categoriesBelow: toolbar.querySelector(".modular-diary-category-list").getBoundingClientRect().top > rect.bottom,
   }
 })
 await page.evaluate(() => { document.querySelector("#app").style.width = "250px" })
@@ -2602,7 +2602,7 @@ const compactTools = await readCompaction()
 await page.evaluate(() => { document.querySelector("#app").style.width = "205px" })
 await page.waitForTimeout(80)
 const compactPlan = await readCompaction()
-await page.locator(".oneday-toolbar").first().screenshot({ path: path.join(out, "toolbar-tool-mode-compact-light.png") })
+await page.locator(".modular-diary-toolbar").first().screenshot({ path: path.join(out, "toolbar-tool-mode-compact-light.png") })
 await page.evaluate(() => { document.querySelector("#app").style.width = "780px" })
 await page.waitForTimeout(80)
 const restoredControls = await readCompaction()

@@ -19,7 +19,7 @@ function slot(id: string, top: number, left: number): FakeSlot {
     pane,
     scrollTop: 0,
     scrollLeft: 0,
-    querySelector: (selector) => selector === ".oneday-text-pane" ? pane : null,
+    querySelector: (selector) => selector === ".modular-diary-text-pane" ? pane : null,
   }
 }
 
@@ -30,11 +30,11 @@ function container(
 ): HTMLElement {
   return {
     querySelector: (selector: string) => {
-      if (selector === ".oneday-block-scroll") return block
-      if (selector === ".oneday-svg-holder") return timeline
+      if (selector === ".modular-diary-block-scroll") return block
+      if (selector === ".modular-diary-svg-holder") return timeline
       return null
     },
-    querySelectorAll: (selector: string) => selector === ".oneday-slot" ? slots : [],
+    querySelectorAll: (selector: string) => selector === ".modular-diary-slot" ? slots : [],
   } as unknown as HTMLElement
 }
 

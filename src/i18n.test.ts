@@ -3,7 +3,7 @@ import { configureI18n, currentLocale, messageKeys, resolveLocale, t, weekdayLab
 
 afterEach(() => configureI18n(() => "zh"))
 
-describe("Oneday i18n", () => {
+describe("Modular Diary i18n", () => {
   it("keeps the Chinese and English message sets key-for-key identical", () => {
     expect([...messageKeys("en")].sort()).toEqual([...messageKeys("zh")].sort())
   })
@@ -25,7 +25,7 @@ describe("Oneday i18n", () => {
     expect([t("extendEarlierHour"), t("extendLaterHour")]).toEqual(["点击向前延长 1 小时", "点击向后延长 1 小时"])
     expect([t("decreaseHour"), t("increaseHour")]).toEqual(["−1 小时", "＋1 小时"])
     expect(t("planMode")).toBe("计划模式")
-    expect(t("deleteOnedayBlock")).toBe("删除此 Oneday 块")
+    expect(t("deleteModularDiaryBlock")).toBe("删除此 Modular Diary 块")
     expect([t("editSpan"), t("exactTimes"), t("deleteBlock")]).toEqual(["拖拽调整", "精确起止…", "删除时间段"])
     expect([t("moveMarker"), t("exactMarkerTime"), t("deleteMarker")]).toEqual(["拖拽调整", "精确时间…", "删除时间点"])
     expect(t("resetLayout")).toBe("重新排列组件")
@@ -49,7 +49,7 @@ describe("Oneday i18n", () => {
     expect([t("extendEarlierHour"), t("extendLaterHour")]).toEqual(["Click to add 1 hour earlier", "Click to add 1 hour later"])
     expect([t("decreaseHour"), t("increaseHour")]).toEqual(["−1 hour", "+1 hour"])
     expect(t("planMode")).toBe("Plan mode")
-    expect(t("deleteOnedayBlock")).toBe("Delete this Oneday block")
+    expect(t("deleteModularDiaryBlock")).toBe("Delete this Modular Diary block")
     expect([t("editSpan"), t("exactTimes"), t("deleteBlock")]).toEqual(["Adjust by dragging", "Exact times…", "Delete time span"])
     expect([t("moveMarker"), t("exactMarkerTime"), t("deleteMarker")]).toEqual(["Adjust by dragging", "Exact time…", "Delete time point"])
     expect(t("resetLayout")).toBe("Rearrange components")

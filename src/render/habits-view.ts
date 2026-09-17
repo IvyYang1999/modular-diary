@@ -19,30 +19,30 @@ export interface HabitViewDeps {
 
 export function renderHabitsInto(slot: HTMLElement, items: HabitViewItem[], deps: HabitViewDeps): void {
   const dom = slot.ownerDocument
-  const root = slot.createDiv({ cls: "oneday-habits" })
-  const header = root.createDiv({ cls: "oneday-component-header" })
-  header.createEl("span", { cls: "oneday-component-title", text: t("todayHabits") })
+  const root = slot.createDiv({ cls: "modular-diary-habits" })
+  const header = root.createDiv({ cls: "modular-diary-component-header" })
+  header.createEl("span", { cls: "modular-diary-component-title", text: t("todayHabits") })
   header.createEl("span", {
-    cls: "oneday-component-count",
+    cls: "modular-diary-component-count",
     text: `${items.filter((item) => item.progress.complete).length}/${items.length}`,
   })
-  const actions = header.createDiv({ cls: "oneday-component-actions" })
+  const actions = header.createDiv({ cls: "modular-diary-component-actions" })
   const edit = actions.createEl("button", { attr: { type: "button", "aria-label": t("editHabits") } })
   setIcon(edit, "pencil")
   edit.addEventListener("click", deps.onEdit)
 
   if (items.length === 0) {
-    const empty = root.createEl("button", { cls: "oneday-component-empty", attr: { type: "button" } })
-    const icon = empty.createEl("span", { cls: "oneday-component-empty-icon" })
+    const empty = root.createEl("button", { cls: "modular-diary-component-empty", attr: { type: "button" } })
+    const icon = empty.createEl("span", { cls: "modular-diary-component-empty-icon" })
     setIcon(icon, "plus")
     empty.createEl("span", { text: t("addFirstHabit") })
     empty.addEventListener("click", deps.onEdit)
     return
   }
 
-  const list = root.createDiv({ cls: "oneday-habit-list" })
+  const list = root.createDiv({ cls: "modular-diary-habit-list" })
   items.forEach(({ habit, progress }, index) => {
-    const row = list.createDiv({ cls: `oneday-habit-row${progress.complete ? " is-complete" : ""}` })
+    const row = list.createDiv({ cls: `modular-diary-habit-row${progress.complete ? " is-complete" : ""}` })
     row.tabIndex = 0
     row.dataset.habitId = habit.id
     row.setAttribute("aria-label", t("habitActions", { name: habit.name }))
@@ -58,41 +58,41 @@ export function renderHabitsInto(slot: HTMLElement, items: HabitViewItem[], deps
       const rect = row.getBoundingClientRect()
       openMenu(rect.left + rect.width / 2, rect.bottom)
     })
-    const drag = row.createEl("button", { cls: "oneday-item-drag oneday-habit-drag", attr: { type: "button", "aria-label": t("dragHabit", { name: habit.name }) } })
+    const drag = row.createEl("button", { cls: "modular-diary-item-drag modular-diary-habit-drag", attr: { type: "button", "aria-label": t("dragHabit", { name: habit.name }) } })
     appendSixDotGrip(drag)
     attachPointerRowSort({
       list,
       row,
       handle: drag,
-      rowSelector: ".oneday-habit-row",
+      rowSelector: ".modular-diary-habit-row",
       onMove: (targetIndex) => deps.onMove(habit.id, targetIndex),
     })
-    const dot = row.createEl("span", { cls: "oneday-item-dot", attr: { "aria-hidden": "true" } })
+    const dot = row.createEl("span", { cls: "modular-diary-item-dot", attr: { "aria-hidden": "true" } })
     dot.style.setProperty("--c", deps.typeColors[habit.type] ?? "var(--text-muted)")
-    const body = row.createDiv({ cls: "oneday-habit-body" })
+    const body = row.createDiv({ cls: "modular-diary-habit-body" })
     if (habit.targetMetric !== "count" && habit.type) {
-      body.classList.add("oneday-schedule-source")
+      body.classList.add("modular-diary-schedule-source")
       body.dataset.scheduleSource = "habit"
       body.dataset.scheduleId = habit.id
       body.dataset.scheduleTitle = habit.name
       body.dataset.scheduleType = habit.type
       body.dataset.scheduleDuration = String(habit.targetMinutes)
     }
-    body.createEl("span", { cls: "oneday-item-title", text: habit.name })
+    body.createEl("span", { cls: "modular-diary-item-title", text: habit.name })
     if (habit.targetMetric === "count" || habit.targetMinutes > 0) {
-      const meta = body.createEl("span", { cls: "oneday-item-meta" })
+      const meta = body.createEl("span", { cls: "modular-diary-item-meta" })
       meta.textContent = habit.targetMetric === "count"
         ? t("weeklyCountProgress", { current: progress.count ?? 0, target: progress.targetCount ?? habit.targetCount ?? 1 })
         : habit.targetPeriod === "week"
           ? t("weeklyProgress", { current: formatHours(progress.minutes), target: formatHours(habit.targetMinutes) })
           : t("durationProgress", { current: formatHours(progress.minutes), target: formatHours(habit.targetMinutes) })
-      const track = body.createDiv({ cls: "oneday-item-progress" })
-      const bar = track.createDiv({ cls: "oneday-item-progress-bar" })
+      const track = body.createDiv({ cls: "modular-diary-item-progress" })
+      const bar = track.createDiv({ cls: "modular-diary-item-progress-bar" })
       bar.style.width = `${progress.ratio * 100}%`
       bar.style.background = deps.typeColors[habit.type] ?? "var(--interactive-accent)"
     }
     const status = row.createEl("span", {
-      cls: "oneday-item-status",
+      cls: "modular-diary-item-status",
       attr: { role: "status", "aria-label": progress.complete ? t("complete") : t("incomplete") },
     })
     if (progress.complete) setIcon(status, "check")

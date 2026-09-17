@@ -1,6 +1,6 @@
 /**
  * Live-Obsidian scroll forensics (needs `Obsidian --remote-debugging-port=9333`).
- * Reveals the first leaf with an Oneday block, wraps CodeMirrorx27s update /
+ * Reveals the first leaf with an Modular Diary block, wraps CodeMirrorx27s update /
  * measure / scrollAnchorAt and the scrollerx27s scrollTop setter, performs a
  * real create gesture at the bottom of the visible track, logs every scroll
  * decision, then removes the line it created. 2026-09-09: this is how the
@@ -11,15 +11,15 @@ import { chromium } from "playwright"
 const browser = await chromium.connectOverCDP("http://127.0.0.1:9333")
 let page = null
 for (const ctx of browser.contexts()) for (const p of ctx.pages()) { if (await p.evaluate(() => Boolean(window.app?.workspace)).catch(() => false)) { page = p; break } }
-await page.evaluate(() => { let target = null; window.app.workspace.iterateAllLeaves((leaf) => { if (!target && leaf.view?.containerEl?.querySelector(".oneday-container")) target = leaf }); if (target) { window.app.workspace.revealLeaf(target); window.app.workspace.setActiveLeaf(target, { focus: false }) } })
+await page.evaluate(() => { let target = null; window.app.workspace.iterateAllLeaves((leaf) => { if (!target && leaf.view?.containerEl?.querySelector(".modular-diary-container")) target = leaf }); if (target) { window.app.workspace.revealLeaf(target); window.app.workspace.setActiveLeaf(target, { focus: false }) } })
 await page.waitForTimeout(500)
 const out = await page.evaluate(() => {
-  const svg = [...document.querySelectorAll(".oneday-container svg.oneday-svg")].find((el) => el.getBoundingClientRect().width > 0)
+  const svg = [...document.querySelectorAll(".modular-diary-container svg.modular-diary-svg")].find((el) => el.getBoundingClientRect().width > 0)
   const r0 = svg.getBoundingClientRect(); if (r0.top < 0 || r0.bottom > innerHeight) svg.scrollIntoView({ block: "center" })
   const scroller = svg.closest(".cm-scroller")
   const cm = window.app.workspace.activeEditor.editor.cm
   const vs = cm.viewState
-  const st = (tag, extra = {}) => { const c = document.querySelector(".cm-content .oneday-container"); const e = { tag, t: Math.round(performance.now() * 10) / 10, top: scroller.scrollTop, sh: scroller.scrollHeight, pos: vs.scrollAnchorPos, ah: Math.round(vs.scrollAnchorHeight), off: Math.round(vs.scrollOffset), toBottom: vs.scrolledToBottom, mapH: Math.round(vs.heightMap.height), wH: c ? Math.round(c.getBoundingClientRect().height) : null, ...extra }; try { e.anchorLineTop = Math.round(vs.lineBlockAt(Math.max(0, vs.scrollAnchorPos)).top); e.anchorLineFrom = vs.lineBlockAt(Math.max(0, vs.scrollAnchorPos)).from } catch {} ; return e }
+  const st = (tag, extra = {}) => { const c = document.querySelector(".cm-content .modular-diary-container"); const e = { tag, t: Math.round(performance.now() * 10) / 10, top: scroller.scrollTop, sh: scroller.scrollHeight, pos: vs.scrollAnchorPos, ah: Math.round(vs.scrollAnchorHeight), off: Math.round(vs.scrollOffset), toBottom: vs.scrolledToBottom, mapH: Math.round(vs.heightMap.height), wH: c ? Math.round(c.getBoundingClientRect().height) : null, ...extra }; try { e.anchorLineTop = Math.round(vs.lineBlockAt(Math.max(0, vs.scrollAnchorPos)).top); e.anchorLineFrom = vs.lineBlockAt(Math.max(0, vs.scrollAnchorPos)).from } catch {} ; return e }
   window.__log = []
   const push = (e) => window.__log.push(e)
   if (!window.__wrapped) {
@@ -33,8 +33,8 @@ const out = await page.evaluate(() => {
   const desc = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop")
   Object.defineProperty(Element.prototype, "scrollTop", { get: desc.get, set(v) { if (this === scroller) push(st("SET " + v)); return desc.set.call(this, v) }, configurable: true })
   window.__probe = { before: window.app.workspace.activeEditor.editor.getValue() }
-  const hours = [...svg.querySelectorAll("text.oneday-hour")].map((t) => ({ h: t.textContent.trim(), y: t.getBoundingClientRect().top + t.getBoundingClientRect().height / 2 }))
-  const track = svg.querySelector("rect.oneday-track").getBoundingClientRect()
+  const hours = [...svg.querySelectorAll("text.modular-diary-hour")].map((t) => ({ h: t.textContent.trim(), y: t.getBoundingClientRect().top + t.getBoundingClientRect().height / 2 }))
+  const track = svg.querySelector("rect.modular-diary-track").getBoundingClientRect()
   return { hours, x: track.x + track.width / 2, vh: innerHeight, scrollerTop: Math.round(scroller.getBoundingClientRect().top), first: st("pre") }
 })
 console.log("scroller top in viewport", out.scrollerTop, JSON.stringify(out.first))

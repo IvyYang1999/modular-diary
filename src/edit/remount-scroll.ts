@@ -43,7 +43,7 @@ function sameBlock<Owner extends object>(
  * Carries a visual snapshot across an Obsidian-owned processor remount.
  *
  * Unlike a plugin write transaction, an external editor change does not tell
- * Oneday what the next block source will be. The old host therefore records
+ * Modular Diary what the next block source will be. The old host therefore records
  * its own source and the replacement consumes the record exactly once. A
  * changed source fails closed and is discarded so an undo cannot revive a
  * stale viewport later.

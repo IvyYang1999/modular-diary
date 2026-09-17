@@ -64,11 +64,11 @@ export function showBlockMenu(
     menu.addItem((item) => {
       const title = domDocument.createDocumentFragment()
       const content = domDocument.createElement("span")
-      content.className = "oneday-todo-trigger-content"
+      content.className = "modular-diary-todo-trigger-content"
       const label = domDocument.createElement("span")
       label.textContent = t("bindTodo")
       const caret = domDocument.createElement("span")
-      caret.className = "oneday-submenu-caret"
+      caret.className = "modular-diary-submenu-caret"
       caret.setAttribute("aria-hidden", "true")
       caret.textContent = "›"
       content.append(label, caret)
@@ -79,11 +79,11 @@ export function showBlockMenu(
   menu.addItem((item) => {
     const title = domDocument.createDocumentFragment()
     const content = domDocument.createElement("span")
-    content.className = "oneday-type-trigger-content"
+    content.className = "modular-diary-type-trigger-content"
     const label = domDocument.createElement("span")
     label.textContent = t("changeCategory")
     const caret = domDocument.createElement("span")
-    caret.className = "oneday-submenu-caret"
+    caret.className = "modular-diary-submenu-caret"
     caret.setAttribute("aria-hidden", "true")
     caret.textContent = "›"
     content.append(label, caret)
@@ -104,9 +104,9 @@ export function showBlockMenu(
   menu.showAtPosition({ x, y }, domDocument)
 
   const primaryMenu = Array.from(domDocument.querySelectorAll<HTMLElement>(".menu"))
-    .find((candidate) => !existingMenus.has(candidate) && candidate.querySelector(".oneday-type-trigger-content"))
+    .find((candidate) => !existingMenus.has(candidate) && candidate.querySelector(".modular-diary-type-trigger-content"))
   if (!primaryMenu) return
-  const typeTrigger = primaryMenu.querySelector<HTMLElement>(".oneday-type-trigger-content")?.closest<HTMLElement>(".menu-item")
+  const typeTrigger = primaryMenu.querySelector<HTMLElement>(".modular-diary-type-trigger-content")?.closest<HTMLElement>(".menu-item")
   if (typeTrigger) {
     const options = buildTypeMenuOptions(types, entry.type)
     cascades.push(attachCascadeMenu(primaryMenu, typeTrigger, options, t("chooseCategory"), (index) => {
@@ -115,7 +115,7 @@ export function showBlockMenu(
       menu.hide(); actions.setType(entry.line, option.type)
     }))
   }
-  const todoTrigger = primaryMenu.querySelector<HTMLElement>(".oneday-todo-trigger-content")?.closest<HTMLElement>(".menu-item")
+  const todoTrigger = primaryMenu.querySelector<HTMLElement>(".modular-diary-todo-trigger-content")?.closest<HTMLElement>(".menu-item")
   if (todoTrigger) {
     const options = buildTodoMenuOptions(todos, entry.todoId, t("unbindTodo"))
     cascades.push(attachCascadeMenu(primaryMenu, todoTrigger, options, t("chooseTodo"), (index) => {
@@ -158,10 +158,10 @@ export function showMarkerMenu(
   menu.addItem((item) => {
     const title = domDocument.createDocumentFragment()
     const content = domDocument.createElement("span")
-    content.className = "oneday-type-trigger-content"
+    content.className = "modular-diary-type-trigger-content"
     content.append(domDocument.createTextNode(t("changeCategory")))
     const caret = domDocument.createElement("span")
-    caret.className = "oneday-submenu-caret"
+    caret.className = "modular-diary-submenu-caret"
     caret.textContent = "›"
     content.appendChild(caret)
     title.appendChild(content)
@@ -173,8 +173,8 @@ export function showMarkerMenu(
   menu.onHide(() => cascade?.destroy())
   menu.showAtPosition({ x, y }, domDocument)
   const primary = Array.from(domDocument.querySelectorAll<HTMLElement>(".menu"))
-    .find((candidate) => !existing.has(candidate) && candidate.querySelector(".oneday-type-trigger-content"))
-  const trigger = primary?.querySelector<HTMLElement>(".oneday-type-trigger-content")?.closest<HTMLElement>(".menu-item")
+    .find((candidate) => !existing.has(candidate) && candidate.querySelector(".modular-diary-type-trigger-content"))
+  const trigger = primary?.querySelector<HTMLElement>(".modular-diary-type-trigger-content")?.closest<HTMLElement>(".menu-item")
   if (!primary || !trigger) return
   const options = buildTypeMenuOptions(types, marker.type)
   cascade = attachCascadeMenu(primary, trigger, options, t("chooseCategory"), (index) => {

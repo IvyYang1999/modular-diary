@@ -11,7 +11,7 @@ const info = await page.evaluate(() => new Promise((resolve) => {
   po.observe({ entryTypes: ["longtask"] })
   setTimeout(() => {
     // 找有 transform/will-change/filter 的元素（可能强制合成）
-    const promoted = [...document.querySelectorAll(".oneday-container, .oneday-container *")]
+    const promoted = [...document.querySelectorAll(".modular-diary-container, .modular-diary-container *")]
       .filter((el) => {
         const cs = getComputedStyle(el)
         return cs.willChange !== "auto" || cs.filter !== "none" || cs.transform !== "none" || cs.backdropFilter !== "none" || cs.mixBlendMode !== "normal"

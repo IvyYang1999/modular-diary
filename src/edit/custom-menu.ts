@@ -1,5 +1,5 @@
 /**
- * Oneday custom menus shared by toolbar and grid components.
+ * Modular Diary custom menus shared by toolbar and grid components.
  * Menus mount in the owning document body so transformed slots and pop-out
  * windows cannot offset or clip them.
  */
@@ -9,8 +9,8 @@ let menuLabelSequence = 0
 
 export function labelCustomMenu(menu: HTMLElement, label: string, dom: Document): void {
   const labelEl = dom.createElement("span")
-  labelEl.id = `oneday-menu-label-${++menuLabelSequence}`
-  labelEl.className = "oneday-menu-label"
+  labelEl.id = `modular-diary-menu-label-${++menuLabelSequence}`
+  labelEl.className = "modular-diary-menu-label"
   labelEl.textContent = label
   menu.prepend(labelEl)
   menu.setAttribute("aria-labelledby", labelEl.id)
@@ -45,7 +45,7 @@ export function showCustomMenu(
     sourceBottom = origin.y
   }
   activeMenuClose.get(dom)?.()
-  menu.classList.add("oneday-toolbar-menu")
+  menu.classList.add("modular-diary-toolbar-menu")
   dom.body.appendChild(menu)
 
   const menuRect = menu.getBoundingClientRect()
@@ -115,12 +115,12 @@ export function showActionMenuAtPoint(
   onAction: () => void
 ): void {
   const menu = dom.createElement("div")
-  menu.className = "oneday-ctx-menu"
+  menu.className = "modular-diary-ctx-menu"
   menu.setAttribute("role", "menu")
   labelCustomMenu(menu, accessibleLabel, dom)
   const action = dom.createElement("button")
   action.type = "button"
-  action.className = "oneday-add-item"
+  action.className = "modular-diary-add-item"
   action.setAttribute("role", "menuitem")
   action.textContent = actionLabel
   let close = (): void => {}

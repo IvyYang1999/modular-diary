@@ -16,7 +16,7 @@ function candidate(id: string, path: string, ownedTarget?: object): Candidate {
 }
 
 describe("Markdown view ownership", () => {
-  it("selects the pane that actually contains the Oneday block", () => {
+  it("selects the pane that actually contains the Modular Diary block", () => {
     const target = {}
     const left = candidate("left", "daily.md")
     const right = candidate("right", "daily.md", target)

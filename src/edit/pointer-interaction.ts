@@ -5,9 +5,27 @@ export interface PointerRedrawGate {
   clear(): void
 }
 
-const POINTER_IDLE_EVENT = "oneday-pointer-idle"
+const POINTER_IDLE_EVENT = "modular-diary-pointer-idle"
+
+const externalEditors = new WeakMap<HTMLElement, Set<HTMLElement>>()
+
+/** Body-mounted popovers still own their timeline's editing lifecycle. */
+export function registerExternalEditor(container: HTMLElement, editor: HTMLElement): () => void {
+  const editors = externalEditors.get(container) ?? new Set<HTMLElement>()
+  externalEditors.set(container, editors)
+  editors.add(editor)
+  return () => {
+    editors.delete(editor)
+    if (editors.size === 0) externalEditors.delete(container)
+    const EventCtor = container.ownerDocument.defaultView?.Event ?? Event
+    container.dispatchEvent(new EventCtor(POINTER_IDLE_EVENT))
+  }
+}
 
 function ownsActiveEditingSurface(container: HTMLElement): boolean {
+  for (const editor of externalEditors.get(container) ?? []) {
+    if (editor.isConnected) return true
+  }
   const active = container.ownerDocument.activeElement as Element | null
   if (!active || !container.contains(active)) return false
   // A form closed with `hidden` can briefly remain document.activeElement;
@@ -18,11 +36,11 @@ function ownsActiveEditingSurface(container: HTMLElement): boolean {
 
 export function setPointerInteractionActive(container: HTMLElement, active: boolean): void {
   if (active) {
-    container.dataset.onedayPointerActive = "1"
+    container.dataset.modularDiaryPointerActive = "1"
     return
   }
-  if (container.dataset.onedayPointerActive !== "1") return
-  delete container.dataset.onedayPointerActive
+  if (container.dataset.modularDiaryPointerActive !== "1") return
+  delete container.dataset.modularDiaryPointerActive
   const EventCtor = container.ownerDocument.defaultView?.Event ?? Event
   container.dispatchEvent(new EventCtor(POINTER_IDLE_EVENT))
 }
@@ -52,7 +70,7 @@ export function createPointerRedrawGate(): PointerRedrawGate {
   }
 
   const isBlocked = (container: HTMLElement): boolean =>
-    container.dataset.onedayPointerActive === "1" || ownsActiveEditingSurface(container)
+    container.dataset.modularDiaryPointerActive === "1" || ownsActiveEditingSurface(container)
 
   const flushIfIdle = (): void => {
     if (!owner || isBlocked(owner)) return

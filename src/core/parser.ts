@@ -1,5 +1,5 @@
 /**
- * oneday timeline source parser (mermaid-style fenced block body, without the fences).
+ * Modular Diary timeline source parser (mermaid-style fenced block body, without the fences).
  *
  * Grammar v0 (技术方案.md §二):
  *   header:  "key: value" lines (date, range), terminated by an optional "---"

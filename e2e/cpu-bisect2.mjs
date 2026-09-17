@@ -19,11 +19,11 @@ const avg = async (ms) => {
 }
 
 console.log("baseline(10s):", await avg(10000))
-await page.evaluate(() => document.querySelectorAll(".oneday-plan-hatch").forEach((r) => (r.style.display = "none")))
+await page.evaluate(() => document.querySelectorAll(".modular-diary-plan-hatch").forEach((r) => (r.style.display = "none")))
 console.log("no-hatch(10s):", await avg(10000))
-await page.evaluate(() => document.querySelectorAll(".oneday-plan-hatch").forEach((r) => (r.style.display = "")))
+await page.evaluate(() => document.querySelectorAll(".modular-diary-plan-hatch").forEach((r) => (r.style.display = "")))
 console.log("hatch-back(10s):", await avg(10000))
 // 再试：整个 svg overflow 改 hidden
-await page.evaluate(() => document.querySelectorAll("svg.oneday-svg").forEach((s) => (s.style.overflow = "hidden")))
+await page.evaluate(() => document.querySelectorAll("svg.modular-diary-svg").forEach((s) => (s.style.overflow = "hidden")))
 console.log("svg-overflow-hidden(10s):", await avg(10000))
 await browser.close()

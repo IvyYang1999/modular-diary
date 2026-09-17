@@ -1,4 +1,4 @@
-/** 空闲态 CPU 取证：先开一篇含 oneday 块的笔记，录 8s Performance，统计热点函数 */
+/** 空闲态 CPU 取证：先开一篇含 modular-diary 块的笔记，录 8s Performance，统计热点函数 */
 import { chromium } from "playwright"
 const browser = await chromium.connectOverCDP("http://127.0.0.1:9333")
 const page = browser.contexts()[0].pages()[0]
@@ -42,11 +42,11 @@ console.log("total samples:", total, "(1ms each ≈", total, "ms CPU)")
 for (const [fn, c] of top) {
   console.log(String((c / total * 100).toFixed(1)).padStart(5) + "%", fn)
 }
-// oneday 相关
-const onedayHits = [...fnHits.entries()].filter(([k]) => k.includes("oneday") || k.includes("main.js"))
-const onedayTotal = onedayHits.reduce((s, [, c]) => s + c, 0)
-console.log("\noneday(main.js) 合计:", (onedayTotal / total * 100).toFixed(1) + "%")
-for (const [fn, c] of onedayHits.sort((a, b) => b[1] - a[1]).slice(0, 8)) {
+// modular-diary 相关
+const modularDiaryHits = [...fnHits.entries()].filter(([k]) => k.includes("modular-diary") || k.includes("main.js"))
+const modularDiaryTotal = modularDiaryHits.reduce((s, [, c]) => s + c, 0)
+console.log("\nmodular-diary(main.js) 合计:", (modularDiaryTotal / total * 100).toFixed(1) + "%")
+for (const [fn, c] of modularDiaryHits.sort((a, b) => b[1] - a[1]).slice(0, 8)) {
   console.log("  ", (c / total * 100).toFixed(1) + "%", fn)
 }
 await browser.close()

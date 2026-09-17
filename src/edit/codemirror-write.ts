@@ -34,7 +34,7 @@ export function prepareCodeMirrorReplacement(
       changes: { from: fromOffset, to: toOffset, insert },
       effects: effect,
       // Make the product contract explicit instead of relying on CodeMirror's
-      // default history heuristic: every Oneday source mutation is one
+      // default history heuristic: every Modular Diary source mutation is one
       // immediately undoable transaction.
       annotations: Transaction.addToHistory.of(true),
     }),

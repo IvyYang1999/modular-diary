@@ -7,7 +7,7 @@ import fs from "node:fs"
 import os from "node:os"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const out = path.join(os.tmpdir(), "oneday-daily-quote-smoke")
+const out = path.join(os.tmpdir(), "modular-diary-daily-quote-smoke")
 fs.rmSync(out, { recursive: true, force: true })
 fs.mkdirSync(out, { recursive: true })
 
@@ -93,15 +93,15 @@ fs.copyFileSync(path.join(here, "../styles.css"), path.join(out, "styles.css"))
 fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="styles.css"><style>
 body{margin:0;background:var(--background-primary);color:var(--text-normal);font-family:-apple-system,"PingFang SC",sans-serif;font-size:14px}
 #fixture{display:grid;gap:16px;width:320px;margin:24px}#settings{width:560px;margin:24px}
-.oneday-slot-quote{position:relative;inset:auto;width:100%;height:auto;min-height:120px}
+.modular-diary-slot-quote{position:relative;inset:auto;width:100%;height:auto;min-height:120px}
 </style></head><body>
-<div class="oneday-container"><main id="fixture">
-  <section id="own-ink" class="oneday-slot oneday-slot-quote"></section>
-  <section id="global-ink" class="oneday-slot oneday-slot-quote"></section>
-  <section id="untinted" class="oneday-slot oneday-slot-quote"></section>
-  <section id="empty" class="oneday-slot oneday-slot-quote"></section>
+<div class="modular-diary-container"><main id="fixture">
+  <section id="own-ink" class="modular-diary-slot modular-diary-slot-quote"></section>
+  <section id="global-ink" class="modular-diary-slot modular-diary-slot-quote"></section>
+  <section id="untinted" class="modular-diary-slot modular-diary-slot-quote"></section>
+  <section id="empty" class="modular-diary-slot modular-diary-slot-quote"></section>
 </main></div>
-<section id="settings" class="oneday-settings-modal oneday-focused-settings"></section>
+<section id="settings" class="modular-diary-settings-modal modular-diary-focused-settings"></section>
 <script src="bundle.js"></script></body></html>`)
 
 const browser = await chromium.launch()
@@ -126,17 +126,17 @@ const read = () => page.evaluate(() => {
   const bg = (id) => getComputedStyle(slot(id)).backgroundColor
   const luminance = (rgb) => { const m = rgb.match(/[\d.]+/g)?.map(Number) ?? [0, 0, 0]; return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255 }
   return {
-    ownInk: { hasInk: slot("#own-ink").classList.contains("has-ink"), ink: slot("#own-ink").style.getPropertyValue("--oneday-quote-ink"), bg: bg("#own-ink"), text: slot("#own-ink").querySelector(".oneday-daily-quote-text")?.textContent, author: slot("#own-ink").querySelector(".oneday-daily-quote-author")?.textContent, card: Boolean(slot("#own-ink").querySelector(".oneday-daily-quote-card")), textSize: getComputedStyle(slot("#own-ink").querySelector(".oneday-daily-quote-text")).fontSize, textLum: luminance(getComputedStyle(slot("#own-ink").querySelector(".oneday-daily-quote-text")).color), bgLum: luminance(bg("#own-ink")) },
-    globalInk: { ink: slot("#global-ink").style.getPropertyValue("--oneday-quote-ink"), author: slot("#global-ink").querySelector(".oneday-daily-quote-author") },
+    ownInk: { hasInk: slot("#own-ink").classList.contains("has-ink"), ink: slot("#own-ink").style.getPropertyValue("--modular-diary-quote-ink"), bg: bg("#own-ink"), text: slot("#own-ink").querySelector(".modular-diary-daily-quote-text")?.textContent, author: slot("#own-ink").querySelector(".modular-diary-daily-quote-author")?.textContent, card: Boolean(slot("#own-ink").querySelector(".modular-diary-daily-quote-card")), textSize: getComputedStyle(slot("#own-ink").querySelector(".modular-diary-daily-quote-text")).fontSize, textLum: luminance(getComputedStyle(slot("#own-ink").querySelector(".modular-diary-daily-quote-text")).color), bgLum: luminance(bg("#own-ink")) },
+    globalInk: { ink: slot("#global-ink").style.getPropertyValue("--modular-diary-quote-ink"), author: slot("#global-ink").querySelector(".modular-diary-daily-quote-author") },
     untinted: { hasInk: slot("#untinted").classList.contains("has-ink"), bg: bg("#untinted") },
-    empty: { cta: slot("#empty").querySelector(".oneday-daily-quote-empty")?.textContent?.trim(), hasText: Boolean(slot("#empty").querySelector(".oneday-daily-quote-text")) },
-    pencils: [...document.querySelectorAll("#fixture .oneday-component-icon-button")].map((b) => b.getAttribute("aria-label")),
-    titleFont: getComputedStyle(document.querySelector("#own-ink .oneday-component-title")).fontSize,
+    empty: { cta: slot("#empty").querySelector(".modular-diary-daily-quote-empty")?.textContent?.trim(), hasText: Boolean(slot("#empty").querySelector(".modular-diary-daily-quote-text")) },
+    pencils: [...document.querySelectorAll("#fixture .modular-diary-component-icon-button")].map((b) => b.getAttribute("aria-label")),
+    titleFont: getComputedStyle(document.querySelector("#own-ink .modular-diary-component-title")).fontSize,
     dateA: window.__quoteForDate("2026-09-10"), dateAAgain: window.__quoteForDate("2026-09-10"),
-    library: document.querySelector("#settings textarea.oneday-quote-library")?.value,
-    dots: [...document.querySelectorAll("#settings .oneday-quote-ink-dot")].map((d) => ({ label: d.querySelector(".oneday-quote-ink-name")?.textContent, checked: d.getAttribute("aria-checked"), mark: getComputedStyle(d.querySelector(".oneday-quote-ink-mark")).backgroundColor, chipBg: getComputedStyle(d).backgroundColor })),
-    libraryTooltip: document.querySelector("#settings textarea.oneday-quote-library")?.getAttribute("aria-label"),
-    designerLeftovers: document.querySelectorAll(".oneday-quote-theme-grid, .oneday-quote-designer, .oneday-quote-settings-tabs, input[type=range]").length,
+    library: document.querySelector("#settings textarea.modular-diary-quote-library")?.value,
+    dots: [...document.querySelectorAll("#settings .modular-diary-quote-ink-dot")].map((d) => ({ label: d.querySelector(".modular-diary-quote-ink-name")?.textContent, checked: d.getAttribute("aria-checked"), mark: getComputedStyle(d.querySelector(".modular-diary-quote-ink-mark")).backgroundColor, chipBg: getComputedStyle(d).backgroundColor })),
+    libraryTooltip: document.querySelector("#settings textarea.modular-diary-quote-library")?.getAttribute("aria-label"),
+    designerLeftovers: document.querySelectorAll(".modular-diary-quote-theme-grid, .modular-diary-quote-designer, .modular-diary-quote-settings-tabs, input[type=range]").length,
   }
 })
 const light = await read()
@@ -147,28 +147,28 @@ await page.locator("#fixture").screenshot({ path: path.join(out, "daily-quote-da
 await theme(false)
 
 // The pencil and the empty CTA are the only actions; the slot itself is not a button.
-await page.locator("#own-ink .oneday-component-icon-button").click()
-await page.locator("#empty .oneday-daily-quote-empty").click()
-await page.locator("#own-ink .oneday-daily-quote-text").click()
+await page.locator("#own-ink .modular-diary-component-icon-button").click()
+await page.locator("#empty .modular-diary-daily-quote-empty").click()
+await page.locator("#own-ink .modular-diary-daily-quote-text").click()
 const events = await page.evaluate(() => window.__events)
 
 // Library editing: type a line, leave the box → parsed, ids kept, one save, blocks repainted.
-const textarea = page.locator("#settings textarea.oneday-quote-library")
+const textarea = page.locator("#settings textarea.modular-diary-quote-library")
 await textarea.click()
 await textarea.press("End")
 await textarea.press("Control+End")
 await textarea.type("\n成效的关键时刻：13 天，坚持下去。—— 自己 #开发")
-await page.locator("#settings .oneday-quote-ink-dot").first().focus()
+await page.locator("#settings .modular-diary-quote-ink-dot").first().focus()
 await page.waitForTimeout(30)
 const afterEdit = await page.evaluate(() => ({
   saves: window.__saves,
   quotes: window.__settings.dailyQuotes.map((q) => ({ id: q.id, text: q.text, author: q.author, ink: q.ink })),
-  status: document.querySelector("#settings .oneday-quote-status")?.textContent,
+  status: document.querySelector("#settings .modular-diary-quote-status")?.textContent,
 }))
 // Picking a dot changes the global ink and saves.
-await page.locator('#settings .oneday-quote-ink-dot', { hasText: "开发" }).click()
+await page.locator('#settings .modular-diary-quote-ink-dot', { hasText: "开发" }).click()
 await page.waitForTimeout(30)
-const afterDot = await page.evaluate(() => ({ ink: window.__settings.dailyQuoteInk, saves: window.__saves, checked: document.querySelector("#settings .oneday-quote-ink-dot[aria-checked=true] .oneday-quote-ink-name")?.textContent }))
+const afterDot = await page.evaluate(() => ({ ink: window.__settings.dailyQuoteInk, saves: window.__saves, checked: document.querySelector("#settings .modular-diary-quote-ink-dot[aria-checked=true] .modular-diary-quote-ink-name")?.textContent }))
 await page.locator("#settings").screenshot({ path: path.join(out, "daily-quote-library.png") })
 // Cmd/Ctrl+Enter saves; a failed save keeps the draft and says so.
 await page.evaluate(() => { window.__failNextSave = true })
@@ -176,7 +176,7 @@ await textarea.click()
 await textarea.type(" ")
 await textarea.press("Control+Enter")
 await page.waitForTimeout(30)
-const afterFail = await page.evaluate(() => ({ status: document.querySelector("#settings .oneday-quote-status")?.textContent, value: document.querySelector("#settings textarea").value }))
+const afterFail = await page.evaluate(() => ({ status: document.querySelector("#settings .modular-diary-quote-status")?.textContent, value: document.querySelector("#settings textarea").value }))
 await page.setViewportSize({ width: 360, height: 900 })
 await page.locator("#fixture").screenshot({ path: path.join(out, "daily-quote-narrow.png") })
 

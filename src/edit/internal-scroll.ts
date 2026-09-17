@@ -22,15 +22,15 @@ function applyOffset(element: HTMLElement | null, offset: ScrollOffset | null): 
 /** Capture every nested scroll owner by stable component identity. */
 export function captureInternalScroll(container: HTMLElement): TimelineInternalScrollSnapshot {
   const texts: Record<string, ScrollOffset> = {}
-  container.querySelectorAll<HTMLElement>(".oneday-slot").forEach((slot) => {
+  container.querySelectorAll<HTMLElement>(".modular-diary-slot").forEach((slot) => {
     const slotId = slot.dataset.slot ?? ""
     if (!/^text\d*$/.test(slotId)) return
-    const pane = slot.querySelector<HTMLElement>(".oneday-text-pane") ?? slot
+    const pane = slot.querySelector<HTMLElement>(".modular-diary-text-pane") ?? slot
     texts[slotId] = { top: pane.scrollTop, left: pane.scrollLeft }
   })
   return {
-    block: readOffset(container.querySelector<HTMLElement>(".oneday-block-scroll")),
-    timeline: readOffset(container.querySelector<HTMLElement>(".oneday-svg-holder")),
+    block: readOffset(container.querySelector<HTMLElement>(".modular-diary-block-scroll")),
+    timeline: readOffset(container.querySelector<HTMLElement>(".modular-diary-svg-holder")),
     texts,
   }
 }
@@ -40,13 +40,13 @@ export function restoreInternalScroll(
   snapshot: TimelineInternalScrollSnapshot,
   container: HTMLElement
 ): void {
-  applyOffset(container.querySelector<HTMLElement>(".oneday-block-scroll"), snapshot.block)
-  applyOffset(container.querySelector<HTMLElement>(".oneday-svg-holder"), snapshot.timeline)
+  applyOffset(container.querySelector<HTMLElement>(".modular-diary-block-scroll"), snapshot.block)
+  applyOffset(container.querySelector<HTMLElement>(".modular-diary-svg-holder"), snapshot.timeline)
   for (const [slotId, offset] of Object.entries(snapshot.texts)) {
-    const slot = Array.from(container.querySelectorAll<HTMLElement>(".oneday-slot"))
+    const slot = Array.from(container.querySelectorAll<HTMLElement>(".modular-diary-slot"))
       .find((candidate) => candidate.dataset.slot === slotId)
     if (!slot) continue
-    applyOffset(slot.querySelector<HTMLElement>(".oneday-text-pane") ?? slot, offset)
+    applyOffset(slot.querySelector<HTMLElement>(".modular-diary-text-pane") ?? slot, offset)
   }
 }
 

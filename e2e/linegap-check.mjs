@@ -5,17 +5,17 @@ import fs from "node:fs"
 import os from "os"
 import { fileURLToPath } from "node:url"
 const here = path.dirname(fileURLToPath(import.meta.url))
-const out = path.join(os.tmpdir(), "oneday-linegap")
+const out = path.join(os.tmpdir(), "modular-diary-linegap")
 fs.mkdirSync(out, { recursive: true })
 const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
 const html = `<!doctype html><html><head><style>${css}
 body { background: #fff; padding: 20px; }
 </style></head><body>
-<div class="oneday-text-pane"><div class="oneday-text-host"><p>OK。我决定每天只看1集。不太快看完。
+<div class="modular-diary-text-pane"><div class="modular-diary-text-host"><p>OK。我决定每天只看1集。不太快看完。
 今天这一集讲了11的旅程。很精彩。
 
 感觉拍得很好。</p></div></div>
-<textarea class="oneday-text-inline">OK。我决定每天只看1集。不太快看完。
+<textarea class="modular-diary-text-inline">OK。我决定每天只看1集。不太快看完。
 今天这一集讲了11的旅程。很精彩。
 
 感觉拍得很好。</textarea>
@@ -25,7 +25,7 @@ const browser = await chromium.launch()
 const page = await browser.newPage()
 await page.goto("file://" + path.join(out, "i.html"))
 const m = await page.evaluate(() => {
-  const p = document.querySelector(".oneday-text-host p")
+  const p = document.querySelector(".modular-diary-text-host p")
   const ta = document.querySelector("textarea")
   const r1 = [...p.getClientRects()].map((r) => Math.round(r.height))
   const taCs = getComputedStyle(ta)

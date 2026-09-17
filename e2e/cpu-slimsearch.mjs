@@ -18,8 +18,8 @@ await page.evaluate(async (list) => {
 }, before)
 await sleep(2000)
 console.log("全插件禁用:", await avg(8000))
-// 再开 oneday 单独测！
-await page.evaluate(async () => { await app.plugins.enablePlugin("oneday") })
+// 再开 modular-diary 单独测！
+await page.evaluate(async () => { await app.plugins.enablePlugin("modular-diary") })
 await sleep(2500)
-console.log("仅 oneday:", await avg(8000))
+console.log("仅 modular-diary:", await avg(8000))
 await browser.close()

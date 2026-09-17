@@ -21,7 +21,7 @@ export interface BlockResizeDeps<Interaction = void> {
 type ResizeDirection = "e" | "s" | "se"
 
 function itemsFromBody(body: HTMLElement): GridItem[] {
-  return Array.from(body.querySelectorAll<HTMLElement>(".oneday-slot")).map((slot) => ({
+  return Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot")).map((slot) => ({
     id: slot.dataset.slot ?? "",
     x: Number(slot.dataset.x),
     y: Number(slot.dataset.y),
@@ -36,7 +36,7 @@ function applyViewportSize(container: HTMLElement, size: BlockSize | undefined):
   container.style.height = size ? `${size.height}px` : ""
 }
 
-/** Resize the outer Oneday viewport without changing the internal grid geometry. */
+/** Resize the outer Modular Diary viewport without changing the internal grid geometry. */
 export function attachBlockResize<Interaction = void>(
   container: HTMLElement,
   body: HTMLElement,
@@ -52,7 +52,7 @@ export function attachBlockResize<Interaction = void>(
 
   for (const direction of ["e", "s", "se"] as const) {
     const handle = dom.createElement("div")
-    handle.className = `oneday-block-resize-handle oneday-block-resize-${direction}`
+    handle.className = `modular-diary-block-resize-handle modular-diary-block-resize-${direction}`
     handle.setAttribute("aria-hidden", "true")
     container.appendChild(handle)
 

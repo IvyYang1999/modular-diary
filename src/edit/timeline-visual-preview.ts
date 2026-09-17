@@ -2,10 +2,10 @@ import type { TimelineDoc } from "../core/types"
 import { renderTimelineSvg, type RenderOptions } from "../render/svg-builder"
 
 const PREVIEW_SELECTOR = [
-  ".oneday-preview-block",
-  ".oneday-preview-hatch",
-  ".oneday-preview-duration",
-  ".oneday-preview-defs",
+  ".modular-diary-preview-block",
+  ".modular-diary-preview-hatch",
+  ".modular-diary-preview-duration",
+  ".modular-diary-preview-defs",
 ].join(",")
 
 function copySvgFrame(source: SVGSVGElement, target: SVGSVGElement): void {
@@ -28,7 +28,7 @@ export function previewTimelineVisual(
   nextDoc: TimelineDoc,
   options: RenderOptions,
 ): (() => void) | null {
-  const live = container.querySelector<SVGSVGElement>("svg.oneday-svg")
+  const live = container.querySelector<SVGSVGElement>("svg.modular-diary-svg")
   if (!live) return null
   const dom = live.ownerDocument
   const staging = dom.createElement("div")
@@ -36,7 +36,7 @@ export function previewTimelineVisual(
   const fittedLane = Number(live.getAttribute("data-side-lane"))
   const sideLaneWidth = options.sideLaneWidth ?? (Number.isFinite(fittedLane) && live.hasAttribute("data-side-lane") ? fittedLane : undefined)
   staging.innerHTML = renderTimelineSvg(nextDoc, { ...options, sideLaneWidth })
-  const next = staging.querySelector<SVGSVGElement>("svg.oneday-svg")
+  const next = staging.querySelector<SVGSVGElement>("svg.modular-diary-svg")
   if (!next) return null
 
   // A create gesture may have promoted its ghost to a complete optimistic
@@ -53,7 +53,7 @@ export function previewTimelineVisual(
 
   copySvgFrame(next, live)
   live.replaceChildren(...Array.from(next.childNodes, (node) => node.cloneNode(true)))
-  live.dispatchEvent(new (dom.defaultView?.CustomEvent ?? CustomEvent)("oneday-sync-edit-visual"))
+  live.dispatchEvent(new (dom.defaultView?.CustomEvent ?? CustomEvent)("modular-diary-sync-edit-visual"))
 
   return () => {
     live.innerHTML = rollbackMarkup
@@ -61,6 +61,6 @@ export function previewTimelineVisual(
       if (value === null) live.removeAttribute(name)
       else live.setAttribute(name, value)
     }
-    live.dispatchEvent(new (dom.defaultView?.CustomEvent ?? CustomEvent)("oneday-sync-edit-visual"))
+    live.dispatchEvent(new (dom.defaultView?.CustomEvent ?? CustomEvent)("modular-diary-sync-edit-visual"))
   }
 }

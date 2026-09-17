@@ -1,5 +1,5 @@
 /**
- * oneday core types — pure TS, zero Obsidian deps.
+ * Modular Diary core types — pure TS, zero Obsidian deps.
  * Markdown source is the single source of truth; these are the parsed forms.
  */
 
@@ -19,7 +19,7 @@ export interface TimelineDoc {
   hiddenMarkerTypes: string[]
   /** Per-block width override in px (`width:` header, base width without the label lane). */
   width?: number
-  /** Outer Oneday viewport size; internal components keep their own geometry and scroll behind it. */
+  /** Outer Modular Diary viewport size; internal components keep their own geometry and scroll behind it. */
   blockSize?: import("./block-size").BlockSize
   /** Pixel width occupied by the first 12 logical grid columns after the viewport is resized. */
   canvasWidth?: number
@@ -52,7 +52,7 @@ export interface Entry {
   /** Task type key; color comes from settings mapping (D2). */
   type: string
   note?: string
-  /** Stable binding to a Todo item in this Oneday block. */
+  /** Stable binding to a Todo item in this Modular Diary block. */
   todoId?: string
   /** 0-based source line inside the code block, for write-back. */
   line: number

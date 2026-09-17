@@ -1,4 +1,4 @@
-# Oneday experience contracts
+# Modular Diary experience contracts
 
 `npm run verify` is the only merge/deploy gate. A green unit suite alone is
 not a releasable result: the command also runs the rendered timeline, agent,
@@ -29,3 +29,24 @@ The CI workflow runs the same command on every push and pull request. It does
 not claim to emulate the proprietary Obsidian desktop lifecycle; production
 smoke findings must therefore be turned into the closest deterministic contract
 and recorded here when a true application-level harness becomes available.
+
+## Save recovery regression
+
+`e2e/save-recovery-smoke.mjs` exercises the production plugin write methods
+against an in-memory editor/vault, including lost sections, initially invalid
+block ordinals, block insertion/deletion and failed persistence acknowledgements.
+Its Chromium fixture checks draft retention across disposal/remount, suppressed
+automatic retries, explicit retry, external popover redraw ownership and viewport
+edges. These are host-adapter contracts, not proof of a live Obsidian reload.
+
+The source locator verifies the captured block content and rejects ambiguous or
+changed fallback targets; it never treats code examples as writable timelines.
+After a save failure, the draft remains editable and the local Retry control (or
+Enter for notes, Cmd/Ctrl+Enter for text) starts a new attempt. Window events do
+not restart a failed attempt.
+
+On macOS with Obsidian installed, `node e2e/obsidian-recovery-native.mjs`
+launches a separate profile and synthetic vault with the built plugin. It checks
+Live Preview note editing during a background refresh, note and text persistence
+in the real vault file, and rendering after a normal App reload. It never opens
+or reloads the user's existing vault, and does not toggle plugin enablement.

@@ -19,23 +19,23 @@ export interface DailyQuoteSettingsHost {
  */
 export function renderDailyQuoteSettings(container: HTMLElement, host: DailyQuoteSettingsHost): void {
   container.empty()
-  container.classList.add("oneday-quote-settings")
-  container.createEl("p", { cls: "setting-item-description oneday-quote-library-hint", text: t("quoteLibraryHint") })
+  container.classList.add("modular-diary-quote-settings")
+  container.createEl("p", { cls: "setting-item-description modular-diary-quote-library-hint", text: t("quoteLibraryHint") })
   // No aria-label here: Obsidian turns aria-label into a hover tooltip, which
   // floated a stray "句库" bubble over the box. The hint above labels it.
-  const hint = container.querySelector<HTMLElement>(".oneday-quote-library-hint")!
-  hint.id = hint.id || `oneday-quote-hint-${Math.random().toString(36).slice(2, 8)}`
+  const hint = container.querySelector<HTMLElement>(".modular-diary-quote-library-hint")!
+  hint.id = hint.id || `modular-diary-quote-hint-${Math.random().toString(36).slice(2, 8)}`
   const textarea = container.createEl("textarea", {
-    cls: "oneday-quote-library",
+    cls: "modular-diary-quote-library",
     attr: { rows: "6", spellcheck: "false", "aria-labelledby": hint.id, placeholder: t("quoteLibraryPlaceholder") },
   })
   textarea.value = serializeQuoteLibrary(host.settings.dailyQuotes)
 
-  const inkRow = container.createDiv({ cls: "oneday-quote-ink-row" })
-  inkRow.createEl("span", { cls: "oneday-quote-ink-label", text: t("quoteInk") })
-  const dots = inkRow.createDiv({ cls: "oneday-quote-ink-dots", attr: { role: "radiogroup" } })
-  const status = container.createDiv({ cls: "oneday-quote-status", attr: { "aria-live": "polite" } })
-  container.createEl("p", { cls: "setting-item-description oneday-quote-save-hint", text: t("quoteSaveShortcut") })
+  const inkRow = container.createDiv({ cls: "modular-diary-quote-ink-row" })
+  inkRow.createEl("span", { cls: "modular-diary-quote-ink-label", text: t("quoteInk") })
+  const dots = inkRow.createDiv({ cls: "modular-diary-quote-ink-dots", attr: { role: "radiogroup" } })
+  const status = container.createDiv({ cls: "modular-diary-quote-status", attr: { "aria-live": "polite" } })
+  container.createEl("p", { cls: "setting-item-description modular-diary-quote-save-hint", text: t("quoteSaveShortcut") })
 
   let dirty = false
   let saving: Promise<void> | null = null
@@ -62,12 +62,12 @@ export function renderDailyQuoteSettings(container: HTMLElement, host: DailyQuot
       // Same vocabulary as the toolbar palette: a colour dot with the
       // category name, the chosen one ringed in the accent colour.
       const dot = dots.createEl("button", {
-        cls: `oneday-quote-ink-dot${checked ? " is-checked" : ""}${name ? "" : " is-none"}`,
+        cls: `modular-diary-quote-ink-dot${checked ? " is-checked" : ""}${name ? "" : " is-none"}`,
         attr: { type: "button", role: "radio", "aria-checked": String(checked) },
       })
-      const mark = dot.createSpan({ cls: "oneday-quote-ink-mark" })
+      const mark = dot.createSpan({ cls: "modular-diary-quote-ink-mark" })
       if (color) mark.style.setProperty("--c", color)
-      dot.createSpan({ cls: "oneday-quote-ink-name", text: label })
+      dot.createSpan({ cls: "modular-diary-quote-ink-name", text: label })
       dot.addEventListener("click", () => {
         if (host.settings.dailyQuoteInk === name) return
         host.settings.dailyQuoteInk = name

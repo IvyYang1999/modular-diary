@@ -15,7 +15,7 @@ function sameBlock<Owner extends object>(a: ScrollTransactionKey<Owner>, b: Scro
 }
 
 function copyScrollOffsets(source: HTMLElement, clone: HTMLElement): void {
-  const selector = ".oneday-block-scroll, .oneday-svg-holder, .oneday-text-pane"
+  const selector = ".modular-diary-block-scroll, .modular-diary-svg-holder, .modular-diary-text-pane"
   const sources = Array.from(source.querySelectorAll<HTMLElement>(selector))
   const clones = Array.from(clone.querySelectorAll<HTMLElement>(selector))
   sources.forEach((scroller, index) => {
@@ -42,7 +42,7 @@ export class RemountVisualRegistry<Owner extends object> {
     if (rect.width <= 0 || rect.height <= 0) return false
 
     const overlay = source.cloneNode(true) as HTMLElement
-    overlay.classList.add("oneday-remount-overlay")
+    overlay.classList.add("modular-diary-remount-overlay")
     overlay.setAttribute("aria-hidden", "true")
     overlay.setAttribute("inert", "")
     overlay.querySelectorAll<HTMLElement>("[id]").forEach((node) => node.removeAttribute("id"))
@@ -60,7 +60,7 @@ export class RemountVisualRegistry<Owner extends object> {
     source.ownerDocument.body.appendChild(overlay)
     copyScrollOffsets(source, overlay)
     // The clone now owns the visual continuity frame. Keeping the live source
-    // visible as well would paint two complete Oneday trees until Obsidian
+    // visible as well would paint two complete Modular Diary trees until Obsidian
     // unmounts the old processor. `visibility` preserves geometry and scroll
     // state, and is restored if the write is cancelled or the bridge expires.
     const sourceVisibility = source.style.visibility

@@ -1,10 +1,10 @@
-export type OnedayLocale = "zh" | "en"
+export type ModularDiaryLocale = "zh" | "en"
 
 const messages = {
   zh: {
-    insertTimelineBlock: "插入 Oneday 时间轴块",
-    insertTimeline: "插入 Oneday 时间轴",
-    textSaveFailed: "Oneday 文字尚未保存：草稿已安全保留，请稍后重试",
+    insertTimelineBlock: "插入 Modular Diary 时间轴块",
+    insertTimeline: "插入 Modular Diary 时间轴",
+    textSaveFailed: "Modular Diary 文字尚未保存：草稿已安全保留，请稍后重试",
     category: "分类",
     statistics: "统计",
     quickRecord: "快速记录",
@@ -26,6 +26,7 @@ const messages = {
     addFirstQuote: "添加第一句话",
     saving: "正在保存…",
     saved: "已保存",
+    retrySave: "尚未保存 · 重试",
     saveFailed: "保存失败，请重试",
     undo: "撤销",
     todayHabits: "今日打卡",
@@ -122,22 +123,22 @@ const messages = {
     weekdayShort: "一二三四五六日",
     categoryColor: "分类颜色",
     todoRulesHeading: "待办规则",
-    todoRulesDescription: "管理跨日期累计的待办目标；普通待办仍直接在 Oneday 块中创建。",
+    todoRulesDescription: "管理跨日期累计的待办目标；普通待办仍直接在 Modular Diary 块中创建。",
     addWeeklyTodo: "添加每周目标",
     timelineSettingsHeading: "时间轴",
-    timelineSettingsDescription: "设置新建 Oneday 块的默认显示范围；单个块仍可独立调整。",
+    timelineSettingsDescription: "设置新建 Modular Diary 块的默认显示范围；单个块仍可独立调整。",
     components: "组件",
     addTextBox: "添加文本框",
     showComponent: "显示「{name}」",
     layout: "布局",
     setDefaultLayout: "将当前布局设为新块默认",
     resetLayout: "重新排列组件",
-    openSettings: "打开 Oneday 设置",
+    openSettings: "打开 Modular Diary 设置",
     moreActions: "更多操作",
     sourceMode: "源码模式",
-    sourceModeDescription: "直接编辑当前 Oneday 块的 Markdown",
+    sourceModeDescription: "直接编辑当前 Modular Diary 块的 Markdown",
     editSource: "编辑源码",
-    sourceBody: "Oneday 块源码正文",
+    sourceBody: "Modular Diary 块源码正文",
     applySource: "应用",
     cancel: "取消",
     sourceShortcut: "⌘/Ctrl + Enter 应用 · Esc 取消",
@@ -163,7 +164,7 @@ const messages = {
     spanTool: "时间段",
     markerTool: "时间点",
     selectDrawTool: "使用{name}工具",
-    categoryToolbar: "Oneday 分类",
+    categoryToolbar: "Modular Diary 分类",
     categoryActions: "{name} 分类操作",
     addFirstCategory: "添加第一个分类",
     selectCategory: "选择「{name}」分类；右键隐藏",
@@ -185,7 +186,7 @@ const messages = {
     addNote: "添加备注",
     changeCategory: "更改分类…",
     deleteBlock: "删除时间段",
-    deleteOnedayBlock: "删除此 Oneday 块",
+    deleteModularDiaryBlock: "删除此 Modular Diary 块",
     moveMarker: "拖拽调整",
     exactMarkerTime: "精确时间…",
     deleteMarker: "删除时间点",
@@ -238,7 +239,7 @@ const messages = {
     actionDelete: "删除 {count} 条",
     actionsSaved: "已{actions}{cost}",
     writeFailed: "写回失败：{reason}",
-    settingsTitle: "Oneday 时间轴",
+    settingsTitle: "Modular Diary 时间轴",
     categoriesHeading: "时间分类（全局）",
     categoriesDescription: "时间段与时间点各自使用独立分类。删除或改名后，旧记录仍保留已使用分类的颜色；也可在块内临时隐藏分类。",
     spanCategoriesHeading: "时间段分类",
@@ -267,8 +268,8 @@ const messages = {
     processError: "进程错误：{reason}",
     cliParseFailed: "CLI 输出无法解析（退出码 {code}）：{detail}",
     generationFailed: "生成失败：{reason}",
-    missingApiKey: "请先在 Oneday 设置中填写 API Key",
-    missingApiEndpoint: "请先在 Oneday 设置中填写 Base URL 和模型名称",
+    missingApiKey: "请先在 Modular Diary 设置中填写 API Key",
+    missingApiEndpoint: "请先在 Modular Diary 设置中填写 Base URL 和模型名称",
     networkFailed: "网络请求失败：{reason}",
     responseNotJson: "响应不是 JSON（HTTP {status}）",
     httpError: "HTTP {status}{detail}",
@@ -303,9 +304,9 @@ const messages = {
     sourceChanged: "时间轴源码已变化，无法安全写入；请重试",
   },
   en: {
-    insertTimelineBlock: "Insert Oneday timeline block",
-    insertTimeline: "Insert Oneday timeline",
-    textSaveFailed: "Oneday hasn't saved the text yet. Your draft is safe; try again shortly.",
+    insertTimelineBlock: "Insert Modular Diary timeline block",
+    insertTimeline: "Insert Modular Diary timeline",
+    textSaveFailed: "Modular Diary hasn't saved the text yet. Your draft is safe; try again shortly.",
     category: "Category",
     statistics: "Statistics",
     quickRecord: "Quick capture",
@@ -327,6 +328,7 @@ const messages = {
     addFirstQuote: "Add your first quote",
     saving: "Saving…",
     saved: "Saved",
+    retrySave: "Not saved · Retry",
     saveFailed: "Couldn't save. Try again.",
     undo: "Undo",
     todayHabits: "Today’s habits",
@@ -423,22 +425,22 @@ const messages = {
     weekdayShort: "MTWTFSS",
     categoryColor: "Category color",
     todoRulesHeading: "Todo rules",
-    todoRulesDescription: "Manage todo goals that accumulate across dates. Create ordinary todos directly inside an Oneday block.",
+    todoRulesDescription: "Manage todo goals that accumulate across dates. Create ordinary todos directly inside a Modular Diary block.",
     addWeeklyTodo: "Add weekly goal",
     timelineSettingsHeading: "Timeline",
-    timelineSettingsDescription: "Set the default visible range for new Oneday blocks. Each block can still be adjusted independently.",
+    timelineSettingsDescription: "Set the default visible range for new Modular Diary blocks. Each block can still be adjusted independently.",
     components: "Components",
     addTextBox: "Add text box",
     showComponent: "Show “{name}”",
     layout: "Layout",
     setDefaultLayout: "Use current layout for new blocks",
     resetLayout: "Rearrange components",
-    openSettings: "Open Oneday settings",
+    openSettings: "Open Modular Diary settings",
     moreActions: "More actions",
     sourceMode: "Source mode",
-    sourceModeDescription: "Edit this Oneday block's Markdown directly",
+    sourceModeDescription: "Edit this Modular Diary block's Markdown directly",
     editSource: "Edit source",
-    sourceBody: "Oneday block source body",
+    sourceBody: "Modular Diary block source body",
     applySource: "Apply",
     cancel: "Cancel",
     sourceShortcut: "⌘/Ctrl + Enter to apply · Esc to cancel",
@@ -463,7 +465,7 @@ const messages = {
     spanTool: "Time span",
     markerTool: "Time point",
     selectDrawTool: "Use the {name} tool",
-    categoryToolbar: "Oneday categories",
+    categoryToolbar: "Modular Diary categories",
     categoryActions: "{name} category actions",
     addFirstCategory: "Add first category",
     selectCategory: "Select the {name} category; right-click to hide",
@@ -485,7 +487,7 @@ const messages = {
     addNote: "Add note",
     changeCategory: "Change category…",
     deleteBlock: "Delete time span",
-    deleteOnedayBlock: "Delete this Oneday block",
+    deleteModularDiaryBlock: "Delete this Modular Diary block",
     moveMarker: "Adjust by dragging",
     exactMarkerTime: "Exact time…",
     deleteMarker: "Delete time point",
@@ -538,7 +540,7 @@ const messages = {
     actionDelete: "deleted {count}",
     actionsSaved: "Saved: {actions}{cost}",
     writeFailed: "Couldn't save changes: {reason}",
-    settingsTitle: "Oneday timeline",
+    settingsTitle: "Modular Diary timeline",
     categoriesHeading: "Time categories",
     categoriesDescription: "Time spans and time points use independent category sets. Renaming or deleting a category preserves its color in older records; categories can also be hidden per block.",
     spanCategoriesHeading: "Time-span categories",
@@ -567,8 +569,8 @@ const messages = {
     processError: "Process error: {reason}",
     cliParseFailed: "Couldn't parse CLI output (exit {code}): {detail}",
     generationFailed: "Generation failed: {reason}",
-    missingApiKey: "Add an API Key in Oneday settings first",
-    missingApiEndpoint: "Add a Base URL and model name in Oneday settings first",
+    missingApiKey: "Add an API Key in Modular Diary settings first",
+    missingApiEndpoint: "Add a Base URL and model name in Modular Diary settings first",
     networkFailed: "Network request failed: {reason}",
     responseNotJson: "Response wasn't JSON (HTTP {status})",
     httpError: "HTTP {status}{detail}",
@@ -600,7 +602,7 @@ const messages = {
     invalidTodoView: "Invalid todo-view rule",
     fileNotFound: "Couldn't find the current note",
     blockNotFound: "Couldn't locate the timeline code block. Switch to Reading view and try again.",
-    sourceChanged: "The timeline source changed, so Oneday couldn't write safely. Try again.",
+    sourceChanged: "The timeline source changed, so Modular Diary couldn't write safely. Try again.",
     timelineSaveFailed: "The timeline change was not written to the file, so the view was restored. Try again and do not restart Obsidian yet.",
   },
 } as const
@@ -608,7 +610,7 @@ const messages = {
 export type MessageKey = keyof typeof messages.zh
 
 /** Keys of one locale, so tests can prove both locales stay key-for-key identical. */
-export function messageKeys(locale: OnedayLocale): string[] {
+export function messageKeys(locale: ModularDiaryLocale): string[] {
   return Object.keys(messages[locale])
 }
 type Vars = Record<string, string | number>
@@ -619,11 +621,11 @@ export function configureI18n(provider: () => string): void {
   languageProvider = provider
 }
 
-export function resolveLocale(language: string): OnedayLocale {
+export function resolveLocale(language: string): ModularDiaryLocale {
   return language.toLowerCase().startsWith("zh") ? "zh" : "en"
 }
 
-export function currentLocale(): OnedayLocale {
+export function currentLocale(): ModularDiaryLocale {
   return resolveLocale(languageProvider())
 }
 

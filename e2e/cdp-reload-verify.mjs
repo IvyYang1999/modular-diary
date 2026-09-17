@@ -16,13 +16,13 @@ await page.evaluate(async (p) => {
 }, target)
 await page.waitForTimeout(2000)
 const probe = await page.evaluate(() => {
-  const hosts = [...document.querySelectorAll(".oneday-host")].filter((h) => h.offsetParent !== null)
+  const hosts = [...document.querySelectorAll(".modular-diary-host")].filter((h) => h.offsetParent !== null)
   return hosts.map((host) => {
     const wrap = host.closest(".cm-embed-block")
     return {
       hostW: Math.round(host.getBoundingClientRect().width),
       wrapW: wrap ? Math.round(wrap.getBoundingClientRect().width) : null,
-      clippedSlots: [...host.querySelectorAll(".oneday-slot")].filter((s) => s.scrollHeight > s.clientHeight + 2).map((s) => s.dataset.slot),
+      clippedSlots: [...host.querySelectorAll(".modular-diary-slot")].filter((s) => s.scrollHeight > s.clientHeight + 2).map((s) => s.dataset.slot),
     }
   })
 })

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { sameBlock, type BlockIdentity } from "./block-edit-state"
 
 describe("timeline edit state ownership", () => {
-  it("does not freeze another Oneday block in the same note", () => {
+  it("does not freeze another Modular Diary block in the same note", () => {
     const owner = {}
     const first: BlockIdentity<object> = { owner, path: "day.md", blockOrdinal: 0 }
     const second: BlockIdentity<object> = { owner, path: "day.md", blockOrdinal: 1 }

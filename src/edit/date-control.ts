@@ -2,7 +2,7 @@ import { currentLocale, t } from "../i18n"
 import { trackAnchor } from "./popover-anchor"
 
 interface DatePopoverElement extends HTMLDivElement {
-  onedayClose?: () => void
+  modularDiaryClose?: () => void
 }
 
 function parseIsoDate(value: string): Date | null {
@@ -41,39 +41,39 @@ function openDatePopover(
   const selected = parseIsoDate(initial)
   if (!domWindow || !selected) return
 
-  dom.querySelectorAll<DatePopoverElement>(".oneday-date-popover").forEach((popover) => {
-    if (popover.onedayClose) popover.onedayClose()
+  dom.querySelectorAll<DatePopoverElement>(".modular-diary-date-popover").forEach((popover) => {
+    if (popover.modularDiaryClose) popover.modularDiaryClose()
     else popover.remove()
   })
-  dom.querySelectorAll<HTMLElement>('.oneday-timeline-date-control[aria-expanded="true"]').forEach((control) => {
+  dom.querySelectorAll<HTMLElement>('.modular-diary-timeline-date-control[aria-expanded="true"]').forEach((control) => {
     control.setAttribute("aria-expanded", "false")
   })
 
   const popover = dom.createElement("div") as DatePopoverElement
-  popover.className = "oneday-date-popover"
+  popover.className = "modular-diary-date-popover"
   popover.setAttribute("role", "dialog")
   popover.setAttribute("aria-label", t("editTimelineDate"))
   popover.tabIndex = -1
 
   const header = dom.createElement("div")
-  header.className = "oneday-date-picker-header"
+  header.className = "modular-diary-date-picker-header"
   const previous = dom.createElement("button")
   previous.type = "button"
-  previous.className = "oneday-date-picker-nav"
+  previous.className = "modular-diary-date-picker-nav"
   previous.textContent = "‹"
   previous.setAttribute("aria-label", t("previousMonth"))
   const title = dom.createElement("div")
-  title.className = "oneday-date-picker-title"
+  title.className = "modular-diary-date-picker-title"
   title.setAttribute("aria-live", "polite")
   const next = dom.createElement("button")
   next.type = "button"
-  next.className = "oneday-date-picker-nav"
+  next.className = "modular-diary-date-picker-nav"
   next.textContent = "›"
   next.setAttribute("aria-label", t("nextMonth"))
   header.append(previous, title, next)
 
   const weekdays = dom.createElement("div")
-  weekdays.className = "oneday-date-picker-weekdays"
+  weekdays.className = "modular-diary-date-picker-weekdays"
   weekdays.setAttribute("aria-hidden", "true")
   const weekdayLabels = currentLocale() === "zh"
     ? ["一", "二", "三", "四", "五", "六", "日"]
@@ -85,7 +85,7 @@ function openDatePopover(
   }
 
   const grid = dom.createElement("div")
-  grid.className = "oneday-date-picker-grid"
+  grid.className = "modular-diary-date-picker-grid"
   grid.setAttribute("role", "grid")
   popover.append(header, weekdays, grid)
   dom.body.appendChild(popover)
@@ -107,7 +107,7 @@ function openDatePopover(
     anchor.setAttribute("aria-expanded", "false")
     if (anchor.isConnected) anchor.focus({ preventScroll: true })
   }
-  popover.onedayClose = finish
+  popover.modularDiaryClose = finish
   const commit = (date: Date): void => {
     const value = formatIsoDate(date)
     finish()
@@ -145,7 +145,7 @@ function openDatePopover(
       const iso = formatIsoDate(date)
       const day = dom.createElement("button")
       day.type = "button"
-      day.className = "oneday-date-picker-day"
+      day.className = "modular-diary-date-picker-day"
       day.textContent = String(date.getDate())
       day.dataset.date = iso
       day.setAttribute("role", "gridcell")
@@ -211,9 +211,9 @@ export function buildTimelineDateControl(
 ): HTMLButtonElement {
   const button = container.ownerDocument.createElement("button")
   button.type = "button"
-  // Do not reuse the settings-page `.oneday-date-control` class: it is a
+  // Do not reuse the settings-page `.modular-diary-date-control` class: it is a
   // full-width wrapping field group, while this control must remain compact.
-  button.className = "oneday-date-row oneday-timeline-date-control"
+  button.className = "modular-diary-date-row modular-diary-timeline-date-control"
   button.textContent = `${date}${weekday ? ` ${weekday}` : ""}`
   button.setAttribute("aria-label", t("editTimelineDateCurrent", { date }))
   button.setAttribute("aria-haspopup", "dialog")

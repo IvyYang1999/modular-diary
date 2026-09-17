@@ -1,32 +1,32 @@
 import { App, Modal } from "obsidian"
-import type OnedayPlugin from "./main"
+import type ModularDiaryPlugin from "./main"
 import { t } from "./i18n"
 import { renderCategorySettings, renderHabitSettings } from "./settings-editors"
 import type { TimelineDrawTool } from "./core/types"
 import { renderDailyQuoteSettings } from "./daily-quote-settings"
 
 abstract class FocusedSettingsModal extends Modal {
-  constructor(app: App, protected readonly plugin: OnedayPlugin) {
+  constructor(app: App, protected readonly plugin: ModularDiaryPlugin) {
     super(app)
   }
 
   protected prepare(title: string, description: string): HTMLElement {
     this.setTitle(title)
-    this.modalEl.classList.add("oneday-settings-modal")
-    this.contentEl.classList.add("oneday-focused-settings")
-    this.contentEl.createEl("p", { cls: "oneday-settings-modal-description", text: description })
-    return this.contentEl.createDiv({ cls: "oneday-settings-modal-editor" })
+    this.modalEl.classList.add("modular-diary-settings-modal")
+    this.contentEl.classList.add("modular-diary-focused-settings")
+    this.contentEl.createEl("p", { cls: "modular-diary-settings-modal-description", text: description })
+    return this.contentEl.createDiv({ cls: "modular-diary-settings-modal-editor" })
   }
 }
 
 export class CategorySettingsModal extends FocusedSettingsModal {
-  constructor(app: App, plugin: OnedayPlugin, private categoryScope: TimelineDrawTool = "span") {
+  constructor(app: App, plugin: ModularDiaryPlugin, private categoryScope: TimelineDrawTool = "span") {
     super(app, plugin)
   }
 
   onOpen(): void {
     const editor = this.prepare(t("categorySettings"), t("categoriesDescription"))
-    const tabs = this.contentEl.createDiv({ cls: "oneday-category-scope-tabs" })
+    const tabs = this.contentEl.createDiv({ cls: "modular-diary-category-scope-tabs" })
     const render = (): void => {
       tabs.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
         const selected = button.dataset.scope === this.categoryScope

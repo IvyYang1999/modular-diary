@@ -34,7 +34,7 @@ function sameBlock<Owner extends object>(
  * Owns viewport snapshots across an Obsidian code-block replacement.
  *
  * A file path is not an identity: the same note may be open in two panes and
- * may contain several Oneday blocks. Records are therefore scoped to the
+ * may contain several Modular Diary blocks. Records are therefore scoped to the
  * concrete MarkdownView plus the rendered block. Repeated writes to the same
  * block keep the first snapshot and merely advance the expected source.
  */

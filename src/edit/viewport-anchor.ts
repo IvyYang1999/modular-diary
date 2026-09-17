@@ -98,8 +98,8 @@ export function stabilizeViewportAnchor(
       observer.disconnect()
       if (!cancelled) requestId = domWindow.requestAnimationFrame(tick)
     })
-    observer.observe(container, { attributes: true, attributeFilter: ["data-oneday-anchor"] })
-    container.dataset.onedayAnchor = String(Date.now())
+    observer.observe(container, { attributes: true, attributeFilter: ["data-modular-diary-anchor"] })
+    container.dataset.modularDiaryAnchor = String(Date.now())
   } else {
     requestId = domWindow.requestAnimationFrame(tick)
   }
