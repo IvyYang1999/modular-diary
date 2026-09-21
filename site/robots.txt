@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://modular-diary.vercel.app/sitemap.xml
+Sitemap: https://modular-diary.yytyyf.com/sitemap.xml

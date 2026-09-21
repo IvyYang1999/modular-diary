@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://modular-diary.vercel.app/?lang=zh</loc>
-    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://modular-diary.vercel.app/?lang=zh" />
-    <xhtml:link rel="alternate" hreflang="en" href="https://modular-diary.vercel.app/en/" />
+    <loc>https://modular-diary.yytyyf.com/?lang=zh</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://modular-diary.yytyyf.com/?lang=zh" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://modular-diary.yytyyf.com/en/" />
   </url>
   <url>
-    <loc>https://modular-diary.vercel.app/en/</loc>
-    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://modular-diary.vercel.app/?lang=zh" />
-    <xhtml:link rel="alternate" hreflang="en" href="https://modular-diary.vercel.app/en/" />
+    <loc>https://modular-diary.yytyyf.com/en/</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://modular-diary.yytyyf.com/?lang=zh" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://modular-diary.yytyyf.com/en/" />
   </url>
 </urlset>
