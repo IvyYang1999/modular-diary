@@ -8,7 +8,7 @@
     "typecheck": "tsc -noEmit -skipLibCheck",
     "bundle": "node esbuild.config.mjs production",
     "build": "npm run typecheck && npm run bundle",
-    "test": "vitest run",
+    "test": "vitest run src && node --test tests/",
     "e2e:smoke": "node e2e/render-smoke.mjs",
     "e2e:agent": "node e2e/agent-smoke.mjs",
     "e2e:api": "node e2e/api-smoke.mjs",
