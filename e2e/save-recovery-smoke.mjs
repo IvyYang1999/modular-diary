@@ -26,7 +26,11 @@ function fixture(initial) {
   const file = new obsidian.TFile()
   const host = { isConnected: false, closest: () => null, querySelector: () => null }
   const view = new obsidian.MarkdownView()
+  // 'source' covers both source mode and Live Preview: the editable panes a
+  // block mutation may be written through. Reading view reports 'preview' and
+  // is excluded, because its editor never reaches disk.
   view.file = { path: 'synthetic.md' }; view.leaf = {}; view.containerEl = { contains: () => false }
+  view.getMode = () => 'source'
   view.editor = {
     getValue: () => content, getLine: n => content.split('\n')[n],
     replaceRange: (insert, from, to) => {
