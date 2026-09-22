@@ -250,6 +250,11 @@ const messages = {
     defaultRange: "默认时间范围（起–止，小时）",
     defaultRangeDescription: "例如 7–23；全天可设为 0–24。单个块可用 range: 覆盖。",
     hourHeight: "每小时高度（px）",
+    bodyTodoSection: "读取的标题",
+    todayTodoHeadingPlaceholder: "今日待办",
+    bodyTodoSectionDescription:
+      "填写日记里待办区的标题（如「今日待办」），该标题下的 - [ ] 会出现在 Todo 组件里，勾选直接写回正文。留空则关闭。",
+    bodyTodoLineGone: "这条待办在正文里已经改动或删除，已刷新。",
     naturalLanguageHeading: "自然语言记录",
     backend: "后端",
     backendDescription: "直接调用模型 API（推荐，填 Key 即可）；或使用本机已安装的 Claude Code",
@@ -551,6 +556,11 @@ const messages = {
     defaultRange: "Default time range (start–end hours)",
     defaultRangeDescription: "For example, 7–23; use 0–24 for a full day. A block-level range: header overrides this setting.",
     hourHeight: "Hour height (px)",
+    bodyTodoSection: "Heading to read",
+    todayTodoHeadingPlaceholder: "Today's todos",
+    bodyTodoSectionDescription:
+      "Name the heading your daily note keeps its todo list under. Every - [ ] below it appears in the Todo component, and ticking one writes straight back to the note. Leave empty to turn this off.",
+    bodyTodoLineGone: "That todo line changed or was removed in the note; the block has been refreshed.",
     naturalLanguageHeading: "Natural-language capture",
     backend: "Backend",
     backendDescription: "Call a model API directly (recommended; just add a key), or use the Claude Code already installed on this computer",
