@@ -39,6 +39,8 @@ export interface TodoViewDeps {
   onToggle: (id: string, completed: boolean) => void | Promise<void>
   onMenu: (item: TodoViewItem, x: number, y: number, edit: () => void) => void
   onMove: (id: string, targetIndex: number) => void
+  /** Block length a note-body todo gets when dragged onto the timeline. */
+  defaultScheduleMinutes?: number
   draft?: NewTodoInput | null
   onDraftChange?: (draft: NewTodoInput | null) => void
   editDraft?: TodoEditDraft | null
@@ -289,13 +291,20 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       })
     })
     const body = row.createDiv({ cls: "modular-diary-todo-body" })
-    if (item.estimateMinutes > 0 && item.type) {
+    // A note-body todo has nowhere to store a category or an estimate, so it
+    // is still draggable: the host resolves the category from the toolbar and
+    // the block gets a default length the reader can then resize.
+    const scheduleMinutes = item.estimateMinutes > 0
+      ? item.estimateMinutes
+      : (item.body === true ? deps.defaultScheduleMinutes ?? 0 : 0)
+    if (scheduleMinutes > 0 && (Boolean(item.type) || item.body === true)) {
       body.classList.add("modular-diary-schedule-source")
       body.dataset.scheduleSource = "todo"
       body.dataset.scheduleId = item.id
       body.dataset.scheduleTitle = item.title
-      body.dataset.scheduleType = item.type
-      body.dataset.scheduleDuration = String(item.estimateMinutes)
+      // Left empty on purpose for a body todo: the drag resolves it live.
+      body.dataset.scheduleType = item.type ?? ""
+      body.dataset.scheduleDuration = String(scheduleMinutes)
     }
     body.createEl("span", { cls: "modular-diary-item-title", text: item.title })
     // The category only showed as the progress bar's colour, which says

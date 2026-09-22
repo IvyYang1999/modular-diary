@@ -70,6 +70,8 @@ import { renderDailyQuoteInto } from "./render/daily-quote-view"
 import { dailyQuoteForDate, normalizeDailyQuoteDefinition, resolveQuoteInk } from "./core/daily-quotes"
 /** Quote slot default height: header + two lines of sentence + source, on the 20px grid. */
 const QUOTE_ROWS = 6
+/** Length a note-body todo gets when dragged onto the axis; resize from there. */
+const DEFAULT_BODY_TODO_SCHEDULE_MINUTES = 60
 import { createPointerRedrawGate } from "./edit/pointer-interaction"
 import { attachTimelineScheduleDrag } from "./edit/timeline-schedule-drag"
 import { buildTodoGroupMenuOptions, buildTodoSortMenuOptions } from "./edit/block-menu-model"
@@ -946,9 +948,14 @@ export default class ModularDiaryPlugin extends Plugin {
           completed: todo.completed,
           weekly: false,
           body: true,
-          // A `- [ ]` line stores neither category nor estimate.
+          // A `- [ ]` line stores neither category nor estimate. Blocks
+          // dragged out of the row bind back to it, so both can be read off
+          // them once the todo has been planned.
+          type: doc.entries.find((entry) => entry.todoId === todo.id && entry.type)?.type,
           estimateMinutes: 0,
-          actualMinutes: 0,
+          actualMinutes: doc.entries
+            .filter((entry) => !entry.plan && entry.todoId === todo.id)
+            .reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0),
         })),
       ]
       const bodyTodoById = new Map(bodyTodos.map((todo) => [todo.id, todo]))
@@ -971,6 +978,7 @@ export default class ModularDiaryPlugin extends Plugin {
           categories: spanPaletteTypes,
           typeColors: spanPaletteForRender,
           view: doc.todoView,
+          defaultScheduleMinutes: DEFAULT_BODY_TODO_SCHEDULE_MINUTES,
           draft: ownerDrafts.get(draftId) ?? null,
           onDraftChange: (draft) => {
             if (draft) ownerDrafts?.set(draftId, { ...draft })
@@ -1332,6 +1340,9 @@ export default class ModularDiaryPlugin extends Plugin {
         attachTimelineScheduleDrag(container, doc, {
           hourHeight: this.settings.hourHeight,
           typeColor: (type) => spanPaletteForRender[type] ?? hashTypeColor(type),
+          // A note-body todo stores no category; it follows the highlighter
+          // selected in the toolbar at the moment of the drag.
+          defaultType: () => blockActiveSpanType || spanPaletteTypes[0] || "",
           onCreate: (plan) => {
             clearBlockEditState()
             void this.applyBlockTransform(el, ctx, source, (value) => insertEntryLine(
