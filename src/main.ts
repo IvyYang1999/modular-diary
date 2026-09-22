@@ -1732,6 +1732,20 @@ export default class ModularDiaryPlugin extends Plugin {
     return views
   }
 
+  /**
+   * Panes a block mutation may be written through.
+   *
+   * Reading view exposes an `editor`, but it is a detached backing document:
+   * a transaction applied to it never reaches disk and `view.save()` has
+   * nothing to flush, so the write silently fails its persistence check. Such
+   * a pane also holds no unsaved state, which makes `vault.process` both the
+   * only path that works and a safe one. Live Preview reports "source" and
+   * still takes the editor transaction, keeping Ctrl+Z intact.
+   */
+  private editableMarkdownViews(path: string): MarkdownView[] {
+    return this.markdownViews(path).filter((view) => view.getMode() === "source")
+  }
+
   private owningMarkdownView(path: string, target: HTMLElement): MarkdownView | null {
     return findOwningView(path, target, this.markdownViews(path))
   }
@@ -1746,7 +1760,7 @@ export default class ModularDiaryPlugin extends Plugin {
     ctx: MarkdownPostProcessorContext,
   ): ScrollTransactionKey<object> {
     const section = ctx.getSectionInfo(el)
-    const views = this.markdownViews(ctx.sourcePath)
+    const views = this.editableMarkdownViews(ctx.sourcePath)
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
     const view = chooseMutationView(ctx.sourcePath, el, views, activeView)
     return this.scrollTransactionKey(
@@ -1804,7 +1818,7 @@ export default class ModularDiaryPlugin extends Plugin {
     const section = ctx.getSectionInfo(el)
     if (!section) throw new Error(tr("blockNotFound"))
 
-    const views = this.markdownViews(ctx.sourcePath)
+    const views = this.editableMarkdownViews(ctx.sourcePath)
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
     const view = chooseMutationView(ctx.sourcePath, el, views, activeView)
     if (view) {
@@ -1874,7 +1888,7 @@ export default class ModularDiaryPlugin extends Plugin {
     const file = this.app.vault.getAbstractFileByPath(key.path)
     if (!(file instanceof TFile)) throw new Error(tr("fileNotFound"))
 
-    const views = this.markdownViews(key.path)
+    const views = this.editableMarkdownViews(key.path)
     // The MarkdownView object can be replaced while Obsidian rebuilds a leaf.
     // A sole same-path pane is still unambiguous; with multiple panes we must
     // keep failing closed rather than write another pane's unsaved document.
@@ -1978,7 +1992,7 @@ export default class ModularDiaryPlugin extends Plugin {
     // 优先走编辑器事务（进 CM6 撤销栈，Ctrl+Z 可撤回，yyt 2026-08-17）；
     // 找不到打开的编辑器再退回 vault.process。关键点：每次都从当前编辑器/文件
     // 重新读取块正文，不能用 render 时捕获的 source 覆盖刚刚保存的文字。
-    const views = this.markdownViews(ctx.sourcePath)
+    const views = this.editableMarkdownViews(ctx.sourcePath)
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
     const view = chooseMutationView(ctx.sourcePath, el, views, activeView)
     if (view) {
