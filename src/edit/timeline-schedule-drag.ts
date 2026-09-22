@@ -62,19 +62,25 @@ export interface TimelineScheduleDragDeps {
   hourHeight: number
   typeColor: (type: string) => string
   onCreate: (plan: ScheduledPlan) => void
+  /**
+   * Category for rows that carry none of their own — a note-body todo has no
+   * place to store one. Read at drag time, not at attach time, so picking a
+   * different highlighter in the toolbar takes effect without a re-render.
+   */
+  defaultType?: () => string
 }
 
 const SVGNS = "http://www.w3.org/2000/svg"
 const START_THRESHOLD_PX = 4
 
-function itemFromSource(source: HTMLElement): TimelineScheduleItem | null {
+function itemFromSource(source: HTMLElement, defaultType?: () => string): TimelineScheduleItem | null {
   const durationMin = Number(source.dataset.scheduleDuration)
   const kind = source.dataset.scheduleSource
   const item = {
     source: kind === "habit" ? "habit" as const : kind === "todo" ? "todo" as const : null,
     id: source.dataset.scheduleId?.trim() ?? "",
     title: source.dataset.scheduleTitle?.trim() ?? "",
-    type: source.dataset.scheduleType?.trim() ?? "",
+    type: source.dataset.scheduleType?.trim() || (defaultType?.() ?? ""),
     durationMin,
   }
   return item.source && item.id && item.title && item.type && scheduledDurationMinutes(durationMin) !== null
@@ -103,12 +109,18 @@ export function attachTimelineScheduleDrag(
   const trackW = Number(track.getAttribute("width"))
 
   container.querySelectorAll<HTMLElement>(".modular-diary-schedule-source").forEach((source) => {
-    const item = itemFromSource(source)
-    if (!item) return
-    source.setAttribute("aria-label", t("dragToTimeline", { name: item.title }))
+    const baseItem = itemFromSource(source, deps.defaultType)
+    if (!baseItem) return
+    source.setAttribute("aria-label", t("dragToTimeline", { name: baseItem.title }))
 
     source.addEventListener("pointerdown", (event: PointerEvent) => {
       if (event.button !== 0) return
+      // Re-resolve the category now: a row without one of its own follows
+      // whichever highlighter the toolbar has selected at this moment.
+      const item: TimelineScheduleItem = {
+        ...baseItem,
+        type: source.dataset.scheduleType?.trim() || deps.defaultType?.() || baseItem.type,
+      }
       event.preventDefault()
       event.stopPropagation()
       const pointerId = event.pointerId
