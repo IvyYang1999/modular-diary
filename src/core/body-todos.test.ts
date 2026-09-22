@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { parseBodyTodos, setBodyTodoCompleted } from "./body-todos"
+import { appendBodyTodo, parseBodyTodos, removeBodyTodo, setBodyTodoCompleted, setBodyTodoTitle } from "./body-todos"
 
 const NOTE = [
   "---",
@@ -87,13 +87,46 @@ describe("writing back", () => {
     expect(undone).toContain("- [ ] 对一下 tiiny verse 的需求")
   })
 
+  it("renames without touching the checkbox state or the anchor", () => {
+    const anchored = parseBodyTodos(NOTE, "今日待办")[2]
+    const next = setBodyTodoTitle(NOTE, anchored, "CS336 第 3 讲")
+    expect(next).toContain("- [ ] CS336 第 3 讲 ^td-cs336")
+  })
+
+  it("deletes the line", () => {
+    const next = removeBodyTodo(NOTE, item())
+    expect(next).not.toContain("对一下 tiiny verse 的需求")
+    expect(next).toContain("把 tiiny image 上次的需求")
+  })
+
   it("re-finds the line when the note shifted above it", () => {
     const shifted = `新加的一行\n${NOTE}`
     expect(setBodyTodoCompleted(shifted, item(), true)).toContain("- [x] 对一下 tiiny verse 的需求")
   })
 
   it("returns null when the line is gone", () => {
-    const gone = NOTE.replace("- [ ] 对一下 tiiny verse 的需求\n", "")
+    const gone = removeBodyTodo(NOTE, item()) ?? ""
     expect(setBodyTodoCompleted(gone, item(), true)).toBeNull()
+  })
+})
+
+describe("appendBodyTodo", () => {
+  it("adds after the section's last checkbox, inside the section", () => {
+    const next = appendBodyTodo(NOTE, "今日待办", "跑一下租卡") ?? ""
+    const lines = next.split("\n")
+    const added = lines.indexOf("- [ ] 跑一下租卡")
+    expect(added).toBeGreaterThan(lines.indexOf("  - [ ] 缩进的子项也算"))
+    expect(added).toBeLessThan(lines.indexOf("# 今日日记"))
+    expect(parseBodyTodos(next, "今日待办").map((t) => t.title)).toContain("跑一下租卡")
+  })
+
+  it("starts the list under the heading when there is none", () => {
+    const empty = "# 今日待办\n\n# 今日日记\n"
+    expect(appendBodyTodo(empty, "今日待办", "第一条")).toBe("# 今日待办\n\n- [ ] 第一条\n# 今日日记\n")
+  })
+
+  it("returns null for a missing section or an empty title", () => {
+    expect(appendBodyTodo(NOTE, "不存在", "x")).toBeNull()
+    expect(appendBodyTodo(NOTE, "今日待办", "   ")).toBeNull()
   })
 })

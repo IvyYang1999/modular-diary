@@ -149,3 +149,59 @@ export function setBodyTodoCompleted(
   })
 }
 
+export function setBodyTodoTitle(
+  source: string,
+  item: Pick<BodyTodoItem, "line" | "raw">,
+  title: string
+): string | null {
+  const clean = title.trim()
+  if (clean === "") return null
+  return editLine(source, item, (line) => {
+    const box = CHECKBOX.exec(line)
+    if (!box) return null
+    // Keep the anchor: other notes may link to this line.
+    const anchor = BLOCK_ID.exec(box[4])?.[0].trimEnd() ?? ""
+    return `${box[1]}${box[2]}${box[3]}${clean}${anchor ? ` ${anchor.trim()}` : ""}`
+  })
+}
+
+/**
+ * Append `- [ ] title` to the section, after its last checkbox so a new item
+ * lands at the bottom of the existing list. With no list yet it goes directly
+ * under the section heading. Returns null when the section is missing.
+ */
+export function appendBodyTodo(source: string, section: string, title: string): string | null {
+  const clean = title.trim()
+  const wanted = section.trim()
+  if (clean === "" || wanted === "") return null
+  const lines = source.split("\n")
+  const existing = parseBodyTodos(source, wanted)
+  let at: number
+  let bullet = "- [ ] "
+  if (existing.length > 0) {
+    const last = existing[existing.length - 1]
+    at = last.line + 1
+    // Take the marker and indentation from the first item: the last one may be
+    // a nested sub-task, and a new todo belongs at the list's own level.
+    bullet = `${/^(\s*[-*+]\s+)\[/.exec(existing[0].raw)?.[1] ?? "- "}[ ] `
+  } else {
+    const heading = lines.findIndex((line) => {
+      const match = HEADING.exec(line)
+      return match !== null && match[2].trim() === wanted
+    })
+    if (heading === -1) return null
+    at = heading + 1
+    // Keep one blank line of breathing room under the heading if it has one.
+    if (lines[at]?.trim() === "") at += 1
+  }
+  lines.splice(at, 0, `${bullet}${clean}`)
+  return lines.join("\n")
+}
+
+export function removeBodyTodo(source: string, item: Pick<BodyTodoItem, "line" | "raw">): string | null {
+  const lines = source.split("\n")
+  const at = locate(lines, item)
+  if (at === -1) return null
+  lines.splice(at, 1)
+  return lines.join("\n")
+}

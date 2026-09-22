@@ -57,7 +57,13 @@ import {
 import { habitProgress, isHabitDue, moveHabitInVisibleOrder, normalizeHabitDefinition, orderedHabits, type HabitDefinition } from "./core/habits"
 import { extractDatedTimelineEntries, filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledger"
 import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics } from "./core/todos"
-import { parseBodyTodos, setBodyTodoCompleted } from "./core/body-todos"
+import {
+  appendBodyTodo,
+  parseBodyTodos,
+  removeBodyTodo,
+  setBodyTodoCompleted,
+  setBodyTodoTitle,
+} from "./core/body-todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
 import { renderDailyQuoteInto } from "./render/daily-quote-view"
@@ -1010,6 +1016,15 @@ export default class ModularDiaryPlugin extends Plugin {
             menu.showAtPosition({ x, y }, dom)
           },
           onAdd: (input) => {
+            // With a note section configured, a plain todo belongs in the
+            // note's own list. One with an estimate or a category still needs
+            // the block, which is the only place those can be stored.
+            const section = this.settings.bodyTodoSection
+            if (section && input.estimateMinutes <= 0 && !input.type) {
+              void this.applyBodyTodoEdit(ctx.sourcePath, (content) =>
+                appendBodyTodo(content, section, input.title))
+              return
+            }
             const value = {
               id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
               title: input.title, group: "", type: input.type,
@@ -1020,6 +1035,14 @@ export default class ModularDiaryPlugin extends Plugin {
             ))
           },
           onEdit: (id, input) => {
+            const inNote = bodyTodoById.get(id)
+            if (inNote) {
+              // A body todo has no estimate or category to store; the title
+              // is the whole line, so that is all an edit can change.
+              void this.applyBodyTodoEdit(ctx.sourcePath, (content) =>
+                setBodyTodoTitle(content, inNote, input.title))
+              return
+            }
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
             if (weekly) {
               weekly.title = input.title
@@ -1043,6 +1066,9 @@ export default class ModularDiaryPlugin extends Plugin {
             return this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, id, { completed }))
           },
           onMove: (id, targetIndex) => {
+            // Body todos keep the note's own order; dragging one would have to
+            // move a line the user owns, so it stays put.
+            if (bodyTodoById.has(id)) return
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
             if (weekly) {
               const ordered = [...this.settings.weeklyTodos].sort((a, b) => a.order - b.order)
@@ -1065,6 +1091,11 @@ export default class ModularDiaryPlugin extends Plugin {
                 void this.saveSettings({ rerender: true })
               }))
             } else menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => {
+              const inNote = bodyTodoById.get(todo.id)
+              if (inNote) {
+                void this.applyBodyTodoEdit(ctx.sourcePath, (content) => removeBodyTodo(content, inNote))
+                return
+              }
               void this.applyBlockTransform(el, ctx, source, (value) => deleteTodo(value, todo.id))
             }))
             menu.showAtPosition({ x, y }, dom)
