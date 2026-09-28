@@ -63,6 +63,8 @@ import { learnTagCategories, tagCategory } from "./core/tags"
 import { formatPeriodSpec, goalProgress, periodTotals, resolvePeriod, shiftPeriod } from "./core/period"
 import { POOL_ZONE, renderPeriodInto, type PeriodDayView, type PeriodViewModel } from "./render/period-view"
 import { buildScheduledPlan } from "./edit/timeline-schedule-drag"
+import { setNotePopoverTagSuggest } from "./edit/note-popover"
+import type { TagSuggestDeps } from "./edit/tag-suggest"
 
 /** Obsidian ships moment on window; the typed `moment` export is not callable without esModuleInterop. */
 type MomentLike = (input: string, format: string) => { format: (momentFormat: string) => string }
@@ -154,6 +156,7 @@ export default class ModularDiaryPlugin extends Plugin {
   private readonly ledgerModifiedPaths = new Set<string>()
   /** Cross-day reads (weekly goals, push to tomorrow) go through this incremental index. */
   private readonly dayIndex = new DayIndex()
+  private readonly backfilling = new WeakSet<HTMLElement>()
   private dayIndexSeeded = false
   private dayIndexRefresh: Promise<void> | null = null
   private ledgerRefreshTimer = 0
@@ -232,6 +235,7 @@ export default class ModularDiaryPlugin extends Plugin {
         insertTimelineBlock(editor, this.app.workspace.getActiveFile()?.basename ?? null, this.insertTemplate())
       },
     })
+    setNotePopoverTagSuggest(this.tagSuggestDeps())
     this.addCommand({
       id: "insert-period-block",
       name: tr("insertPeriodBlock"),
@@ -507,6 +511,20 @@ export default class ModularDiaryPlugin extends Plugin {
       const showTimelineOnboarding = onboardingDecision === "show"
       const dateStr = this.blockDate(doc, ctx.sourcePath)
       // A tag first seen on a categorized block adopts that category (yyt 2026-09-28).
+      // A day whose block is still empty is refilled from todos pushed to it
+      // from other days or period blocks; a day with content is left alone,
+      // so a deliberate delete on that day stays deleted.
+      if (dateStr && doc.todos.length === 0 && doc.entries.length === 0 && doc.spans.length === 0 && this.dayIndexReady() && !this.backfilling.has(el)) {
+        const arrivals = this.dayIndex.arrivalsFor(dateStr)
+        if (arrivals.length > 0) {
+          this.backfilling.add(el)
+          void this.applyBlockTransform(el, ctx, source, (current) => arrivals.reduce((out, todo) =>
+            this.parse(out).todos.some((own) => own.id === todo.id) ? out : insertTodo(out, {
+              id: todo.id, title: todo.title, group: todo.group, type: todo.type, estimateMin: todo.estimateMin, completed: false, due: todo.due,
+            }), current)).catch((error: unknown) => console.error("Modular Diary: failed to refill a recreated day", error))
+            .finally(() => this.backfilling.delete(el))
+        }
+      }
       const learnedTags = learnTagCategories(doc, this.settings.tagCategories)
       if (Object.keys(learnedTags).length > 0) {
         this.settings.tagCategories = { ...this.settings.tagCategories, ...learnedTags }
@@ -948,7 +966,7 @@ export default class ModularDiaryPlugin extends Plugin {
       const todoViewItems: TodoViewItem[] = [
         ...doc.todos.map((todo) => {
           const metrics = todoMetrics(todo, doc.entries)
-          return { ...todo, weekly: false, estimateMinutes: metrics.estimateMinutes, actualMinutes: metrics.actualMinutes }
+          return { ...todo, weekly: false, estimateMinutes: metrics.estimateMinutes, actualMinutes: metrics.actualMinutes, movedTo: todo.moved }
         }),
         ...dueWeeklyTodos.map((todo) => {
           const actualMinutes = weeklyEntries
@@ -978,6 +996,7 @@ export default class ModularDiaryPlugin extends Plugin {
         renderTodosInto(todosSlot, todoViewItems, {
           categories: spanPaletteTypes,
           tagStyle,
+          tagSuggest: this.tagSuggestDeps(),
           typeColors: spanPaletteForRender,
           view: doc.todoView,
           draft: ownerDrafts.get(draftId) ?? null,
@@ -1074,19 +1093,37 @@ export default class ModularDiaryPlugin extends Plugin {
                 stored.endDate = this.previousDate(dateStr)
                 void this.saveSettings({ rerender: true })
               }))
+            } else if (todo.movedTo) {
+              const movedTo = todo.movedTo
+              menu.addItem((item) => item.setTitle(tr("recallTodo")).setIcon("undo-2").onClick(() => {
+                void (async () => {
+                  try {
+                    await this.writeToDay(movedTo, (blockSource) => deleteTodo(blockSource, todo.id))
+                    await this.applyBlockTransform(el, ctx, source, (current) => updateTodo(current, todo.id, { moved: undefined }))
+                  } catch (error) {
+                    console.error("Modular Diary: failed to recall a pushed todo", error)
+                    if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("periodWriteFailed", { date: movedTo }))
+                  }
+                })()
+              }))
+              menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => {
+                void this.applyBlockTransform(el, ctx, source, (value) => deleteTodo(value, todo.id))
+              }))
             } else {
               if (dateStr) menu.addItem((item) => item.setTitle(tr("pushTodoToTomorrow")).setIcon("calendar-plus").onClick(() => {
                 const target = shiftDate(dateStr, 1)
                 const value = {
                   id: todo.id, title: todo.title, group: todo.group, type: todo.type,
-                  estimateMin: todo.estimateMinutes, completed: false,
+                  estimateMin: todo.estimateMinutes, completed: false, due: doc.todos.find((own) => own.id === todo.id)?.due,
                 }
                 void (async () => {
                   try {
-                    // Tomorrow first: if that write fails the todo is still here.
+                    // Tomorrow first: if that write fails nothing here changes.
+                    // Today's line stays as a shadow (moved=) so the push survives
+                    // tomorrow's note being deleted and recreated.
                     await this.writeToDay(target, (blockSource) =>
-                      parseTimeline(blockSource).todos.some((existing) => existing.id === todo.id) ? blockSource : insertTodo(blockSource, value))
-                    await this.applyBlockTransform(el, ctx, source, (current) => deleteTodo(current, todo.id))
+                      this.parse(blockSource).todos.some((existing) => existing.id === todo.id) ? blockSource : insertTodo(blockSource, value))
+                    await this.applyBlockTransform(el, ctx, source, (current) => updateTodo(current, todo.id, { moved: target }))
                     new Notice(tr("pushedTodoToDay", { date: target }))
                   } catch (error) {
                     console.error("Modular Diary: failed to push todo to tomorrow", error)
@@ -1746,6 +1783,22 @@ export default class ModularDiaryPlugin extends Plugin {
     return shiftDate(date, -1)
   }
 
+  /** Every tag the vault has used, settings first, for `#` completion. */
+  private knownTags(): string[] {
+    const seen = new Set<string>(Object.keys(this.settings.tagCategories))
+    for (const block of this.dayIndex.allBlocks()) {
+      for (const entry of block.entries) for (const tag of entry.tags) seen.add(tag)
+      for (const span of block.spans) for (const tag of span.tags) seen.add(tag)
+      for (const todo of block.todos) for (const tag of todo.tags ?? []) seen.add(tag)
+    }
+    if (!this.dayIndexReady()) void this.refreshDayIndex()
+    return [...seen]
+  }
+
+  private tagSuggestDeps(): TagSuggestDeps {
+    return { tags: () => this.knownTags(), tagStyle: (tag) => this.tagStyle(tag) }
+  }
+
   private tagStyle(tag: string): { background: string; color: string } | null {
     const category = tagCategory(tag, this.settings.tagCategories)
     const color = category ? (this.settings.spanTypeColors[category] ?? this.settings.spanRetiredTypeColors[category]) : undefined
@@ -1770,13 +1823,13 @@ export default class ModularDiaryPlugin extends Plugin {
         date,
         entries: blocks.flatMap((block) => block.entries),
         spans: blocks.flatMap((block) => block.spans),
-        todos: blocks.flatMap((block) => block.todos),
+        todos: blocks.flatMap((block) => block.todos).filter((todo) => !todo.moved),
         hasNote: blocks.length > 0,
       }
     })
     const model: PeriodViewModel = {
       spec: period, period: resolved, today,
-      goals: goalProgress(doc.goals, days), totals: periodTotals(days), pool: doc.todos, days,
+      goals: goalProgress(doc.goals, days), totals: periodTotals(days), pool: doc.todos.filter((todo) => !todo.moved), days,
       rangeStartMin: this.settings.rangeStartHour * 60, rangeEndMin: this.settings.rangeEndHour * 60,
       indexReady: ready,
     }
@@ -1815,7 +1868,8 @@ export default class ModularDiaryPlugin extends Plugin {
     const hasTodo = (blockSource: string): boolean => this.parse(blockSource).todos.some((item) => item.id === id)
     try {
       if (to === POOL_ZONE) {
-        await this.applyBlockTransform(el, ctx, source, (current) => hasTodo(current) ? current : insertTodo(current, value))
+        // Back in the pool the shadow (if any) becomes the real todo again.
+        await this.applyBlockTransform(el, ctx, source, (current) => hasTodo(current) ? updateTodo(current, id, { moved: undefined }) : insertTodo(current, value))
         if (from !== POOL_ZONE) await this.writeToDay(from, (blockSource) => deleteTodo(blockSource, id))
         return
       }
@@ -1834,8 +1888,9 @@ export default class ModularDiaryPlugin extends Plugin {
         return out
       })
       if (from !== to) {
-        if (from === POOL_ZONE) await this.applyBlockTransform(el, ctx, source, (current) => deleteTodo(current, id))
-        else await this.writeToDay(from, (blockSource) => deleteTodo(blockSource, id))
+        // The origin keeps a shadow pointing at the destination (see TodoItem.moved).
+        if (from === POOL_ZONE) await this.applyBlockTransform(el, ctx, source, (current) => updateTodo(current, id, { moved: to }))
+        else await this.writeToDay(from, (blockSource) => updateTodo(blockSource, id, { moved: to }))
       }
     } catch (error) {
       console.error("Modular Diary: failed to move a period todo", error)

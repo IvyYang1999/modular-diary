@@ -56,4 +56,12 @@ describe("todo due date", () => {
     expect(parseTodoHeaderValue('id="t8" done=false estimate=60 category="" group="" due=tomorrow title="x"', 0)).toBeNull()
     expect(parseTodoHeaderValue('id="t8" done=false estimate=60 category="" group="" color=red title="x"', 0)).toBeNull()
   })
+
+  it("keeps a moved= shadow and rejects malformed ones", () => {
+    const todo = parseTodoHeaderValue('id="t1" done=false estimate=30 category="" group="" moved=2026-10-01 title="回邮件"', 0)
+    expect(todo?.moved).toBe("2026-10-01")
+    expect(formatTodoHeaderValue(todo!)).toContain(" moved=2026-10-01 ")
+    expect(formatTodoHeaderValue({ ...todo!, moved: undefined })).not.toContain("moved=")
+    expect(parseTodoHeaderValue('id="t1" done=false estimate=30 category="" group="" moved=soon title="x"', 0)).toBeNull()
+  })
 })

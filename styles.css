@@ -4301,3 +4301,51 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
   background: var(--interactive-accent); color: var(--text-on-accent);
 }
 .modular-diary-period.is-dragging { cursor: grabbing; }
+
+/* A todo pushed to another day stays as a quiet shadow with a badge. */
+.modular-diary-todo-row.is-moved .modular-diary-item-title,
+.modular-diary-todo-row.is-moved .modular-diary-item-meta { color: var(--text-muted); }
+.modular-diary-todo-row.is-moved .modular-diary-todo-check { opacity: 0.45; }
+.modular-diary-todo-moved {
+  display: inline-block;
+  margin-left: 0.4em;
+  padding: 0 0.5em;
+  border-radius: 999px;
+  font-size: 0.78em;
+  font-weight: 500;
+  line-height: 1.6;
+  vertical-align: 0.1em;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--interactive-accent) 16%, var(--background-primary));
+  color: var(--text-accent);
+}
+
+/* `#` autocomplete: the options are the badges they will become. */
+.modular-diary-tag-suggest {
+  position: fixed;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 280px;
+  padding: 4px;
+  border-radius: var(--modular-diary-radius-group, 7px);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: var(--shadow-s, 0 6px 20px rgba(0, 0, 0, 0.14));
+}
+.modular-diary-tag-suggest-item {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: var(--modular-diary-radius-control, 5px);
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--font-ui-small);
+}
+.modular-diary-tag-suggest-item.is-active,
+.modular-diary-tag-suggest-item:hover { background: var(--background-modifier-hover); }

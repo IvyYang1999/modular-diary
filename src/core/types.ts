@@ -93,6 +93,12 @@ export interface TodoItem {
   tags?: string[]
   /** Deadline (YYYY-MM-DD); a period block flags it on that day. */
   due?: string
+  /**
+   * The day this todo was pushed to. The line stays where it was as a
+   * durable shadow: it shows "moved" here, and it refills the destination if
+   * that day's note is ever recreated empty.
+   */
+  moved?: string
   line: number
 }
 

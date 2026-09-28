@@ -12,6 +12,7 @@ import type { DatedTimelineEntries } from "./weekly-ledger"
 export interface IndexedBlock {
   path: string
   basename: string
+  /** "" for a period block (`days:`), which owns todos but no day. */
   date: string
   /** Position among the note's timeline fences. */
   ordinal: number
@@ -25,8 +26,8 @@ export function extractIndexedBlocks(path: string, basename: string, content: st
   let ordinal = 0
   for (const fence of timelineFences(content)) {
     const doc = parseTimeline(fence.source)
-    const date = doc.period ? null : (doc.date ?? dateFromBasename(basename))
-    if (date) out.push({ path, basename, date, ordinal, entries: doc.entries, spans: doc.spans, todos: doc.todos })
+    const date = doc.period ? "" : (doc.date ?? dateFromBasename(basename))
+    if (date !== null) out.push({ path, basename, date, ordinal, entries: doc.period ? [] : doc.entries, spans: doc.period ? [] : doc.spans, todos: doc.todos })
     ordinal += 1
   }
   return out
@@ -64,7 +65,22 @@ export class DayIndex {
 
   blocksForDate(date: string): IndexedBlock[] {
     const out: IndexedBlock[] = []
+    if (!date) return out
     for (const blocks of this.files.values()) for (const block of blocks) if (block.date === date) out.push(block)
+    return out
+  }
+
+  allBlocks(): IndexedBlock[] {
+    return [...this.files.values()].flat()
+  }
+
+  /** Todos pushed to `date` from any other day or period block; the shadows that can refill it. */
+  arrivalsFor(date: string): TodoItem[] {
+    const out: TodoItem[] = []
+    for (const blocks of this.files.values()) for (const block of blocks) {
+      if (block.date === date) continue
+      for (const todo of block.todos) if (todo.moved === date) out.push(todo)
+    }
     return out
   }
 
@@ -84,7 +100,7 @@ export class DayIndex {
   /** Compatibility shape for the weekly habit ledger. */
   datedEntries(): DatedTimelineEntries[] {
     const out: DatedTimelineEntries[] = []
-    for (const blocks of this.files.values()) for (const block of blocks) out.push({ date: block.date, entries: block.entries })
+    for (const blocks of this.files.values()) for (const block of blocks) if (block.date) out.push({ date: block.date, entries: block.entries })
     return out
   }
 }

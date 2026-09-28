@@ -5,6 +5,7 @@ import { t } from "../i18n"
 import { attachPointerRowSort } from "../edit/row-sort"
 import { appendSixDotGrip } from "./grip"
 import { TAG_RE } from "../core/tags"
+import { attachTagSuggest, type TagSuggestDeps } from "../edit/tag-suggest"
 
 export interface TodoViewItem {
   id: string
@@ -15,6 +16,8 @@ export interface TodoViewItem {
   weekly: boolean
   estimateMinutes: number
   actualMinutes: number
+  /** Pushed to another day: shown here as a shadow, not counted, not schedulable. */
+  movedTo?: string
 }
 
 export interface NewTodoInput {
@@ -40,6 +43,8 @@ export interface TodoViewDeps {
   onMove: (id: string, targetIndex: number) => void
   /** Badge colours for a `#tag`; null paints the neutral, independent badge. */
   tagStyle?: (tag: string) => { background: string; color: string } | null
+  /** `#` autocomplete for the title inputs. */
+  tagSuggest?: TagSuggestDeps
   draft?: NewTodoInput | null
   onDraftChange?: (draft: NewTodoInput | null) => void
   editDraft?: TodoEditDraft | null
@@ -59,6 +64,7 @@ function createTodoForm(
   onSubmit: (input: NewTodoInput) => void,
   onClose?: () => void,
   onDraftChange?: (draft: NewTodoInput | null) => void,
+  tagSuggest?: TagSuggestDeps,
 ): TodoFormController {
   const form = parent.createEl("form", { cls: `modular-diary-todo-form ${className}` })
   // Chromium validates before `submit`, which would replace our interaction
@@ -67,6 +73,7 @@ function createTodoForm(
   form.noValidate = true
   form.hidden = true
   const title = form.createEl("input", { cls: "modular-diary-todo-title-input", attr: { type: "text", placeholder: t("todoTitle") } })
+  if (tagSuggest) attachTagSuggest(title, tagSuggest)
   const category = form.createEl("select", { cls: "modular-diary-todo-category-select", attr: { "aria-label": t("category") } })
   const fillCategories = (selected?: string): void => {
     category.replaceChildren()
@@ -187,8 +194,9 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   const canDrag = deps.view.groupBy === "none" && deps.view.sortBy === "manual"
   const header = root.createDiv({ cls: "modular-diary-component-header" })
   header.createEl("span", { cls: "modular-diary-component-title", text: t("todoList") })
-  const completedAtRender = items.filter((item) => item.completed).length
-  const count = header.createEl("span", { cls: "modular-diary-component-count", text: `${completedAtRender}/${items.length}` })
+  const counted = items.filter((item) => !item.movedTo)
+  const completedAtRender = counted.filter((item) => item.completed).length
+  const count = header.createEl("span", { cls: "modular-diary-component-count", text: `${completedAtRender}/${counted.length}` })
   const actions = header.createDiv({ cls: "modular-diary-component-actions" })
   const group = actions.createEl("button", { attr: { type: "button", "aria-label": t("todoGroupRule") } })
   setIcon(group, "list-tree")
@@ -206,7 +214,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   const add = actions.createEl("button", { attr: { type: "button", "aria-label": t("addTodo") } })
   setIcon(add, "plus")
 
-  const addForm = createTodoForm(root, deps.categories, "modular-diary-todo-add-form", deps.onAdd, undefined, deps.onDraftChange)
+  const addForm = createTodoForm(root, deps.categories, "modular-diary-todo-add-form", deps.onAdd, undefined, deps.onDraftChange, deps.tagSuggest)
   add.addEventListener("click", () => addForm.form.hidden
     ? addForm.open({ title: "", estimateMinutes: 30, estimateUnit: "minutes" })
     : addForm.close())
@@ -239,7 +247,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       list.createEl("span", { cls: "modular-diary-todo-group", text: groupName })
       lastGroup = groupName
     }
-    const row = list.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${canDrag ? " is-manual" : ""}` })
+    const row = list.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${canDrag ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
     row.tabIndex = 0
     const drag = canDrag ? row.createEl("button", { cls: "modular-diary-item-drag modular-diary-todo-drag", attr: { type: "button", "aria-label": t("dragTodo", { name: item.title }) } }) : null
     if (drag) {
@@ -259,6 +267,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       (input) => deps.onEdit(item.id, input),
       () => row.classList.remove("is-editing"),
       (draft) => deps.onEditDraftChange?.(draft ? { id: item.id, input: draft } : null),
+      deps.tagSuggest,
     )
     const edit = (): void => {
       row.classList.add("is-editing")
@@ -289,10 +298,10 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       check.setAttribute("aria-label", completed ? t("markIncomplete") : t("markComplete"))
       check.replaceChildren()
       setIcon(check, completed ? "check" : "circle")
-      count.textContent = `${completedAtRender - Number(item.completed) + Number(completed)}/${items.length}`
+      count.textContent = `${completedAtRender - Number(item.completed) + Number(completed)}/${counted.length}`
     }
     paintCompletion()
-    check.disabled = item.weekly
+    check.disabled = item.weekly || Boolean(item.movedTo)
     check.addEventListener("click", () => {
       const previous = completed
       completed = !completed
@@ -308,7 +317,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       })
     })
     const body = row.createDiv({ cls: "modular-diary-todo-body" })
-    if (item.estimateMinutes > 0 && item.type) {
+    if (item.estimateMinutes > 0 && item.type && !item.movedTo) {
       body.classList.add("modular-diary-schedule-source")
       body.dataset.scheduleSource = "todo"
       body.dataset.scheduleId = item.id
@@ -316,7 +325,9 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       body.dataset.scheduleType = item.type
       body.dataset.scheduleDuration = String(item.estimateMinutes)
     }
-    renderTitleWithTags(body.createEl("span", { cls: "modular-diary-item-title" }), item.title, deps.tagStyle)
+    const titleEl = body.createEl("span", { cls: "modular-diary-item-title" })
+    renderTitleWithTags(titleEl, item.title, deps.tagStyle)
+    if (item.movedTo) titleEl.createEl("span", { cls: "modular-diary-todo-moved", text: t("movedToBadge", { date: item.movedTo.slice(5).replace("-", ".") }) })
     const metaParts = [item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) })].filter(Boolean)
     body.createEl("span", { cls: "modular-diary-item-meta", text: metaParts.join(" · ") })
     // A zero-progress track is just a full-width grey underline that reads

@@ -35,4 +35,15 @@ describe("day index", () => {
     expect(index.notePathForDate("2026-10-01")).toBe("日记/2026.10.1.md")
     expect(index.notePathForDate("2026-10-09")).toBeNull()
   })
+
+  it("collects todos pushed to a day from other days and from period blocks", () => {
+    const index = new DayIndex()
+    index.update("a.md", "a", ["```timeline", "date: 2026-09-30", 'todo: id="t1" done=false estimate=30 category="" group="" moved=2026-10-01 title="推过去的"', "---", "```"].join("\n"))
+    index.update("本周.md", "本周", ["```timeline", "days: this-week", 'todo: id="w1" done=false estimate=60 category="写作" group="" moved=2026-10-01 title="排到周四的"', 'todo: id="w2" done=false estimate=60 category="" group="" title="还在池里"', "---", "```"].join("\n"))
+    index.update("b.md", "b", ["```timeline", "date: 2026-10-01", 'todo: id="t1" done=false estimate=30 category="" group="" title="推过去的"', "---", "```"].join("\n"))
+    expect(index.arrivalsFor("2026-10-01").map((t) => t.id)).toEqual(["t1", "w1"])
+    expect(index.blocksForDate("").length).toBe(0)
+    expect(index.blocksInRange("2026-09-01", "2026-12-31").map((b) => b.date)).toEqual(["2026-09-30", "2026-10-01"])
+    expect(index.allBlocks()).toHaveLength(3)
+  })
 })
