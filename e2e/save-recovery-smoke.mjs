@@ -69,6 +69,39 @@ assert.equal(h.persisted, fence(original.replace('before', 'pending')))
 const duplicate = fixture(fence(original) + '\n' + fence(original))
 await duplicate.plugin.applyTextBlockTransform({ ...key, owner: duplicate.view.leaf, source: original, section: () => ({ lineStart: 5, lineEnd: 9 }) }, s => s.replace('before', 'second-only'))
 assert.equal(duplicate.persisted, fence(original) + '\n' + fence(original.replace('before', 'second-only')))
+// Obsidian exposes an Editor in reading mode, but mutating it and calling
+// MarkdownView.save() does not write the note. File-backed writes must use
+// Vault.process, and an open source pane must block that route.
+const reading = fixture(fence(original))
+reading.view.getMode = () => 'preview'
+reading.view.editor.replaceRange = () => { throw new Error('reading editor must not be written') }
+reading.view.save = async () => { throw new Error('reading view save must not be used') }
+await reading.plugin.applyBlockTransform(reading.host, reading.ctx, original, s => s.replace('work', 'reading'))
+assert.equal(reading.persisted, fence(original.replace('work', 'reading')))
+const readingText = fixture(fence(original))
+readingText.view.getMode = () => 'preview'
+readingText.view.editor.replaceRange = () => { throw new Error('reading editor must not be written') }
+readingText.view.save = async () => { throw new Error('reading view save must not be used') }
+await readingText.plugin.applyTextBlockTransform({ ...key, owner: readingText.view.leaf, source: original }, s => s.replace('before', 'reading'))
+assert.equal(readingText.persisted, fence(original.replace('before', 'reading')))
+const readingDelete = fixture(fence(original) + '\nnext paragraph')
+readingDelete.view.getMode = () => 'preview'
+readingDelete.view.editor.replaceRange = () => { throw new Error('reading editor must not be written') }
+readingDelete.view.save = async () => { throw new Error('reading view save must not be used') }
+readingDelete.plugin.blockSources.set(readingDelete.host, original)
+readingDelete.ctx.getSectionInfo = () => ({ lineStart: 0, lineEnd: 4 })
+await readingDelete.plugin.deleteTimelineBlock(readingDelete.host, readingDelete.ctx)
+assert.equal(readingDelete.persisted, 'next paragraph')
+const mixed = fixture(fence(original))
+mixed.view.getMode = () => 'preview'
+mixed.view.containerEl.contains = () => true
+const sourcePeer = new obsidian.MarkdownView()
+sourcePeer.file = { path: 'synthetic.md' }
+sourcePeer.getMode = () => 'source'
+sourcePeer.containerEl = { contains: () => false }
+mixed.plugin.app.workspace.iterateAllLeaves = fn => { fn({ view: mixed.view }); fn({ view: sourcePeer }) }
+await assert.rejects(mixed.plugin.applyBlockTransform(mixed.host, mixed.ctx, original, s => s.replace('work', 'unsafe')))
+assert.equal(mixed.persisted, fence(original))
 console.log('PASS real plugin writes: lost section, invalid ordinal, moved block, deletion guard, persistence retry')
 
 const ui = await esbuild.build({ stdin: { resolveDir: root, loader: 'ts', contents: `

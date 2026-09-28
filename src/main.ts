@@ -1807,7 +1807,10 @@ export default class ModularDiaryPlugin extends Plugin {
     const views = this.markdownViews(ctx.sourcePath)
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
     const view = chooseMutationView(ctx.sourcePath, el, views, activeView)
-    if (view) {
+    // Reading mode still exposes an Editor, but its mutations and save() do
+    // not persist. Only source mode can use the editor transaction path.
+    const readingOwner = view?.getMode?.() === "preview"
+    if (view && !readingOwner) {
       const editor = view.editor
       const content = editor.getValue()
       if (removeTimelineBlockFromContent(content, section) === null) {
@@ -1847,13 +1850,16 @@ export default class ModularDiaryPlugin extends Plugin {
       return
     }
 
-    // Multiple open panes without a provable DOM owner are ambiguous. Never
-    // fall back to vault.process in that case because it could overwrite an
-    // unrelated pane's unsaved source.
-    if (views.length > 0) throw new Error(tr("sourceChanged"))
+    // A reading pane may write the file only while every same-file pane is
+    // also reading. An open source editor may hold unsaved content.
+    if (views.length > 0 && (!readingOwner || views.some((candidate) => candidate.getMode?.() !== "preview"))) {
+      throw new Error(tr("sourceChanged"))
+    }
 
     await this.app.vault.process(file, (content) => {
-      const updated = removeTimelineBlockFromContent(content, section)
+      const capturedSource = this.blockSources.get(el)
+      const location = capturedSource ? resolveTimelineSource(content, capturedSource, section) : null
+      const updated = location ? removeTimelineBlockFromContent(content, location) : null
       if (updated === null) throw new Error(tr("sourceChanged"))
       return updated
     })
@@ -1879,7 +1885,8 @@ export default class ModularDiaryPlugin extends Plugin {
     // A sole same-path pane is still unambiguous; with multiple panes we must
     // keep failing closed rather than write another pane's unsaved document.
     const view = resolvePersistedOwnerView(key.owner, views, (candidate) => candidate.leaf)
-    if (view) {
+    const readingOwner = view?.getMode?.() === "preview"
+    if (view && !readingOwner) {
       const editor = view.editor
       const content = editor.getValue()
       const location = resolveTimelineSource(content, key.source, key.section?.() ?? null)
@@ -1944,9 +1951,10 @@ export default class ModularDiaryPlugin extends Plugin {
       return
     }
 
-    // A matching file is open, but the pane which owned this draft no longer
-    // exists. Choosing another pane could overwrite unsaved source there.
-    if (views.length > 0) throw new Error(tr("sourceChanged"))
+    // A detached owner or an open source pane may hold unsaved content.
+    if (views.length > 0 && (!readingOwner || views.some((candidate) => candidate.getMode?.() !== "preview"))) {
+      throw new Error(tr("sourceChanged"))
+    }
 
     let savedSource = key.source
     await this.app.vault.process(file, (content) => {
@@ -1981,7 +1989,8 @@ export default class ModularDiaryPlugin extends Plugin {
     const views = this.markdownViews(ctx.sourcePath)
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
     const view = chooseMutationView(ctx.sourcePath, el, views, activeView)
-    if (view) {
+    const readingOwner = view?.getMode?.() === "preview"
+    if (view && !readingOwner) {
       const editor = view.editor
       const section = resolveTimelineSource(editor.getValue(), expectedSource, hint)
       if (!section) throw new Error(tr("sourceChanged"))
@@ -2057,10 +2066,11 @@ export default class ModularDiaryPlugin extends Plugin {
       }
       return
     }
-    // If this file is open but the initiating DOM belongs to none of its
-    // panes, the renderer is stale. Fail closed rather than write a different
-    // pane or overwrite unsaved editor state through vault.process.
-    if (views.length > 0) throw new Error(tr("sourceChanged"))
+    // A stale renderer or an open source pane may hold unsaved content. A
+    // proven reading owner with only reading peers can write the file itself.
+    if (views.length > 0 && (!readingOwner || views.some((candidate) => candidate.getMode?.() !== "preview"))) {
+      throw new Error(tr("sourceChanged"))
+    }
 
     let transactionKey: ScrollTransactionKey<object> | null = null
     let committedSource = expectedSource
