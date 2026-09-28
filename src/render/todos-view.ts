@@ -4,6 +4,7 @@ import type { TodoViewConfig } from "../core/types"
 import { t } from "../i18n"
 import { attachPointerRowSort } from "../edit/row-sort"
 import { appendSixDotGrip } from "./grip"
+import { TAG_RE } from "../core/tags"
 
 export interface TodoViewItem {
   id: string
@@ -37,6 +38,8 @@ export interface TodoViewDeps {
   onToggle: (id: string, completed: boolean) => void | Promise<void>
   onMenu: (item: TodoViewItem, x: number, y: number, edit: () => void) => void
   onMove: (id: string, targetIndex: number) => void
+  /** Badge colours for a `#tag`; null paints the neutral, independent badge. */
+  tagStyle?: (tag: string) => { background: string; color: string } | null
   draft?: NewTodoInput | null
   onDraftChange?: (draft: NewTodoInput | null) => void
   editDraft?: TodoEditDraft | null
@@ -159,6 +162,24 @@ function createTodoForm(
     },
     close,
   }
+}
+
+/** `#tags` inside free text become badges; the text around them is untouched. */
+export function renderTitleWithTags(el: HTMLElement, text: string, tagStyle?: (tag: string) => { background: string; color: string } | null): void {
+  let cursor = 0
+  for (const match of text.matchAll(TAG_RE)) {
+    const start = match.index ?? 0
+    if (start > cursor) el.appendChild(el.ownerDocument.createTextNode(text.slice(cursor, start)))
+    const badge = el.createEl("span", { cls: "modular-diary-tag", text: match[0] })
+    const style = tagStyle?.(match[1]) ?? null
+    if (style) {
+      badge.classList.add("has-category")
+      badge.style.setProperty("--modular-diary-tag-bg", style.background)
+      badge.style.setProperty("--modular-diary-tag-fg", style.color)
+    }
+    cursor = start + match[0].length
+  }
+  if (cursor < text.length) el.appendChild(el.ownerDocument.createTextNode(text.slice(cursor)))
 }
 
 export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: TodoViewDeps): void {
@@ -295,7 +316,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       body.dataset.scheduleType = item.type
       body.dataset.scheduleDuration = String(item.estimateMinutes)
     }
-    body.createEl("span", { cls: "modular-diary-item-title", text: item.title })
+    renderTitleWithTags(body.createEl("span", { cls: "modular-diary-item-title" }), item.title, deps.tagStyle)
     const metaParts = [item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) })].filter(Boolean)
     body.createEl("span", { cls: "modular-diary-item-meta", text: metaParts.join(" · ") })
     // A zero-progress track is just a full-width grey underline that reads

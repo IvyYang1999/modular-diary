@@ -55,7 +55,16 @@ import {
   type RemountVisualMode,
 } from "./edit/remount-visual"
 import { habitProgress, isHabitDue, moveHabitInVisibleOrder, normalizeHabitDefinition, orderedHabits, type HabitDefinition } from "./core/habits"
-import { extractDatedTimelineEntries, filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledger"
+import { filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledger"
+import { DayIndex } from "./core/day-index"
+import { dailyNotePath, fillDailyTemplate, parseDailyNotesConfig, shiftDate, type DailyNotesConfig } from "./core/daily-notes"
+import { ensureBlockForDate } from "./core/day-content"
+import { learnTagCategories, tagCategory } from "./core/tags"
+
+/** Obsidian ships moment on window; the typed `moment` export is not callable without esModuleInterop. */
+type MomentLike = (input: string, format: string) => { format: (momentFormat: string) => string }
+const momentFormat = (momentFormat: string, date: string): string =>
+  ((window as unknown as { moment?: MomentLike }).moment?.(date, "YYYY-MM-DD").format(momentFormat)) ?? date
 import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
@@ -140,10 +149,11 @@ export default class ModularDiaryPlugin extends Plugin {
   private readonly textDrafts = new TextDraftRegistry<object>()
   private sourceDrafts = new WeakMap<HTMLElement, SourceModeSession>()
   private readonly ledgerModifiedPaths = new Set<string>()
-  private weeklyLedger: DatedTimelineEntries[] | null = null
-  private weeklyLedgerLoading: Promise<void> | null = null
+  /** Cross-day reads (weekly goals, push to tomorrow) go through this incremental index. */
+  private readonly dayIndex = new DayIndex()
+  private dayIndexSeeded = false
+  private dayIndexRefresh: Promise<void> | null = null
   private ledgerRefreshTimer = 0
-  private ledgerGeneration = 0
 
   private readonly blockSources = new WeakMap<HTMLElement, string>()
 
@@ -189,9 +199,14 @@ export default class ModularDiaryPlugin extends Plugin {
     configureI18n(getLanguage)
     await this.loadSettings()
     this.addSettingTab(new ModularDiarySettingTab(this.app, this))
-    const invalidateLedger = (file: TAbstractFile): void => {
-      this.ledgerGeneration += 1
-      this.weeklyLedger = null
+    // Only the touched note is re-read; other days keep their indexed data.
+    const invalidateLedger = (file: TAbstractFile, oldPath?: string): void => {
+      if (!(file instanceof TFile) || file.extension !== "md") {
+        if (oldPath) this.dayIndex.remove(oldPath)
+        return
+      }
+      if (oldPath) this.dayIndex.rename(oldPath, file.path)
+      else this.dayIndex.markDirty(file.path)
       this.ledgerModifiedPaths.add(file.path)
       if (this.ledgerRefreshTimer) activeWindow.clearTimeout(this.ledgerRefreshTimer)
       this.ledgerRefreshTimer = activeWindow.setTimeout(() => {
@@ -201,10 +216,10 @@ export default class ModularDiaryPlugin extends Plugin {
         this.rerenderMountedTimelines(modifiedPaths)
       }, 120)
     }
-    this.registerEvent(this.app.vault.on("modify", invalidateLedger))
-    this.registerEvent(this.app.vault.on("create", invalidateLedger))
-    this.registerEvent(this.app.vault.on("delete", invalidateLedger))
-    this.registerEvent(this.app.vault.on("rename", invalidateLedger))
+    this.registerEvent(this.app.vault.on("modify", (file) => invalidateLedger(file)))
+    this.registerEvent(this.app.vault.on("create", (file) => invalidateLedger(file)))
+    this.registerEvent(this.app.vault.on("delete", (file) => { this.dayIndex.remove(file.path); invalidateLedger(file) }))
+    this.registerEvent(this.app.vault.on("rename", (file, oldPath) => invalidateLedger(file, oldPath)))
 
     // 插入入口：命令面板 + 编辑器右键菜单
     this.addCommand({
@@ -473,6 +488,21 @@ export default class ModularDiaryPlugin extends Plugin {
       }
       const showTimelineOnboarding = onboardingDecision === "show"
       const dateStr = this.blockDate(doc, ctx.sourcePath)
+      // A tag first seen on a categorized block adopts that category (yyt 2026-09-28).
+      const learnedTags = learnTagCategories(doc, this.settings.tagCategories)
+      if (Object.keys(learnedTags).length > 0) {
+        this.settings.tagCategories = { ...this.settings.tagCategories, ...learnedTags }
+        void this.saveSettings()
+      }
+      const tagStyle = (tag: string): { background: string; color: string } | null => {
+        const category = tagCategory(tag, this.settings.tagCategories)
+        const color = category ? (this.settings.spanTypeColors[category] ?? this.settings.spanRetiredTypeColors[category]) : undefined
+        if (!color) return null
+        return {
+          background: `color-mix(in srgb, ${color} 22%, var(--background-primary))`,
+          color: `color-mix(in srgb, ${color} 70%, var(--text-normal))`,
+        }
+      }
       const selectedQuote = dailyQuoteForDate(this.settings.dailyQuotes, dateStr ?? "")
       const dueHabits = dateStr ? orderedHabits(this.settings.habits
         .filter((habit) => isHabitDue(habit, dateStr) && !doc.habitSkips.includes(habit.id))) : []
@@ -937,6 +967,7 @@ export default class ModularDiaryPlugin extends Plugin {
         if (editDraft && !todoViewItems.some((item) => item.id === editDraft.id)) ownerEditDrafts.delete(draftId)
         renderTodosInto(todosSlot, todoViewItems, {
           categories: spanPaletteTypes,
+          tagStyle,
           typeColors: spanPaletteForRender,
           view: doc.todoView,
           draft: ownerDrafts.get(draftId) ?? null,
@@ -1033,9 +1064,30 @@ export default class ModularDiaryPlugin extends Plugin {
                 stored.endDate = this.previousDate(dateStr)
                 void this.saveSettings({ rerender: true })
               }))
-            } else menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => {
-              void this.applyBlockTransform(el, ctx, source, (value) => deleteTodo(value, todo.id))
-            }))
+            } else {
+              if (dateStr) menu.addItem((item) => item.setTitle(tr("pushTodoToTomorrow")).setIcon("calendar-plus").onClick(() => {
+                const target = shiftDate(dateStr, 1)
+                const value = {
+                  id: todo.id, title: todo.title, group: todo.group, type: todo.type,
+                  estimateMin: todo.estimateMinutes, completed: false,
+                }
+                void (async () => {
+                  try {
+                    // Tomorrow first: if that write fails the todo is still here.
+                    await this.writeToDay(target, (blockSource) =>
+                      parseTimeline(blockSource).todos.some((existing) => existing.id === todo.id) ? blockSource : insertTodo(blockSource, value))
+                    await this.applyBlockTransform(el, ctx, source, (current) => deleteTodo(current, todo.id))
+                    new Notice(tr("pushedTodoToDay", { date: target }))
+                  } catch (error) {
+                    console.error("Modular Diary: failed to push todo to tomorrow", error)
+                    if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("pushTodoFailed"))
+                  }
+                })()
+              }))
+              menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => {
+                void this.applyBlockTransform(el, ctx, source, (value) => deleteTodo(value, todo.id))
+              }))
+            }
             menu.showAtPosition({ x, y }, dom)
           },
         })
@@ -1602,29 +1654,86 @@ export default class ModularDiaryPlugin extends Plugin {
   }
 
   private datedEntriesForWeek(date: string, fallback: import("./core/types").Entry[]): DatedTimelineEntries[] {
-    if (this.weeklyLedger) return filterWeekEntries(this.weeklyLedger, date)
-    if (!this.weeklyLedgerLoading) {
-      const generation = this.ledgerGeneration
-      this.weeklyLedgerLoading = Promise.all(this.app.vault.getMarkdownFiles().map(async (file) =>
-        extractDatedTimelineEntries(await this.app.vault.cachedRead(file), file.basename)
-      )).then((groups) => {
-        if (generation === this.ledgerGeneration) this.weeklyLedger = groups.flat()
-      }).catch((error: unknown) => {
-        console.error("Modular Diary: failed to build weekly ledger", error)
-        if (generation === this.ledgerGeneration) this.weeklyLedger = []
-      }).finally(() => {
-        this.weeklyLedgerLoading = null
-        this.rerenderMountedTimelines()
-      })
-    }
+    if (this.dayIndexReady()) return filterWeekEntries(this.dayIndex.datedEntries(), date)
+    // Render with what this block knows now; the refresh redraws every mounted block.
+    void this.refreshDayIndex().then(() => this.rerenderMountedTimelines())
     return [{ date, entries: fallback }]
   }
 
+  private dayIndexReady(): boolean {
+    return this.dayIndexSeeded && this.dayIndex.pending.length === 0
+  }
+
+  /** Read every dirty note (all of them on first use) into the day index. */
+  private refreshDayIndex(): Promise<void> {
+    if (this.dayIndexRefresh) return this.dayIndexRefresh
+    if (!this.dayIndexSeeded) {
+      this.dayIndexSeeded = true
+      for (const file of this.app.vault.getMarkdownFiles()) this.dayIndex.markDirty(file.path)
+    }
+    const pending = this.dayIndex.pending
+    if (pending.length === 0) return Promise.resolve()
+    const refresh: Promise<void> = Promise.all(pending.map(async (path) => {
+      const file = this.app.vault.getAbstractFileByPath(path)
+      if (!(file instanceof TFile)) { this.dayIndex.remove(path); return }
+      this.dayIndex.update(path, file.basename, await this.app.vault.cachedRead(file))
+    })).then(() => undefined, (error: unknown) => {
+      console.error("Modular Diary: failed to refresh the day index", error)
+    }).finally(() => {
+      this.dayIndexRefresh = null
+    })
+    this.dayIndexRefresh = refresh
+    return refresh
+  }
+
+  private async dailyNotesConfig(): Promise<DailyNotesConfig> {
+    const path = normalizePath(`${this.app.vault.configDir}/daily-notes.json`)
+    try {
+      if (!(await this.app.vault.adapter.exists(path))) return parseDailyNotesConfig(null)
+      return parseDailyNotesConfig(JSON.parse(await this.app.vault.adapter.read(path)))
+    } catch (error) {
+      console.error("Modular Diary: could not read daily-notes.json", error)
+      return parseDailyNotesConfig(null)
+    }
+  }
+
+  /**
+   * Write one change into the timeline block of another day. The note is the
+   * one the day index knows for that date, else the Daily Notes path; a
+   * missing note is created from the Daily Notes template, and a missing
+   * block is appended. This is the primitive behind "push to tomorrow" and,
+   * later, cross-day drops in a period block.
+   */
+  private async writeToDay(date: string, transform: (blockSource: string) => string): Promise<string> {
+    await this.refreshDayIndex()
+    const config = await this.dailyNotesConfig()
+    const format = momentFormat
+    const path = this.dayIndex.notePathForDate(date) ?? normalizePath(dailyNotePath(config, date, format))
+    let file = this.app.vault.getAbstractFileByPath(path)
+    if (!file) {
+      const folder = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : ""
+      if (folder && !this.app.vault.getAbstractFileByPath(folder)) await this.app.vault.createFolder(folder)
+      let template = ""
+      if (config.template) {
+        const templateFile = this.app.vault.getAbstractFileByPath(normalizePath(`${config.template}.md`))
+        if (templateFile instanceof TFile) {
+          const noteName = path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "")
+          template = fillDailyTemplate(await this.app.vault.cachedRead(templateFile), date, noteName, format)
+        }
+      }
+      file = await this.app.vault.create(path, template)
+    }
+    if (!(file instanceof TFile)) throw new Error(tr("fileNotFound"))
+    const target = file
+    await this.app.vault.process(target, (content) => {
+      const ensured = ensureBlockForDate(content, date, target.basename, this.insertTemplate())
+      return replaceBlockInContent(ensured.content, ensured.section, transform(ensured.section.source))
+    })
+    return path
+  }
+
   private previousDate(date: string): string {
-    const [year, month, day] = date.split("-").map(Number)
-    const value = new Date(year, month - 1, day - 1)
-    const part = (input: number): string => String(input).padStart(2, "0")
-    return `${value.getFullYear()}-${part(value.getMonth() + 1)}-${part(value.getDate())}`
+    return shiftDate(date, -1)
   }
 
   private addComponentSlot(source: string, doc: { layout?: unknown }, container: HTMLElement, id: "habits" | "todos" | "quote"): string {

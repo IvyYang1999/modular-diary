@@ -2056,6 +2056,21 @@ button.modular-diary-item-drag:active {
   font-weight: var(--font-medium, 500);
 }
 
+/* #tag badges: tinted by the category a tag belongs to; independent tags stay neutral. */
+.modular-diary-tag {
+  display: inline-block;
+  margin: 0 0.15em;
+  padding: 0 0.42em;
+  border-radius: 5px;
+  font-size: 0.84em;
+  font-weight: 500;
+  line-height: 1.5;
+  vertical-align: 0.05em;
+  white-space: nowrap;
+  background: var(--modular-diary-tag-bg, var(--background-modifier-hover));
+  color: var(--modular-diary-tag-fg, var(--text-muted));
+}
+
 .modular-diary-item-meta {
   color: var(--text-muted);
   font-size: var(--modular-diary-font-micro);
