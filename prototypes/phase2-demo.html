@@ -1,0 +1,445 @@
+<title>Modular Diary 第二阶段</title>
+<style>
+:root{--bg:#fff;--bg-2:#f7f6f3;--bg-3:#eeede8;--ink:#1c1c1a;--ink-2:#55554f;--muted:#75756f;--line:#e9e9e5;--line-2:#d3d2cc;--mark:#fff3c4;
+--red:#f47b74;--amber:#f4a437;--green:#a0c849;--blue:#53a3f2;--violet:#ae7ee2;--grey:#cfccc4;--blue-d:#1f78c8;--green-d:#5f7d00;--red-d:#c9443f;
+--sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Noto Sans SC",system-ui,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#1d1d1b;--bg-2:#262624;--bg-3:#30302c;--ink:#ecebe7;--ink-2:#bab9b3;--muted:#8c8b85;--line:#34332f;--line-2:#46453f;--mark:#4a4320;--blue-d:#8cc4ff;--green-d:#c3dc7a;--red-d:#ff9a93}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#1d1d1b;--bg-2:#262624;--bg-3:#30302c;--ink:#ecebe7;--ink-2:#bab9b3;--muted:#8c8b85;--line:#34332f;--line-2:#46453f;--mark:#4a4320;--blue-d:#8cc4ff;--green-d:#c3dc7a;--red-d:#ff9a93}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+.page{max-width:1400px;margin:0 auto;padding-block:18px 80px;padding-inline:20px}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.top svg{width:26px;height:26px;flex:none}
+.top b{font-weight:600}
+.top .tag{font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 10px}
+.top nav{margin-left:auto;display:flex;gap:16px;font-size:13.5px}
+.top nav a{color:var(--ink-2);text-decoration:none}
+.top nav a:hover{color:var(--ink)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:1fr}}
+section{padding-block:34px 6px}
+h2{font-size:21px;letter-spacing:-.02em;margin:0 0 6px;font-weight:600;text-wrap:balance}
+h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);padding:2px 7px;border-radius:6px;margin-left:8px;vertical-align:2px}
+.lead{margin:0 0 14px;color:var(--ink-2);max-width:66ch}
+.hint{margin:12px 0 0;font-size:13.5px;color:var(--muted);max-width:70ch}
+.hint b{color:var(--ink-2);font-weight:600}
+.panel{border:1px solid var(--line);border-radius:16px;background:var(--bg);overflow:hidden}
+.bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;font-size:13.5px}
+.bar .sp{flex:1}
+.bar .ttl{font-weight:600;font-variant-numeric:tabular-nums}
+.ib{font:inherit;font-size:13px;height:28px;padding:0 10px;border-radius:8px;border:1px solid var(--line-2);background:var(--bg);color:var(--ink);cursor:pointer}
+.ib:hover{border-color:var(--ink)}
+.ib:focus-visible,.seg button:focus-visible,.chip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:9px;overflow:hidden}
+.seg button{font:inherit;font-size:13px;height:28px;padding:0 12px;border:0;background:var(--bg);color:var(--ink-2);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line-2)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i,.cc i{width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block}
+
+/* week */
+.sum{display:flex;gap:8px 22px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px;background:var(--bg-2)}
+.sum .g{display:flex;align-items:center;gap:8px;color:var(--ink-2)}
+.sum .g b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.sum .m{width:64px;height:6px;border-radius:3px;background:var(--bg-3);overflow:hidden}
+.sum .m i{display:block;height:100%;background:var(--c);border-radius:3px}
+.sum .ok{color:var(--green-d);font-weight:600}
+.sum .cats{gap:12px;flex-wrap:wrap}
+.cc{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.wk-scroll{overflow-x:auto}
+.wk{display:grid;grid-template-columns:24px repeat(7,minmax(88px,1fr));gap:0 8px;padding:12px 14px 16px;min-width:760px}
+.wk .ch{grid-row:1;font-size:12.5px;color:var(--ink-2);padding:0 4px 6px;display:flex;justify-content:space-between;align-items:baseline}
+.wk .ch b{font-weight:600;color:var(--ink)}
+.wk .ch.today b{color:var(--blue-d)}
+.wk .ch.today span{background:var(--blue-d);color:#fff;border-radius:999px;padding:0 6px;font-size:11.5px}
+.wk .tl{grid-row:2;min-height:78px;border:1px dashed transparent;border-radius:10px;padding:4px;display:flex;flex-direction:column;gap:4px;transition:background .15s}
+.wk .tl .empty{font-size:11.5px;color:var(--muted);padding:6px 4px}
+.wk .tl.over,.bk.over{border-color:var(--ink);background:var(--bg-2)}
+.wk .ax,.wk .rail{grid-row:3;margin-top:6px}
+.ax{position:relative;border:1px solid var(--line);border-radius:8px;background:var(--bg);overflow:hidden}
+.ax.over{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.wk .rail{grid-column:1;position:relative}
+.rail span,.hlab{position:absolute;right:4px;font-size:10px;color:var(--muted);transform:translateY(-50%);font-variant-numeric:tabular-nums}
+.ax .hl{position:absolute;left:0;right:0;height:1px;background:var(--line)}
+.ax .now{position:absolute;left:0;right:0;border-top:1px solid var(--red-d);z-index:2}
+.blk{position:absolute;left:2px;right:2px;border-radius:2px;background:var(--c);min-height:3px}
+.blk.plan{background:color-mix(in srgb,var(--c) 18%,transparent);background-image:repeating-linear-gradient(135deg,var(--c) 0 1.5px,transparent 1.5px 5px)}
+.blk .lb{font-size:9.5px;line-height:1;position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:#fff;font-weight:600;pointer-events:none;font-variant-numeric:tabular-nums}
+.blk.lt .lb,.blk.plan .lb{color:var(--ink-2)}
+.ax.mini{width:132px;flex:none}
+.ax.mini .blk{left:24px;right:3px}
+.ax.mini .hl{left:22px}
+
+/* chips */
+.chip{display:flex;align-items:center;gap:6px;font-size:12.5px;line-height:1.35;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:grab;user-select:none;position:relative}
+.chip:active{cursor:grabbing}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.chip .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .tg{color:var(--muted)}
+.chip em{font-style:normal;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.chip.done .t{text-decoration:line-through;color:var(--muted)}
+.chip .act{display:none;gap:3px;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:var(--bg);padding-left:6px}
+.chip:hover .act,.chip:focus-within .act{display:inline-flex}
+.chip .act button{font:inherit;font-size:11px;line-height:1;border:1px solid var(--line-2);background:var(--bg);border-radius:6px;padding:3px 6px;cursor:pointer;color:var(--ink-2)}
+.chip .act button:hover{border-color:var(--ink);color:var(--ink)}
+
+/* hourlog */
+.hl-wrap{display:flex;gap:16px;align-items:flex-start;padding:12px 14px 14px}
+.hl-scroll{flex:1;min-width:0;overflow-x:auto}
+.hl{min-width:720px}
+.hl .hh{display:grid;grid-template-columns:136px 1fr;font-size:11px;color:var(--muted)}
+.hl .hs{display:grid;grid-template-columns:repeat(16,1fr)}
+.hl .hs span{padding-left:4px;border-left:1px solid var(--line);font-variant-numeric:tabular-nums}
+.hl .row{display:grid;grid-template-columns:136px 1fr;border-top:1px solid var(--line)}
+.hl .lb{padding:8px 8px 8px 2px;font-size:13px;display:flex;align-items:center;gap:6px;color:var(--ink);min-width:0}
+.hl .lb i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.hl .lb .tg{color:var(--muted)}
+.hl .tr{position:relative;height:46px;background-image:linear-gradient(to right,var(--line) 1px,transparent 1px);background-size:calc(100%/16) 100%;cursor:text}
+.hl .addrow .tr{cursor:default;height:40px}
+.hl .addrow .lb{padding:6px 8px 6px 0;gap:4px;flex-wrap:wrap}
+.hl .addrow input,.hl .addrow select{font:inherit;font-size:12.5px;height:26px;border:1px solid var(--line-2);border-radius:6px;background:var(--bg);color:var(--ink);padding:0 6px;min-width:0}
+.hl .addrow input{width:74px}
+.tr .st{position:absolute;bottom:6px;height:3px;border-radius:2px;background:var(--c);min-width:3px}
+.tr .st.plan{height:0;bottom:2px;border-bottom:2px dashed var(--c);background:none;border-radius:0}
+.tr .tx{position:absolute;top:7px;font-size:12.5px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 3px;color:var(--ink);cursor:pointer;border-radius:4px}
+.tr .tx.plan{color:var(--muted)}
+.tr .tx:hover{background:var(--bg-2)}
+.tr .nowv{position:absolute;top:0;bottom:0;border-left:1px solid var(--red-d);pointer-events:none;opacity:.8}
+.hin{position:absolute;top:8px;height:30px;font:inherit;font-size:12.5px;padding:0 8px;border:1px solid var(--ink);border-radius:7px;background:var(--bg);color:var(--ink);z-index:3;width:calc(100%/16*2.6);box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.nudge{display:none;align-items:center;gap:12px;padding:9px 14px;border-top:1px solid var(--line);background:var(--mark);font-size:13.5px}
+.nudge.on{display:flex;animation:pop .35s ease}
+.nudge b{font-variant-numeric:tabular-nums}
+@keyframes pop{from{transform:translateY(6px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.nudge.on{animation:none}}
+
+/* todos */
+.tv{padding:14px}
+.bks{display:grid;gap:12px}
+.tv.list .bks{grid-template-columns:1fr}
+.tv.abc .bks{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tv.matrix .bks{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:640px){.tv.abc .bks,.tv.matrix .bks{grid-template-columns:1fr}}
+.bk{border:1px solid var(--line);border-radius:12px;padding:10px;min-height:118px;display:flex;flex-direction:column;gap:6px;transition:background .15s}
+.bk h4{margin:0 0 4px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.bk h4 small{color:var(--muted);font-weight:400}
+.bk.un{border-style:dashed;grid-column:1/-1;min-height:0}
+.bk .empty{font-size:12px;color:var(--muted)}
+
+/* source pane */
+.src{position:sticky;top:env(safe-area-inset-top,0px);border:1px solid var(--line);border-radius:16px;background:var(--bg-2);overflow:hidden;margin-top:34px}
+.src .tabs{display:flex;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;overflow-x:auto}
+.src .tabs button{font:inherit;padding:10px 14px;border:0;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.src .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.src pre{margin:0;padding:14px;font:12px/1.7 var(--mono);color:var(--ink-2);white-space:pre;overflow-x:auto;max-height:64vh}
+.src pre .k{color:var(--blue-d)}.src pre .c{color:var(--muted)}.src pre .tg{color:var(--green-d)}
+.src pre .new{background:var(--mark);display:inline-block;min-width:100%;border-radius:3px}
+.src .note{padding:10px 14px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line)}
+.foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted);max-width:70ch}
+</style>
+
+<div class="page">
+  <header class="top">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="12" width="7.5" height="40" rx="3.75" fill="#f47b74"/><rect x="13.5" y="12" width="7.5" height="20" rx="3.75" fill="#f4a437"/><rect x="23" y="12" width="7.5" height="40" rx="3.75" fill="#a0c849"/><rect x="35" y="12" width="7.5" height="40" rx="3.75" fill="#53a3f2"/><path d="M44.5 12h3a12 12 0 0 1 12 12v16a12 12 0 0 1-12 12h-3z" fill="#ae7ee2"/></svg>
+    <b>Modular Diary</b><span class="tag">第二阶段 demo · 只有交互，不存盘</span>
+    <nav><a href="#week">周视图</a><a href="#hourlog">小时日记</a><a href="#todos">待办排法</a></nav>
+  </header>
+
+  <div class="grid">
+    <main>
+      <section id="week">
+        <h2>周视图<code>days: this-week</code></h2>
+        <p class="lead">一个 timeline 块加一行 <code>days:</code> 就是周视图。每一列就是那一天的笔记：上面是没有时间的待办，下面是压缩的时间轴。视图本身不存数据，右边的源码里能看到它只有一行。</p>
+        <div class="panel">
+          <div class="bar"><button class="ib" id="wkPrev" aria-label="上一周">‹</button><span class="ttl" id="wkTitle"></span><button class="ib" id="wkNext" aria-label="下一周">›</button><button class="ib" id="wkToday">今天</button><span class="sp"></span><div class="legend" id="legend"></div></div>
+          <div class="sum" id="wkSum"></div>
+          <div class="wk-scroll"><div class="wk" id="wk"></div></div>
+        </div>
+        <p class="hint"><b>试试</b>：把「小时日记 demo」从周四拖到周五，它换了个文件；把它拖到周四的轴上，它成了那天的计划块（长度 = 预计时长）；点 › 看下周，未来的日子一样能放东西。</p>
+      </section>
+
+      <section id="hourlog">
+        <h2>小时日记<code>hourlog</code></h2>
+        <p class="lead">同一天的色块横过来看，文字为主。行是项目标签，列是小时；颜色只剩文字底下那一道细线，线的起止就是精确时间。计划是灰字虚线，被实际盖住的计划只剩线。右边那根小时间轴和它是同一批数据。</p>
+        <div class="panel">
+          <div class="bar"><span class="ttl">2026-09-30 · 周三</span><span class="sp"></span><button class="ib" id="nudgeBtn">模拟到了整点</button></div>
+          <div class="hl-wrap"><div class="hl-scroll"><div class="hl" id="hl"></div></div><div id="mini"></div></div>
+          <div class="nudge" id="nudge"><span>🕓</span><b>16:00</b><span>这个小时做了什么？</span><span class="sp"></span><button class="ib" id="nudgeGo">写一行</button></div>
+        </div>
+        <p class="hint"><b>试试</b>：点任意一行的空白处，打一句话，回车——它成了一个整点起的 1h 色块，右边小时间轴同步出现。点已有的字可以改备注。「＋ 加一行」给一个新项目开一行。</p>
+      </section>
+
+      <section id="todos">
+        <h2>待办的三种排法<code>todo-view: abc</code></h2>
+        <p class="lead">同一份待办，三种布局。条目只多一个 <code>bucket</code> 字段；布局决定格子叫什么名字，对不上的落在「未分组」。悬停条目有「→ 明天」，它把这一行搬到明天的笔记里，上面周视图的周四会多出来。</p>
+        <div class="panel">
+          <div class="bar"><span class="ttl">2026-09-30 的待办</span><span class="sp"></span><div class="seg" id="seg"><button aria-pressed="false" data-v="list">清单</button><button aria-pressed="true" data-v="abc">ABC</button><button aria-pressed="false" data-v="matrix">四象限</button></div></div>
+          <div class="tv abc" id="tv"><div class="bks" id="bks"></div></div>
+        </div>
+        <p class="hint"><b>试试</b>：切到四象限。ABC 的分组在这里对不上，会落到未分组，把它们拖进象限；再切回 ABC，它们又对不上了——一个字段只能属于一种排法，这是有意的。</p>
+      </section>
+
+      <p class="foot">没做 demo 的：<code>=== 标题</code> 文字区、模板即源码、记账（第 4、5 期）。都是常规控件，风险低。周视图里跨天拖<em>计划块</em>（不是待办）也没做，可以做，规则一样。</p>
+    </main>
+
+    <aside class="src" aria-label="源码">
+      <div class="tabs" id="srcTabs" role="tablist"></div>
+      <pre id="srcPre"></pre>
+      <div class="note" id="srcNote"></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s)
+  const CATS = { 开发: '#53a3f2', 写作: '#a0c849', 运动: '#ae7ee2', 吃饭: '#f47b74', 英语: '#f4a437', 睡觉: '#cfccc4', 杂事: '#c4c1b9' }
+  const LIGHT = new Set(['睡觉', '杂事'])
+  const NOW = { date: '2026-09-30', min: 16 * 60 + 30 }
+  const R0 = 7, R1 = 23, SPAN = (R1 - R0) * 60
+  const pad = (n) => String(n).padStart(2, '0')
+  const hm = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
+  const hrs = (m) => { const h = m / 60; return (Number.isInteger(h) ? h : +h.toFixed(2)) + 'h' }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d) }
+  const shift = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d) }
+  const monday = (s) => { const d = parse(s); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return iso(d) }
+  const isoWeek = (s) => { const d = parse(s); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4); return `${d.getFullYear()}-W${pad(1 + Math.round(((d - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7))}` }
+  const WD = ['一', '二', '三', '四', '五', '六', '日']
+
+  const E = (plan, s, e, c, tags, note, todo) => ({ plan: !!plan, s, e, c, tags: tags || [], note: note || '', todo })
+  const T = (id, title, c, tags, est, bucket, done) => ({ id, title, c, tags: tags || [], est, bucket: bucket || '', done: !!done })
+  const days = {
+    '2026-09-28': { todos: [], entries: [E(1, 540, 720, '开发', ['模块日记']), E(0, 420, 480, '睡觉', [], '赖床'), E(0, 540, 690, '开发', ['模块日记'], '周视图 parser'), E(0, 690, 735, '吃饭'), E(0, 780, 900, '写作', ['官网'], '第二阶段方案'), E(0, 1080, 1120, '运动', [], '跑步')] },
+    '2026-09-29': { todos: [], entries: [E(0, 420, 450, '睡觉'), E(0, 480, 540, '英语', [], '背 list 5'), E(0, 570, 720, '开发', ['模块日记'], 'hourlog 渲染'), E(0, 720, 765, '吃饭'), E(0, 840, 960, '开发', ['官网'], '推荐栏两张小卡'), E(0, 1050, 1080, '运动', [], '跑步'), E(0, 1200, 1290, '写作', ['官网'], '结尾文案')] },
+    '2026-09-30': {
+      todos: [T('t1', '写周视图 parser', '开发', ['模块日记'], 150, 'A', 1), T('t2', '官网文案', '写作', ['官网'], 90, 'A'), T('t3', '背 list 6', '英语', ['英语'], 45, 'B', 1), T('t4', '整理截图', '开发', ['官网'], 60, 'C'), T('t5', '回邮件', '杂事', [], 30, 'C')],
+      entries: [E(1, 540, 720, '开发', ['模块日记']), E(0, 420, 465, '睡觉'), E(0, 555, 700, '开发', ['模块日记'], 'days 头解析 + 列渲染'), E(0, 720, 765, '吃饭'), E(0, 780, 825, '英语', ['英语'], 'list 6'), E(0, 840, 960, '开发', ['模块日记'], '跨天拖放，DnD 里别重建 DOM'), E(1, 990, 1080, '写作', ['官网'], '官网文案', 't2'), E(1, 1140, 1170, '运动')],
+    },
+    '2026-10-01': { todos: [T('t6', '小时日记 demo', '开发', ['模块日记'], 120, 'A')], entries: [E(1, 1080, 1110, '运动')] },
+    '2026-10-02': { todos: [T('t7', '看用户反馈', '写作', ['官网'], 60, 'B')], entries: [] },
+    '2026-10-03': { todos: [], entries: [] },
+    '2026-10-04': { todos: [], entries: [E(1, 600, 720, '写作', ['官网'], '周记')] },
+  }
+  const day = (s) => days[s] || (days[s] = { todos: [], entries: [] })
+  const RULES = { habit: { c: '运动', count: 3 }, weekly: { c: '写作', min: 600 } }
+  const VIEWS = {
+    list: [],
+    abc: [['A', 'A · 今天必须做'], ['B', 'B · 明天也行'], ['C', 'C · 想起来就做']],
+    matrix: [['q1', '重要且紧急'], ['q2', '重要不紧急'], ['q3', '紧急不重要'], ['q4', '不重要不紧急']],
+  }
+
+  let weekOff = 0, view = 'abc', srcTab = 'day', focus = NOW.date, changed = null, clearTimer = 0
+  const extraRows = []
+  let drag = null, over = null
+
+  // ── source ──
+  const entryLine = (x) => `${x.plan ? 'plan ' : ''}${hm(x.s)}-${hm(x.e)} ${x.c}${x.tags.map((t) => ' #' + t).join('')}${x.note ? ' ' + x.note : ''}${x.todo ? ' [todo:' + x.todo + ']' : ''}`
+  const todoLine = (t) => `todo: id="${t.id}" done=${t.done} estimate=${t.est}${t.bucket ? ` bucket="${t.bucket}"` : ''} title="${t.title}${t.tags.map((x) => ' #' + x).join('')}"`
+  const daySrc = (s) => { const d = day(s); return ['```timeline', `date: ${s}`, ...d.todos.map(todoLine), '---', ...[...d.entries].sort((a, b) => a.s - b.s || (a.plan ? -1 : 1)).map(entryLine), '```'] }
+  const weekHeader = () => weekOff === 0 ? 'days: this-week' : `days: ${isoWeek(shift(monday(NOW.date), weekOff * 7))}`
+  function note(date, line) {
+    focus = date; srcTab = 'day'; changed = { date, line }
+    clearTimeout(clearTimer); clearTimer = setTimeout(() => { changed = null; renderSrc() }, 2200)
+  }
+  function hl(lines) {
+    return lines.map((l) => {
+      let h = esc(l).replace(/^(date|days|todo):/, '<span class="k">$1:</span>').replace(/(#[^\s"]+)/g, '<span class="tg">$1</span>').replace(/^plan /, '<span class="c">plan</span> ')
+      return changed && changed.line === l ? `<span class="new">${h}</span>` : h
+    }).join('\n')
+  }
+  function renderSrc() {
+    $('#srcTabs').innerHTML = `<button role="tab" aria-selected="${srcTab === 'week'}" data-tab="week">本周.md</button><button role="tab" aria-selected="${srcTab === 'day'}" data-tab="day">${focus}.md</button>`
+    if (srcTab === 'week') { $('#srcPre').innerHTML = hl(['```timeline', weekHeader(), '```']); $('#srcNote').textContent = '这个块只有一行配置，不存任何条目。左边七列的数据都在各自那天的笔记里。' }
+    else { $('#srcPre').innerHTML = hl(daySrc(focus)); $('#srcNote').textContent = '你在左边拖的、打的每一下，都落成这里的一行。' }
+  }
+  $('#srcTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { srcTab = b.dataset.tab; renderSrc() } })
+
+  // ── mutations ──
+  const findTodo = (id, s) => day(s).todos.find((t) => t.id === id)
+  function moveTodo(id, from, to) {
+    const t = findTodo(id, from); if (!t) return
+    if (from !== to) { day(from).todos = day(from).todos.filter((x) => x !== t); day(from).entries = day(from).entries.filter((x) => x.todo !== id); day(to).todos.push(t) }
+    note(to, todoLine(t))
+  }
+  function planTodo(id, from, to, start) {
+    const t = findTodo(id, from); if (!t) return
+    moveTodo(id, from, to)
+    day(to).entries = day(to).entries.filter((x) => x.todo !== id)
+    const e = E(1, start, Math.min(start + t.est, R1 * 60), t.c, t.tags, t.title, t.id)
+    day(to).entries.push(e); note(to, entryLine(e))
+  }
+  function setBucket(id, from, b) { const t = findTodo(id, from); if (!t || b === undefined || t.bucket === b) return; t.bucket = b; note(from, todoLine(t)) }
+
+  // ── shared renderers ──
+  function axis(entries, { hh, labels, today }) {
+    const box = document.createElement('div'); box.style.height = (R1 - R0) * hh + 'px'
+    const y = (m) => (m - R0 * 60) / 60 * hh
+    for (let h = R0; h <= R1; h++) { box.insertAdjacentHTML('beforeend', `<div class="hl" style="top:${(h - R0) * hh}px"></div>`); if (labels && h % 2 === 1) box.insertAdjacentHTML('beforeend', `<span class="hlab" style="top:${(h - R0) * hh}px;right:auto;left:3px">${h}</span>`) }
+    for (const x of [...entries].sort((a, b) => (a.plan ? 0 : 1) - (b.plan ? 0 : 1) || a.s - b.s)) {
+      const top = y(x.s), h = Math.max(3, y(x.e) - top - 1)
+      const el = document.createElement('div'); el.className = 'blk' + (x.plan ? ' plan' : '') + (LIGHT.has(x.c) ? ' lt' : '')
+      el.style.cssText = `--c:${CATS[x.c]};top:${top + .5}px;height:${h}px`
+      el.title = `${x.plan ? '计划 ' : ''}${hm(x.s)}–${hm(x.e)} ${x.c}${x.tags.map((t) => ' #' + t).join('')}${x.note ? ' · ' + x.note : ''}`
+      if (h >= 13) el.innerHTML = `<span class="lb">${hrs(x.e - x.s)}</span>`
+      box.appendChild(el)
+    }
+    if (today) box.insertAdjacentHTML('beforeend', `<div class="now" style="top:${y(NOW.min)}px"></div>`)
+    return box
+  }
+  function chip(t, s, ctx) {
+    const el = document.createElement('div'); el.className = 'chip' + (t.done ? ' done' : ''); el.draggable = true; el.tabIndex = 0; el.dataset.id = t.id; el.dataset.date = s; el.title = `${t.title} · 预计 ${hrs(t.est)}`
+    el.innerHTML = `<i style="--c:${CATS[t.c]}"></i><span class="t">${esc(t.title)}${t.tags.map((x) => ` <span class="tg">#${esc(x)}</span>`).join('')}</span><em>${hrs(t.est)}</em>`
+    if (ctx === 'todo') el.insertAdjacentHTML('beforeend', `<span class="act"><button data-act="done">${t.done ? '↺ 未完成' : '✓ 完成'}</button><button data-act="tmr">→ 明天</button></span>`)
+    return el
+  }
+
+  // ── week ──
+  function renderWeek() {
+    const mon = shift(monday(NOW.date), weekOff * 7), ds = [...Array(7)].map((_, i) => shift(mon, i))
+    $('#wkTitle').textContent = `${isoWeek(mon)} · ${mon.slice(5).replace('-', '.')} – ${ds[6].slice(5).replace('-', '.')}`
+    const all = ds.flatMap((s) => day(s).entries.filter((e) => !e.plan).map((e) => ({ ...e, d: s })))
+    const runDays = new Set(all.filter((e) => e.c === RULES.habit.c).map((e) => e.d)).size
+    const writeMin = all.filter((e) => e.c === RULES.weekly.c).reduce((a, e) => a + e.e - e.s, 0)
+    const tot = {}; for (const e of all) tot[e.c] = (tot[e.c] || 0) + e.e - e.s
+    const cats = Object.entries(tot).filter(([c]) => !LIGHT.has(c)).sort((a, b) => b[1] - a[1])
+    $('#wkSum').innerHTML = `<div class="g"><span>本周打卡</span><b>运动 ${runDays} / ${RULES.habit.count} 次</b>${runDays >= RULES.habit.count ? '<span class="ok">✓</span>' : ''}</div>
+      <div class="g"><span>每周待办</span><b>写作 ${hrs(writeMin)} / ${hrs(RULES.weekly.min)}</b><span class="m"><i style="--c:${CATS.写作};width:${Math.min(100, writeMin / RULES.weekly.min * 100)}%"></i></span></div>
+      <div class="g cats"><span>本周合计</span>${cats.map(([c, m]) => `<span class="cc"><i style="--c:${CATS[c]}"></i>${c} ${hrs(m)}</span>`).join('') || '<span class="cc">还没有记录</span>'}</div>`
+    const g = $('#wk'); g.innerHTML = ''
+    const rail = document.createElement('div'); rail.className = 'rail'
+    for (let h = R0; h <= R1; h += 4) rail.insertAdjacentHTML('beforeend', `<span style="top:${(h - R0) / (R1 - R0) * 100}%">${h}</span>`)
+    g.appendChild(rail)
+    ds.forEach((s, i) => {
+      const d = day(s), col = i + 2, today = s === NOW.date, past = s < NOW.date
+      g.insertAdjacentHTML('beforeend', `<div class="ch${today ? ' today' : ''}" style="grid-column:${col}"><b>周${WD[i]}</b><span>${Number(s.slice(8))}</span></div>`)
+      const tl = document.createElement('div'); tl.className = 'tl'; tl.dataset.date = s; tl.style.gridColumn = col
+      for (const t of d.todos) tl.appendChild(chip(t, s, 'wk'))
+      if (!d.todos.length) tl.insertAdjacentHTML('beforeend', `<span class="empty">${past ? '' : '拖待办到这里'}</span>`)
+      g.appendChild(tl)
+      const ax = axis(d.entries, { hh: 176 / (R1 - R0), labels: false, today }); ax.className = 'ax'; ax.dataset.date = s; ax.style.gridColumn = col
+      g.appendChild(ax)
+    })
+  }
+  $('#wkPrev').onclick = () => { weekOff--; renderWeek(); renderSrc() }
+  $('#wkNext').onclick = () => { weekOff++; renderWeek(); renderSrc() }
+  $('#wkToday').onclick = () => { weekOff = 0; renderWeek(); renderSrc() }
+  $('#legend').innerHTML = Object.entries(CATS).filter(([c]) => c !== '杂事').map(([c, k]) => `<span><i style="--c:${k}"></i>${c}</span>`).join('')
+
+  // ── hourlog ──
+  function hourRows() {
+    const d = day(NOW.date), rows = new Map()
+    for (const r of extraRows) rows.set(r.tag, { tag: r.tag, c: r.c, items: [] })
+    for (const x of [...d.entries].sort((a, b) => a.s - b.s)) {
+      const key = x.tags[0] || '其他'
+      if (!rows.has(key)) rows.set(key, { tag: key, c: key === '其他' ? '杂事' : x.c, items: [] })
+      rows.get(key).items.push(x)
+    }
+    const list = [...rows.values()]
+    return [...list.filter((r) => r.tag !== '其他'), ...list.filter((r) => r.tag === '其他')]
+  }
+  function renderHourlog() {
+    const d = day(NOW.date), wrap = $('#hl')
+    wrap.innerHTML = `<div class="hh"><span></span><div class="hs">${[...Array(R1 - R0)].map((_, i) => `<span>${R0 + i}</span>`).join('')}</div></div>`
+    for (const r of hourRows()) {
+      const row = document.createElement('div'); row.className = 'row'
+      row.innerHTML = `<div class="lb"><i style="--c:${CATS[r.c]}"></i>${r.tag === '其他' ? '<span class="tg">其他（未标记）</span>' : `<span><span class="tg">#</span>${esc(r.tag)}</span>`}</div>`
+      const tr = document.createElement('div'); tr.className = 'tr'; tr.dataset.tag = r.tag; tr.dataset.c = r.c
+      const covered = (x) => x.plan && r.items.some((y) => !y.plan && y.s < x.e && y.e > x.s)
+      const visible = r.items.filter((x) => !covered(x))
+      for (const x of r.items) {
+        const L = (x.s - R0 * 60) / SPAN * 100
+        const st = document.createElement('i'); st.className = 'st' + (x.plan ? ' plan' : ''); st.style.cssText = `--c:${CATS[x.c]};left:${L}%;width:${(x.e - x.s) / SPAN * 100}%`; tr.appendChild(st)
+        if (covered(x)) continue
+        // Text is not clipped to the block: it runs until the next visible entry in this row.
+        const next = visible.find((y) => y.s > x.s)
+        const tx = document.createElement('span'); tx.className = 'tx' + (x.plan ? ' plan' : ''); tx.dataset.i = d.entries.indexOf(x)
+        tx.style.cssText = `left:${L}%;max-width:${((next ? next.s : R1 * 60) - x.s) / SPAN * 100}%`
+        tx.title = `${hm(x.s)}–${hm(x.e)} ${x.c}${x.plan ? ' · 计划' : ''}`; tx.textContent = (x.plan ? '计划 · ' : '') + (x.note || x.c)
+        tr.appendChild(tx)
+      }
+      tr.insertAdjacentHTML('beforeend', `<div class="nowv" style="left:${(NOW.min - R0 * 60) / SPAN * 100}%"></div>`)
+      row.appendChild(tr); wrap.appendChild(row)
+    }
+    wrap.insertAdjacentHTML('beforeend', `<div class="row addrow"><div class="lb"><button class="ib" id="addRow">＋ 加一行</button></div><div class="tr"></div></div>`)
+    const m = $('#mini'); m.innerHTML = ''; const ax = axis(d.entries, { hh: 13, labels: true, today: true }); ax.className = 'ax mini'; m.appendChild(ax)
+  }
+  function openInput(tr, startMin, value, onSave) {
+    tr.querySelectorAll('.hin').forEach((n) => n.remove())
+    const inp = document.createElement('input'); inp.className = 'hin'; inp.value = value; inp.placeholder = '这个小时做了什么'; inp.setAttribute('aria-label', '小时日记')
+    inp.style.left = `min(${(startMin - R0 * 60) / SPAN * 100}%, calc(100% - 100% / 16 * 2.6))`
+    let done = false
+    const finish = (save) => { if (done) return; done = true; const v = inp.value.trim(); inp.remove(); if (save && v) { onSave(v); renderAll() } }
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false) })
+    inp.addEventListener('blur', () => finish(true))
+    tr.appendChild(inp); inp.focus()
+  }
+  $('#hl').addEventListener('click', (e) => {
+    if (e.target.closest('.hin')) return
+    const tx = e.target.closest('.tx')
+    if (tx) { const x = day(NOW.date).entries[tx.dataset.i]; openInput(tx.closest('.tr'), x.s, x.note, (v) => { x.note = v; note(NOW.date, entryLine(x)) }); return }
+    if (e.target.closest('#addRow')) {
+      const lb = e.target.closest('.lb')
+      lb.innerHTML = `<input id="newTag" placeholder="标签" aria-label="标签"><select id="newCat" aria-label="荧光笔">${Object.keys(CATS).filter((c) => !LIGHT.has(c)).map((c) => `<option>${c}</option>`).join('')}</select>`
+      const inp = $('#newTag'); inp.focus()
+      inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && inp.value.trim()) { extraRows.push({ tag: inp.value.trim().replace(/^#/, ''), c: $('#newCat').value }); renderHourlog() } if (ev.key === 'Escape') renderHourlog() })
+      return
+    }
+    const tr = e.target.closest('.tr'); if (!tr || !tr.dataset.tag) return
+    const r = tr.getBoundingClientRect(), hour = R0 + Math.floor((e.clientX - r.left) / r.width * (R1 - R0))
+    openInput(tr, hour * 60, '', (v) => { const x = E(0, hour * 60, (hour + 1) * 60, tr.dataset.c, tr.dataset.tag === '其他' ? [] : [tr.dataset.tag], v); day(NOW.date).entries.push(x); note(NOW.date, entryLine(x)) })
+  })
+  $('#nudgeBtn').onclick = () => $('#nudge').classList.toggle('on')
+  $('#nudgeGo').onclick = () => {
+    const tr = $('#hl .row:not(.addrow) .tr'); if (!tr) return
+    tr.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const hour = Math.floor(NOW.min / 60)
+    openInput(tr, hour * 60, '', (v) => { const x = E(0, hour * 60, (hour + 1) * 60, tr.dataset.c, tr.dataset.tag === '其他' ? [] : [tr.dataset.tag], v); day(NOW.date).entries.push(x); note(NOW.date, entryLine(x)) })
+    $('#nudge').classList.remove('on')
+  }
+
+  // ── todos ──
+  function bucketEl(k, name, items, ctxDate) {
+    const b = document.createElement('div'); b.className = 'bk'; if (k !== undefined) b.dataset.bucket = k; b.dataset.date = ctxDate
+    b.innerHTML = `<h4><span>${name}</span><small>${items.length}</small></h4>`
+    for (const t of items) b.appendChild(chip(t, ctxDate, 'todo'))
+    if (!items.length) b.insertAdjacentHTML('beforeend', '<span class="empty">拖到这里</span>')
+    return b
+  }
+  function renderTodos() {
+    const s = NOW.date, d = day(s), root = $('#tv'), bks = $('#bks')
+    root.className = 'tv ' + view; bks.innerHTML = ''
+    if (view === 'list') { bks.appendChild(bucketEl(undefined, '今天', d.todos, s)); return }
+    const used = new Set()
+    for (const [k, name] of VIEWS[view]) { const items = d.todos.filter((t) => t.bucket === k); items.forEach((t) => used.add(t)); bks.appendChild(bucketEl(k, name, items, s)) }
+    const un = bucketEl('', '未分组', d.todos.filter((t) => !used.has(t)), s); un.classList.add('un'); bks.appendChild(un)
+  }
+  $('#seg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; view = b.dataset.v; $('#seg').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); renderTodos() })
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.chip .act button'); if (!btn) return
+    const c = btn.closest('.chip'), t = findTodo(c.dataset.id, c.dataset.date); if (!t) return
+    if (btn.dataset.act === 'done') { t.done = !t.done; note(c.dataset.date, todoLine(t)) }
+    else moveTodo(t.id, c.dataset.date, shift(c.dataset.date, 1))
+    renderAll()
+  })
+
+  // ── drag and drop (never rebuild DOM mid-drag) ──
+  const zone = (el) => el.closest?.('.tl, .ax, .bk')
+  document.addEventListener('dragstart', (e) => { const c = e.target.closest?.('.chip'); if (!c) return; drag = { id: c.dataset.id, from: c.dataset.date }; e.dataTransfer.setData('text/plain', c.dataset.id); e.dataTransfer.effectAllowed = 'move' })
+  document.addEventListener('dragover', (e) => { const z = zone(e.target); if (!z || !drag) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over && over !== z) over.classList.remove('over'); over = z; z.classList.add('over') })
+  document.addEventListener('dragleave', (e) => { const z = zone(e.target); if (z && !z.contains(e.relatedTarget)) z.classList.remove('over') })
+  document.addEventListener('drop', (e) => {
+    const z = zone(e.target); if (!z || !drag) return
+    e.preventDefault(); z.classList.remove('over'); const { id, from } = drag; drag = null; over = null
+    if (z.classList.contains('tl')) moveTodo(id, from, z.dataset.date)
+    else if (z.classList.contains('ax')) { const r = z.getBoundingClientRect(); const min = R0 * 60 + Math.round((e.clientY - r.top) / r.height * SPAN / 30) * 30; planTodo(id, from, z.dataset.date, Math.max(R0 * 60, Math.min(min, R1 * 60 - 30))) }
+    else setBucket(id, from, z.dataset.bucket)
+    renderAll()
+  })
+  document.addEventListener('dragend', () => { over?.classList.remove('over'); over = null; drag = null })
+
+  function renderAll() { renderWeek(); renderHourlog(); renderTodos(); renderSrc() }
+  renderAll()
+})()
+</script>
