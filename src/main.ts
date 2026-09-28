@@ -60,6 +60,9 @@ import { DayIndex } from "./core/day-index"
 import { dailyNotePath, fillDailyTemplate, parseDailyNotesConfig, shiftDate, type DailyNotesConfig } from "./core/daily-notes"
 import { ensureBlockForDate } from "./core/day-content"
 import { learnTagCategories, tagCategory } from "./core/tags"
+import { formatPeriodSpec, goalProgress, periodTotals, resolvePeriod, shiftPeriod } from "./core/period"
+import { POOL_ZONE, renderPeriodInto, type PeriodDayView, type PeriodViewModel } from "./render/period-view"
+import { buildScheduledPlan } from "./edit/timeline-schedule-drag"
 
 /** Obsidian ships moment on window; the typed `moment` export is not callable without esModuleInterop. */
 type MomentLike = (input: string, format: string) => { format: (momentFormat: string) => string }
@@ -94,7 +97,7 @@ import {
   type MarkerEditState,
   type SpanEditState,
 } from "./edit/block-edit-state"
-import type { Annotation, Entry } from "./core/types"
+import type { Annotation, Entry, TimelineDoc } from "./core/types"
 
 class MountedTimelineChild extends MarkdownRenderChild {
   constructor(
@@ -227,6 +230,15 @@ export default class ModularDiaryPlugin extends Plugin {
       name: tr("insertTimelineBlock"),
       editorCallback: (editor) => {
         insertTimelineBlock(editor, this.app.workspace.getActiveFile()?.basename ?? null, this.insertTemplate())
+      },
+    })
+    this.addCommand({
+      id: "insert-period-block",
+      name: tr("insertPeriodBlock"),
+      editorCallback: (editor) => {
+        const cursor = editor.getCursor()
+        const prefix = editor.getLine(cursor.line).trim() === "" ? "" : "\n"
+        editor.replaceRange(`${prefix}\`\`\`timeline\ndays: this-week\n---\n\`\`\`\n`, cursor)
       },
     })
     // 撤销/重做兜底按窗口注册：弹出窗口拥有独立 Document。
@@ -468,6 +480,12 @@ export default class ModularDiaryPlugin extends Plugin {
       const dom = el.ownerDocument
       const domWindow = dom.defaultView
       this.blockSources.set(el, source)
+      const maybePeriod = this.parse(source)
+      if (maybePeriod.period) {
+        el.empty()
+        this.renderPeriodBlock(source, el, ctx, maybePeriod)
+        return
+      }
       const doc = this.parse(source)
       // 渲染色号：全局优先，退休板兜底（删除/改名的类型在旧块里保色）
       const spanPaletteForRender = { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors }
@@ -494,15 +512,7 @@ export default class ModularDiaryPlugin extends Plugin {
         this.settings.tagCategories = { ...this.settings.tagCategories, ...learnedTags }
         void this.saveSettings()
       }
-      const tagStyle = (tag: string): { background: string; color: string } | null => {
-        const category = tagCategory(tag, this.settings.tagCategories)
-        const color = category ? (this.settings.spanTypeColors[category] ?? this.settings.spanRetiredTypeColors[category]) : undefined
-        if (!color) return null
-        return {
-          background: `color-mix(in srgb, ${color} 22%, var(--background-primary))`,
-          color: `color-mix(in srgb, ${color} 70%, var(--text-normal))`,
-        }
-      }
+      const tagStyle = (tag: string): { background: string; color: string } | null => this.tagStyle(tag)
       const selectedQuote = dailyQuoteForDate(this.settings.dailyQuotes, dateStr ?? "")
       const dueHabits = dateStr ? orderedHabits(this.settings.habits
         .filter((habit) => isHabitDue(habit, dateStr) && !doc.habitSkips.includes(habit.id))) : []
@@ -1734,6 +1744,103 @@ export default class ModularDiaryPlugin extends Plugin {
 
   private previousDate(date: string): string {
     return shiftDate(date, -1)
+  }
+
+  private tagStyle(tag: string): { background: string; color: string } | null {
+    const category = tagCategory(tag, this.settings.tagCategories)
+    const color = category ? (this.settings.spanTypeColors[category] ?? this.settings.spanRetiredTypeColors[category]) : undefined
+    if (!color) return null
+    return {
+      background: `color-mix(in srgb, ${color} 22%, var(--background-primary))`,
+      color: `color-mix(in srgb, ${color} 70%, var(--text-normal))`,
+    }
+  }
+
+  /** A `days:` block: the period's goals and pool live here; each column is that day's note. */
+  private renderPeriodBlock(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext, doc: TimelineDoc): void {
+    const period = doc.period
+    if (!period) return
+    const today = inferDate(null)
+    const resolved = resolvePeriod(period, today)
+    const ready = this.dayIndexReady()
+    if (!ready) void this.refreshDayIndex().then(() => this.rerenderMountedTimelines())
+    const days: PeriodDayView[] = resolved.days.map((date) => {
+      const blocks = this.dayIndex.blocksForDate(date)
+      return {
+        date,
+        entries: blocks.flatMap((block) => block.entries),
+        spans: blocks.flatMap((block) => block.spans),
+        todos: blocks.flatMap((block) => block.todos),
+        hasNote: blocks.length > 0,
+      }
+    })
+    const model: PeriodViewModel = {
+      spec: period, period: resolved, today,
+      goals: goalProgress(doc.goals, days), totals: periodTotals(days), pool: doc.todos, days,
+      rangeStartMin: this.settings.rangeStartHour * 60, rangeEndMin: this.settings.rangeEndHour * 60,
+      indexReady: ready,
+    }
+    const container = el.createDiv({ cls: "modular-diary-container modular-diary-period-container" })
+    renderPeriodInto(container, model, {
+      typeColors: { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors },
+      tagStyle: (tag) => this.tagStyle(tag),
+      onShift: (direction) => void this.applyBlockTransform(el, ctx, source, (current) =>
+        setHeaderValue(current, "days", formatPeriodSpec(shiftPeriod(period, today, direction)))),
+      onToday: () => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "days", "this-week")),
+      onOpenDay: (date) => void this.openDay(date),
+      onMoveTodo: (id, from, to) => void this.movePeriodTodo(el, ctx, source, doc, id, from, to, null),
+      onPlanTodo: (id, from, date, startMin) => void this.movePeriodTodo(el, ctx, source, doc, id, from, date, startMin),
+    })
+  }
+
+  private async openDay(date: string): Promise<void> {
+    const path = await this.writeToDay(date, (blockSource) => blockSource)
+    await this.app.workspace.openLinkText(path, "", false)
+  }
+
+  /**
+   * Move a todo between the period pool and days, optionally planning it at
+   * a time. Writes land on the destination first; the origin is cleaned up
+   * only after that succeeds, so a failure never loses the todo.
+   */
+  private async movePeriodTodo(
+    el: HTMLElement, ctx: MarkdownPostProcessorContext, source: string, doc: TimelineDoc,
+    id: string, from: string, to: string, startMin: number | null,
+  ): Promise<void> {
+    const todo = from === POOL_ZONE
+      ? doc.todos.find((item) => item.id === id)
+      : this.dayIndex.blocksForDate(from).flatMap((block) => block.todos).find((item) => item.id === id)
+    if (!todo) return
+    const value = { id: todo.id, title: todo.title, group: todo.group, type: todo.type, estimateMin: todo.estimateMin, completed: todo.completed, due: todo.due }
+    const hasTodo = (blockSource: string): boolean => this.parse(blockSource).todos.some((item) => item.id === id)
+    try {
+      if (to === POOL_ZONE) {
+        await this.applyBlockTransform(el, ctx, source, (current) => hasTodo(current) ? current : insertTodo(current, value))
+        if (from !== POOL_ZONE) await this.writeToDay(from, (blockSource) => deleteTodo(blockSource, id))
+        return
+      }
+      let plan: string | null = null
+      if (startMin !== null) {
+        if (!todo.type) { new Notice(tr("periodTodoNeedsCategory")); return }
+        plan = buildScheduledPlan({ source: "todo", id, title: todo.title, type: todo.type, durationMin: todo.estimateMin }, startMin).line
+      }
+      await this.writeToDay(to, (blockSource) => {
+        let out = hasTodo(blockSource) ? blockSource : insertTodo(blockSource, value)
+        if (plan !== null && startMin !== null) {
+          const bound = this.parse(out).entries.filter((entry) => entry.plan && entry.todoId === id).sort((a, b) => b.line - a.line)
+          for (const entry of bound) out = deleteEntryLine(out, entry.line)
+          out = insertEntryLine(out, plan, startMin)
+        }
+        return out
+      })
+      if (from !== to) {
+        if (from === POOL_ZONE) await this.applyBlockTransform(el, ctx, source, (current) => deleteTodo(current, id))
+        else await this.writeToDay(from, (blockSource) => deleteTodo(blockSource, id))
+      }
+    } catch (error) {
+      console.error("Modular Diary: failed to move a period todo", error)
+      if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("periodWriteFailed", { date: to === POOL_ZONE ? from : to }))
+    }
   }
 
   private addComponentSlot(source: string, doc: { layout?: unknown }, container: HTMLElement, id: "habits" | "todos" | "quote"): string {

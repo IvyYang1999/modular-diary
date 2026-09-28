@@ -4084,3 +4084,220 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
   margin-left: auto;
   max-width: 100%;
 }
+
+/* ── Period block (`days:`): goals + pool rail, one column per day ── */
+.modular-diary-period-container {
+  padding: 0;
+}
+.modular-diary-period {
+  width: 100%;
+  font-size: var(--modular-diary-font-body, var(--font-ui-small));
+  color: var(--text-normal);
+}
+.modular-diary-period-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.modular-diary-period-nav,
+.modular-diary-period-today {
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--modular-diary-radius-control);
+  background: var(--modular-diary-surface-control);
+  color: var(--text-muted);
+  box-shadow: none;
+  font-size: var(--font-ui-smaller);
+}
+.modular-diary-period-nav .svg-icon { width: 14px; height: 14px; }
+.modular-diary-period-nav:hover,
+.modular-diary-period-today:hover { color: var(--text-normal); }
+.modular-diary-period-title {
+  font-weight: var(--font-semibold, 600);
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+}
+.modular-diary-period-spec {
+  margin-left: auto;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+.modular-diary-period-loading { font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.modular-diary-period-body {
+  display: grid;
+  grid-template-columns: 196px minmax(0, 1fr);
+}
+@container (max-width: 720px) { .modular-diary-period-body { grid-template-columns: 1fr; } }
+.modular-diary-period-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-right: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+.modular-diary-period-heading {
+  margin: 4px 0 0;
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold, 600);
+  color: var(--text-muted);
+}
+.modular-diary-period-hint,
+.modular-diary-period-empty {
+  margin: 0;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+.modular-diary-period-goal { display: flex; flex-direction: column; gap: 3px; }
+.modular-diary-period-goal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.modular-diary-period-goal-head b { font-weight: var(--font-semibold, 600); font-variant-numeric: tabular-nums; font-size: var(--font-ui-smaller); }
+.modular-diary-period-goal-track { height: 5px; border-radius: 3px; background: var(--modular-diary-surface-data-track); overflow: hidden; }
+.modular-diary-period-goal-bar { height: 100%; border-radius: 3px; background: var(--interactive-accent); transition: width 0.25s; }
+.modular-diary-period-goal-status { font-size: var(--font-ui-smaller); color: var(--text-faint); }
+.modular-diary-period-goal.is-complete .modular-diary-period-goal-status { color: var(--text-success, var(--text-accent)); }
+.modular-diary-period-pool,
+.modular-diary-period-allday {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 40px;
+  padding: 3px;
+  border: 1px dashed transparent;
+  border-radius: var(--modular-diary-radius-group);
+  transition: background 0.15s, border-color 0.15s;
+}
+.modular-diary-period-pool.is-over,
+.modular-diary-period-allday.is-over { border-color: var(--text-normal); background: var(--background-modifier-hover); }
+.modular-diary-period-totals { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: var(--font-ui-smaller); color: var(--text-muted); }
+.modular-diary-period-total { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+.modular-diary-period-total i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+/* Compact chips are for the all-day strip and the pool only; todo rows elsewhere keep their own style. */
+.modular-diary-period-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 5px;
+  padding: 3px 7px;
+  border-radius: var(--modular-diary-radius-control);
+  background: color-mix(in srgb, var(--modular-diary-chip-color, var(--text-muted)) 14%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--modular-diary-chip-color, var(--text-muted)) 30%, var(--background-modifier-border));
+  font-size: var(--font-ui-smaller);
+  line-height: 1.35;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.modular-diary-period-chip:active { cursor: grabbing; }
+.modular-diary-period-chip:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 1px; }
+.modular-diary-period-chip.is-dragging { opacity: 0.35; }
+.modular-diary-period-chip.is-ghost {
+  position: fixed;
+  left: 0; top: 0;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  background: var(--background-primary);
+}
+.modular-diary-period-chip-title {
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.modular-diary-period-chip.is-complete .modular-diary-period-chip-title { text-decoration: line-through; color: var(--text-muted); }
+.modular-diary-period-chip-due { font-size: 0.9em; color: var(--text-muted); white-space: nowrap; }
+.modular-diary-period-allday .modular-diary-period-chip .modular-diary-tag { display: none; }
+.modular-diary-period-due {
+  padding: 3px 7px;
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: var(--modular-diary-radius-control);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.modular-diary-period-scroll { overflow-x: auto; }
+.modular-diary-period-grid {
+  display: grid;
+  gap: 0 8px;
+  padding: 10px 12px 14px;
+  min-width: 600px;
+}
+.modular-diary-period-hours { grid-column: 1; position: relative; margin-top: 4px; }
+.modular-diary-period-hours span {
+  position: absolute;
+  right: 4px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.modular-diary-period-day-head {
+  border: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  height: auto;
+  padding: 0 4px 6px;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.modular-diary-period-day-head b { font-weight: var(--font-semibold, 600); color: var(--text-normal); }
+.modular-diary-period-day-head:hover b { text-decoration: underline; }
+.modular-diary-period-day-head.is-today b { color: var(--text-accent); }
+.modular-diary-period-day-head.is-today span { background: var(--interactive-accent); color: var(--text-on-accent); border-radius: 999px; padding: 0 6px; }
+.modular-diary-period-day-head.is-missing { opacity: 0.7; }
+.modular-diary-period-column { margin-top: 4px; }
+.modular-diary-period-axis {
+  position: relative;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  overflow: hidden;
+}
+.modular-diary-period-axis.is-over { border-color: var(--text-normal); box-shadow: inset 0 0 0 1px var(--text-normal); }
+.modular-diary-period-hour { position: absolute; left: 0; right: 0; height: 1px; background: var(--background-modifier-border); opacity: 0.7; }
+.modular-diary-period-block {
+  position: absolute;
+  left: 2px; right: 2px;
+  border-radius: 2px;
+  background: var(--modular-diary-block-color);
+  min-height: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9.5px; font-weight: 600; line-height: 1;
+  color: var(--modular-diary-block-text-light, #fff);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+.modular-diary-period-block.is-plan {
+  background: color-mix(in srgb, var(--modular-diary-block-color) 18%, transparent);
+  background-image: repeating-linear-gradient(135deg, var(--modular-diary-block-color) 0 1.5px, transparent 1.5px 5px);
+  color: var(--text-muted);
+}
+.modular-diary-period-span { position: absolute; left: 0; width: 3px; border-radius: 2px; background: var(--text-normal); opacity: 0.35; }
+.modular-diary-period-now { position: absolute; left: 0; right: 0; border-top: 1px solid var(--text-error, #c9443f); z-index: 2; pointer-events: none; }
+.modular-diary-period-drop-line {
+  position: absolute; left: 0; right: 0;
+  border-top: 2px solid var(--interactive-accent);
+  z-index: 3; pointer-events: none;
+}
+.modular-diary-period-drop-line::after {
+  content: attr(data-time);
+  position: absolute; left: 2px; top: -16px;
+  font-size: 10px; padding: 0 4px; border-radius: 3px;
+  background: var(--interactive-accent); color: var(--text-on-accent);
+}
+.modular-diary-period.is-dragging { cursor: grabbing; }
