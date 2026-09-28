@@ -282,4 +282,41 @@ describe("habit and todo metadata", () => {
     expect(doc.entries[0]).toMatchObject({ note: "写首屏", todoId: "landing" })
     expect(doc.errors).toEqual([])
   })
+
+  it("attaches indented lines under an entry as its diary body and derives tags", () => {
+    const doc = parseTimeline([
+      "date: 2026-09-30",
+      "---",
+      "09:15-11:40 开发 #模块日记 周视图 parser",
+      "  days 头解析 + 列渲染。",
+      "  发现 #飞搜 的接口改了。",
+      "12:00-12:45 吃饭",
+      "@12:45-13:00 #飞搜",
+      "\t午饭后回了两个 issue。",
+      "@21:40 头晕",
+      "  睡前批注也能带正文",
+    ].join("\n"))
+    expect(doc.errors).toEqual([])
+    expect(doc.entries).toHaveLength(2)
+    expect(doc.entries[0]).toMatchObject({ line: 2, note: "#模块日记 周视图 parser", body: "days 头解析 + 列渲染。\n发现 #飞搜 的接口改了。", bodyLines: 2, tags: ["模块日记", "飞搜"] })
+    expect(doc.entries[1]).toMatchObject({ line: 5, tags: [] })
+    expect(doc.entries[1].body).toBeUndefined()
+    expect(doc.spans).toEqual([{ startMin: 765, endMin: 780, text: "#飞搜", tags: ["飞搜"], body: "午饭后回了两个 issue。", bodyLines: 1, line: 6 }])
+    expect(doc.annotations[0]).toMatchObject({ timeMin: 21 * 60 + 40, text: "头晕", body: "睡前批注也能带正文", bodyLines: 1 })
+  })
+
+  it("keeps an indented line before any item an error, and leaves old sources unchanged", () => {
+    const doc = parseTimeline(["date: 2026-09-30", "---", "  孤零零的缩进行", "09:00-10:00 math"].join("\n"))
+    expect(doc.errors).toHaveLength(1)
+    expect(doc.entries[0].body).toBeUndefined()
+    const legacy = parseTimeline("09:00-10:00 math 线代\n@21:40 头晕")
+    expect(legacy.entries[0].tags).toEqual([])
+    expect(legacy.entries[0].body).toBeUndefined()
+    expect(legacy.spans).toEqual([])
+  })
+
+  it("extends the axis for a late diary span", () => {
+    const doc = parseTimeline("range: 7-20\n---\n@22:00-23:30 #夜谈")
+    expect(doc.rangeEnd).toBe(23 * 60 + 30)
+  })
 })

@@ -8,7 +8,7 @@ import {
 } from "./entry-target"
 
 function entry(line: number, type: string, startMin = 600): Entry {
-  return { line, type, startMin, endMin: startMin + 30, plan: false }
+  return { line, type, startMin, endMin: startMin + 30, plan: false, tags: [] }
 }
 
 describe("timeline entry identity", () => {

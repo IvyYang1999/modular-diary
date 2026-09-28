@@ -1,4 +1,5 @@
 import type { Entry, TodoItem, TodoViewConfig } from "./types"
+import { extractTags } from "./tags"
 
 export const DEFAULT_TODO_VIEW: TodoViewConfig = { groupBy: "none", sortBy: "manual" }
 
@@ -55,7 +56,7 @@ function parseLegacyTodoHeaderValue(value: string, line: number): TodoItem | nul
   if (!Number.isFinite(estimateMin) || estimateMin < 0 || type === null || group === null || !title) return null
   return {
     id: parts[0], completed: parts[1] === "1", estimateMin: Math.round(estimateMin),
-    type: type || undefined, group, title, line,
+    type: type || undefined, group, title, tags: extractTags(title), line,
   }
 }
 
@@ -128,6 +129,7 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
     type: type || undefined,
     group,
     title,
+    tags: extractTags(title),
     line,
   }
 }

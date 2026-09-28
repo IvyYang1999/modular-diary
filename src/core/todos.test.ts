@@ -4,10 +4,10 @@ import type { Entry, TodoItem } from "./types"
 
 const todo: TodoItem = {
   id: "landing", title: "完成｜落地页", group: "工作 / 产品", type: "开发",
-  estimateMin: 90, completed: false, line: 2,
+  estimateMin: 90, completed: false, tags: [], line: 2,
 }
 const entry = (patch: Partial<Entry>): Entry => ({
-  plan: false, startMin: 600, endMin: 630, type: "开发", line: 5, ...patch,
+  plan: false, startMin: 600, endMin: 630, type: "开发", tags: [], line: 5, ...patch,
 })
 
 describe("todo source model", () => {

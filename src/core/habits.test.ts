@@ -9,7 +9,7 @@ const habit = (patch: Partial<HabitDefinition> = {}): HabitDefinition => ({
 
 const entry = (patch: Partial<Entry> = {}): Entry => ({
   plan: false, startMin: 9 * 60, endMin: 9 * 60 + 20,
-  type: "运动", line: 4, ...patch,
+  type: "运动", tags: [], line: 4, ...patch,
 })
 
 describe("habit recurrence and progress", () => {

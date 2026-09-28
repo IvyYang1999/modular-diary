@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { addHiddenType, convertMarkerToEntry, deleteEntryLine, extractBlockSourceFromContent, insertEntryLine, insertMarkerLine, removeHeaderValue, removeHiddenType, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setHeaderValue, setTextSection } from "./source-rewriter"
+import { addHiddenType, convertMarkerToEntry, deleteEntryLine, extractBlockSourceFromContent, insertEntryLine, insertMarkerLine, insertSpanLine, removeHeaderValue, removeHiddenType, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setHeaderValue, setItemBody, setTextSection } from "./source-rewriter"
 import { parseTimeline } from "../core/parser"
 
 describe("insertEntryLine", () => {
@@ -308,5 +308,26 @@ describe("setTextSection / removeTextSection (多文本框)", () => {
   it("removeTextSection removes only that segment", () => {
     expect(removeTextSection(src, 0)).toBe("09:00-10:00 math\n===\n下午")
     expect(parseTimeline(removeTextSection(src, 0)).texts).toEqual(["下午"])
+  })
+})
+
+describe("diary bodies travel with their line", () => {
+  const src = ["date: 2026-09-30", "---", "09:00-10:00 开发 a", "  正文一", "  正文二", "11:00-12:00 写作 b"].join("\n")
+  it("deleteEntryLine removes the body too", () => {
+    expect(deleteEntryLine(src, 2)).toBe(["date: 2026-09-30", "---", "11:00-12:00 写作 b"].join("\n"))
+  })
+  it("insertEntryLine lands after the body of the previous entry", () => {
+    const out = insertEntryLine(src, "10:00-10:30 吃饭", 600)
+    expect(out.split("\n").slice(2, 6)).toEqual(["09:00-10:00 开发 a", "  正文一", "  正文二", "10:00-10:30 吃饭"])
+  })
+  it("setItemBody replaces, adds and removes a body", () => {
+    expect(setItemBody(src, 2, "只剩一行")).toBe(["date: 2026-09-30", "---", "09:00-10:00 开发 a", "  只剩一行", "11:00-12:00 写作 b"].join("\n"))
+    expect(setItemBody(src, 5, "新的\n两行")).toContain("11:00-12:00 写作 b\n  新的\n  两行")
+    expect(setItemBody(src, 2, undefined)).toBe(["date: 2026-09-30", "---", "09:00-10:00 开发 a", "11:00-12:00 写作 b"].join("\n"))
+  })
+  it("insertSpanLine keeps time order and attaches the body", () => {
+    const out = insertSpanLine(src, { startMin: 10 * 60 + 15, endMin: 10 * 60 + 40, text: "#飞搜", body: "回 issue" })
+    expect(out.split("\n").slice(2, 8)).toEqual(["09:00-10:00 开发 a", "  正文一", "  正文二", "@10:15-10:40 #飞搜", "  回 issue", "11:00-12:00 写作 b"])
+    expect(parseTimeline(out).spans[0]).toMatchObject({ startMin: 615, endMin: 640, body: "回 issue", tags: ["飞搜"] })
   })
 })

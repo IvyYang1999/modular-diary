@@ -12,6 +12,8 @@ export interface TimelineDoc {
   rangeEnd: number
   entries: Entry[]
   annotations: Annotation[]
+  /** Diary spans without a category: `@HH:MM-HH:MM [#tags] [text]` plus an indented body. */
+  spans: SpanNote[]
   errors: ParseError[]
   /** Per-block hidden highlighters (`hide:` header); global palette minus these is shown. */
   hiddenTypes: string[]
@@ -52,9 +54,27 @@ export interface Entry {
   /** Task type key; color comes from settings mapping (D2). */
   type: string
   note?: string
+  /** `#tags` found in the note and the body (derived, never stored apart). */
+  tags: string[]
+  /** Diary body: the indented source lines right after the entry line. */
+  body?: string
+  /** How many source lines the body occupies (0 when absent). */
+  bodyLines?: number
   /** Stable binding to a Todo item in this Modular Diary block. */
   todoId?: string
   /** 0-based source line inside the code block, for write-back. */
+  line: number
+}
+
+/** A stretch of time that carries diary text but no highlighter category. */
+export interface SpanNote {
+  startMin: number
+  endMin: number
+  /** Text after the range on the same line (usually just tags). */
+  text: string
+  tags: string[]
+  body?: string
+  bodyLines?: number
   line: number
 }
 
@@ -65,6 +85,8 @@ export interface TodoItem {
   type?: string
   estimateMin: number
   completed: boolean
+  /** `#tags` inside the title (derived at parse time). */
+  tags?: string[]
   line: number
 }
 
@@ -85,6 +107,8 @@ export interface Annotation {
   type?: string
   /** Uses the same actual/plan layer semantics as duration blocks. */
   plan?: boolean
+  body?: string
+  bodyLines?: number
 }
 
 export interface ParseError {

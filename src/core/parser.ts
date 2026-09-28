@@ -14,6 +14,7 @@ import { parseLayoutHeader, parseRecoverableLayoutHeader } from "./grid-layout"
 import { parseBlockSize, parseCanvasWidth } from "./block-size"
 import { DEFAULT_TODO_VIEW, parseTodoHeaderValue, parseTodoViewHeaderValue, splitTodoBinding } from "./todos"
 import { t as tr } from "../i18n"
+import { extractTags } from "./tags"
 import {
   Annotation,
   DAY_MINUTES,
@@ -21,12 +22,17 @@ import {
   DEFAULT_RANGE_START,
   Entry,
   ParseError,
+  SpanNote,
   TimelineDoc,
 } from "./types"
 
 const ENTRY_RE = /^(plan\s+)?(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})\s+([^\s]+)(?:\s+(.*))?$/
 const MARKER_RE = /^(plan\s+)?@(\d{1,2}):(\d{2})\s+\[([^\]]+)\](?:\s+(.*))?$/
 const ANNOTATION_RE = /^@(\d{1,2}):(\d{2})\s+(.*)$/
+/** Diary span: a range with no category. Never matched ANNOTATION_RE before, so no legacy conflict. */
+const SPAN_RE = /^@(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})(?:\s+(.*))?$/
+/** Continuation (diary body) lines are indented by two spaces or a tab. */
+const BODY_RE = /^(?: {2,}|\t)(?=\S)/
 const HEADER_RE = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/
 const RANGE_RE = /^(\d{1,2})(?:-(\d{1,2}))?$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -67,6 +73,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     rangeEnd: opts.rangeEnd ?? DEFAULT_RANGE_END,
     entries: [],
     annotations: [],
+    spans: [],
     errors: [],
     hiddenTypes: [],
     hiddenMarkerTypes: [],
@@ -93,10 +100,20 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
   }
   let inHeader = true
   let sawSeparator = false
+  /** The item that owns any indented lines that follow it. */
+  let lastItem: { body?: string; bodyLines?: number } | null = null
 
   lines.forEach((raw, line) => {
     const text = raw.trim()
-    if (text === "" || text.startsWith("#")) return
+    if (text === "") return
+    // An indented line under an entry, marker or span is its diary body.
+    if (!inHeader && lastItem && BODY_RE.test(raw)) {
+      const bodyLine = raw.replace(/^(?: {2}|\t)/, "").replace(/\s+$/, "")
+      lastItem.body = lastItem.body === undefined ? bodyLine : `${lastItem.body}\n${bodyLine}`
+      lastItem.bodyLines = (lastItem.bodyLines ?? 0) + 1
+      return
+    }
+    if (text.startsWith("#")) return
 
     if (inHeader && text === "---") {
       inHeader = false
@@ -107,7 +124,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     if (inHeader) {
       const header = HEADER_RE.exec(text)
       // A line that parses as an entry/annotation ends the header section.
-      if (!header || ENTRY_RE.test(text) || MARKER_RE.test(text) || ANNOTATION_RE.test(text)) {
+      if (!header || ENTRY_RE.test(text) || MARKER_RE.test(text) || SPAN_RE.test(text) || ANNOTATION_RE.test(text)) {
         inHeader = false
       } else {
         applyHeader(doc, header[1].toLowerCase(), header[2].trim(), line, raw)
@@ -125,13 +142,30 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
       }
       let value = timeMin
       if (value < doc.rangeStart) value += DAY_MINUTES
-      doc.annotations.push({
+      const markerItem: Annotation = {
         timeMin: value,
         text: marker[5]?.trim() ?? "",
         line,
         type,
         plan: Boolean(marker[1]),
-      })
+      }
+      doc.annotations.push(markerItem)
+      lastItem = markerItem
+      return
+    }
+
+    const span = SPAN_RE.exec(text)
+    if (span) {
+      const rawStart = toMinutes(span[1], span[2])
+      const rawEnd = toMinutes(span[3], span[4])
+      if (rawStart === null || rawEnd === null) {
+        doc.errors.push({ line, text: raw, reason: tr("invalidTime") })
+        return
+      }
+      const [startMin, endMin] = normalizeSpan(rawStart, rawEnd, doc.rangeStart)
+      const spanItem: SpanNote = { startMin, endMin, text: span[5]?.trim() ?? "", tags: [], line }
+      doc.spans.push(spanItem)
+      lastItem = spanItem
       return
     }
 
@@ -146,6 +180,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
       if (t < doc.rangeStart) t += DAY_MINUTES // D10, same rule as entries
       const item: Annotation = { timeMin: t, text: annotation[3].trim(), line }
       doc.annotations.push(item)
+      lastItem = item
       return
     }
 
@@ -165,19 +200,29 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
         endMin,
         type: entry[6],
         note: binding.note,
+        tags: [],
         todoId: binding.todoId,
         line,
       }
       doc.entries.push(item)
+      lastItem = item
       return
     }
 
     doc.errors.push({ line, text: raw, reason: tr("unrecognizedLine") })
   })
 
+  // Tags come from the note/text and the body together, so resolve them once
+  // every continuation line has been attached.
+  for (const e of doc.entries) e.tags = extractTags(`${e.note ?? ""}\n${e.body ?? ""}`)
+  for (const s of doc.spans) s.tags = extractTags(`${s.text}\n${s.body ?? ""}`)
+
   // Axis extends past rangeEnd to cover after-midnight entries (D10 自然延伸).
   for (const e of doc.entries) {
     if (e.endMin > doc.rangeEnd) doc.rangeEnd = e.endMin
+  }
+  for (const s of doc.spans) {
+    if (s.endMin > doc.rangeEnd) doc.rangeEnd = s.endMin
   }
   for (const a of doc.annotations) {
     if (a.timeMin > doc.rangeEnd) doc.rangeEnd = a.timeMin

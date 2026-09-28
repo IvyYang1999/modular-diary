@@ -47,6 +47,8 @@ export interface ModularDiarySettings {
   dailyQuotes: DailyQuoteDefinition[]
   /** Span category whose colour tints quote slots by default ("" = untinted). */
   dailyQuoteInk: string
+  /** Tag -> category membership; a tag missing here is independent (neutral badge). */
+  tagCategories: Record<string, string>
 }
 
 export const DEFAULT_SETTINGS: ModularDiarySettings = {
@@ -69,6 +71,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   weeklyTodos: [],
   dailyQuotes: [],
   dailyQuoteInk: "",
+  tagCategories: {},
 }
 
 const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`

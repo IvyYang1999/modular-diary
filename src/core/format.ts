@@ -30,6 +30,18 @@ export function formatEntryLine(p: EntryParts): string {
 }
 
 /** `@10:00 [起床] 正式起床` — categorized point-in-time marker. */
+/** Diary body -> indented source lines (two spaces). Empty body -> no lines. */
+export function formatBodyLines(body: string | undefined): string[] {
+  if (body === undefined) return []
+  const lines = body.replace(/\s+$/, "").split("\n")
+  return lines.map((line) => (line.trim() === "" ? "" : `  ${line.replace(/\s+$/, "")}`)).filter((line, index, all) => line !== "" || index < all.length - 1)
+}
+
+/** `@HH:MM-HH:MM [text]` — a diary span with no category. */
+export function formatSpanLine(p: { startMin: number; endMin: number; text?: string }): string {
+  return `@${formatClockPlain(p.startMin)}-${formatClockPlain(p.endMin)}${p.text ? " " + p.text : ""}`
+}
+
 export function formatMarkerLine(p: MarkerParts): string {
   const note = p.text?.trim() ? ` ${p.text.trim()}` : ""
   return `${p.plan ? "plan " : ""}@${formatClockPlain(p.timeMin)} [${p.type}]${note}`

@@ -4,11 +4,18 @@
  * the code block in the note via MarkdownPostProcessorContext.
  */
 import { parseTimeline } from "../core/parser"
-import { formatEntryLine } from "../core/format"
+import { formatBodyLines, formatEntryLine, formatSpanLine } from "../core/format"
 import { MIN_TIMELINE_SPAN_MINUTES } from "../core/duration"
 import { formatTodoHeaderValue } from "../core/todos"
 import { parseRecoverableLayoutHeader } from "../core/grid-layout"
 import type { TodoItem } from "../core/types"
+
+/** Indented lines right under `line` are its diary body; they travel with it. */
+function bodyExtent(lines: string[], line: number): number {
+  let count = 0
+  while (line + 1 + count < lines.length && /^(?: {2,}|\t)(?=\S)/.test(lines[line + 1 + count])) count += 1
+  return count
+}
 
 /** Insert sourceLine into source. Returns the new block source. */
 export function insertEntryLine(source: string, sourceLine: string, newStartMin: number): string {
@@ -25,16 +32,17 @@ export function insertEntryLine(source: string, sourceLine: string, newStartMin:
   const sepIdx = body.findIndex((l) => l.trim() === "===")
   const boundary = sepIdx >= 0 ? sepIdx : body.length
 
-  // Entry lines sorted in source; find the last entry starting <= newStartMin.
-  const entryLines = doc.entries.map((e) => e.line).sort((a, b) => a - b)
+  // Entries and diary spans share one time order; find the last one starting <= newStartMin.
+  const timed = [...doc.entries, ...doc.spans]
+  const entryLines = timed.map((e) => e.line).sort((a, b) => a - b)
   let insertAt = -1
-  for (const e of doc.entries) {
+  for (const e of timed) {
     if (e.startMin <= newStartMin && (insertAt === -1 || e.line > insertAt)) {
       insertAt = e.line
     }
   }
   if (insertAt >= 0) {
-    body.splice(insertAt + 1, 0, sourceLine)
+    body.splice(insertAt + 1 + bodyExtent(body, insertAt), 0, sourceLine)
   } else {
     // Before the first entry; after header/separator if present; never past ===.
     const firstEntry = entryLines[0]
@@ -54,7 +62,7 @@ export function insertMarkerLine(source: string, sourceLine: string, timeMin: nu
     if (marker.timeMin <= timeMin && marker.line < end) insertAt = Math.max(insertAt, marker.line)
   }
   if (insertAt >= 0) {
-    lines.splice(insertAt + 1, 0, sourceLine)
+    lines.splice(insertAt + 1 + bodyExtent(lines, insertAt), 0, sourceLine)
   } else {
     const firstMarker = doc.annotations.find((marker) => marker.line < end)?.line
     lines.splice(firstMarker ?? end, 0, sourceLine)
@@ -83,12 +91,28 @@ export function convertMarkerToEntry(source: string, line: number): string {
   }))
 }
 
-/** Delete the 0-based line from the block source. */
+/** Delete the 0-based line from the block source, together with its diary body. */
 export function deleteEntryLine(source: string, line: number): string {
   const lines = source.split("\n")
   if (line < 0 || line >= lines.length) throw new Error(`行号越界：${line}`)
-  lines.splice(line, 1)
+  lines.splice(line, 1 + bodyExtent(lines, line))
   return lines.join("\n")
+}
+
+/** Replace the diary body under an entry, marker or span line (undefined removes it). */
+export function setItemBody(source: string, line: number, body: string | undefined): string {
+  const lines = source.split("\n")
+  if (line < 0 || line >= lines.length) throw new Error(`行号越界：${line}`)
+  lines.splice(line + 1, bodyExtent(lines, line), ...formatBodyLines(body))
+  return lines.join("\n")
+}
+
+/** Insert a categoryless diary span in time order, with an optional body. */
+export function insertSpanLine(source: string, span: { startMin: number; endMin: number; text?: string; body?: string }): string {
+  const withLine = insertEntryLine(source, formatSpanLine(span), span.startMin)
+  if (span.body === undefined) return withLine
+  const line = parseTimeline(withLine).spans.find((item) => item.startMin === span.startMin && item.endMin === span.endMin && item.text === (span.text ?? ""))?.line
+  return line === undefined ? withLine : setItemBody(withLine, line, span.body)
 }
 
 export function insertTodo(source: string, todo: Omit<TodoItem, "line">): string {
