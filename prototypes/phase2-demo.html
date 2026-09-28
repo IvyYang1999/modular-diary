@@ -84,29 +84,48 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
 .chip .act button{font:inherit;font-size:11px;line-height:1;border:1px solid var(--line-2);background:var(--bg);border-radius:6px;padding:3px 6px;cursor:pointer;color:var(--ink-2)}
 .chip .act button:hover{border-color:var(--ink);color:var(--ink)}
 
-/* hourlog */
-.hl-wrap{display:flex;gap:16px;align-items:flex-start;padding:12px 14px 14px}
-.hl-scroll{flex:1;min-width:0;overflow-x:auto}
-.hl{min-width:720px}
-.hl .hh{display:grid;grid-template-columns:136px 1fr;font-size:11px;color:var(--muted)}
-.hl .hs{display:grid;grid-template-columns:repeat(16,1fr)}
-.hl .hs span{padding-left:4px;border-left:1px solid var(--line);font-variant-numeric:tabular-nums}
-.hl .row{display:grid;grid-template-columns:136px 1fr;border-top:1px solid var(--line)}
-.hl .lb{padding:8px 8px 8px 2px;font-size:13px;display:flex;align-items:center;gap:6px;color:var(--ink);min-width:0}
-.hl .lb i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
-.hl .lb .tg{color:var(--muted)}
-.hl .tr{position:relative;height:46px;background-image:linear-gradient(to right,var(--line) 1px,transparent 1px);background-size:calc(100%/16) 100%;cursor:text}
-.hl .addrow .tr{cursor:default;height:40px}
-.hl .addrow .lb{padding:6px 8px 6px 0;gap:4px;flex-wrap:wrap}
-.hl .addrow input,.hl .addrow select{font:inherit;font-size:12.5px;height:26px;border:1px solid var(--line-2);border-radius:6px;background:var(--bg);color:var(--ink);padding:0 6px;min-width:0}
-.hl .addrow input{width:74px}
-.tr .st{position:absolute;bottom:6px;height:3px;border-radius:2px;background:var(--c);min-width:3px}
-.tr .st.plan{height:0;bottom:2px;border-bottom:2px dashed var(--c);background:none;border-radius:0}
-.tr .tx{position:absolute;top:7px;font-size:12.5px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 3px;color:var(--ink);cursor:pointer;border-radius:4px}
-.tr .tx.plan{color:var(--muted)}
-.tr .tx:hover{background:var(--bg-2)}
-.tr .nowv{position:absolute;top:0;bottom:0;border-left:1px solid var(--red-d);pointer-events:none;opacity:.8}
-.hin{position:absolute;top:8px;height:30px;font:inherit;font-size:12.5px;padding:0 8px;border:1px solid var(--ink);border-radius:7px;background:var(--bg);color:var(--ink);z-index:3;width:calc(100%/16*2.6);box-shadow:0 4px 14px rgba(0,0,0,.08)}
+/* hourlog: a text module, entries hang on time spans */
+.log-wrap{display:grid;grid-template-columns:minmax(0,1fr) 224px;gap:18px;padding:14px;align-items:start}
+@media (max-width:760px){.log-wrap{grid-template-columns:1fr}}
+.log{display:flex;flex-direction:column;gap:10px}
+.le{border:1px solid var(--line);border-radius:12px;padding:10px 12px 8px;background:var(--bg);transition:box-shadow .2s}
+.le.hi{box-shadow:0 0 0 2px var(--blue)}
+.le header{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2);flex-wrap:wrap;margin-bottom:2px}
+.le header .time{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink)}
+.le header .cat{display:inline-flex;align-items:center;gap:5px}
+.le header .cat i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.le header .free{color:var(--muted)}
+.le header .ttl{color:var(--ink)}
+.le header .tg,.tagsum .tg,.new .tg{color:var(--green-d)}
+.le header .dur{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+.le textarea{display:block;width:100%;border:0;background:none;font:14px/1.6 var(--sans);color:var(--ink);resize:none;padding:3px 4px;margin:0 -4px;min-height:28px;border-radius:6px}
+.le textarea:focus{background:var(--bg-2);outline:none}
+.le textarea::placeholder{color:var(--muted)}
+.new{border:1px dashed var(--line-2);border-radius:12px;padding:10px 12px}
+.new .row1{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;margin-bottom:8px}
+.new .row1 b{font-weight:600}
+.new input[type=text],.new select{font:inherit;font-size:13px;height:28px;border:1px solid var(--line-2);border-radius:7px;background:var(--bg);color:var(--ink);padding:0 8px;max-width:100%}
+.new input.tm{width:64px;font-variant-numeric:tabular-nums;text-align:center}
+.new input.tm:disabled{color:var(--muted)}
+.new textarea{display:block;width:100%;border:1px solid var(--line-2);border-radius:8px;background:var(--bg);color:var(--ink);font:14px/1.6 var(--sans);padding:6px 8px;min-height:72px;resize:vertical}
+.new .row2{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;font-size:12.5px;color:var(--muted)}
+.tagsum{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--ink-2);padding:10px 14px;border-top:1px solid var(--line);background:var(--bg-2)}
+.tagsum b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.tagsum .why{margin-left:auto;color:var(--muted);font-size:12px}
+.ax.mini2{width:224px;flex:none}
+.ax.mini2 .blk{left:24px;right:50px}
+.ax.mini2 .hl{left:22px;right:46px}
+.mk{position:absolute;right:30px;width:3px;border-radius:2px;background:var(--ink);opacity:.3;cursor:pointer}
+.mk:hover,.mk.hi{opacity:.75}
+.mk::after{content:'≡';position:absolute;left:7px;top:-3px;font-size:11px;line-height:1;color:var(--muted)}
+.blk .pg{position:absolute;right:3px;top:1px;font-size:9px;line-height:1;color:#fff;opacity:.9}
+.blk.lt .pg{color:var(--ink-2)}
+.blk.has{cursor:pointer}
+.blk.hi{box-shadow:0 0 0 2px var(--ink)}
+.cm{position:fixed;z-index:20;background:var(--bg);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:4px;display:flex;flex-direction:column;min-width:160px;font-size:13px}
+.cm button{font:inherit;text-align:left;border:0;background:none;padding:6px 10px;border-radius:6px;cursor:pointer;color:var(--ink)}
+.cm button:hover{background:var(--bg-2)}
+.cm input{font:inherit;font-size:13px;height:28px;border:1px solid var(--line-2);border-radius:6px;padding:0 8px;margin:4px;background:var(--bg);color:var(--ink)}
 .nudge{display:none;align-items:center;gap:12px;padding:9px 14px;border-top:1px solid var(--line);background:var(--mark);font-size:13.5px}
 .nudge.on{display:flex;animation:pop .35s ease}
 .nudge b{font-variant-numeric:tabular-nums}
@@ -160,13 +179,14 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
 
       <section id="hourlog">
         <h2>小时日记<code>hourlog</code></h2>
-        <p class="lead">同一天的色块横过来看，文字为主。行是项目标签，列是小时；颜色只剩文字底下那一道细线，线的起止就是精确时间。计划是灰字虚线，被实际盖住的计划只剩线。右边那根小时间轴和它是同一批数据。</p>
+        <p class="lead">不是表格，是一个文本框模块：一段一段写，每段挂在一个时间区间上。区间可以挂到已有的色块，也可以自己写一个 5:30–6:40 这样的。自己写的区间在时间轴上只留一道淡淡的标记，点它跳到这段文字。文字里的 <code>#标签</code> 把这段的时长记到标签名下，今天 #飞搜 一共几个小时，底下直接看。普通色块右键也能加标签，算法一样。</p>
         <div class="panel">
           <div class="bar"><span class="ttl">2026-09-30 · 周三</span><span class="sp"></span><button class="ib" id="nudgeBtn">模拟到了整点</button></div>
-          <div class="hl-wrap"><div class="hl-scroll"><div class="hl" id="hl"></div></div><div id="mini"></div></div>
-          <div class="nudge" id="nudge"><span>🕓</span><b>16:00</b><span>这个小时做了什么？</span><span class="sp"></span><button class="ib" id="nudgeGo">写一行</button></div>
+          <div class="log-wrap"><div class="log" id="log"></div><div id="mini"></div></div>
+          <div class="tagsum" id="tagsum"></div>
+          <div class="nudge" id="nudge"><span>🕔</span><b>17:00</b><span>16:00–17:00 做了什么？</span><span class="sp"></span><button class="ib" id="nudgeGo">写一段</button></div>
         </div>
-        <p class="hint"><b>试试</b>：点任意一行的空白处，打一句话，回车——它成了一个整点起的 1h 色块，右边小时间轴同步出现。点已有的字可以改备注。「＋ 加一行」给一个新项目开一行。</p>
+        <p class="hint"><b>试试</b>：在最下面「记一段」，时间默认是上一段结束到现在；正文里打 #飞搜，底下的标签合计马上变。右键右边的色块 → 添加标签。点时间轴上淡淡的 ≡ 标记，左边对应的段会亮一下；反过来点一段，轴上的块也亮。</p>
       </section>
 
       <section id="todos">
@@ -179,7 +199,7 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
         <p class="hint"><b>试试</b>：切到四象限。ABC 的分组在这里对不上，会落到未分组，把它们拖进象限；再切回 ABC，它们又对不上了——一个字段只能属于一种排法，这是有意的。</p>
       </section>
 
-      <p class="foot">没做 demo 的：<code>=== 标题</code> 文字区、模板即源码、记账（第 4、5 期）。都是常规控件，风险低。周视图里跨天拖<em>计划块</em>（不是待办）也没做，可以做，规则一样。</p>
+      <p class="foot">没做 demo 的：<code>=== 标题</code> 文字区、模板即源码、记账（第 4、5 期）。都是常规控件，风险低。周视图里跨天拖<em>计划块</em>（不是待办）也没做，可以做，规则一样。小时日记的正文在源码里是条目下面的缩进行，切到右边 2026-09-30.md 能看到。</p>
     </main>
 
     <aside class="src" aria-label="源码">
@@ -195,7 +215,7 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
   const $ = (s, r = document) => r.querySelector(s)
   const CATS = { 开发: '#53a3f2', 写作: '#a0c849', 运动: '#ae7ee2', 吃饭: '#f47b74', 英语: '#f4a437', 睡觉: '#cfccc4', 杂事: '#c4c1b9' }
   const LIGHT = new Set(['睡觉', '杂事'])
-  const NOW = { date: '2026-09-30', min: 16 * 60 + 30 }
+  const NOW = { date: '2026-09-30', min: 17 * 60 + 10 }
   const R0 = 7, R1 = 23, SPAN = (R1 - R0) * 60
   const pad = (n) => String(n).padStart(2, '0')
   const hm = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
@@ -208,14 +228,15 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
   const isoWeek = (s) => { const d = parse(s); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4); return `${d.getFullYear()}-W${pad(1 + Math.round(((d - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7))}` }
   const WD = ['一', '二', '三', '四', '五', '六', '日']
 
-  const E = (plan, s, e, c, tags, note, todo) => ({ plan: !!plan, s, e, c, tags: tags || [], note: note || '', todo })
+  const E = (plan, s, e, c, tags, note, todo, body) => ({ plan: !!plan, s, e, c, tags: tags || [], note: note || '', todo, body })
+  const SPAN_E = (s, e, tags, body) => ({ span: true, plan: false, s, e, tags: tags || [], note: '', body })
   const T = (id, title, c, tags, est, bucket, done) => ({ id, title, c, tags: tags || [], est, bucket: bucket || '', done: !!done })
   const days = {
     '2026-09-28': { todos: [], entries: [E(1, 540, 720, '开发', ['模块日记']), E(0, 420, 480, '睡觉', [], '赖床'), E(0, 540, 690, '开发', ['模块日记'], '周视图 parser'), E(0, 690, 735, '吃饭'), E(0, 780, 900, '写作', ['官网'], '第二阶段方案'), E(0, 1080, 1120, '运动', [], '跑步')] },
     '2026-09-29': { todos: [], entries: [E(0, 420, 450, '睡觉'), E(0, 480, 540, '英语', [], '背 list 5'), E(0, 570, 720, '开发', ['模块日记'], 'hourlog 渲染'), E(0, 720, 765, '吃饭'), E(0, 840, 960, '开发', ['官网'], '推荐栏两张小卡'), E(0, 1050, 1080, '运动', [], '跑步'), E(0, 1200, 1290, '写作', ['官网'], '结尾文案')] },
     '2026-09-30': {
       todos: [T('t1', '写周视图 parser', '开发', ['模块日记'], 150, 'A', 1), T('t2', '官网文案', '写作', ['官网'], 90, 'A'), T('t3', '背 list 6', '英语', ['英语'], 45, 'B', 1), T('t4', '整理截图', '开发', ['官网'], 60, 'C'), T('t5', '回邮件', '杂事', [], 30, 'C')],
-      entries: [E(1, 540, 720, '开发', ['模块日记']), E(0, 420, 465, '睡觉'), E(0, 555, 700, '开发', ['模块日记'], 'days 头解析 + 列渲染'), E(0, 720, 765, '吃饭'), E(0, 780, 825, '英语', ['英语'], 'list 6'), E(0, 840, 960, '开发', ['模块日记'], '跨天拖放，DnD 里别重建 DOM'), E(1, 990, 1080, '写作', ['官网'], '官网文案', 't2'), E(1, 1140, 1170, '运动')],
+      entries: [E(1, 540, 720, '开发', ['模块日记']), E(0, 420, 465, '睡觉'), E(0, 555, 700, '开发', ['模块日记'], '周视图 parser', undefined, 'days 头解析 + 列渲染。发现 days 头和 layout 头得互斥，先按块级判断。\n列渲染复用 axis()，压缩到 11px/h 之后文字全靠 hover。'), E(0, 720, 765, '吃饭'), SPAN_E(765, 780, [], '午饭后回了 #飞搜 的两个 issue，一个是接口改了参数。'), E(0, 780, 825, '英语', ['英语'], 'list 6'), E(0, 840, 960, '开发', ['模块日记'], '跨天拖放', undefined, '跨天拖放。DnD 里别重建 DOM，上次官网 mock 踩过一次。\n拖到轴上的吸附改成 30 分钟。'), E(1, 990, 1080, '写作', ['官网'], '官网文案', 't2'), E(1, 1140, 1170, '运动')],
     },
     '2026-10-01': { todos: [T('t6', '小时日记 demo', '开发', ['模块日记'], 120, 'A')], entries: [E(1, 1080, 1110, '运动')] },
     '2026-10-02': { todos: [T('t7', '看用户反馈', '写作', ['官网'], 60, 'B')], entries: [] },
@@ -235,9 +256,9 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
   let drag = null, over = null
 
   // ── source ──
-  const entryLine = (x) => `${x.plan ? 'plan ' : ''}${hm(x.s)}-${hm(x.e)} ${x.c}${x.tags.map((t) => ' #' + t).join('')}${x.note ? ' ' + x.note : ''}${x.todo ? ' [todo:' + x.todo + ']' : ''}`
+  const entryLine = (x) => x.span ? `@${hm(x.s)}-${hm(x.e)}${x.tags.map((t) => ' #' + t).join('')}` : `${x.plan ? 'plan ' : ''}${hm(x.s)}-${hm(x.e)} ${x.c}${x.tags.map((t) => ' #' + t).join('')}${x.note ? ' ' + x.note : ''}${x.todo ? ' [todo:' + x.todo + ']' : ''}`
   const todoLine = (t) => `todo: id="${t.id}" done=${t.done} estimate=${t.est}${t.bucket ? ` bucket="${t.bucket}"` : ''} title="${t.title}${t.tags.map((x) => ' #' + x).join('')}"`
-  const daySrc = (s) => { const d = day(s); return ['```timeline', `date: ${s}`, ...d.todos.map(todoLine), '---', ...[...d.entries].sort((a, b) => a.s - b.s || (a.plan ? -1 : 1)).map(entryLine), '```'] }
+  const daySrc = (s) => { const d = day(s), L = ['```timeline', `date: ${s}`, ...d.todos.map(todoLine), '---']; for (const x of [...d.entries].sort((a, b) => a.s - b.s || (a.plan ? -1 : 1))) { L.push(entryLine(x)); if (x.body) for (const b of x.body.split('\n')) L.push('  ' + b) } L.push('```'); return L }
   const weekHeader = () => weekOff === 0 ? 'days: this-week' : `days: ${isoWeek(shift(monday(NOW.date), weekOff * 7))}`
   function note(date, line) {
     focus = date; srcTab = 'day'; changed = { date, line }
@@ -245,7 +266,7 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
   }
   function hl(lines) {
     return lines.map((l) => {
-      let h = esc(l).replace(/^(date|days|todo):/, '<span class="k">$1:</span>').replace(/(#[^\s"]+)/g, '<span class="tg">$1</span>').replace(/^plan /, '<span class="c">plan</span> ')
+      let h = esc(l).replace(/^(date|days|todo):/, '<span class="k">$1:</span>').replace(/^(@\S+)/, '<span class="k">$1</span>').replace(/(#[^\s"]+)/g, '<span class="tg">$1</span>').replace(/^plan /, '<span class="c">plan</span> ')
       return changed && changed.line === l ? `<span class="new">${h}</span>` : h
     }).join('\n')
   }
@@ -273,16 +294,19 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
   function setBucket(id, from, b) { const t = findTodo(id, from); if (!t || b === undefined || t.bucket === b) return; t.bucket = b; note(from, todoLine(t)) }
 
   // ── shared renderers ──
-  function axis(entries, { hh, labels, today }) {
+  function axis(entries, { hh, labels, today, lane }) {
     const box = document.createElement('div'); box.style.height = (R1 - R0) * hh + 'px'
     const y = (m) => (m - R0 * 60) / 60 * hh
     for (let h = R0; h <= R1; h++) { box.insertAdjacentHTML('beforeend', `<div class="hl" style="top:${(h - R0) * hh}px"></div>`); if (labels && h % 2 === 1) box.insertAdjacentHTML('beforeend', `<span class="hlab" style="top:${(h - R0) * hh}px;right:auto;left:3px">${h}</span>`) }
     for (const x of [...entries].sort((a, b) => (a.plan ? 0 : 1) - (b.plan ? 0 : 1) || a.s - b.s)) {
       const top = y(x.s), h = Math.max(3, y(x.e) - top - 1)
-      const el = document.createElement('div'); el.className = 'blk' + (x.plan ? ' plan' : '') + (LIGHT.has(x.c) ? ' lt' : '')
+      if (x.span) { if (lane) { const m = document.createElement('div'); m.className = 'mk'; m.dataset.i = entries.indexOf(x); m.style.cssText = `top:${top + .5}px;height:${h}px`; m.title = `${hm(x.s)}–${hm(x.e)} 小时日记`; box.appendChild(m) } continue }
+      const el = document.createElement('div'); el.className = 'blk' + (x.plan ? ' plan' : '') + (LIGHT.has(x.c) ? ' lt' : '') + (x.body !== undefined && !x.plan ? ' has' : '')
+      el.dataset.i = entries.indexOf(x)
       el.style.cssText = `--c:${CATS[x.c]};top:${top + .5}px;height:${h}px`
       el.title = `${x.plan ? '计划 ' : ''}${hm(x.s)}–${hm(x.e)} ${x.c}${x.tags.map((t) => ' #' + t).join('')}${x.note ? ' · ' + x.note : ''}`
       if (h >= 13) el.innerHTML = `<span class="lb">${hrs(x.e - x.s)}</span>`
+      if (lane && x.body !== undefined && !x.plan) el.insertAdjacentHTML('beforeend', '<b class="pg">≡</b>')
       box.appendChild(el)
     }
     if (today) box.insertAdjacentHTML('beforeend', `<div class="now" style="top:${y(NOW.min)}px"></div>`)
@@ -302,7 +326,7 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
     const all = ds.flatMap((s) => day(s).entries.filter((e) => !e.plan).map((e) => ({ ...e, d: s })))
     const runDays = new Set(all.filter((e) => e.c === RULES.habit.c).map((e) => e.d)).size
     const writeMin = all.filter((e) => e.c === RULES.weekly.c).reduce((a, e) => a + e.e - e.s, 0)
-    const tot = {}; for (const e of all) tot[e.c] = (tot[e.c] || 0) + e.e - e.s
+    const tot = {}; for (const e of all) if (e.c) tot[e.c] = (tot[e.c] || 0) + e.e - e.s
     const cats = Object.entries(tot).filter(([c]) => !LIGHT.has(c)).sort((a, b) => b[1] - a[1])
     $('#wkSum').innerHTML = `<div class="g"><span>本周打卡</span><b>运动 ${runDays} / ${RULES.habit.count} 次</b>${runDays >= RULES.habit.count ? '<span class="ok">✓</span>' : ''}</div>
       <div class="g"><span>每周待办</span><b>写作 ${hrs(writeMin)} / ${hrs(RULES.weekly.min)}</b><span class="m"><i style="--c:${CATS.写作};width:${Math.min(100, writeMin / RULES.weekly.min * 100)}%"></i></span></div>
@@ -327,76 +351,78 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
   $('#wkToday').onclick = () => { weekOff = 0; renderWeek(); renderSrc() }
   $('#legend').innerHTML = Object.entries(CATS).filter(([c]) => c !== '杂事').map(([c, k]) => `<span><i style="--c:${k}"></i>${c}</span>`).join('')
 
-  // ── hourlog ──
-  function hourRows() {
-    const d = day(NOW.date), rows = new Map()
-    for (const r of extraRows) rows.set(r.tag, { tag: r.tag, c: r.c, items: [] })
-    for (const x of [...d.entries].sort((a, b) => a.s - b.s)) {
-      const key = x.tags[0] || '其他'
-      if (!rows.has(key)) rows.set(key, { tag: key, c: key === '其他' ? '杂事' : x.c, items: [] })
-      rows.get(key).items.push(x)
+  // ── hourlog: entries are colour blocks with a body, or free @spans ──
+  const TAGRE = /#[^\s#，。,.;；、]+/g
+  const tagsOf = (x) => [...new Set([...(x.tags || []), ...(((x.note || '') + '\n' + (x.body || '')).match(TAGRE) || []).map((t) => t.slice(1))])]
+  const logEntries = () => day(NOW.date).entries.map((x, i) => ({ x, i })).filter(({ x }) => x.span || (x.body !== undefined && !x.plan)).sort((a, b) => a.x.s - b.x.s)
+  const autosize = (ta) => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px' }
+  const parseHM = (v) => { const m = /^(\d{1,2}):(\d{2})$/.exec(v.trim()); return m ? Number(m[1]) * 60 + Number(m[2]) : null }
+  function renderLog() {
+    const d = day(NOW.date), log = $('#log'); log.innerHTML = ''
+    for (const { x, i } of logEntries()) {
+      const a = document.createElement('article'); a.className = 'le'; a.dataset.i = i
+      a.innerHTML = `<header><span class="time">${hm(x.s)}–${hm(x.e)}</span>${x.span ? '<span class="free">自写区间</span>' : `<span class="cat"><i style="--c:${CATS[x.c]}"></i>${x.c}</span>`}${x.note ? `<span class="ttl">${esc(x.note)}</span>` : ''}<span class="tg">${tagsOf(x).map((t) => '#' + esc(t)).join(' ')}</span><span class="dur">${hrs(x.e - x.s)}</span></header><textarea rows="1" placeholder="这段时间做了什么" aria-label="日记正文">${esc(x.body || '')}</textarea>`
+      log.appendChild(a)
     }
-    const list = [...rows.values()]
-    return [...list.filter((r) => r.tag !== '其他'), ...list.filter((r) => r.tag === '其他')]
+    const es = logEntries(), last = es.length ? es[es.length - 1].x.e : Math.floor(NOW.min / 60) * 60, s0 = Math.min(last, NOW.min), e0 = Math.max(NOW.min, s0 + 15)
+    const free = d.entries.map((x, i) => ({ x, i })).filter(({ x }) => !x.plan && !x.span && x.body === undefined && !LIGHT.has(x.c))
+    log.insertAdjacentHTML('beforeend', `<div class="new"><div class="row1"><b>＋ 记一段</b><input type="text" class="tm" id="nS" value="${hm(s0)}" aria-label="开始"><span>–</span><input type="text" class="tm" id="nE" value="${hm(e0)}" aria-label="结束"><select id="nLink" aria-label="挂到色块"><option value="">自己写区间（轴上留个淡标记）</option>${free.map(({ x, i }) => `<option value="${i}">挂到 ${hm(x.s)}–${hm(x.e)} ${x.c}${x.note ? ' · ' + esc(x.note) : ''}</option>`).join('')}</select></div><textarea id="nBody" placeholder="这段时间做了什么。可以打 #标签，比如 #飞搜"></textarea><div class="row2"><span>正文里的 <span class="tg">#标签</span> 会把这段时长记到标签名下</span><button class="ib" id="nSave">记下</button></div></div>`)
+    log.querySelectorAll('.le textarea').forEach(autosize)
+    renderTagSum(); renderMini()
   }
-  function renderHourlog() {
-    const d = day(NOW.date), wrap = $('#hl')
-    wrap.innerHTML = `<div class="hh"><span></span><div class="hs">${[...Array(R1 - R0)].map((_, i) => `<span>${R0 + i}</span>`).join('')}</div></div>`
-    for (const r of hourRows()) {
-      const row = document.createElement('div'); row.className = 'row'
-      row.innerHTML = `<div class="lb"><i style="--c:${CATS[r.c]}"></i>${r.tag === '其他' ? '<span class="tg">其他（未标记）</span>' : `<span><span class="tg">#</span>${esc(r.tag)}</span>`}</div>`
-      const tr = document.createElement('div'); tr.className = 'tr'; tr.dataset.tag = r.tag; tr.dataset.c = r.c
-      const covered = (x) => x.plan && r.items.some((y) => !y.plan && y.s < x.e && y.e > x.s)
-      const visible = r.items.filter((x) => !covered(x))
-      for (const x of r.items) {
-        const L = (x.s - R0 * 60) / SPAN * 100
-        const st = document.createElement('i'); st.className = 'st' + (x.plan ? ' plan' : ''); st.style.cssText = `--c:${CATS[x.c]};left:${L}%;width:${(x.e - x.s) / SPAN * 100}%`; tr.appendChild(st)
-        if (covered(x)) continue
-        // Text is not clipped to the block: it runs until the next visible entry in this row.
-        const next = visible.find((y) => y.s > x.s)
-        const tx = document.createElement('span'); tx.className = 'tx' + (x.plan ? ' plan' : ''); tx.dataset.i = d.entries.indexOf(x)
-        tx.style.cssText = `left:${L}%;max-width:${((next ? next.s : R1 * 60) - x.s) / SPAN * 100}%`
-        tx.title = `${hm(x.s)}–${hm(x.e)} ${x.c}${x.plan ? ' · 计划' : ''}`; tx.textContent = (x.plan ? '计划 · ' : '') + (x.note || x.c)
-        tr.appendChild(tx)
-      }
-      tr.insertAdjacentHTML('beforeend', `<div class="nowv" style="left:${(NOW.min - R0 * 60) / SPAN * 100}%"></div>`)
-      row.appendChild(tr); wrap.appendChild(row)
+  function renderTagSum() {
+    const tot = {}; for (const x of day(NOW.date).entries) { if (x.plan) continue; for (const t of tagsOf(x)) tot[t] = (tot[t] || 0) + x.e - x.s }
+    const rows = Object.entries(tot).sort((a, b) => b[1] - a[1])
+    $('#tagsum').innerHTML = `<span>今天按标签</span>${rows.map(([t, m]) => `<span><span class="tg">#${esc(t)}</span> <b>${hrs(m)}</b></span>`).join('') || '<span>还没有标签</span>'}<span class="why">计划不计入；每段只记到它自己的标签下</span>`
+  }
+  function renderMini() { const m = $('#mini'); m.innerHTML = ''; const ax = axis(day(NOW.date).entries, { hh: 22, labels: true, today: true, lane: true }); ax.className = 'ax mini2'; m.appendChild(ax) }
+  function flash(sel) { const el = document.querySelector(sel); if (!el) return; el.classList.add('hi'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); setTimeout(() => el.classList.remove('hi'), 1400) }
+  $('#log').addEventListener('input', (e) => {
+    const ta = e.target.closest('.le textarea'); if (!ta) return
+    const a = ta.closest('.le'), x = day(NOW.date).entries[a.dataset.i]; x.body = ta.value; autosize(ta)
+    a.querySelector('.tg').innerHTML = tagsOf(x).map((t) => '#' + esc(t)).join(' ')
+    renderTagSum(); note(NOW.date, entryLine(x)); renderSrc()
+  })
+  $('#log').addEventListener('click', (e) => {
+    const a = e.target.closest('.le'); if (a && !e.target.closest('textarea')) flash(`.ax.mini2 [data-i="${a.dataset.i}"]`)
+    if (e.target.id === 'nSave') {
+      const s0 = parseHM($('#nS').value), e0 = parseHM($('#nE').value), body = $('#nBody').value.trim(), link = $('#nLink').value
+      if (!body || s0 === null || e0 === null || e0 <= s0) { $('#nBody').focus(); return }
+      let x
+      if (link !== '') { x = day(NOW.date).entries[link]; x.body = body } else { x = SPAN_E(s0, e0, [], body); day(NOW.date).entries.push(x) }
+      note(NOW.date, entryLine(x)); renderAll()
     }
-    wrap.insertAdjacentHTML('beforeend', `<div class="row addrow"><div class="lb"><button class="ib" id="addRow">＋ 加一行</button></div><div class="tr"></div></div>`)
-    const m = $('#mini'); m.innerHTML = ''; const ax = axis(d.entries, { hh: 13, labels: true, today: true }); ax.className = 'ax mini'; m.appendChild(ax)
-  }
-  function openInput(tr, startMin, value, onSave) {
-    tr.querySelectorAll('.hin').forEach((n) => n.remove())
-    const inp = document.createElement('input'); inp.className = 'hin'; inp.value = value; inp.placeholder = '这个小时做了什么'; inp.setAttribute('aria-label', '小时日记')
-    inp.style.left = `min(${(startMin - R0 * 60) / SPAN * 100}%, calc(100% - 100% / 16 * 2.6))`
-    let done = false
-    const finish = (save) => { if (done) return; done = true; const v = inp.value.trim(); inp.remove(); if (save && v) { onSave(v); renderAll() } }
-    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false) })
-    inp.addEventListener('blur', () => finish(true))
-    tr.appendChild(inp); inp.focus()
-  }
-  $('#hl').addEventListener('click', (e) => {
-    if (e.target.closest('.hin')) return
-    const tx = e.target.closest('.tx')
-    if (tx) { const x = day(NOW.date).entries[tx.dataset.i]; openInput(tx.closest('.tr'), x.s, x.note, (v) => { x.note = v; note(NOW.date, entryLine(x)) }); return }
-    if (e.target.closest('#addRow')) {
-      const lb = e.target.closest('.lb')
-      lb.innerHTML = `<input id="newTag" placeholder="标签" aria-label="标签"><select id="newCat" aria-label="荧光笔">${Object.keys(CATS).filter((c) => !LIGHT.has(c)).map((c) => `<option>${c}</option>`).join('')}</select>`
-      const inp = $('#newTag'); inp.focus()
-      inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && inp.value.trim()) { extraRows.push({ tag: inp.value.trim().replace(/^#/, ''), c: $('#newCat').value }); renderHourlog() } if (ev.key === 'Escape') renderHourlog() })
-      return
-    }
-    const tr = e.target.closest('.tr'); if (!tr || !tr.dataset.tag) return
-    const r = tr.getBoundingClientRect(), hour = R0 + Math.floor((e.clientX - r.left) / r.width * (R1 - R0))
-    openInput(tr, hour * 60, '', (v) => { const x = E(0, hour * 60, (hour + 1) * 60, tr.dataset.c, tr.dataset.tag === '其他' ? [] : [tr.dataset.tag], v); day(NOW.date).entries.push(x); note(NOW.date, entryLine(x)) })
+  })
+  $('#log').addEventListener('change', (e) => {
+    if (e.target.id !== 'nLink') return
+    const x = day(NOW.date).entries[e.target.value]
+    ;[$('#nS'), $('#nE')].forEach((inp, k) => { inp.disabled = !!x; if (x) inp.value = hm(k ? x.e : x.s) })
+  })
+  $('#mini').addEventListener('click', (e) => { const t = e.target.closest('.mk, .blk.has'); if (t) flash(`.le[data-i="${t.dataset.i}"]`) })
+  // right-click a colour block: add a tag, or start a diary entry hung on it
+  let cm = null
+  const closeMenu = () => { cm?.remove(); cm = null }
+  document.addEventListener('click', (e) => { if (cm && !cm.contains(e.target)) closeMenu() })
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu() })
+  $('#mini').addEventListener('contextmenu', (e) => {
+    const b = e.target.closest('.blk'); if (!b || b.classList.contains('plan')) return
+    e.preventDefault(); closeMenu()
+    const x = day(NOW.date).entries[b.dataset.i]
+    cm = document.createElement('div'); cm.className = 'cm'; cm.style.left = Math.min(e.clientX, innerWidth - 180) + 'px'; cm.style.top = e.clientY + 'px'
+    cm.innerHTML = `<button data-a="tag">添加标签…</button><button data-a="log">${x.body !== undefined ? '打开这段日记' : '在这段上记日记'}</button>`
+    cm.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button'); if (!btn) return
+      if (btn.dataset.a === 'log') { if (x.body === undefined) x.body = ''; closeMenu(); renderAll(); const ta = document.querySelector(`.le[data-i="${b.dataset.i}"] textarea`); ta?.focus(); ta?.scrollIntoView({ block: 'center' }); return }
+      cm.innerHTML = '<input placeholder="#标签，回车" aria-label="标签">'; const inp = cm.querySelector('input'); inp.focus()
+      inp.addEventListener('keydown', (k) => { if (k.key === 'Enter' && inp.value.trim()) { x.tags.push(inp.value.trim().replace(/^#/, '')); closeMenu(); note(NOW.date, entryLine(x)); renderAll() } })
+    })
+    document.body.appendChild(cm)
   })
   $('#nudgeBtn').onclick = () => $('#nudge').classList.toggle('on')
   $('#nudgeGo').onclick = () => {
-    const tr = $('#hl .row:not(.addrow) .tr'); if (!tr) return
-    tr.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    const hour = Math.floor(NOW.min / 60)
-    openInput(tr, hour * 60, '', (v) => { const x = E(0, hour * 60, (hour + 1) * 60, tr.dataset.c, tr.dataset.tag === '其他' ? [] : [tr.dataset.tag], v); day(NOW.date).entries.push(x); note(NOW.date, entryLine(x)) })
     $('#nudge').classList.remove('on')
+    $('#nLink').value = ''; $('#nS').disabled = $('#nE').disabled = false; $('#nS').value = '16:00'; $('#nE').value = '17:00'
+    const ta = $('#nBody'); ta.scrollIntoView({ block: 'center', behavior: 'smooth' }); ta.focus()
   }
 
   // ── todos ──
@@ -439,7 +465,7 @@ h2 code{font:500 12.5px var(--mono);color:var(--blue-d);background:var(--bg-2);p
   })
   document.addEventListener('dragend', () => { over?.classList.remove('over'); over = null; drag = null })
 
-  function renderAll() { renderWeek(); renderHourlog(); renderTodos(); renderSrc() }
+  function renderAll() { renderWeek(); renderLog(); renderTodos(); renderSrc() }
   renderAll()
 })()
 </script>
