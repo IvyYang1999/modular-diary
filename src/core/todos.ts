@@ -42,6 +42,7 @@ export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem): 
     `estimate=${Math.max(0, Math.round(todo.estimateMin))}`,
     `category=${JSON.stringify(todo.type ?? "")}`,
     `group=${JSON.stringify(todo.group)}`,
+    ...(todo.due ? [`due=${todo.due}`] : []),
     `title=${JSON.stringify(todo.title)}`,
   ].join(" ")
 }
@@ -60,7 +61,7 @@ function parseLegacyTodoHeaderValue(value: string, line: number): TodoItem | nul
   }
 }
 
-function parseReadableFields(value: string): Map<string, string> | null {
+export function parseReadableFields(value: string): Map<string, string> | null {
   const fields = new Map<string, string>()
   let cursor = 0
   while (cursor < value.length) {
@@ -112,7 +113,10 @@ function parseReadableFields(value: string): Map<string, string> | null {
 function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | null {
   const fields = parseReadableFields(value)
   const keys = ["id", "done", "estimate", "category", "group", "title"]
-  if (!fields || fields.size !== keys.length || keys.some((key) => !fields.has(key))) return null
+  const optional = ["due"]
+  if (!fields || keys.some((key) => !fields.has(key)) || [...fields.keys()].some((key) => !keys.includes(key) && !optional.includes(key))) return null
+  const due = fields.get("due")
+  if (due !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return null
   const id = fields.get("id") ?? ""
   const done = fields.get("done")
   const estimate = fields.get("estimate") ?? ""
@@ -130,6 +134,7 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
     group,
     title,
     tags: extractTags(title),
+    ...(due ? { due } : {}),
     line,
   }
 }

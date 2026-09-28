@@ -25,7 +25,7 @@ export function extractIndexedBlocks(path: string, basename: string, content: st
   let ordinal = 0
   for (const fence of timelineFences(content)) {
     const doc = parseTimeline(fence.source)
-    const date = doc.date ?? dateFromBasename(basename)
+    const date = doc.period ? null : (doc.date ?? dateFromBasename(basename))
     if (date) out.push({ path, basename, date, ordinal, entries: doc.entries, spans: doc.spans, todos: doc.todos })
     ordinal += 1
   }

@@ -18,6 +18,7 @@ export function findBlockForDate(content: string, date: string, basename: string
   let dateless: TimelineFenceLocation | null = null
   for (const fence of timelineFences(content)) {
     const doc = parseTimeline(fence.source)
+    if (doc.period) continue
     if (doc.date === date) return fence
     if (!doc.date && !dateless && dateFromBasename(basename) === date) dateless = fence
   }

@@ -43,6 +43,10 @@ export interface TimelineDoc {
   todos: TodoItem[]
   /** Block-local presentation rule for the Todo component. */
   todoView: TodoViewConfig
+  /** Present when the block is a period view (`days:`). */
+  period?: PeriodSpec
+  /** Period goals (`goal:` headers). */
+  goals: PeriodGoal[]
 }
 
 export interface Entry {
@@ -87,6 +91,26 @@ export interface TodoItem {
   completed: boolean
   /** `#tags` inside the title (derived at parse time). */
   tags?: string[]
+  /** Deadline (YYYY-MM-DD); a period block flags it on that day. */
+  due?: string
+  line: number
+}
+
+/** `days:` header — the block is a period view, not a day. */
+export interface PeriodSpec {
+  /** The header value as written, for round-tripping. */
+  spec: string
+  kind: "this-week" | "range"
+  /** Explicit range bounds (kind "range"). */
+  start?: string
+  end?: string
+}
+
+/** `goal:` header — a duration target for the period, by category or by tag. */
+export interface PeriodGoal {
+  kind: "type" | "tag"
+  key: string
+  targetMinutes: number
   line: number
 }
 

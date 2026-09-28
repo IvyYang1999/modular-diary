@@ -12,7 +12,8 @@
  */
 import { parseLayoutHeader, parseRecoverableLayoutHeader } from "./grid-layout"
 import { parseBlockSize, parseCanvasWidth } from "./block-size"
-import { DEFAULT_TODO_VIEW, parseTodoHeaderValue, parseTodoViewHeaderValue, splitTodoBinding } from "./todos"
+import { DEFAULT_TODO_VIEW, parseReadableFields, parseTodoHeaderValue, parseTodoViewHeaderValue, splitTodoBinding } from "./todos"
+import { parsePeriodSpec } from "./period"
 import { t as tr } from "../i18n"
 import { extractTags } from "./tags"
 import {
@@ -81,6 +82,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     habitSkips: [],
     todos: [],
     todoView: { ...DEFAULT_TODO_VIEW },
+    goals: [],
     texts: [],
   }
 
@@ -352,6 +354,23 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       const view = parseTodoViewHeaderValue(value)
       if (view) doc.todoView = view
       else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
+      return
+    }
+    case "days": {
+      const period = parsePeriodSpec(value)
+      if (period) doc.period = period
+      else doc.errors.push({ line, text: raw, reason: tr("invalidDays") })
+      return
+    }
+    case "goal": {
+      const fields = parseReadableFields(value)
+      const key = fields?.get("type") ?? fields?.get("tag")
+      const target = Number(fields?.get("target"))
+      if (!fields || !key || (fields.has("type") && fields.has("tag")) || !Number.isInteger(target) || target <= 0) {
+        doc.errors.push({ line, text: raw, reason: tr("invalidGoal") })
+        return
+      }
+      doc.goals.push({ kind: fields.has("type") ? "type" : "tag", key, targetMinutes: target, line })
       return
     }
     // Legacy quote headers (card designer, retired 2026-09-10): the sentence
