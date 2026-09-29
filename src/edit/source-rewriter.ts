@@ -107,6 +107,17 @@ export function setItemBody(source: string, line: number, body: string | undefin
   return lines.join("\n")
 }
 
+/** Add a header line after the last line with the same key, else before `---`, else at the top. */
+export function insertHeaderLine(source: string, key: string, line: string): string {
+  const lines = source.split("\n")
+  const re = new RegExp(`^${key}\\s*:`)
+  let last = -1
+  lines.forEach((value, index) => { if (re.test(value.trim())) last = index })
+  const separator = lines.findIndex((value) => value.trim() === "---")
+  lines.splice(last >= 0 ? last + 1 : (separator >= 0 ? separator : 0), 0, line)
+  return lines.join("\n")
+}
+
 /** Insert a categoryless diary span in time order, with an optional body. */
 export function insertSpanLine(source: string, span: { startMin: number; endMin: number; text?: string; body?: string }): string {
   const withLine = insertEntryLine(source, formatSpanLine(span), span.startMin)

@@ -356,6 +356,15 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
       return
     }
+    case "rail": {
+      const n = Number(value)
+      if (!Number.isFinite(n) || n < 160 || n > 480) {
+        doc.errors.push({ line, text: raw, reason: tr("invalidRail") })
+        return
+      }
+      doc.railWidth = Math.round(n)
+      return
+    }
     case "days": {
       const period = parsePeriodSpec(value)
       if (period) doc.period = period

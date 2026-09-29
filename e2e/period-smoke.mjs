@@ -1,4 +1,4 @@
-/** Product contract for the period block (`days:`): rail, columns, and pointer drags between pool, days and a day's axis. */
+/** Product contract for the period block (`days:`): rail (goals, the day todo component, totals, resize) and the week calendar. */
 import esbuild from "esbuild"
 import { chromium } from "playwright"
 import { fileURLToPath } from "node:url"
@@ -14,7 +14,11 @@ fs.mkdirSync(out, { recursive: true })
 fs.writeFileSync(path.join(out, "obsidian-stub.ts"), `
 export function setIcon(el: HTMLElement, name: string): void {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-  svg.setAttribute("class", "svg-icon"); svg.dataset.icon = name; el.appendChild(svg)
+  svg.setAttribute("class", "svg-icon"); svg.setAttribute("viewBox", "0 0 24 24"); svg.dataset.icon = name
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path")
+  const shapes: Record<string, string> = { "chevron-left": "M15 6l-6 6 6 6", "chevron-right": "M9 6l6 6-6 6", plus: "M12 5v14M5 12h14", check: "M5 12l5 5 9-10", x: "M6 6l12 12M18 6L6 18", "list-tree": "M4 6h16M8 12h12M8 18h12", "arrow-up-down": "M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4", circle: "M12 4a8 8 0 1 0 0.01 0", "trash-2": "M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13" }
+  p.setAttribute("d", shapes[name] ?? "M4 12h16"); p.setAttribute("fill", "none"); p.setAttribute("stroke", "currentColor"); p.setAttribute("stroke-width", "2"); p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round")
+  svg.appendChild(p); el.appendChild(svg)
 }
 `)
 
@@ -34,43 +38,57 @@ HTMLElement.prototype.createEl = function (tag: string, opts: any = {}) {
 HTMLElement.prototype.appendText = function (text: string) { this.appendChild(document.createTextNode(text)) }
 HTMLElement.prototype.empty = function () { this.replaceChildren() }
 
-const colors = { 开发: "#53a3f2", 写作: "#a0c849", 运动: "#ae7ee2", 吃饭: "#f47b74" }
-const day = (date: string, source: string, hasNote = true) => { const doc = parseTimeline(source); return { date, entries: doc.entries, spans: doc.spans, todos: [] as any[], hasNote } }
+const colors = { 开发: "#53a3f2", 写作: "#a0c849", 运动: "#ae7ee2", 吃饭: "#f47b74", 阅读: "#f4a437", 睡觉: "#cfccc4", 看剧: "#6b6b6b" }
 const block = parseTimeline([
   'days: this-week',
+  'rail: 256',
   'goal: type="运动" target=180',
   'goal: tag="飞搜" target=120',
+  'goal: type="开发" target=600',
   'todo: id="t8" done=false estimate=60 category="写作" group="" due=2026-10-04 title="写周报 #官网"',
   'todo: id="t9" done=false estimate=45 category="开发" group="" title="装 Obsidian 测一遍 #模块日记"',
   'todo: id="t10" done=false estimate=30 category="" group="" title="回邮件"',
-  'todo: id="t11" done=false estimate=30 category="开发" group="" day=2026-09-30 title="已排到周三的周待办"',
+  'todo: id="t11" done=false estimate=90 category="开发" group="" day=2026-09-30 title="周视图重做 #模块日记"',
+  'todo: id="t12" done=true estimate=60 category="运动" group="" day=2026-09-29 title="游泳"',
+  'todo: id="t13" done=false estimate=60 category="开发" group="" title="飞搜精品内页 #飞搜"',
   '---',
 ].join("\\n"))
 const today = "2026-09-30"
 const period = resolvePeriod(block.period!, today)
+const day = (date: string, source: string, hasNote = true) => { const doc = parseTimeline(source); return { date, entries: doc.entries, spans: doc.spans, hasNote } }
 const days = [
-  day("2026-09-28", "09:00-10:00 运动 跑步\\n10:00-12:30 开发 #模块日记 周视图\\n@12:45-13:00 #飞搜"),
-  day("2026-09-29", "09:00-09:30 运动\\n14:00-16:00 开发"),
-  day("2026-09-30", 'todo: id="t2" done=false estimate=90 category="写作" group="" title="日记自己的待办，周视图不显示"\\n---\\nplan 16:30-18:00 写作 官网文案 [todo:t2]\\n09:15-11:40 开发 #模块日记'),
-  day("2026-10-01", "", false), day("2026-10-02", "", false), day("2026-10-03", "", false), day("2026-10-04", "plan 10:00-12:00 写作 周记", true),
+  day("2026-09-28", "07:00-07:40 睡觉 赖床\\n08:00-08:30 阅读\\n09:00-10:00 运动 跑步\\n10:00-12:30 开发 #模块日记 周视图 parser\\n12:30-13:15 吃饭\\n@12:45-13:00 #飞搜\\n14:00-16:00 看剧\\n16:00-19:00 开发 #飞搜 精品内页\\n19:30-20:30 写作 #官网 方案"),
+  day("2026-09-29", "07:00-07:30 睡觉\\n08:00-09:00 开发\\nplan 10:00-11:00 运动 游泳 [todo:t12]\\n14:00-16:00 开发 推荐栏"),
+  day("2026-09-30", "plan 09:00-12:00 开发\\n09:15-11:40 开发 #模块日记 周视图重做\\n12:00-12:45 吃饭\\nplan 16:30-18:00 写作 官网文案\\nplan 19:00-19:30 运动"),
+  day("2026-10-01", "", false), day("2026-10-02", "plan 10:00-10:45 开发 装 Obsidian 测一遍 [todo:t9]"), day("2026-10-03", "", false), day("2026-10-04", "plan 10:00-12:00 写作 周记"),
 ]
-for (const d of days) d.todos = block.todos.filter((todo) => todo.day === d.date)
+const planned = new Map(); const actual = new Map()
+for (const d of days) for (const e of d.entries) { if (!e.todoId) continue; if (e.plan) planned.set(e.todoId, { date: d.date, startMin: e.startMin }); else actual.set(e.todoId, (actual.get(e.todoId) ?? 0) + e.endMin - e.startMin) }
+const todos = block.todos.map((todo) => ({ ...todo, actualMinutes: actual.get(todo.id) ?? 0, placement: planned.get(todo.id) ?? (todo.day ? { date: todo.day } : undefined) }))
 window.__events = []
 const host = document.querySelector<HTMLElement>("#host")!
 renderPeriodInto(host, {
-  spec: block.period!, period, today, goals: goalProgress(block.goals, days), totals: periodTotals(days), pool: block.todos.filter((todo) => !todo.day), days,
-  rangeStartMin: 7 * 60, rangeEndMin: 23 * 60, indexReady: true,
+  spec: block.period!, period, today, goals: goalProgress(block.goals, days), totals: periodTotals(days), todos, todoView: block.todoView,
+  days: days.map((d) => ({ ...d, allDay: todos.filter((t) => t.placement && t.placement.startMin === undefined && t.placement.date === d.date) })),
+  rangeStartMin: 7 * 60, rangeEndMin: 23 * 60, indexReady: true, railWidth: block.railWidth ?? 248,
 }, {
   typeColors: colors, categories: Object.keys(colors),
-  tagStyle: (tag) => tag === "模块日记" ? { background: "#dbeafe", color: "#1f78c8" } : null,
-  onShift: (direction) => window.__events.push("shift:" + direction),
-  onToday: () => window.__events.push("today"),
+  tagStyle: (tag) => tag === "模块日记" ? { background: "color-mix(in srgb, #53a3f2 22%, var(--background-primary))", color: "color-mix(in srgb, #53a3f2 70%, var(--text-normal))" } : null,
+  tagSuggest: { tags: () => ["官网", "模块日记", "飞搜"] },
+  onShift: (d) => window.__events.push("shift:" + d), onToday: () => window.__events.push("today"),
   onOpenDay: (date) => window.__events.push("open:" + date),
   onAssign: (id, to) => window.__events.push("assign:" + id + ":" + to),
   onPlan: (id, date, startMin) => window.__events.push("plan:" + id + ":" + date + ":" + startMin),
   onAdd: (input) => window.__events.push("add:" + input.title + ":" + input.estimateMinutes),
   onEdit: (id, input) => window.__events.push("edit:" + id + ":" + input.title),
-  onMenu: (todo) => window.__events.push("menu:" + todo.id),
+  onToggle: (id, v) => { window.__events.push("toggle:" + id + ":" + v) },
+  onDelete: (id) => window.__events.push("delete:" + id),
+  onMove: (id, i) => window.__events.push("move:" + id + ":" + i),
+  onGroupMenu: () => window.__events.push("group"), onSortMenu: () => window.__events.push("sort"),
+  onTodoMenu: (id) => window.__events.push("menu:" + id),
+  onSaveGoal: (line, goal) => window.__events.push("goal:" + line + ":" + goal.kind + ":" + goal.key + ":" + goal.targetMinutes),
+  onDeleteGoal: (line) => window.__events.push("goal-delete:" + line),
+  onRailWidth: (px) => window.__events.push("rail:" + px),
 })
 `)
 
@@ -79,90 +97,107 @@ await esbuild.build({
   plugins: [{ name: "obsidian-stub", setup(build) { build.onResolve({ filter: /^obsidian$/ }, () => ({ path: path.join(out, "obsidian-stub.ts") })) } }],
 })
 const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
-fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body style="margin:16px"><main id="host" class="modular-diary-container modular-diary-period-container" style="width:1100px"></main><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
+// Obsidian's default chrome for every <button>: the redesign must not depend on its absence.
+const hostile = `button { background: rgb(226,226,226); border: 1px solid rgb(180,180,180); box-shadow: 0 1px 2px rgba(0,0,0,.2); border-radius: 6px; padding: 4px 12px; font: inherit; }
+input, select { font: inherit; border: 1px solid #ccc; border-radius: 5px; background: var(--background-modifier-form-field); color: var(--text-normal); padding: 0 6px; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; font-size: 14px; }`
+fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><style>${hostile}</style><style>${css}</style></head><body style="margin:16px"><main id="host" class="modular-diary-container modular-diary-period-container" style="width:1180px"></main><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
 
+const themes = {
+  light: { "--background-primary": "#ffffff", "--background-secondary": "#f6f6f6", "--background-modifier-border": "#e0e0e0", "--background-modifier-border-hover": "#cfcfcf", "--background-modifier-hover": "rgba(0,0,0,0.05)", "--background-modifier-form-field": "#ffffff", "--interactive-accent": "#8a5cf5", "--text-normal": "#222222", "--text-muted": "#6b6b6b", "--text-faint": "#a0a0a0", "--text-accent": "#7b4fe0", "--text-on-accent": "#ffffff", "--text-error": "#d04437", "--text-success": "#3f8a2f", "--button-radius": "6px", "--modular-diary-font-body": "14px" },
+  dark: { "--background-primary": "#1e1e1e", "--background-secondary": "#262626", "--background-modifier-border": "#363636", "--background-modifier-border-hover": "#4a4a4a", "--background-modifier-hover": "rgba(255,255,255,0.06)", "--background-modifier-form-field": "#2a2a2a", "--interactive-accent": "#8a5cf5", "--text-normal": "#dcddde", "--text-muted": "#9a9a9a", "--text-faint": "#6a6a6a", "--text-accent": "#a68af9", "--text-on-accent": "#ffffff", "--text-error": "#ff6b5e", "--text-success": "#7fc56b", "--button-radius": "6px", "--modular-diary-font-body": "14px" },
+}
 const browser = await chromium.launch()
-const page = await browser.newPage({ viewport: { width: 1200, height: 900 }, deviceScaleFactor: 1 })
-page.on("pageerror", (error) => { console.error("pageerror:", error.message); process.exit(1) })
-await page.goto("file://" + path.join(out, "index.html"))
-await page.evaluate(() => {
-  const root = document.documentElement.style
-  for (const [k, v] of Object.entries({ "--background-primary": "#ffffff", "--background-secondary": "#f2f2f2", "--background-modifier-border": "#d9d9d9", "--background-modifier-hover": "#ececec", "--interactive-accent": "#9567e8", "--text-normal": "#252525", "--text-muted": "#707070", "--text-faint": "#999999", "--text-accent": "#7e50dc", "--text-on-accent": "#ffffff", "--button-radius": "7px" })) root.setProperty(k, v)
-  document.body.style.background = "#ffffff"
-})
-await page.waitForTimeout(50)
-
-const state = await page.evaluate(() => {
-  const q = (s) => [...document.querySelectorAll(s)]
-  const goalText = q(".modular-diary-period-goal").map((g) => g.textContent.replace(/\s+/g, " ").trim())
-  const heads = q(".modular-diary-period-day-head").map((h) => h.textContent)
-  const poolChips = q(".modular-diary-period-pool .modular-diary-period-chip").map((c) => c.textContent)
-  const poolTagBadges = q(".modular-diary-period-pool .modular-diary-tag").length
-  const alldayTagBadgesVisible = q(".modular-diary-period-allday .modular-diary-tag").filter((b) => getComputedStyle(b).display !== "none").length
-  const dueFlags = q(".modular-diary-period-due").map((d) => d.textContent)
-  const alldayChips = q(".modular-diary-period-allday .modular-diary-period-chip").map((c) => c.textContent)
-  const chipWraps = q(".modular-diary-period-chip-title").some((el) => getComputedStyle(el).whiteSpace !== "nowrap")
-  const totalBars = q(".modular-diary-period-totals .modular-diary-period-bar").map((b) => b.style.width)
-  const blocks = q(".modular-diary-period-block").length
-  const spans = q(".modular-diary-period-span").length
-  const axisHeight = document.querySelector(".modular-diary-period-axis").getBoundingClientRect().height
-  const title = document.querySelector(".modular-diary-period-title").textContent
-  return { goalText, heads, poolChips, poolTagBadges, alldayTagBadgesVisible, dueFlags, blocks, spans, axisHeight, title, alldayChips, chipWraps, totalBars }
-})
-
-// drag t9 from the pool onto Thursday's all-day list
-const chipBox = await page.locator('.modular-diary-period-pool .modular-diary-period-chip[data-todo-id="t9"]').boundingBox()
-const thuList = await page.locator('.modular-diary-period-allday[data-zone="2026-10-01"]').boundingBox()
-await page.mouse.move(chipBox.x + 20, chipBox.y + chipBox.height / 2)
-await page.mouse.down()
-await page.mouse.move(thuList.x + thuList.width / 2, thuList.y + 12, { steps: 8 })
-const overClass = await page.evaluate(() => document.querySelector('.modular-diary-period-allday[data-zone="2026-10-01"]').classList.contains("is-over"))
-const ghosts = await page.evaluate(() => document.querySelectorAll(".modular-diary-period-chip.is-ghost").length)
-await page.mouse.up()
-// drag t8 onto Friday's axis at 10:00 (7..23 => 3h of 16h)
-const chip8 = await page.locator('.modular-diary-period-pool .modular-diary-period-chip[data-todo-id="t8"]').boundingBox()
-const friAxis = await page.locator('.modular-diary-period-axis[data-zone="2026-10-02"]').boundingBox()
-await page.mouse.move(chip8.x + 20, chip8.y + chip8.height / 2)
-await page.mouse.down()
-await page.mouse.move(friAxis.x + friAxis.width / 2, friAxis.y + (3 / 16) * friAxis.height + 2, { steps: 8 })
-const dropLine = await page.evaluate(() => document.querySelector(".modular-diary-period-drop-line")?.dataset.time ?? null)
-await page.mouse.up()
-// a click without movement must not fire a move
-await page.locator('.modular-diary-period-pool .modular-diary-period-chip[data-todo-id="t10"]').click()
-// same-zone drop is a no-op
-await page.mouse.move(chip8.x + 20, chip8.y + chip8.height / 2)
-await page.mouse.down(); await page.mouse.move(chip8.x + 30, chip8.y + 30, { steps: 4 }); await page.mouse.up()
-await page.locator(".modular-diary-period-nav").nth(1).click()
-await page.locator(".modular-diary-period-day-head").nth(2).click()
-await page.locator('.modular-diary-period-chip[data-todo-id="t11"]').click({ button: "right" })
-await page.locator(".modular-diary-period-add").click()
-const addFormVisible = await page.evaluate(() => !document.querySelector(".modular-diary-period-add-form").hidden)
-await page.locator(".modular-diary-period-add-form .modular-diary-todo-title-input").fill("新的周待办 #模块日记")
-await page.locator(".modular-diary-period-add-form .modular-diary-todo-title-input").press("Enter")
-const ghostsAfter = await page.evaluate(() => document.querySelectorAll(".modular-diary-period-chip.is-ghost").length)
-const events = await page.evaluate(() => window.__events)
-await page.screenshot({ path: path.join(out, "period.png") })
-await browser.close()
-
+const shots = []
 const errors = []
-if (state.heads.length !== 7 || !state.heads[2].startsWith("周三")) errors.push("expected seven day columns Monday first")
-if (state.title !== "09.28 – 10.04 · 7 天") errors.push("period title wrong: " + state.title)
-if (!state.goalText[0].includes("运动") || !state.goalText[0].includes("1.5h / 3h") || !state.goalText[0].includes("还差 1.5h")) errors.push("category goal progress wrong: " + state.goalText[0])
-if (!state.goalText[1].includes("#飞搜") || !state.goalText[1].includes("0.25h / 2h")) errors.push("tag goal must count diary spans: " + state.goalText[1])
-if (state.poolChips.length !== 3 || !state.poolChips[0].includes("写周报") || !state.poolChips[0].includes("⚑")) errors.push("pool chips wrong: " + JSON.stringify(state.poolChips))
-if (state.alldayChips.length !== 1 || !state.alldayChips[0].includes("已排到周三")) errors.push("all-day strips show only period todos assigned to that day: " + JSON.stringify(state.alldayChips))
-if (state.chipWraps) errors.push("chips must stay on one line")
-if (state.totalBars.length < 2 || state.totalBars[0] !== "100%") errors.push("totals must be bars scaled to the largest: " + JSON.stringify(state.totalBars))
-if (!addFormVisible) errors.push("the pool must open an add form")
-if (state.poolTagBadges < 2) errors.push("pool chips must show tag badges")
-if (state.alldayTagBadgesVisible !== 0) errors.push("all-day chips must hide tag badges (text first)")
-if (state.dueFlags.length !== 1 || !state.dueFlags[0].includes("写周报")) errors.push("due flag must appear on the due day only")
-if (state.blocks !== 7 || state.spans !== 1) errors.push(`blocks/spans wrong: ${state.blocks}/${state.spans}`)
-if (Math.abs(state.axisHeight - 16 * 18) > 3) errors.push("axis must be 18px per hour: " + state.axisHeight)
-if (!overClass || ghosts !== 1) errors.push("drag must highlight the zone under the pointer with one ghost")
-if (dropLine !== "10:00") errors.push("axis drop indicator must show the snapped time, got " + dropLine)
-if (ghostsAfter !== 0) errors.push("ghost must be removed after drop")
-for (const expected of ["assign:t9:2026-10-01", "plan:t8:2026-10-02:600", "shift:1", "open:2026-09-30", "menu:t11", "add:新的周待办 #模块日记:30"]) if (!events.includes(expected)) errors.push("missing " + expected)
-if (events.some((e) => e.startsWith("assign:t10")) || events.some((e) => e.startsWith("assign:t8:pool"))) errors.push("click or same-zone drop must not move")
-if (errors.length) { console.error("PERIOD CONTRACT FAILED", { errors, state, events, screenshot: path.join(out, "period.png") }); process.exit(1) }
-console.log("OK period smoke passed", JSON.stringify({ events }), "screenshot:", path.join(out, "period.png"))
+let events = []
+for (const [name, vars] of Object.entries(themes)) {
+  const page = await browser.newPage({ viewport: { width: 1220, height: 820 }, deviceScaleFactor: 2 })
+  page.on("pageerror", (error) => { console.error("pageerror:", error.message); process.exit(1) })
+  await page.goto("file://" + path.join(out, "index.html"))
+  await page.evaluate((v) => { for (const [k, val] of Object.entries(v)) document.documentElement.style.setProperty(k, val); document.body.style.background = v["--background-primary"]; document.body.style.color = v["--text-normal"] }, vars)
+  await page.waitForTimeout(80)
+  const shot = path.join(out, `period-${name}.png`)
+  await page.locator("#host").screenshot({ path: shot }); shots.push(shot)
+  if (name !== "light") { await page.close(); continue }
+
+  const state = await page.evaluate(() => {
+    const q = (s) => [...document.querySelectorAll(s)]
+    const railWidth = document.querySelector(".modular-diary-period-rail").getBoundingClientRect().width
+    const iconChrome = getComputedStyle(document.querySelector(".modular-diary-period-icon")).backgroundColor
+    const todoRows = q(".modular-diary-period-rail .modular-diary-todo-row").map((r) => r.textContent)
+    const flags = q(".modular-diary-todo-flag").map((f) => f.textContent)
+    const pills = q(".modular-diary-period-pill").map((p) => [p.textContent, Math.round(p.getBoundingClientRect().height), getComputedStyle(p).fontSize])
+    const heads = q(".modular-diary-period-head").map((h) => h.textContent)
+    const goals = q(".modular-diary-period-goal").map((g) => g.textContent.replace(/\s+/g, " ").trim())
+    const bars = q(".modular-diary-period-totals .modular-diary-period-meter-bar").map((b) => b.style.width)
+    const colHeight = document.querySelector(".modular-diary-period-col").getBoundingClientRect().height
+    const due = q(".modular-diary-period-due").map((d) => d.textContent)
+    const toolbarRightPad = parseFloat(getComputedStyle(document.querySelector(".modular-diary-period-toolbar")).paddingRight)
+    return { railWidth, iconChrome, todoRows, flags, pills, heads, goals, bars, colHeight, due, toolbarRightPad }
+  })
+  if (Math.round(state.railWidth) !== 256) errors.push("rail: header must set the rail width, got " + state.railWidth)
+  if (state.iconChrome !== "rgba(0, 0, 0, 0)") errors.push("toolbar icons must not inherit host button chrome: " + state.iconChrome)
+  if (state.todoRows.length !== 6) errors.push("the rail lists every period todo with the day todo component: " + state.todoRows.length)
+  for (const expected of ["周三", "周五 10:00", "⚑ 周日", "周二 10:00"]) if (!state.flags.some((f) => f === expected)) errors.push("missing placement flag " + expected + " in " + JSON.stringify(state.flags))
+  if (state.pills.length !== 1 || state.pills.some(([, h, fs]) => h > 21 || parseFloat(fs) > 12)) errors.push("all-day pills must be compact: " + JSON.stringify(state.pills))
+  if (!state.pills[0][0].includes("周视图重做") || state.pills[0][0].includes("#")) errors.push("pills show the title without tag noise: " + JSON.stringify(state.pills))
+  if (state.heads.length !== 7 || !state.heads[2].startsWith("周三")) errors.push("seven day heads, Monday first")
+  if (!state.goals[0].includes("1h / 3h") || !state.goals[1].includes("3.25h / 2h")) errors.push("goal values wrong: " + JSON.stringify(state.goals))
+  if (state.bars[0] !== "100%" || state.bars.length < 4) errors.push("totals are bars scaled to the largest: " + JSON.stringify(state.bars))
+  if (Math.abs(state.colHeight - 16 * 20) > 2) errors.push("hour height must be 20px: " + state.colHeight)
+  if (state.due.length !== 1 || !state.due[0].includes("写周报")) errors.push("due flag belongs to Sunday only: " + JSON.stringify(state.due))
+  if (state.toolbarRightPad < 40) errors.push("toolbar must leave room for Obsidian's edit button")
+
+  // Drag the pool row "回邮件" onto Thursday's all-day cell.
+  const row = page.locator('.modular-diary-period-rail .modular-diary-todo-row[data-todo-id="t10"] .modular-diary-todo-body')
+  const rb = await row.boundingBox()
+  const thu = await page.locator('.modular-diary-period-allday[data-zone="2026-10-01"]').boundingBox()
+  await page.mouse.move(rb.x + 30, rb.y + rb.height / 2); await page.mouse.down()
+  await page.mouse.move(thu.x + thu.width / 2, thu.y + thu.height / 2, { steps: 8 })
+  const cellOver = await page.evaluate(() => document.querySelector('.modular-diary-period-allday[data-zone="2026-10-01"]').classList.contains("is-over"))
+  await page.mouse.up()
+  // Drag "飞搜精品内页" (60min) onto Friday at about 14:00: the preview is its full length.
+  const row13 = await page.locator('.modular-diary-period-rail .modular-diary-todo-row[data-todo-id="t13"] .modular-diary-todo-body').boundingBox()
+  const fri = await page.locator('.modular-diary-period-col[data-zone="2026-10-02"]').boundingBox()
+  await page.mouse.move(row13.x + 30, row13.y + row13.height / 2); await page.mouse.down()
+  await page.mouse.move(fri.x + fri.width / 2, fri.y + 7.5 * 20, { steps: 8 })
+  const preview = await page.evaluate(() => { const p = document.querySelector(".modular-diary-period-drop-preview"); return p ? [p.dataset.time, Math.round(p.getBoundingClientRect().height)] : null })
+  await page.mouse.up()
+  // Drag a pill from Wednesday back to the list.
+  const pill = await page.locator('.modular-diary-period-pill').first().boundingBox()
+  const list = await page.locator('.modular-diary-period-todos').boundingBox()
+  await page.mouse.move(pill.x + 10, pill.y + 10); await page.mouse.down()
+  await page.mouse.move(list.x + list.width / 2, list.y + 30, { steps: 8 }); await page.mouse.up()
+  // Goals: edit the first one, switch to tag, then add a new one.
+  await page.locator(".modular-diary-period-goal").first().click()
+  const formOpen = await page.locator(".modular-diary-period-goal-form").count()
+  await page.locator(".modular-diary-period-goal-form .modular-diary-period-goal-target input").fill("4")
+  await page.locator(".modular-diary-period-goal-form").evaluate((f) => f.requestSubmit())
+  await page.locator(".modular-diary-period-goals .modular-diary-component-actions button").click()
+  await page.locator(".modular-diary-period-goal-form .modular-diary-period-seg button").nth(1).click()
+  await page.locator(".modular-diary-period-goal-key input").fill("#long2text")
+  await page.locator(".modular-diary-period-goal-target input").fill("1.5")
+  await page.locator(".modular-diary-period-goal-form").evaluate((f) => f.requestSubmit())
+  // Todo add form fits the rail.
+  await page.locator(".modular-diary-period-todos .modular-diary-component-actions button").last().click()
+  const formBox = await page.evaluate(() => { const f = document.querySelector(".modular-diary-period-rail .modular-diary-todo-add-form"); const r = f.getBoundingClientRect(); const rail = document.querySelector(".modular-diary-period-rail").getBoundingClientRect(); return { right: r.right, railRight: rail.right, overflow: [...f.children].some((c) => c.getBoundingClientRect().right > rail.right + 0.5) } })
+  await page.locator(".modular-diary-period-rail .modular-diary-todo-add-form .modular-diary-todo-title-input").fill("新的周待办")
+  await page.locator(".modular-diary-period-rail .modular-diary-todo-add-form .modular-diary-todo-title-input").press("Enter")
+  await page.locator("#host").screenshot({ path: path.join(out, "period-editing.png") }); shots.push(path.join(out, "period-editing.png"))
+  // Rail resize.
+  const handle = await page.locator(".modular-diary-period-rail-handle").boundingBox()
+  await page.mouse.move(handle.x + 1, handle.y + 200); await page.mouse.down(); await page.mouse.move(handle.x + 61, handle.y + 200, { steps: 6 }); await page.mouse.up()
+  await page.locator(".modular-diary-period-icon").nth(1).click()
+  await page.locator(".modular-diary-period-head").nth(3).click()
+  events = await page.evaluate(() => window.__events)
+  if (!cellOver) errors.push("the all-day cell under the pointer must highlight")
+  if (!preview || preview[0] !== "14:00–15:00" || Math.abs(preview[1] - 20) > 2) errors.push("axis drop preview must show the todo's full length and time: " + JSON.stringify(preview))
+  if (formOpen !== 1) errors.push("clicking a goal opens its editor in place")
+  if (formBox.overflow) errors.push("the todo add form must fit inside the rail: " + JSON.stringify(formBox))
+  await page.close()
+}
+await browser.close()
+for (const expected of ["assign:t10:2026-10-01", "plan:t13:2026-10-02:840", "assign:t11:pool", "goal:2:type:运动:240", "goal:null:tag:long2text:90", "add:新的周待办:30", "rail:316", "shift:1", "open:2026-10-01"]) if (!events.includes(expected)) errors.push("missing " + expected)
+if (errors.length) { console.error("PERIOD CONTRACT FAILED", { errors, events, shots }); process.exit(1) }
+console.log("OK period smoke passed", JSON.stringify(events), "\n" + shots.join("\n"))

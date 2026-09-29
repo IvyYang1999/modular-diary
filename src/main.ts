@@ -7,7 +7,7 @@ import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } 
 import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
 import { CategorySettingsModal, DailyQuoteSettingsModal, HabitSettingsModal } from "./settings-modals"
 import { attachDialog } from "./agent/dialog"
-import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo } from "./edit/source-rewriter"
+import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertHeaderLine, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo } from "./edit/source-rewriter"
 import { buildLayerToggles, buildToolbar, LayerView } from "./edit/toolbar"
 import { attachDrawInteraction, requestTimelineEntryDelete } from "./edit/draw-interaction"
 import { attachMarkerInteraction } from "./edit/marker-interaction"
@@ -60,8 +60,8 @@ import { DayIndex } from "./core/day-index"
 import { dailyNotePath, fillDailyTemplate, parseDailyNotesConfig, shiftDate, type DailyNotesConfig } from "./core/daily-notes"
 import { ensureBlockForDate } from "./core/day-content"
 import { learnTagCategories, tagCategory } from "./core/tags"
-import { formatPeriodSpec, goalProgress, periodTotals, resolvePeriod, shiftPeriod } from "./core/period"
-import { POOL_ZONE, renderPeriodInto, type PeriodDayView, type PeriodViewModel } from "./render/period-view"
+import { formatGoalLine, formatPeriodSpec, goalProgress, periodTotals, resolvePeriod, shiftPeriod } from "./core/period"
+import { POOL_ZONE, renderPeriodInto, type PeriodDayView, type PeriodTodoView, type PeriodViewModel } from "./render/period-view"
 import { buildScheduledPlan } from "./edit/timeline-schedule-drag"
 import { setNotePopoverTagSuggest } from "./edit/note-popover"
 import type { TagSuggestDeps } from "./edit/tag-suggest"
@@ -1809,29 +1809,41 @@ export default class ModularDiaryPlugin extends Plugin {
     }
   }
 
-  /** A `days:` block: the period's goals and pool live here; each column is that day's note. */
+  /** A `days:` block: the period's goals and todos live here; each column is that day's note. */
   private renderPeriodBlock(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext, doc: TimelineDoc): void {
     const period = doc.period
     if (!period) return
+    const dom = el.ownerDocument
     const today = inferDate(null)
     const resolved = resolvePeriod(period, today)
     const ready = this.dayIndexReady()
     if (!ready) void this.refreshDayIndex().then(() => this.rerenderMountedTimelines())
-    const days: PeriodDayView[] = resolved.days.map((date) => {
+    const dayData = resolved.days.map((date) => {
       const blocks = this.dayIndex.blocksForDate(date)
-      return {
-        date,
-        entries: blocks.flatMap((block) => block.entries),
-        spans: blocks.flatMap((block) => block.spans),
-        todos: doc.todos.filter((todo) => todo.day === date),
-        hasNote: blocks.length > 0,
-      }
+      return { date, entries: blocks.flatMap((block) => block.entries), spans: blocks.flatMap((block) => block.spans), hasNote: blocks.length > 0 }
     })
+    // Where each period todo landed: a plan block bound to it in a day's note wins over `day=`.
+    const plannedAt = new Map<string, { date: string; startMin: number }>()
+    const actual = new Map<string, number>()
+    for (const day of dayData) for (const entry of day.entries) {
+      if (!entry.todoId) continue
+      if (entry.plan) { if (!plannedAt.has(entry.todoId)) plannedAt.set(entry.todoId, { date: day.date, startMin: entry.startMin }) }
+      else actual.set(entry.todoId, (actual.get(entry.todoId) ?? 0) + entry.endMin - entry.startMin)
+    }
+    const todos: PeriodTodoView[] = doc.todos.map((todo) => ({
+      ...todo,
+      actualMinutes: actual.get(todo.id) ?? 0,
+      placement: plannedAt.get(todo.id) ?? (todo.day ? { date: todo.day } : undefined),
+    }))
+    const days: PeriodDayView[] = dayData.map((day) => ({
+      ...day,
+      allDay: todos.filter((todo) => todo.placement && todo.placement.startMin === undefined && todo.placement.date === day.date),
+    }))
     const model: PeriodViewModel = {
       spec: period, period: resolved, today,
-      goals: goalProgress(doc.goals, days), totals: periodTotals(days), pool: doc.todos.filter((todo) => !todo.day), days,
+      goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView: doc.todoView, days,
       rangeStartMin: this.settings.rangeStartHour * 60, rangeEndMin: this.settings.rangeEndHour * 60,
-      indexReady: ready,
+      indexReady: ready, railWidth: doc.railWidth ?? 248,
     }
     const container = el.createDiv({ cls: "modular-diary-container modular-diary-period-container" })
     const fail = (date: string, error: unknown): void => {
@@ -1839,6 +1851,19 @@ export default class ModularDiaryPlugin extends Plugin {
       if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("periodWriteFailed", { date }))
     }
     const rewrite = (transform: (current: string) => string): Promise<void> => this.applyBlockTransform(el, ctx, source, transform)
+    /** Remove the plan block bound to a period todo from the day it was planned on. */
+    const unplan = async (id: string, except?: string): Promise<void> => {
+      const planned = plannedAt.get(id)
+      if (!planned || planned.date === except) return
+      await this.writeToDay(planned.date, (blockSource) => {
+        let out = blockSource
+        for (const entry of this.parse(out).entries.filter((item) => item.plan && item.todoId === id).sort((a, b) => b.line - a.line)) out = deleteEntryLine(out, entry.line)
+        return out
+      })
+    }
+    const setView = (patch: Partial<typeof doc.todoView>): void => {
+      void rewrite((value) => setHeaderValue(value, "todo-view", formatTodoViewHeaderValue({ ...doc.todoView, ...patch })))
+    }
     renderPeriodInto(container, model, {
       typeColors: { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors },
       categories: Object.keys(this.settings.spanTypeColors),
@@ -1847,7 +1872,12 @@ export default class ModularDiaryPlugin extends Plugin {
       onShift: (direction) => void rewrite((current) => setHeaderValue(current, "days", formatPeriodSpec(shiftPeriod(period, today, direction)))),
       onToday: () => void rewrite((current) => setHeaderValue(current, "days", "this-week")),
       onOpenDay: (date) => void this.openDay(date),
-      onAssign: (id, to) => void rewrite((current) => updateTodo(current, id, { day: to === POOL_ZONE ? undefined : to })),
+      onAssign: (id, to) => void (async () => {
+        try {
+          await unplan(id)
+          await rewrite((current) => updateTodo(current, id, { day: to === POOL_ZONE ? undefined : to }))
+        } catch (error) { fail(to, error) }
+      })(),
       onPlan: (id, date, startMin) => void (async () => {
         const todo = doc.todos.find((item) => item.id === id)
         if (!todo) return
@@ -1856,11 +1886,11 @@ export default class ModularDiaryPlugin extends Plugin {
         try {
           await this.writeToDay(date, (blockSource) => {
             let out = blockSource
-            const bound = this.parse(out).entries.filter((entry) => entry.plan && entry.todoId === id).sort((a, b) => b.line - a.line)
-            for (const entry of bound) out = deleteEntryLine(out, entry.line)
+            for (const entry of this.parse(out).entries.filter((item) => item.plan && item.todoId === id).sort((a, b) => b.line - a.line)) out = deleteEntryLine(out, entry.line)
             return insertEntryLine(out, plan, startMin)
           })
-          if (todo.day !== date) await rewrite((current) => updateTodo(current, id, { day: date }))
+          await unplan(id, date)
+          if (todo.day) await rewrite((current) => updateTodo(current, id, { day: undefined }))
         } catch (error) { fail(date, error) }
       })(),
       onAdd: (input) => void rewrite((current) => insertTodo(current, {
@@ -1868,16 +1898,39 @@ export default class ModularDiaryPlugin extends Plugin {
         title: input.title, group: "", type: input.type, estimateMin: input.estimateMinutes, completed: false,
       })),
       onEdit: (id, input) => void rewrite((current) => updateTodo(current, id, { title: input.title, type: input.type, estimateMin: input.estimateMinutes })),
-      onMenu: (todo, x, y) => {
+      onToggle: (id, completed) => rewrite((current) => updateTodo(current, id, { completed })),
+      onDelete: (id) => void rewrite((current) => deleteTodo(current, id)),
+      onMove: (id, targetIndex) => void rewrite((current) => moveTodo(current, id, targetIndex)),
+      onGroupMenu: (x, y) => {
         const menu = new Menu()
-        menu.addItem((item) => item.setTitle(todo.completed ? tr("markIncomplete") : tr("markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() =>
-          void rewrite((current) => updateTodo(current, todo.id, { completed: !todo.completed }))))
-        if (todo.day) menu.addItem((item) => item.setTitle(tr("unassignTodo")).setIcon("undo-2").onClick(() =>
-          void rewrite((current) => updateTodo(current, todo.id, { day: undefined }))))
-        menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() =>
-          void rewrite((current) => deleteTodo(current, todo.id))))
-        menu.showAtPosition({ x, y }, el.ownerDocument)
+        buildTodoGroupMenuOptions(doc.todoView.groupBy, { none: tr("todoGroupNone"), category: tr("todoGroupCategory"), status: tr("todoGroupStatus") })
+          .forEach(({ value, title, checked }) => menu.addItem((item) => item.setTitle(title).setChecked(checked).onClick(() => setView({ groupBy: value }))))
+        menu.showAtPosition({ x, y }, dom)
       },
+      onSortMenu: (x, y) => {
+        const menu = new Menu()
+        buildTodoSortMenuOptions(doc.todoView.sortBy, { manual: tr("todoSortManual"), estimate: tr("todoSortEstimate"), actual: tr("todoSortActual") })
+          .forEach(({ value, title, checked }) => menu.addItem((item) => item.setTitle(title).setChecked(checked).onClick(() => setView({ sortBy: value }))))
+        menu.showAtPosition({ x, y }, dom)
+      },
+      onTodoMenu: (id, x, y, edit) => {
+        const todo = todos.find((item) => item.id === id)
+        if (!todo) return
+        const menu = new Menu()
+        menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
+        menu.addItem((item) => item.setTitle(todo.completed ? tr("markIncomplete") : tr("markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() =>
+          void rewrite((current) => updateTodo(current, id, { completed: !todo.completed }))))
+        if (todo.placement) menu.addItem((item) => item.setTitle(tr("unassignTodo")).setIcon("undo-2").onClick(() => void (async () => {
+          try { await unplan(id); await rewrite((current) => updateTodo(current, id, { day: undefined })) } catch (error) { fail(todo.placement?.date ?? "", error) }
+        })()))
+        menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => void rewrite((current) => deleteTodo(current, id))))
+        menu.showAtPosition({ x, y }, dom)
+      },
+      onSaveGoal: (line, goal) => void rewrite((current) => line === null
+        ? insertHeaderLine(current, "goal", formatGoalLine(goal))
+        : replaceEntryLine(current, line, formatGoalLine(goal))),
+      onDeleteGoal: (line) => void rewrite((current) => deleteEntryLine(current, line)),
+      onRailWidth: (px) => void rewrite((current) => setHeaderValue(current, "rail", String(px))),
     })
   }
 

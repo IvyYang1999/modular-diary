@@ -18,6 +18,8 @@ export interface TodoViewItem {
   actualMinutes: number
   /** Pushed to another day: shown here as a shadow, not counted, not schedulable. */
   movedTo?: string
+  /** Quiet status pills after the title (a period todo's placement, its deadline). */
+  flags?: Array<{ text: string; tone?: "placed" | "due" }>
 }
 
 export interface NewTodoInput {
@@ -31,6 +33,8 @@ export interface NewTodoInput {
 export interface TodoEditDraft { id: string; input: NewTodoInput }
 
 export interface TodoViewDeps {
+  /** Header title; defaults to the day todo list's name. */
+  title?: string
   categories: string[]
   typeColors: Record<string, string>
   view: TodoViewConfig
@@ -193,7 +197,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   const root = slot.createDiv({ cls: "modular-diary-todos" })
   const canDrag = deps.view.groupBy === "none" && deps.view.sortBy === "manual"
   const header = root.createDiv({ cls: "modular-diary-component-header" })
-  header.createEl("span", { cls: "modular-diary-component-title", text: t("todoList") })
+  header.createEl("span", { cls: "modular-diary-component-title", text: deps.title ?? t("todoList") })
   const counted = items.filter((item) => !item.movedTo)
   const completedAtRender = counted.filter((item) => item.completed).length
   const count = header.createEl("span", { cls: "modular-diary-component-count", text: `${completedAtRender}/${counted.length}` })
@@ -249,6 +253,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     }
     const row = list.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${canDrag ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
     row.tabIndex = 0
+    row.dataset.todoId = item.id
     const drag = canDrag ? row.createEl("button", { cls: "modular-diary-item-drag modular-diary-todo-drag", attr: { type: "button", "aria-label": t("dragTodo", { name: item.title }) } }) : null
     if (drag) {
       appendSixDotGrip(drag)
@@ -328,6 +333,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     const titleEl = body.createEl("span", { cls: "modular-diary-item-title" })
     renderTitleWithTags(titleEl, item.title, deps.tagStyle)
     if (item.movedTo) titleEl.createEl("span", { cls: "modular-diary-todo-moved", text: t("movedToBadge", { date: item.movedTo.slice(5).replace("-", ".") }) })
+    for (const flag of item.flags ?? []) titleEl.createEl("span", { cls: `modular-diary-todo-flag is-${flag.tone ?? "placed"}`, text: flag.text })
     const metaParts = [item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) })].filter(Boolean)
     body.createEl("span", { cls: "modular-diary-item-meta", text: metaParts.join(" · ") })
     // A zero-progress track is just a full-width grey underline that reads

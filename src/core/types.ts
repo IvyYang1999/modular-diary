@@ -45,6 +45,8 @@ export interface TimelineDoc {
   todoView: TodoViewConfig
   /** Present when the block is a period view (`days:`). */
   period?: PeriodSpec
+  /** Period block: width of the goals/todos rail in px (`rail:` header). */
+  railWidth?: number
   /** Period goals (`goal:` headers). */
   goals: PeriodGoal[]
 }
