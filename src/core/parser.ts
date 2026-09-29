@@ -16,6 +16,7 @@ import { DEFAULT_TODO_VIEW, parseReadableFields, parseTodoHeaderValue, parseTodo
 import { parsePeriodSpec } from "./period"
 import { t as tr } from "../i18n"
 import { extractTags } from "./tags"
+import { bodyExtent, readBody, TEXT_SEPARATOR_RE } from "./body-extent"
 import {
   Annotation,
   DAY_MINUTES,
@@ -32,8 +33,6 @@ const MARKER_RE = /^(plan\s+)?@(\d{1,2}):(\d{2})\s+\[([^\]]+)\](?:\s+(.*))?$/
 const ANNOTATION_RE = /^@(\d{1,2}):(\d{2})\s+(.*)$/
 /** Diary span: a range with no category. Never matched ANNOTATION_RE before, so no legacy conflict. */
 const SPAN_RE = /^@(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})(?:\s+(.*))?$/
-/** Continuation (diary body) lines are indented by two spaces or a tab. */
-const BODY_RE = /^(?: {2,}|\t)(?=\S)/
 const HEADER_RE = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/
 const RANGE_RE = /^(\d{1,2})(?:-(\d{1,2}))?$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -90,7 +89,8 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
   // `===` splits the block: entry syntax above, free markdown text below (块内图文混排)。
   // 多个 ===  -> 多个文本框（text, text2, …，yyt 2026-08-17）
   const allLines = [...lines]
-  const sepIdxs = allLines.map((l, i) => (l.trim() === "===" ? i : -1)).filter((i) => i >= 0)
+  // Only an unindented === separates; an indented one is diary text.
+  const sepIdxs = allLines.map((l, i) => (TEXT_SEPARATOR_RE.test(l) ? i : -1)).filter((i) => i >= 0)
   if (sepIdxs.length > 0) {
     const first = sepIdxs[0]
     const bounds = [...sepIdxs, allLines.length]
@@ -102,19 +102,20 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
   }
   let inHeader = true
   let sawSeparator = false
-  /** The item that owns any indented lines that follow it. */
-  let lastItem: { body?: string; bodyLines?: number } | null = null
+  /** Lines already consumed as the body of the item above them. */
+  let skipThrough = -1
+  const attachBody = (item: { body?: string; bodyLines?: number }, line: number): void => {
+    const extent = bodyExtent(lines, line)
+    if (extent === 0) return
+    item.body = readBody(lines, line, extent)
+    item.bodyLines = extent
+    skipThrough = line + extent
+  }
 
   lines.forEach((raw, line) => {
+    if (line <= skipThrough) return
     const text = raw.trim()
     if (text === "") return
-    // An indented line under an entry, marker or span is its diary body.
-    if (!inHeader && lastItem && BODY_RE.test(raw)) {
-      const bodyLine = raw.replace(/^(?: {2}|\t)/, "").replace(/\s+$/, "")
-      lastItem.body = lastItem.body === undefined ? bodyLine : `${lastItem.body}\n${bodyLine}`
-      lastItem.bodyLines = (lastItem.bodyLines ?? 0) + 1
-      return
-    }
     if (text.startsWith("#")) return
 
     if (inHeader && text === "---") {
@@ -152,7 +153,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
         plan: Boolean(marker[1]),
       }
       doc.annotations.push(markerItem)
-      lastItem = markerItem
+      attachBody(markerItem, line)
       return
     }
 
@@ -167,7 +168,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
       const [startMin, endMin] = normalizeSpan(rawStart, rawEnd, doc.rangeStart)
       const spanItem: SpanNote = { startMin, endMin, text: span[5]?.trim() ?? "", tags: [], line }
       doc.spans.push(spanItem)
-      lastItem = spanItem
+      attachBody(spanItem, line)
       return
     }
 
@@ -182,7 +183,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
       if (t < doc.rangeStart) t += DAY_MINUTES // D10, same rule as entries
       const item: Annotation = { timeMin: t, text: annotation[3].trim(), line }
       doc.annotations.push(item)
-      lastItem = item
+      attachBody(item, line)
       return
     }
 
@@ -207,7 +208,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
         line,
       }
       doc.entries.push(item)
-      lastItem = item
+      attachBody(item, line)
       return
     }
 

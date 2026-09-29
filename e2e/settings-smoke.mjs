@@ -427,7 +427,7 @@ if (!state.quoteSection.present || !state.quoteSection.hasLibrary || !state.quot
 if (state.todoRulesHeading !== "待办规则" || state.timelineHeading !== "时间轴") errors.push("global todo and timeline sections need clear concept-level headings")
 if (state.weeklyLegacyHeadingCount !== 0) errors.push("weekly cumulative todos must not appear as a separate top-level product concept")
 if (state.addWeeklyLabel !== "添加每周目标" || state.addWeeklyHeight > 36 || state.addWeeklyBackground !== "rgba(0, 0, 0, 0)" || state.addWeeklyBorderStyle !== "dashed") errors.push("empty recurring todo rules must use one compact shared dashed add action")
-if (state.timelineSettingNames.join("|") !== "默认时间范围（起–止，小时）|每小时高度（px）|整点提醒写小时日记") errors.push("timeline defaults escaped their own settings section")
+if (state.timelineSettingNames.join("|") !== "默认时间范围（起–止，小时）|每小时高度（px）|整点提醒写小时日记|提醒时段（起–止，小时）|同时发系统通知") errors.push("timeline defaults escaped their own settings section")
 if (!["Habit name", "Tracked category", "Completion condition", "Target duration", "Repeat rule"].every((label) => state.englishLabels.includes(label))) errors.push("English habit fields are not locale-parity with Chinese")
 if (!state.englishGoalOptions.includes("Daily total below") || !state.englishGoalOptions.includes("Weekly completion count") || !state.englishRepeatOptions.includes("Every N days") || !state.englishRepeatOptions.includes("Specific calendar dates")) errors.push("English recurrence and completion-condition options are incomplete")
 if (globalNarrowState.categoryColumns !== 1 || globalNarrowState.habitColumns !== 3) errors.push("truly narrow global settings do not collapse into the compact two-field layout")

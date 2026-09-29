@@ -59,12 +59,12 @@ import { filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledg
 import { DayIndex } from "./core/day-index"
 import { dailyNotePath, fillDailyTemplate, parseDailyNotesConfig, shiftDate, type DailyNotesConfig } from "./core/daily-notes"
 import { ensureBlockForDate } from "./core/day-content"
-import { learnTagCategories, tagCategory } from "./core/tags"
+import { learnTagCategories, tagCategory, unionMinutes } from "./core/tags"
 import { formatGoalLine, formatPeriodSpec, goalProgress, periodTotals, resolvePeriod, shiftPeriod } from "./core/period"
 import { POOL_ZONE, renderPeriodInto, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewModel } from "./render/period-view"
 import { buildScheduledPlan } from "./edit/timeline-schedule-drag"
 import { setNotePopoverTagSuggest } from "./edit/note-popover"
-import { composerDefaults, hourlogItems, linkableEntries, type HourlogItem } from "./core/hourlog"
+import { composerDefaults, findLinkable, hourlogItems, linkableEntries, linkOf, locateHourlogItem, type HourlogItem } from "./core/hourlog"
 import { renderHourlogInto, type HourlogComposerDraft } from "./render/hourlog-view"
 import type { TagSuggestDeps } from "./edit/tag-suggest"
 
@@ -863,7 +863,8 @@ export default class ModularDiaryPlugin extends Plugin {
         card.scrollIntoView({ block: "nearest" })
         card.classList.add("is-flash")
         dom.defaultView?.setTimeout(() => card.classList.remove("is-flash"), 1400)
-        card.querySelector<HTMLTextAreaElement>("textarea")?.focus({ preventScroll: true })
+        const area = card.querySelector<HTMLTextAreaElement>("textarea")
+        if (area) { area.focus({ preventScroll: true }); area.setSelectionRange(area.value.length, area.value.length) }
       }
       const editNote = (ln: number, suffix = ""): void => {
         const target = targetForEntryLine(ln)
@@ -874,7 +875,9 @@ export default class ModularDiaryPlugin extends Plugin {
         const rect = live.querySelector(`rect.modular-diary-block[data-line="${ln}"]`)
         const e0 = doc.entries.find((it) => it.line === ln)
         if (!rect || !e0 || !target) return
-        openNotePopover(live, rect, rect.getBoundingClientRect(), `${e0.note ?? ""}${suffix}`, async (note) => {
+        openNotePopover(live, rect, rect.getBoundingClientRect(), `${e0.note ?? ""}${suffix}`, async (typed) => {
+          const note = suffix ? typed.replace(/\s*#\s*$/, "") : typed
+          if (suffix && note === (e0.note ?? "")) return
           try {
             await this.applyBlockTransform(el, ctx, source, (s) => {
               const entries = this.parse(s).entries
@@ -1194,46 +1197,48 @@ export default class ModularDiaryPlugin extends Plugin {
           ?? this.hourlogDrafts.get(hourlogKey)
           ?? { startMin: fallback.startMin, endMin: fallback.endMin, link: null, body: "" }
         if (pendingDiary) this.pendingHourlog = null
-        const locateLine = (s: string, item: HourlogItem): number | undefined => {
-          const current = this.parse(s)
-          return item.kind === "entry"
-            ? current.entries.find((e) => !e.plan && e.startMin === item.startMin && e.endMin === item.endMin && e.type === item.type)?.line
-            : current.spans.find((sp) => sp.startMin === item.startMin && sp.endMin === item.endMin)?.line
-        }
+        // Every write finds its piece by identity + ordinal + the text it showed; a mismatch refuses.
         const writeBody = (item: HourlogItem, body: string | undefined): Promise<void> => this.applyBlockTransform(el, ctx, source, (s) => {
-          const line = locateLine(s, item)
-          if (line === undefined) throw new Error(tr("sourceChanged"))
+          const line = locateHourlogItem(this.parse(s), item)
+          if (line === null) throw new Error(tr("sourceChanged"))
+          // Clearing removes the piece: a block keeps its line without a body; a span goes entirely.
+          if (body === undefined && item.kind === "span") return deleteEntryLine(s, line)
           return setItemBody(s, line, body)
         })
+        const removePiece = (item: HourlogItem): void => {
+          void writeBody(item, undefined).then(() => {
+            new Notice(tr("diaryDeleted", { time: formatClockPlain(item.startMin) }))
+          }, (error: unknown) => {
+            if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(error instanceof Error ? error.message : tr("sourceChanged"))
+          })
+        }
         renderHourlogInto(hourlogSlot, diaryItems, {
           typeColors: spanPaletteForRender,
           tagStyle,
           tagSuggest: this.tagSuggestDeps(),
           linkable: linkableEntries(doc),
+          range: { startMin: doc.rangeStart, endMin: doc.rangeEnd },
           composer: draft,
           onComposerChange: (next) => { if (next) this.hourlogDrafts.set(hourlogKey, next); else this.hourlogDrafts.delete(hourlogKey) },
           onCreate: async (next) => {
-            const linked = next.link !== null ? doc.entries.find((e) => e.line === next.link) : undefined
             await this.applyBlockTransform(el, ctx, source, (s) => {
-              if (linked) {
-                const line = this.parse(s).entries.find((e) => !e.plan && e.startMin === linked.startMin && e.endMin === linked.endMin && e.type === linked.type)?.line
-                if (line === undefined) throw new Error(tr("sourceChanged"))
-                return setItemBody(s, line, next.body)
+              if (next.link) {
+                // Only a block that still has no diary; an existing body is never replaced.
+                const target = findLinkable(this.parse(s), next.link)
+                if (!target) throw new Error(tr("sourceChanged"))
+                return setItemBody(s, target.line, next.body)
               }
               return insertSpanLine(s, { startMin: next.startMin, endMin: next.endMin, body: next.body })
             })
             this.hourlogDrafts.delete(hourlogKey)
           },
-          // An emptied block diary goes away; an emptied span keeps its line (and its tags).
           onSaveBody: (item, body) => writeBody(item, body.trim() ? body : undefined),
+          onExtendRange: (startMin) => void this.applyBlockTransform(el, ctx, source, (s) =>
+            setHeaderValue(s, "range", `${Math.floor(startMin / 60)}-${Math.ceil(doc.rangeEnd / 60)}`)),
           onMenu: (item, x, y) => {
             const menu = new Menu()
             menu.addItem((mi) => mi.setTitle(tr("showOnTimeline")).setIcon("crosshair").onClick(() => flashTimeline(item.line)))
-            menu.addItem((mi) => mi.setTitle(tr("deleteDiary")).setIcon("trash").onClick(() => {
-              void (item.kind === "span"
-                ? this.applyBlockTransform(el, ctx, source, (s) => { const line = locateLine(s, item); if (line === undefined) throw new Error(tr("sourceChanged")); return deleteEntryLine(s, line) })
-                : writeBody(item, undefined))
-            }))
+            menu.addItem((mi) => mi.setTitle(tr("deleteDiary")).setIcon("trash").onClick(() => removePiece(item)))
             menu.showAtPosition({ x, y }, dom)
           },
           onLocate: (item) => flashTimeline(item.line),
@@ -1242,6 +1247,11 @@ export default class ModularDiaryPlugin extends Plugin {
       // Brackets on the timeline lead to their piece of diary.
       container.querySelectorAll<SVGGElement>(".modular-diary-diary-mark").forEach((mark) => {
         mark.addEventListener("click", (event) => { event.stopPropagation(); focusDiaryCard(Number(mark.dataset.line)) })
+        mark.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return
+          event.preventDefault()
+          focusDiaryCard(Number(mark.dataset.line))
+        })
         mark.addEventListener("pointerdown", (event) => event.stopPropagation())
       })
 
@@ -1421,7 +1431,7 @@ export default class ModularDiaryPlugin extends Plugin {
               const existing = container.querySelector<HTMLElement>(`.modular-diary-hourlog-item[data-line="${ln}"]`)
               if (existing) { focusDiaryCard(ln); return }
               // Start a piece on this block: the composer opens linked to it.
-              const draft: HourlogComposerDraft = { startMin: entry.startMin, endMin: entry.endMin, link: ln, body: "", focus: true }
+              const draft: HourlogComposerDraft = { startMin: entry.startMin, endMin: entry.endMin, link: linkOf(entry), body: "", focus: true }
               if (container.querySelector(".modular-diary-slot-hourlog")) {
                 this.hourlogDrafts.set(hourlogKey, draft)
                 this.rerenderMountedTimelines()
@@ -1919,25 +1929,47 @@ export default class ModularDiaryPlugin extends Plugin {
     const item = this.nudgeEl
     if (!item) return
     const now = new Date()
-    const hour = now.getHours()
-    const show = this.settings.hourlyNudge && hour > 0 && now.getMinutes() < 20 && hour !== this.nudgeDismissedHour
+    // At 00:xx the question is about yesterday 23:00–24:00.
+    const endHour = now.getHours() === 0 ? 24 : now.getHours()
+    const date = now.getHours() === 0 ? shiftDate(inferDate(null), -1) : inferDate(null)
+    const askedStart = (endHour - 1) * 60, askedEnd = endHour * 60
+    const inWindow = endHour - 1 >= this.settings.nudgeStartHour && endHour <= this.settings.nudgeEndHour
+    // An hour already half written is not asked about again.
+    const written = this.dayIndex.blocksForDate(date).flatMap((block) => hourlogItems({ entries: block.entries, spans: block.spans }))
+    const covered = unionMinutes(written
+      .map((piece) => [Math.max(piece.startMin, askedStart), Math.min(piece.endMin, askedEnd)] as [number, number])
+      .filter(([s, e]) => e > s))
+    const show = this.settings.hourlyNudge && inWindow && now.getMinutes() < 20 && endHour !== this.nudgeDismissedHour && covered < 30
     if (!show) { item.hide(); return }
-    if (item.dataset.hour === String(hour) && item.isShown()) return
-    item.dataset.hour = String(hour)
+    if (item.dataset.hour === String(endHour) && item.isShown()) return
+    item.dataset.hour = String(endHour)
     item.empty()
     const clock = (h: number): string => `${String(h).padStart(2, "0")}:00`
-    const open = item.createEl("button", { cls: "modular-diary-nudge-open", text: `🕓 ${tr("hourlyNudge", { start: clock(hour - 1), end: clock(hour) })}`, attr: { type: "button" } })
+    const question = tr("hourlyNudge", { start: clock(endHour - 1), end: clock(endHour) })
+    const open = item.createEl("button", { cls: "modular-diary-nudge-open", attr: { type: "button" } })
+    setIcon(open.createEl("span", { cls: "modular-diary-nudge-icon" }), "clock")
+    open.appendText(question)
     const close = item.createEl("button", { cls: "modular-diary-nudge-close", attr: { type: "button", "aria-label": tr("dismiss") } })
     setIcon(close, "x")
-    open.addEventListener("click", () => {
-      const today = inferDate(null)
-      this.pendingHourlog = { date: today, draft: { startMin: (hour - 1) * 60, endMin: hour * 60, link: null, body: "", focus: true } }
-      this.nudgeDismissedHour = hour
+    const answer = (): void => {
+      const nowMin = endHour === 24 && now.getHours() === 0 ? 24 * 60 : now.getHours() * 60 + now.getMinutes()
+      const range = composerDefaults(written, nowMin)
+      this.pendingHourlog = { date, draft: { startMin: range.startMin, endMin: range.endMin, link: null, body: "", focus: true } }
+      this.nudgeDismissedHour = endHour
       item.hide()
-      void this.openDay(today).then(() => this.rerenderMountedTimelines())
-    })
-    close.addEventListener("click", () => { this.nudgeDismissedHour = hour; item.hide() })
+      void this.openDay(date).then(() => this.rerenderMountedTimelines())
+    }
+    open.addEventListener("click", answer)
+    close.addEventListener("click", () => { this.nudgeDismissedHour = endHour; item.hide() })
     item.show()
+    if (this.settings.hourlyNudgeNotify && typeof Notification !== "undefined") {
+      try {
+        const notification = new Notification("Modular Diary", { body: question, silent: true })
+        notification.onclick = () => { activeWindow.focus(); answer() }
+      } catch (error) {
+        console.error("Modular Diary: could not raise the hourly notification", error)
+      }
+    }
   }
 
   /** Every tag the vault has used, settings first, for `#` completion. */

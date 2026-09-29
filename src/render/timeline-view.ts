@@ -526,6 +526,23 @@ export function renderTimelineInto(
   el.classList.toggle("modular-diary-host-float", useFloat)
 
   const statsSlot = container.querySelector<HTMLElement>(".modular-diary-slot-stats") // 被 off: 隐藏时不兜底渲染
+  // Time per #tag (block notes, diary bodies and `@` spans; overlaps once; plans never count).
+  const byTag = Object.entries(tagMinutes([...doc.entries, ...(doc.spans ?? [])])).sort((a, b) => b[1] - a[1])
+  const renderTagTotals = (box: HTMLElement): void => {
+    if (byTag.length === 0) return
+    const tags = box.createDiv({ cls: "modular-diary-stats-tags", attr: { "aria-label": t("statsByTag") } })
+    for (const [tag, minutes] of byTag) {
+      const item = tags.createEl("span", { cls: "modular-diary-stats-tag" })
+      const badge = item.createEl("span", { cls: "modular-diary-tag", text: `#${tag}` })
+      const style = opts.tagStyle?.(tag) ?? null
+      if (style) {
+        badge.classList.add("has-category")
+        badge.style.setProperty("--modular-diary-tag-bg", style.background)
+        badge.style.setProperty("--modular-diary-tag-fg", style.color)
+      }
+      item.createEl("span", { cls: "modular-diary-stats-tag-hours", text: formatHours(minutes) })
+    }
+  }
   statsSlot?.classList.toggle("is-empty-state", stats.length === 0 && doc.errors.length === 0)
   if (stats.length > 0 && statsSlot) {
     // 每行一个类型 + 荧光笔色点（yyt 2026-08-17）
@@ -577,22 +594,10 @@ export function renderTimelineInto(
         observer.observe(barWrap)
       }
     }
-    // Time per #tag (block notes, diary bodies and `@` spans; plans never count).
-    const byTag = Object.entries(tagMinutes([...doc.entries, ...(doc.spans ?? [])])).sort((a, b) => b[1] - a[1])
-    if (byTag.length > 0) {
-      const tags = box.createDiv({ cls: "modular-diary-stats-tags", attr: { "aria-label": t("statsByTag") } })
-      for (const [tag, minutes] of byTag) {
-        const item = tags.createEl("span", { cls: "modular-diary-stats-tag" })
-        const badge = item.createEl("span", { cls: "modular-diary-tag", text: `#${tag}` })
-        const style = opts.tagStyle?.(tag) ?? null
-        if (style) {
-          badge.classList.add("has-category")
-          badge.style.setProperty("--modular-diary-tag-bg", style.background)
-          badge.style.setProperty("--modular-diary-tag-fg", style.color)
-        }
-        item.createEl("span", { cls: "modular-diary-stats-tag-hours", text: formatHours(minutes) })
-      }
-    }
+    renderTagTotals(box)
+  } else if (statsSlot && doc.errors.length === 0 && byTag.length > 0) {
+    // Only categoryless diary spans today: their tags still add up.
+    renderTagTotals(statsSlot.createDiv({ cls: "modular-diary-stats" }))
   } else if (statsSlot && doc.errors.length === 0) {
     const empty = statsSlot.createDiv({ cls: "modular-diary-stats-empty" })
     empty.setAttribute("role", "note")

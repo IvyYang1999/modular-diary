@@ -55,6 +55,31 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
 
   /** Show pairing + tooltip for the object under the pointer or with focus. */
   const showInfo = (target: Element | null): boolean => {
+    // A diary bracket: its time and the first words of what was written.
+    const diary = target?.closest<SVGGElement>("g.modular-diary-diary-mark")
+    if (diary) {
+      const line = Number(diary.dataset.line)
+      const piece = doc.entries.find((item) => item.line === line && item.body !== undefined) ?? (doc.spans ?? []).find((item) => item.line === line)
+      if (!piece) return false
+      clearPairing()
+      diary.classList.add("is-hover")
+      container.querySelectorAll(`rect.modular-diary-block[data-line="${line}"]`).forEach((el) => el.classList.add("is-hover"))
+      tooltip.replaceChildren()
+      const time = dom.createElement("div")
+      time.className = "modular-diary-tooltip-time"
+      time.textContent = formatTimelineDisplayRange(piece.startMin, piece.endMin)
+      tooltip.appendChild(time)
+      const first = (piece.body ?? "").split("\n").find((text) => text.trim()) ?? ""
+      if (first) {
+        const note = dom.createElement("div")
+        note.className = "modular-diary-tooltip-note"
+        note.textContent = first.length > 60 ? `${first.slice(0, 60)}…` : first
+        tooltip.appendChild(note)
+      }
+      tooltip.style.display = "block"
+      tooltip.setAttribute("aria-hidden", "false")
+      return true
+    }
     const markerLine = Number(target?.closest<SVGElement>("[data-line]")?.dataset.line)
     const markerTarget = Number.isFinite(markerLine)
       ? svg.querySelector<SVGGElement>(`g.modular-diary-marker[data-line="${markerLine}"]`)
@@ -157,7 +182,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
     tooltip.style.top = `${box.bottom - rect.top + 6}px`
   })
   svg.addEventListener("focusout", (e: FocusEvent) => {
-    if ((e.target as Element | null)?.closest("rect.modular-diary-block, g.modular-diary-marker")) hideTooltip()
+    if ((e.target as Element | null)?.closest("rect.modular-diary-block, g.modular-diary-marker, g.modular-diary-diary-mark")) hideTooltip()
   })
 
   svg.addEventListener("pointermove", (e: PointerEvent) => {
@@ -167,7 +192,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
 
   svg.addEventListener("pointerout", (e: PointerEvent) => {
     const line = Number((e.target as Element | null)?.closest<SVGElement>("[data-line]")?.dataset.line)
-    if ((e.target as Element | null)?.closest("rect.modular-diary-block, g.modular-diary-marker") || doc.annotations.some((item) => item.line === line && item.type)) {
+    if ((e.target as Element | null)?.closest("rect.modular-diary-block, g.modular-diary-marker, g.modular-diary-diary-mark") || doc.annotations.some((item) => item.line === line && item.type)) {
       hideTooltip()
     }
   })

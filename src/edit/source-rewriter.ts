@@ -4,21 +4,21 @@
  * the code block in the note via MarkdownPostProcessorContext.
  */
 import { parseTimeline } from "../core/parser"
+import { bodyExtent, TEXT_SEPARATOR_RE } from "../core/body-extent"
 import { formatBodyLines, formatEntryLine, formatSpanLine } from "../core/format"
 import { MIN_TIMELINE_SPAN_MINUTES } from "../core/duration"
 import { formatTodoHeaderValue } from "../core/todos"
 import { parseRecoverableLayoutHeader } from "../core/grid-layout"
 import type { TodoItem } from "../core/types"
 
-/** Indented lines right under `line` are its diary body; they travel with it. */
-function bodyExtent(lines: string[], line: number): number {
-  let count = 0
-  while (line + 1 + count < lines.length && /^(?: {2,}|\t)(?=\S)/.test(lines[line + 1 + count])) count += 1
-  return count
-}
 
 /** Insert sourceLine into source. Returns the new block source. */
 export function insertEntryLine(source: string, sourceLine: string, newStartMin: number): string {
+  return insertEntryLineAt(source, sourceLine, newStartMin).source
+}
+
+/** Same as insertEntryLine, and says which line the new one landed on. */
+export function insertEntryLineAt(source: string, sourceLine: string, newStartMin: number): { source: string; line: number } {
   const lines = source.split("\n")
   // Drop trailing blank lines so we insert before the fence, not after them.
   let tail = lines.length
@@ -29,7 +29,7 @@ export function insertEntryLine(source: string, sourceLine: string, newStartMin:
   const doc = parseTimeline(source)
   // `===` 文字区边界：条目必须插在文字区之前（yyt 2026-08-17 踩坑：无条目时
   // 追加到末尾，落进文字区变成普通文本，色块不出现）
-  const sepIdx = body.findIndex((l) => l.trim() === "===")
+  const sepIdx = body.findIndex((l) => TEXT_SEPARATOR_RE.test(l))
   const boundary = sepIdx >= 0 ? sepIdx : body.length
 
   // Entries and diary spans share one time order; find the last one starting <= newStartMin.
@@ -41,21 +41,23 @@ export function insertEntryLine(source: string, sourceLine: string, newStartMin:
       insertAt = e.line
     }
   }
+  let at: number
   if (insertAt >= 0) {
-    body.splice(insertAt + 1 + bodyExtent(body, insertAt), 0, sourceLine)
+    at = insertAt + 1 + bodyExtent(body, insertAt)
   } else {
     // Before the first entry; after header/separator if present; never past ===.
     const firstEntry = entryLines[0]
-    body.splice(firstEntry !== undefined ? firstEntry : boundary, 0, sourceLine)
+    at = firstEntry !== undefined ? firstEntry : boundary
   }
-  return [...body, ...trailing].join("\n")
+  body.splice(at, 0, sourceLine)
+  return { source: [...body, ...trailing].join("\n"), line: at }
 }
 
 /** Insert a categorized point marker in stable timestamp/source order. */
 export function insertMarkerLine(source: string, sourceLine: string, timeMin: number): string {
   const lines = source.split("\n")
   const doc = parseTimeline(source)
-  const boundary = lines.findIndex((line) => line.trim() === "===")
+  const boundary = lines.findIndex((line) => TEXT_SEPARATOR_RE.test(line))
   const end = boundary >= 0 ? boundary : lines.length
   let insertAt = -1
   for (const marker of doc.annotations) {
@@ -120,10 +122,9 @@ export function insertHeaderLine(source: string, key: string, line: string): str
 
 /** Insert a categoryless diary span in time order, with an optional body. */
 export function insertSpanLine(source: string, span: { startMin: number; endMin: number; text?: string; body?: string }): string {
-  const withLine = insertEntryLine(source, formatSpanLine(span), span.startMin)
-  if (span.body === undefined) return withLine
-  const line = parseTimeline(withLine).spans.find((item) => item.startMin === span.startMin && item.endMin === span.endMin && item.text === (span.text ?? ""))?.line
-  return line === undefined ? withLine : setItemBody(withLine, line, span.body)
+  // Body goes right under the line just inserted: never "the first span with these times".
+  const inserted = insertEntryLineAt(source, formatSpanLine(span), span.startMin)
+  return span.body === undefined ? inserted.source : setItemBody(inserted.source, inserted.line, span.body)
 }
 
 export function insertTodo(source: string, todo: Omit<TodoItem, "line">): string {
@@ -332,7 +333,7 @@ export function removeTimelineBlockFromContent(
 /** Set/replace the Nth free-text section (`===` 分隔，可多个). Empty text keeps a placeholder. */
 export function setTextSection(source: string, text: string, index = 0): string {
   const lines = source.split("\n")
-  const sepIdxs = lines.map((l, i) => (l.trim() === "===" ? i : -1)).filter((i) => i >= 0)
+  const sepIdxs = lines.map((l, i) => (TEXT_SEPARATOR_RE.test(l) ? i : -1)).filter((i) => i >= 0)
   const trimmed = text.trim()
   if (sepIdxs.length === 0 || index >= sepIdxs.length) {
     // 目标不存在 -> 追加新区（index 0 等价于创建）
@@ -350,7 +351,7 @@ export function setTextSection(source: string, text: string, index = 0): string 
 /** Remove the Nth text section entirely（删除文本框）。 */
 export function removeTextSection(source: string, index: number): string {
   const lines = source.split("\n")
-  const sepIdxs = lines.map((l, i) => (l.trim() === "===" ? i : -1)).filter((i) => i >= 0)
+  const sepIdxs = lines.map((l, i) => (TEXT_SEPARATOR_RE.test(l) ? i : -1)).filter((i) => i >= 0)
   if (index >= sepIdxs.length) return source
   const start = sepIdxs[index]
   const end = index + 1 < sepIdxs.length ? sepIdxs[index + 1] : lines.length

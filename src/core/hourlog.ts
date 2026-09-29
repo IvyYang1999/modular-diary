@@ -16,18 +16,61 @@ export interface HourlogItem {
   note?: string
   tags: string[]
   body: string
+  /** Which of the pieces with this exact identity it is (0 for the first). */
+  ordinal: number
+}
+
+/** A colour block a new piece hangs on, named by what it is rather than by its line. */
+export interface HourlogLink {
+  startMin: number
+  endMin: number
+  type: string
+  note?: string
 }
 
 export function hourlogItems(doc: Pick<TimelineDoc, "entries" | "spans">): HourlogItem[] {
   const items: HourlogItem[] = []
   for (const entry of doc.entries) {
     if (entry.plan || entry.body === undefined) continue
-    items.push({ kind: "entry", line: entry.line, startMin: entry.startMin, endMin: entry.endMin, type: entry.type, note: entry.note, tags: entry.tags, body: entry.body })
+    items.push({ kind: "entry", line: entry.line, startMin: entry.startMin, endMin: entry.endMin, type: entry.type, note: entry.note, tags: entry.tags, body: entry.body, ordinal: 0 })
   }
   for (const span of doc.spans) {
-    items.push({ kind: "span", line: span.line, startMin: span.startMin, endMin: span.endMin, note: span.text || undefined, tags: span.tags, body: span.body ?? "" })
+    items.push({ kind: "span", line: span.line, startMin: span.startMin, endMin: span.endMin, note: span.text || undefined, tags: span.tags, body: span.body ?? "", ordinal: 0 })
   }
-  return items.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin || a.line - b.line)
+  items.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin || a.line - b.line)
+  const seen = new Map<string, number>()
+  for (const item of items) {
+    const key = identityKey(item)
+    item.ordinal = seen.get(key) ?? 0
+    seen.set(key, item.ordinal + 1)
+  }
+  return items
+}
+
+function identityKey(item: { kind: "entry" | "span"; startMin: number; endMin: number; type?: string }): string {
+  return `${item.kind}|${item.startMin}|${item.endMin}|${item.type ?? ""}`
+}
+
+/**
+ * The line of a piece in the current source: same identity, same ordinal,
+ * and the text it had when it was shown. Anything else returns null so the
+ * write is refused instead of landing somewhere else (review A2).
+ */
+export function locateHourlogItem(doc: Pick<TimelineDoc, "entries" | "spans">, item: HourlogItem): number | null {
+  const found = hourlogItems(doc).filter((candidate) => identityKey(candidate) === identityKey(item))[item.ordinal]
+  if (!found || found.body !== item.body) return null
+  return found.line
+}
+
+/** The block a link names, only while it still has no diary of its own (review A3). */
+export function findLinkable(doc: Pick<TimelineDoc, "entries">, link: HourlogLink): Entry | undefined {
+  return doc.entries.find((entry) => !entry.plan && entry.body === undefined
+    && entry.startMin === link.startMin && entry.endMin === link.endMin && entry.type === link.type
+    && (entry.note ?? "") === (link.note ?? ""))
+}
+
+export function linkOf(entry: Entry): HourlogLink {
+  return { startMin: entry.startMin, endMin: entry.endMin, type: entry.type, ...(entry.note ? { note: entry.note } : {}) }
 }
 
 /** Actual colour blocks without a diary yet: what a new piece can hang on. */

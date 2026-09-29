@@ -51,6 +51,11 @@ export interface ModularDiarySettings {
   tagCategories: Record<string, string>
   /** On the hour, ask in the status bar what the last hour went into. */
   hourlyNudge: boolean
+  /** Hours the nudge may ask about: an hour starting at or after start, ending at or before end. */
+  nudgeStartHour: number
+  nudgeEndHour: number
+  /** Also raise a quiet system notification (reaches you while another app is in front). */
+  hourlyNudgeNotify: boolean
 }
 
 export const DEFAULT_SETTINGS: ModularDiarySettings = {
@@ -75,6 +80,9 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   dailyQuoteInk: "",
   tagCategories: {},
   hourlyNudge: true,
+  nudgeStartHour: 9,
+  nudgeEndHour: 24,
+  hourlyNudgeNotify: false,
 }
 
 const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -138,6 +146,34 @@ export class ModularDiarySettingTab extends PluginSettingTab {
         this.plugin.settings.hourlyNudge = value
         await this.plugin.saveSettings()
         this.plugin.refreshHourlyNudge()
+      }))
+
+    new Setting(timelineSettingsEl)
+      .setName(tr("nudgeHoursSetting"))
+      .setDesc(tr("nudgeHoursSettingDescription"))
+      .addText((text) => text.setValue(String(this.plugin.settings.nudgeStartHour)).onChange(async (value) => {
+        const n = Number(value)
+        if (Number.isInteger(n) && n >= 0 && n < this.plugin.settings.nudgeEndHour) {
+          this.plugin.settings.nudgeStartHour = n
+          await this.plugin.saveSettings()
+          this.plugin.refreshHourlyNudge()
+        }
+      }))
+      .addText((text) => text.setValue(String(this.plugin.settings.nudgeEndHour)).onChange(async (value) => {
+        const n = Number(value)
+        if (Number.isInteger(n) && n <= 24 && n > this.plugin.settings.nudgeStartHour) {
+          this.plugin.settings.nudgeEndHour = n
+          await this.plugin.saveSettings()
+          this.plugin.refreshHourlyNudge()
+        }
+      }))
+
+    new Setting(timelineSettingsEl)
+      .setName(tr("nudgeNotifySetting"))
+      .setDesc(tr("nudgeNotifySettingDescription"))
+      .addToggle((toggle) => toggle.setValue(this.plugin.settings.hourlyNudgeNotify).onChange(async (value) => {
+        this.plugin.settings.hourlyNudgeNotify = value
+        await this.plugin.saveSettings()
       }))
 
     for (const [scope, heading, description] of [

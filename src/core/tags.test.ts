@@ -28,6 +28,14 @@ describe("tags", () => {
     expect(learnTagCategories(doc, { 飞搜: "杂事", 模块日记: "开发", 官网: "写作" })).toEqual({})
   })
 
+  it("counts overlapping time once per tag", () => {
+    expect(tagMinutes([
+      { startMin: 540, endMin: 600, tags: ["o"] },
+      { startMin: 570, endMin: 630, tags: ["o"] },
+      { startMin: 700, endMin: 710, tags: ["o", "p"] },
+    ])).toEqual({ o: 100, p: 10 })
+  })
+
   it("sums actual minutes per tag and ignores plans", () => {
     expect(tagMinutes([
       { plan: false, startMin: 0, endMin: 90, tags: ["a", "b"] },

@@ -47,12 +47,33 @@ export function learnTagCategories(doc: Pick<TimelineDoc, "entries" | "todos"> &
   return learned
 }
 
-/** Minutes per tag over a set of actual entries and diary spans. Plans never count. */
+/**
+ * Minutes per tag over actual entries and diary spans. Plans never count, and
+ * overlapping pieces with the same tag count their wall-clock time once.
+ */
 export function tagMinutes(items: ReadonlyArray<{ plan?: boolean; startMin: number; endMin: number; tags: string[] }>): Record<string, number> {
-  const out: Record<string, number> = {}
+  const spans = new Map<string, Array<[number, number]>>()
   for (const item of items) {
     if (item.plan) continue
-    for (const tag of item.tags) out[tag] = (out[tag] ?? 0) + item.endMin - item.startMin
+    for (const tag of item.tags) {
+      const list = spans.get(tag) ?? []
+      list.push([item.startMin, item.endMin])
+      spans.set(tag, list)
+    }
   }
+  const out: Record<string, number> = {}
+  for (const [tag, list] of spans) out[tag] = unionMinutes(list)
   return out
+}
+
+/** Length of the union of [start, end) intervals. */
+export function unionMinutes(list: ReadonlyArray<readonly [number, number]>): number {
+  const sorted = [...list].sort((a, b) => a[0] - b[0])
+  let total = 0, curStart = -Infinity, curEnd = -Infinity
+  for (const [start, end] of sorted) {
+    if (start > curEnd) { if (curEnd > curStart) total += curEnd - curStart; curStart = start; curEnd = end }
+    else curEnd = Math.max(curEnd, end)
+  }
+  if (curEnd > curStart) total += curEnd - curStart
+  return total
 }

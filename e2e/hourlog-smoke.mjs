@@ -56,9 +56,11 @@ renderHourlogInto(slot, items, {
   tagStyle: (tag) => tag === "模块日记" ? { background: "color-mix(in srgb, #53a3f2 22%, var(--background-primary))", color: "color-mix(in srgb, #53a3f2 70%, var(--text-normal))" } : null,
   tagSuggest: { tags: () => ["模块日记", "飞搜", "官网"] },
   linkable: linkableEntries(doc),
+  range: { startMin: doc.rangeStart, endMin: doc.rangeEnd },
   composer: { startMin: 16 * 60 + 30, endMin: 17 * 60 + 10, link: null, body: "" },
-  onComposerChange: (d) => window.__events.push("draft:" + (d ? d.body + "@" + d.link : "null")),
-  onCreate: (d) => { window.__events.push("create:" + d.link + ":" + d.startMin + "-" + d.endMin + ":" + d.body) },
+  onExtendRange: (startMin) => window.__events.push("extend:" + startMin),
+  onComposerChange: (d) => window.__events.push("draft:" + (d ? d.body : "null")),
+  onCreate: (d) => { window.__events.push("create:" + (d.link ? d.link.type + "@" + d.link.startMin : "span") + ":" + d.startMin + "-" + d.endMin + ":" + d.body) },
   onSaveBody: (item, body) => { window.__events.push("save:" + item.kind + ":" + item.startMin + ":" + body) },
   onMenu: (item) => window.__events.push("menu:" + item.line),
   onLocate: (item) => window.__events.push("locate:" + item.line),
@@ -72,7 +74,7 @@ const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
 const hostile = `button { background: rgb(226,226,226); border: 1px solid rgb(180,180,180); box-shadow: 0 1px 2px rgba(0,0,0,.2); border-radius: 6px; padding: 4px 12px; font: inherit; }
 input, select, textarea { font: inherit; border: 1px solid #ccc; border-radius: 5px; background: var(--background-modifier-form-field); color: var(--text-normal); }
 body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; font-size: 14px; }`
-fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><style>${hostile}</style><style>${css}</style></head><body style="margin:16px"><main style="display:flex;gap:20px;align-items:flex-start;width:780px"><div class="modular-diary-container" style="width:430px"><div class="modular-diary-slot modular-diary-slot-hourlog" id="slot" style="position:relative;width:100%;padding:8px 8px 10px 22px;box-sizing:border-box"></div></div><div class="modular-diary-container" style="width:300px"><div id="svg" class="modular-diary-svg-holder" style="position:relative;width:100%;height:470px;overflow:hidden"></div></div></main><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
+fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><style>${hostile}</style><style>${css}</style></head><body style="margin:16px"><main style="display:flex;gap:20px;align-items:flex-start;width:780px"><div class="modular-diary-container" style="width:430px"><div class="modular-diary-slot modular-diary-slot-hourlog" id="slot" style="position:relative;width:100%;box-sizing:border-box;padding-block:8px"></div></div><div class="modular-diary-container" style="width:300px"><div id="svg" class="modular-diary-svg-holder" style="position:relative;width:100%;height:470px;overflow:hidden"></div></div></main><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
 
 const themes = {
   light: { "--background-primary": "#ffffff", "--background-secondary": "#f6f6f6", "--background-modifier-border": "#e0e0e0", "--background-modifier-border-hover": "#cfcfcf", "--background-modifier-hover": "rgba(0,0,0,0.05)", "--background-modifier-form-field": "#ffffff", "--interactive-accent": "#8a5cf5", "--text-normal": "#222222", "--text-muted": "#6b6b6b", "--text-faint": "#a0a0a0", "--text-accent": "#7b4fe0", "--text-on-accent": "#ffffff", "--text-error": "#d04437", "--button-radius": "6px", "--modular-diary-font-body": "14px" },
@@ -100,6 +102,9 @@ for (const [name, vars] of Object.entries(themes)) {
       headChrome: getComputedStyle(document.querySelector(".modular-diary-hourlog-head")).backgroundColor,
       brackets: q(".modular-diary-diary-mark").map((m) => [m.classList.contains("is-span") ? "span" : "entry", m.dataset.line]),
       corners: q(".modular-diary-diary-corner").length,
+      hitSizes: q(".modular-diary-diary-hit").map((r) => [Math.round(r.getBoundingClientRect().width), Math.round(r.getBoundingClientRect().height)]),
+      readingFont: parseFloat(getComputedStyle(document.querySelector(".modular-diary-hourlog-item textarea")).fontSize) > parseFloat(getComputedStyle(document.querySelector(".modular-diary-hourlog-time")).fontSize),
+      statusText: q(".modular-diary-hourlog-status").map((s) => s.textContent),
       bracketLeftOfTrack: (() => { const b = document.querySelector(".modular-diary-diary-bracket").getBoundingClientRect(); const t = document.querySelector(".modular-diary-track").getBoundingClientRect(); return b.right <= t.left + 1 })(),
       metaHidden: getComputedStyle(document.querySelector(".modular-diary-hourlog-composer-meta")).display === "none",
       count: document.querySelector(".modular-diary-hourlog .modular-diary-component-count")?.textContent,
@@ -108,10 +113,13 @@ for (const [name, vars] of Object.entries(themes)) {
   if (JSON.stringify(state.cards) !== JSON.stringify([["entry", "09:15–11:40"], ["span", "12:45–13:00"]])) errors.push("cards: " + JSON.stringify(state.cards))
   if (state.bodyHeights.some((fits) => !fits)) errors.push("bodies must grow to their text, not scroll")
   if (state.headChrome !== "rgba(0, 0, 0, 0)") errors.push("card heads must not carry host button chrome: " + state.headChrome)
-  if (state.brackets.length !== 2 || state.corners !== 1) errors.push("brackets for both pieces and one corner mark: " + JSON.stringify(state))
+  if (state.brackets.length !== 2 || state.corners !== 0) errors.push("a bracket for each piece and no corner marks: " + JSON.stringify(state))
+  if (state.hitSizes.some(([w, h]) => w < 14 || h < 12)) errors.push("bracket hit areas are at least 14×12: " + JSON.stringify(state.hitSizes))
+  if (!state.readingFont) errors.push("diary text is set a step larger than its meta line")
+  if (JSON.stringify(state.statusText) !== JSON.stringify(["2.42h", "0.25h"])) errors.push("the status slot shows the length in the block's unit: " + JSON.stringify(state.statusText))
   if (!state.bracketLeftOfTrack) errors.push("brackets sit left of the track")
   if (!state.metaHidden) errors.push("the composer stays one quiet line until used")
-  if (state.count !== "2 · 2h40m") errors.push("header count: " + state.count)
+  if (state.count !== "2 段") errors.push("header count: " + state.count)
 
   // Edit the first piece; blur saves.
   const first = page.locator(".modular-diary-hourlog-item").first().locator("textarea")
@@ -121,9 +129,22 @@ for (const [name, vars] of Object.entries(themes)) {
   const second = page.locator(".modular-diary-hourlog-item").nth(1).locator("textarea")
   await second.click(); await page.keyboard.type("不要的字"); await page.keyboard.press("Escape")
   const reverted = await second.inputValue()
-  // Composer: focus shows the meta row; link a block; type with a tag; Mod+Enter writes.
+  // A fence line is refused where it is typed, with the reason in the status slot.
+  await second.click(); await second.evaluate((a) => a.setSelectionRange(a.value.length, a.value.length)); await page.keyboard.type("\n```")
+  await page.locator(".modular-diary-hourlog-head").first().focus()
+  const blocked = await page.evaluate(() => document.querySelectorAll(".modular-diary-hourlog-item")[1].querySelector(".modular-diary-hourlog-status").textContent)
+  await second.fill("午饭后回了两个 issue，一个是接口改了参数。"); await page.locator(".modular-diary-hourlog-head").first().focus()
+  // Composer: focus shows the meta row and room to write; link a block; type with a tag; Mod+Enter writes.
   await page.locator(".modular-diary-hourlog-composer textarea").click()
   const metaShown = await page.evaluate(() => getComputedStyle(document.querySelector(".modular-diary-hourlog-composer-meta")).display !== "none")
+  const roomy = await page.evaluate(() => document.querySelector(".modular-diary-hourlog-composer textarea").getBoundingClientRect().height >= 4 * 14)
+  // Out of range and across midnight are said plainly.
+  const startBox = page.locator(".modular-diary-hourlog-clock").first(), endBox = page.locator(".modular-diary-hourlog-clock").nth(1)
+  await startBox.fill("05:30"); await startBox.press("Tab")
+  const outOfRange = await page.evaluate(() => document.querySelector(".modular-diary-hourlog-notice").textContent)
+  await page.locator(".modular-diary-hourlog-inline-button").click()
+  await startBox.fill("23:30"); await startBox.press("Tab"); await endBox.fill("00:30"); await endBox.press("Tab")
+  const nextDayShown = await page.evaluate(() => !document.querySelector(".modular-diary-hourlog-nextday").hidden)
   await page.locator(".modular-diary-hourlog-link").selectOption({ index: 3 })
   const linkedTimes = await page.evaluate(() => [...document.querySelectorAll(".modular-diary-hourlog-clock")].map((i) => [i.value, i.disabled]))
   await page.locator(".modular-diary-hourlog-composer textarea").click()
@@ -136,7 +157,11 @@ for (const [name, vars] of Object.entries(themes)) {
   events = await page.evaluate(() => window.__events)
   if (reverted !== "午饭后回了两个 issue，一个是接口改了参数。") errors.push("Esc must restore the text: " + reverted)
   if (!metaShown) errors.push("focusing the composer reveals times and the link picker")
-  if (JSON.stringify(linkedTimes) !== JSON.stringify([["14:00", true], ["16:00", true]])) errors.push("linking a block locks the composer to its times: " + JSON.stringify(linkedTimes))
+  if (!roomy) errors.push("the composer opens to at least four lines")
+  if (!blocked.includes("```")) errors.push("a fence line is refused with its reason: " + blocked)
+  if (!outOfRange.includes("次日")) errors.push("a span before the range says it will land on the next day: " + outOfRange)
+  if (!nextDayShown) errors.push("an end past midnight is marked next day")
+  if (JSON.stringify(linkedTimes) !== JSON.stringify([["14:00", false], ["16:00", false]])) errors.push("linking a block takes its times and keeps them editable: " + JSON.stringify(linkedTimes))
   if (!suggest.includes("#模块日记")) errors.push("# completion works in the composer: " + JSON.stringify(suggest))
   await page.close()
 }
@@ -144,10 +169,12 @@ await browser.close()
 const expected = [
   "save:entry:555:days 头解析 + 列渲染。发现 days 头和 layout 头得互斥，先按块级判断。\n列渲染复用 axis()，压缩之后文字全靠 hover。 明天做分列。",
   "locate:5",
-  "create:11:840-960:拖放终于顺了 #模块日记",
+  "create:开发@840:840-960:拖放终于顺了 #模块日记",
+  "extend:330",
   "menu:5",
 ]
 for (const e of expected) if (!events.includes(e)) errors.push("missing " + JSON.stringify(e))
-if (events.some((e) => e.startsWith("save:span"))) errors.push("Esc must not save")
+if (events.some((e) => e.startsWith("save:span") && e.includes("不要的字"))) errors.push("Esc must not save")
+if (events.some((e) => e.includes("```"))) errors.push("a fence line must never be written")
 if (errors.length) { console.error("HOURLOG CONTRACT FAILED", { errors, events, shots }); process.exit(1) }
 console.log("OK hourlog smoke passed\n" + shots.join("\n"))
