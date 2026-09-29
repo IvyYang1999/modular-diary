@@ -92,3 +92,36 @@ describe("titled text sections (phase 4)", () => {
     expect(parseTimeline(setTextTitle(added, 0, undefined)).textTitles).toEqual([undefined, "阅读笔记"])
   })
 })
+
+describe("phase 4 review: section text and header zone", () => {
+  it("keeps a === line inside a section as text, round-trip", async () => {
+    const { setTextSection } = await import("../edit/source-rewriter")
+    const src = ["09:00-10:00 开发", "=== 感恩日记", "旧"].join("\n")
+    const out = setTextSection(src, "今天感恩三件事\n=== 小结 ===\n标题\n===\n整体不错", 0)
+    const doc = parseTimeline(out)
+    expect(doc.textTitles).toEqual(["感恩日记"])
+    expect(doc.texts).toEqual(["今天感恩三件事\n=== 小结 ===\n标题\n===\n整体不错"])
+    expect(parseTimeline(setTextSection(out, doc.texts[0], 0)).texts).toEqual(doc.texts)
+  })
+
+  it("never writes header lines into a text section when the block has no ---", async () => {
+    const { setHeaderValue, insertTodo, addOffSlot } = await import("../edit/source-rewriter")
+    const src = ["date: 2026-09-30", "09:00-10:00 开发", "=== 阅读笔记", "摘抄一段", "---", "layout: 是正文", "我的感想"].join("\n")
+    const withView = setHeaderValue(src, "todo-view", "group=none sort=manual layout=abc")
+    expect(parseTimeline(withView).todoView.layout).toBe("abc")
+    expect(parseTimeline(withView).texts[0]).toBe("摘抄一段\n---\nlayout: 是正文\n我的感想")
+    const withTodo = insertTodo(src, { id: "t1", title: "x", group: "", estimateMin: 30, completed: false })
+    expect(parseTimeline(withTodo).todos.map((t) => t.id)).toEqual(["t1"])
+    expect(parseTimeline(withTodo).texts[0]).toBe("摘抄一段\n---\nlayout: 是正文\n我的感想")
+    expect(parseTimeline(setHeaderValue(src, "layout", "timeline@0,0,12,40")).texts[0]).toContain("layout: 是正文")
+    expect(parseTimeline(addOffSlot(src, "stats")).hiddenSlots).toEqual(["stats"])
+  })
+
+  it("reads CRLF and full-width separators", async () => {
+    const { setTextSection } = await import("../edit/source-rewriter")
+    const crlf = "09:00-10:00 开发\r\n=== 感恩日记\r\n旧\r\n"
+    const out = setTextSection(crlf.replace(/\r\n/g, "\n").replace("=== 感恩日记", "=== 感恩日记\r"), "新", 0)
+    expect(parseTimeline(out).textTitles).toEqual(["感恩日记"])
+    expect(parseTimeline("09:00-10:00 开发\n===　感恩日记\n旧").textTitles).toEqual(["感恩日记"])
+  })
+})

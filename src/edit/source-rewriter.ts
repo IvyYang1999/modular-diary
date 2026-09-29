@@ -4,7 +4,7 @@
  * the code block in the note via MarkdownPostProcessorContext.
  */
 import { parseTimeline } from "../core/parser"
-import { bodyExtent, TEXT_SEPARATOR_RE } from "../core/body-extent"
+import { bodyExtent, escapeSectionLine, headerInsertIndex, headerZone, TEXT_SEPARATOR_RE } from "../core/body-extent"
 import { formatBodyLines, formatEntryLine, formatSpanLine } from "../core/format"
 import { MIN_TIMELINE_SPAN_MINUTES } from "../core/duration"
 import { formatTodoHeaderValue } from "../core/todos"
@@ -113,10 +113,10 @@ export function setItemBody(source: string, line: number, body: string | undefin
 export function insertHeaderLine(source: string, key: string, line: string): string {
   const lines = source.split("\n")
   const re = new RegExp(`^${key}\\s*:`)
+  const zone = headerZone(lines)
   let last = -1
-  lines.forEach((value, index) => { if (re.test(value.trim())) last = index })
-  const separator = lines.findIndex((value) => value.trim() === "---")
-  lines.splice(last >= 0 ? last + 1 : (separator >= 0 ? separator : 0), 0, line)
+  for (let i = 0; i < zone.end; i += 1) if (re.test(lines[i].trim())) last = i
+  lines.splice(last >= 0 ? last + 1 : headerInsertIndex(lines), 0, line)
   return lines.join("\n")
 }
 
@@ -130,8 +130,7 @@ export function insertSpanLine(source: string, span: { startMin: number; endMin:
 export function insertTodo(source: string, todo: Omit<TodoItem, "line">): string {
   const lines = source.split("\n")
   const todos = parseTimeline(source).todos
-  const separator = lines.findIndex((line) => line.trim() === "---")
-  const at = todos.length > 0 ? todos[todos.length - 1].line + 1 : (separator >= 0 ? separator : 0)
+  const at = todos.length > 0 ? todos[todos.length - 1].line + 1 : headerInsertIndex(lines)
   lines.splice(at, 0, `todo: ${formatTodoHeaderValue(todo)}`)
   return lines.join("\n")
 }
@@ -165,6 +164,25 @@ export function moveTodo(source: string, id: string, targetIndex: number): strin
   const values = ordered.map((todo) => `todo: ${formatTodoHeaderValue(todo)}`)
   todoLines.forEach((line, index) => { lines[line] = values[index] })
   return lines.join("\n")
+}
+
+/**
+ * Put a todo into a cell and at a position there, in one change: before
+ * `beforeId`, or after the last todo already in that cell (its place in the
+ * source is otherwise kept).
+ */
+export function placeTodoInBucket(source: string, id: string, bucket: string, beforeId: string | null): string {
+  let out = updateTodo(source, id, { bucket: bucket || undefined })
+  const todos = parseTimeline(out).todos
+  const rest = todos.filter((todo) => todo.id !== id)
+  let target = -1
+  if (beforeId) target = rest.findIndex((todo) => todo.id === beforeId)
+  else {
+    const lastInCell = rest.map((todo) => (todo.bucket ?? "") === bucket).lastIndexOf(true)
+    if (lastInCell >= 0) target = lastInCell + 1
+  }
+  if (target >= 0) out = moveTodo(out, id, target)
+  return out
 }
 
 export function setEntryTodoBinding(source: string, line: number, todoId: string | null): string {
@@ -222,11 +240,13 @@ export function removeHiddenType(source: string, type: string, tool: "span" | "m
 export function setHeaderValue(source: string, key: string, value: string): string {
   const lines = source.split("\n")
   const re = new RegExp(`^${key}\\s*:`)
-  let idx = lines.findIndex((l) => re.test(l.trim()))
+  // Only the header zone holds headers: a "layout: x" line in a text section is text.
+  const zoneEnd = headerZone(lines).end
+  let idx = lines.findIndex((l, i) => i < zoneEnd && re.test(l.trim()))
   if (idx < 0 && key.toLowerCase() === "layout") {
     const candidates = lines.flatMap((line, index) => {
       const match = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line.trim())
-      return match && match[1].toLowerCase() !== "layout"
+      return index < zoneEnd && match && match[1].toLowerCase() !== "layout"
         && parseRecoverableLayoutHeader(match[1], match[2].trim())
         ? [index]
         : []
@@ -239,9 +259,7 @@ export function setHeaderValue(source: string, key: string, value: string): stri
     lines[idx] = `${key}: ${value}`
     return lines.join("\n")
   }
-  // Insert before the --- separator if present, else at the top.
-  const sep = lines.findIndex((l) => l.trim() === "---")
-  lines.splice(sep >= 0 ? sep : 0, 0, `${key}: ${value}`)
+  lines.splice(headerInsertIndex(lines), 0, `${key}: ${value}`)
   return lines.join("\n")
 }
 
@@ -249,7 +267,8 @@ export function setHeaderValue(source: string, key: string, value: string): stri
 export function removeHeaderValue(source: string, key: string): string {
   const lines = source.split("\n")
   const re = new RegExp(`^${key}\\s*:`)
-  const idx = lines.findIndex((l) => re.test(l.trim()))
+  const zoneEnd = headerZone(lines).end
+  const idx = lines.findIndex((l, i) => i < zoneEnd && re.test(l.trim()))
   if (idx < 0) return source
   lines.splice(idx, 1)
   return lines.join("\n")
@@ -339,12 +358,12 @@ export function setTextSection(source: string, text: string, index = 0, title?: 
     // 目标不存在 -> 追加新区（index 0 等价于创建）
     const head = [...lines]
     while (head.length > 0 && head[head.length - 1].trim() === "") head.pop()
-    return [...head, separatorLine(title), ...(trimmed === "" ? [] : trimmed.split("\n"))].join("\n")
+    return [...head, separatorLine(title), ...(trimmed === "" ? [] : trimmed.split("\n").map(escapeSectionLine))].join("\n")
   }
   const start = sepIdxs[index]
   const end = index + 1 < sepIdxs.length ? sepIdxs[index + 1] : lines.length
   // The separator line (and its title) stays as written.
-  const replacement = trimmed === "" ? [lines[start]] : [lines[start], ...trimmed.split("\n")]
+  const replacement = trimmed === "" ? [lines[start]] : [lines[start], ...trimmed.split("\n").map(escapeSectionLine)]
   lines.splice(start, end - start, ...replacement)
   return lines.join("\n")
 }
@@ -377,22 +396,23 @@ export function removeTextSection(source: string, index: number): string {
 /** Add a component to the block's `off:` header (hide a slot). */
 export function addOffSlot(source: string, id: string): string {
   const lines = source.split("\n")
-  const idx = lines.findIndex((l) => /^off\s*:/.test(l.trim()))
+  const zoneEnd = headerZone(lines).end
+  const idx = lines.findIndex((l, i) => i < zoneEnd && /^off\s*:/.test(l.trim()))
   if (idx >= 0) {
     const existing = lines[idx].split(":")[1].split(/[\s,，]+/).filter(Boolean)
     if (existing.includes(id)) return source
     lines[idx] = `off: ${[...existing, id].join(" ")}`
     return lines.join("\n")
   }
-  const sep = lines.findIndex((l) => l.trim() === "---")
-  lines.splice(sep >= 0 ? sep : 0, 0, `off: ${id}`)
+  lines.splice(headerInsertIndex(lines), 0, `off: ${id}`)
   return lines.join("\n")
 }
 
 /** Remove a component from the `off:` header (re-show a hidden slot). */
 export function removeOffSlot(source: string, id: string): string {
   const lines = source.split("\n")
-  const idx = lines.findIndex((l) => /^off\s*:/.test(l.trim()))
+  const zoneEnd = headerZone(lines).end
+  const idx = lines.findIndex((l, i) => i < zoneEnd && /^off\s*:/.test(l.trim()))
   if (idx < 0) return source
   const remaining = lines[idx].split(":")[1].split(/[\s,，]+/).filter((t) => t && t !== id)
   if (remaining.length === 0) {

@@ -46,15 +46,21 @@ const items = [
 const mount = (id: string, layout: string) => renderTodosInto(document.querySelector<HTMLElement>(id)!, items as any, {
   categories: Object.keys(colors), typeColors: colors,
   view: { groupBy: "none", sortBy: "manual", layout } as any,
-  onAdd: () => {}, onEdit: () => {}, onToggle: () => {}, onMove: () => {},
+  onEdit: () => {}, onToggle: () => {}, onMove: () => {},
   onGroupMenu: () => {}, onSortMenu: () => {},
   onMenu: (item) => window.__events.push("menu:" + item.id),
-  onSetBucket: (id, bucket) => window.__events.push("bucket:" + layout + ":" + id + ":" + bucket),
+  onSetBucket: (id, bucket, before) => window.__events.push("bucket:" + layout + ":" + id + ":" + bucket + ":" + (before ?? "end")),
+  onAdd: (input) => window.__events.push("add:" + layout + ":" + (input.bucket ?? "") + ":" + input.title),
   onLayoutMenu: () => window.__events.push("layout-menu:" + layout),
 })
 mount("#abc", "abc")
 mount("#matrix", "matrix")
 mount("#narrow", "abc")
+renderTodosInto(document.querySelector<HTMLElement>("#emptyday")!, [], {
+  categories: Object.keys(colors), typeColors: colors, view: { groupBy: "none", sortBy: "manual", layout: "abc" } as any,
+  onAdd: (input) => window.__events.push("add:empty:" + (input.bucket ?? "") + ":" + input.title), onEdit: () => {}, onToggle: () => {}, onMove: () => {},
+  onGroupMenu: () => {}, onSortMenu: () => {}, onMenu: () => {}, onSetBucket: () => {},
+})
 const doc = parseTimeline(["date: 2026-09-30", "layout: timeline@6,0,6,24 text@0,0,6,6 text2@0,6,6,6", "---", "09:00-10:00 开发", "=== 感恩日记", "今天的阳光很好", "===", "随手记"].join("\\n"))
 renderTimelineInto(document.querySelector<HTMLElement>("#block")!, doc, { typeColors: colors }, {
   renderMarkdown: (host, text) => { host.textContent = text },
@@ -69,7 +75,7 @@ await esbuild.build({
 const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
 const hostile = `button { background: rgb(226,226,226); border: 1px solid rgb(180,180,180); box-shadow: 0 1px 2px rgba(0,0,0,.2); border-radius: 6px; font: inherit; } body { font-family: -apple-system, "PingFang SC", sans-serif; font-size: 14px; }`
 const slot = (id, w) => `<div class="modular-diary-container" style="width:${w}px;margin-bottom:16px"><div class="modular-diary-slot modular-diary-slot-todos" style="position:relative;width:100%;box-sizing:border-box;padding-block:8px"><div id="${id}"></div></div></div>`
-fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><style>${hostile}</style><style>${css}</style></head><body style="margin:16px">${slot("abc", 640)}${slot("matrix", 520)}${slot("narrow", 340)}<div id="block" style="width:640px"></div><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
+fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><style>${hostile}</style><style>${css}</style></head><body style="margin:16px">${slot("abc", 640)}${slot("matrix", 520)}${slot("narrow", 340)}${slot("emptyday", 640)}<div id="block" style="width:640px"></div><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 720, height: 1400 }, deviceScaleFactor: 2 })
@@ -87,7 +93,9 @@ const state = await page.evaluate(() => {
     abc: cells("#abc"), matrix: cells("#matrix"),
     abcCols: cols("#abc"), matrixCols: cols("#matrix"), narrowCols: cols("#narrow"),
     weeklyHasGrip: !!document.querySelector('#abc .modular-diary-todo-row[data-todo-id="w1"] .modular-diary-item-drag'),
-    groupHidden: document.querySelector("#abc .modular-diary-component-actions button:nth-child(2)").hidden,
+    groupVisible: (() => { const b = document.querySelector("#abc .modular-diary-component-actions button:nth-child(2)"); return b.getBoundingClientRect().width > 0 && getComputedStyle(b).display !== "none" })(),
+    emptyDayCells: [...document.querySelectorAll("#emptyday .modular-diary-todo-bucket")].map((c) => c.dataset.bucket),
+    ghostCheck: null,
     titles: [...document.querySelectorAll("#block .modular-diary-text-title")].map((t) => t.textContent),
     untitledHasHeader: document.querySelectorAll("#block .modular-diary-slot:not(.has-title) .modular-diary-text-header").length,
   }
@@ -102,9 +110,32 @@ await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2); await page.mouse.d
 await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2, { steps: 8 })
 const overC = await page.evaluate(() => document.querySelector('#abc .modular-diary-todo-bucket[data-bucket="C"]').classList.contains("is-over"))
 await page.mouse.up()
-// Dropping back into its own cell writes nothing.
+// Drop "回邮件" into A before "官网文案": the insertion line shows where.
+await page.locator('#abc .modular-diary-todo-row[data-todo-id="w1"]').hover()
+const gW = await page.locator('#abc .modular-diary-todo-row[data-todo-id="w1"] .modular-diary-item-drag').count()
+const a2 = await page.locator('#abc .modular-diary-todo-row[data-todo-id="a2"]').boundingBox()
+await page.locator('#abc .modular-diary-todo-row[data-todo-id="n1"]').hover()
+const g3 = await grip.boundingBox()
+await page.mouse.move(g3.x + g3.width / 2, g3.y + g3.height / 2); await page.mouse.down()
+await page.mouse.move(a2.x + 60, a2.y + 4, { steps: 8 })
+const dragView = await page.evaluate(() => {
+  const ghost = document.querySelector(".modular-diary-item-sort-ghost")
+  const line = document.querySelector("#abc .modular-diary-todo-insert-line")
+  return { ghostWidth: ghost ? Math.round(ghost.getBoundingClientRect().width) : 0, ghostHidden: ghost?.getAttribute("aria-hidden"), lineBefore: line?.nextElementSibling?.dataset.todoId ?? null }
+})
+await page.mouse.up()
+// Dropping back into its own place writes nothing.
 const g2 = await page.locator('#abc .modular-diary-todo-row[data-todo-id="b1"] .modular-diary-item-drag').boundingBox()
 await page.mouse.move(g2.x + 4, g2.y + 4); await page.mouse.down(); await page.mouse.move(g2.x + 30, g2.y + 10, { steps: 4 }); await page.mouse.up()
+// Keyboard: Alt+Down moves within the cell, Alt+Right to the next cell.
+await page.locator('#abc .modular-diary-todo-row[data-todo-id="a1"]').focus()
+await page.keyboard.press("Alt+ArrowDown")
+await page.keyboard.press("Alt+ArrowRight")
+// A cell's own + adds straight into it.
+await page.locator('#emptyday .modular-diary-todo-bucket[data-bucket="B"]').hover()
+await page.locator('#emptyday .modular-diary-todo-bucket[data-bucket="B"] .modular-diary-todo-bucket-add').click()
+await page.locator("#emptyday .modular-diary-todo-title-input").fill("明天也行的事")
+await page.locator("#emptyday .modular-diary-todo-title-input").press("Enter")
 // Rename a titled section.
 await page.locator("#block .modular-diary-text-title").click()
 await page.locator("#block .modular-diary-text-title-input").fill("感恩")
@@ -114,15 +145,18 @@ const events = await page.evaluate(() => window.__events)
 await browser.close()
 
 const errors = []
-if (JSON.stringify(state.abc) !== JSON.stringify([["A", "a1,a2"], ["B", "b1"], ["C", ""], ["", "n1,w1"]])) errors.push("ABC cells: " + JSON.stringify(state.abc))
-if (JSON.stringify(state.matrix.map(([k]) => k)) !== JSON.stringify(["q1", "q2", "q3", "q4", ""])) errors.push("quadrant cells in reading order plus unsorted: " + JSON.stringify(state.matrix))
+if (JSON.stringify(state.abc) !== JSON.stringify([["", "n1,w1"], ["A", "a1,a2"], ["B", "b1"], ["C", ""]])) errors.push("ABC cells, unsorted first: " + JSON.stringify(state.abc))
+if (JSON.stringify(state.matrix.map(([k]) => k)) !== JSON.stringify(["", "q1", "q2", "q3", "q4"])) errors.push("quadrant cells in reading order after the unsorted pile: " + JSON.stringify(state.matrix))
+if (JSON.stringify(state.emptyDayCells) !== JSON.stringify(["A", "B", "C"])) errors.push("an empty day still shows its cells: " + JSON.stringify(state.emptyDayCells))
 if (state.abcCols !== 3 || state.matrixCols !== 2) errors.push(`columns: abc ${state.abcCols} matrix ${state.matrixCols}`)
 if (state.narrowCols !== 1) errors.push("a narrow todo slot stacks its cells: " + state.narrowCols)
 if (state.weeklyHasGrip) errors.push("weekly todos cannot be moved between cells")
-if (!state.groupHidden) errors.push("grouping is hidden once cells are the groups")
+if (state.groupVisible) errors.push("grouping is really hidden (not just [hidden]) once cells are the groups")
 if (JSON.stringify(state.titles) !== JSON.stringify(["感恩日记"]) || state.untitledHasHeader !== 0) errors.push("only titled sections get a header: " + JSON.stringify(state))
 if (!overC) errors.push("the cell under the pointer lights up")
-for (const e of ["bucket:abc:n1:C", "rename:0:感恩", "layout-menu:abc"]) if (!events.includes(e)) errors.push("missing " + e)
-if (events.some((e) => e.startsWith("bucket:abc:b1"))) errors.push("dropping into the same cell writes nothing")
+for (const e of ["bucket:abc:n1:C:end", "bucket:abc:n1:A:a2", "bucket:abc:a1:A:end", "bucket:abc:a1:B:end", "add:empty:B:明天也行的事", "rename:0:感恩", "layout-menu:abc"]) if (!events.includes(e)) errors.push("missing " + e)
+if (events.some((e) => e.startsWith("bucket:abc:b1"))) errors.push("dropping back into the same place writes nothing")
+if (dragView.ghostWidth > 600 || dragView.ghostHidden !== "true" || dragView.lineBefore !== "a2") errors.push("drag ghost matches the row and the insertion line shows the landing spot: " + JSON.stringify(dragView))
+if (gW !== 0) errors.push("weekly rows have no grip")
 if (errors.length) { console.error("PHASE4 CONTRACT FAILED", { errors, events, state, shot: path.join(out, "phase4.png") }); process.exit(1) }
 console.log("OK phase4 smoke passed", path.join(out, "phase4.png"))

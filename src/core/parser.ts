@@ -16,7 +16,7 @@ import { DEFAULT_TODO_VIEW, parseReadableFields, parseTodoHeaderValue, parseTodo
 import { parsePeriodSpec } from "./period"
 import { t as tr } from "../i18n"
 import { extractTags } from "./tags"
-import { bodyExtent, readBody, separatorTitle, TEXT_SEPARATOR_RE } from "./body-extent"
+import { bodyExtent, readBody, separatorTitle, TEXT_SEPARATOR_RE, unescapeSectionLine } from "./body-extent"
 import {
   Annotation,
   DAY_MINUTES,
@@ -96,7 +96,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     const bounds = [...sepIdxs, allLines.length]
     doc.textTitles = []
     for (let i = 0; i < bounds.length - 1; i++) {
-      doc.texts.push(allLines.slice(bounds[i] + 1, bounds[i + 1]).join("\n").trim())
+      doc.texts.push(allLines.slice(bounds[i] + 1, bounds[i + 1]).map(unescapeSectionLine).join("\n").trim())
       doc.textTitles.push(separatorTitle(allLines[bounds[i]]))
     }
     lines.splice(first) // 条目区只保留 === 之前

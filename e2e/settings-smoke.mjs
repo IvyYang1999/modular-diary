@@ -143,7 +143,7 @@ const settings = {
   dialogBackend: "api", provider: "openai-compatible", apiKey: "", baseUrl: "", model: "",
   timelineOnboardingSeen: true,
 }
-const host = { settings, refreshHourlyNudge: () => undefined,
+const host = { settings, refreshHourlyNudge: () => undefined, effectiveTemplateSource: () => settings.templateSource ?? "---",
     saveSettings: async () => { window.__saves += 1 } }
 window.__saves = 0
 window.__settings = settings

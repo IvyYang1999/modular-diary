@@ -7,8 +7,10 @@ export interface TextPaneDeps {
   /** Drafts live above the disposable MarkdownPostProcessor DOM tree. */
   getDraft?: (index: number) => TextDraftState | null
   onDraftChange?: (index: number, draft: TextDraftState | null, savedValue?: string) => void
-  /** Rename a titled section; an empty title removes the heading. */
+  /** Rename a titled section. */
   onRenameTitle?: (index: number, title: string) => void | Promise<void>
+  /** Open this section's title editor right away (a section just added as "custom"). */
+  autoRenameIndex?: number
 }
 
 /** DOM mount: svg string + stats row + error list, into a code-block container. */
@@ -27,6 +29,8 @@ import type { TextDraftState } from "../edit/text-draft"
 import { captureViewportAnchor, stabilizeViewportAnchor } from "../edit/viewport-anchor"
 
 interface InlineEditorDeps {
+  /** What an empty section invites you to write; defaults to the generic prompt. */
+  placeholder?: string
   renderMarkdown: (host: HTMLElement, text: string) => void
   onSave: (text: string) => void | Promise<void>
   initialDraft?: TextDraftState | null
@@ -106,7 +110,7 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     pane.closest(".modular-diary-slot")?.classList.remove("is-editing")
     pane.empty()
     if (text.trim() === "") {
-      pane.createDiv({ cls: "modular-diary-text-placeholder", text: t("clickToWrite") })
+      pane.createDiv({ cls: "modular-diary-text-placeholder", text: deps.placeholder ?? t("clickToWrite") })
     } else {
       // MarkdownRenderer only supplies the rendered children. Obsidian's own
       // typography (notably <hr>) is scoped by the markdown-rendered host
@@ -389,6 +393,16 @@ function createNoteMeasurer(container: HTMLElement): TextMeasurer | undefined {
   return (text) => context.measureText(text).width
 }
 
+/** A preset section asks its own question; any other title keeps the generic prompt. */
+function sectionPrompt(title: string): string | undefined {
+  const prompts: Array<[string[], string]> = [
+    [[t("sectionGratitude"), "感恩日记", "Gratitude"], t("promptGratitude")],
+    [[t("sectionReading"), "阅读笔记", "Reading notes"], t("promptReading")],
+    [[t("sectionReview"), "今日复盘", "Daily review"], t("promptReview")],
+  ]
+  return prompts.find(([names]) => names.includes(title))?.[1]
+}
+
 export function renderTimelineInto(
   el: HTMLElement,
   doc: TimelineDoc,
@@ -510,7 +524,7 @@ export function renderTimelineInto(
         slot.classList.add("has-title")
         const header = slot.createDiv({ cls: "modular-diary-component-header modular-diary-text-header" })
         const heading = header.createEl("button", { cls: "modular-diary-component-title modular-diary-text-title", text: title, attr: { type: "button", "aria-label": t("renameSection", { name: title }) } })
-        heading.addEventListener("click", () => {
+        const beginRename = (): void => {
           const input = header.createEl("input", { cls: "modular-diary-text-title-input", attr: { type: "text", "aria-label": t("sectionTitle") } })
           input.value = title
           heading.hidden = true
@@ -523,7 +537,8 @@ export function renderTimelineInto(
             const next = input.value.trim()
             input.remove()
             heading.hidden = false
-            if (commit && next !== title) void textPane.onRenameTitle?.(idx, next)
+            // An emptied title is a cancel: a section never loses its heading by accident.
+            if (commit && next && next !== title) void textPane.onRenameTitle?.(idx, next)
           }
           input.addEventListener("keydown", (event) => {
             if (event.isComposing) return
@@ -531,10 +546,13 @@ export function renderTimelineInto(
             if (event.key === "Escape") { event.preventDefault(); finish(false) }
           })
           input.addEventListener("blur", () => finish(true))
-        })
+        }
+        heading.addEventListener("click", beginRename)
+        if (textPane.autoRenameIndex === idx) queueMicrotask(beginRename)
       }
       const pane = slot.createDiv({ cls: "modular-diary-text-pane" })
       attachInlineTextEditor(pane, texts[idx] ?? "", {
+        placeholder: title ? sectionPrompt(title) : undefined,
         renderMarkdown: (host, text) => textPane.renderMarkdown(host, text),
         onSave: (text) => textPane.onSave(idx, text),
         initialDraft: textPane.getDraft?.(idx) ?? null,

@@ -37,8 +37,9 @@ export function insertTimelineBlock(editor: Editor, fileBasename: string | null,
   const line = editor.getLine(cursor.line)
   // 当前行非空 -> 换行另起；空行直接插入
   const prefix = line.trim() === "" ? "" : "\n"
-  editor.replaceRange(`${prefix}${timelineTemplate(date, tpl)}\n`, cursor)
-  // 光标落到条目区空行（--- 的下一行）
-  const entryLine = cursor.line + (prefix === "" ? 4 : 5)
-  editor.setCursor({ line: entryLine, ch: 0 })
+  const text = `${prefix}${timelineTemplate(date, tpl)}\n`
+  editor.replaceRange(text, cursor)
+  // 光标落到条目区（--- 的下一行），模板头有多少行都一样
+  const separator = text.split("\n").findIndex((line) => line.trim() === "---")
+  editor.setCursor({ line: cursor.line + (separator >= 0 ? separator + 1 : 1), ch: 0 })
 }

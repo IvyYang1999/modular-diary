@@ -81,3 +81,21 @@ describe("todo due date", () => {
     expect(parseTodoHeaderValue('id="t1" done=false estimate=30 category="" group="" moved=soon title="x"', 0)).toBeNull()
   })
 })
+
+describe("placing a todo in a cell (phase 4 review B4)", () => {
+  it("sets the cell and the position in one change", async () => {
+    const { placeTodoInBucket } = await import("../edit/source-rewriter")
+    const src = [
+      'todo: id="a1" done=false estimate=30 category="" group="" bucket="A" title="a1"',
+      'todo: id="b1" done=false estimate=30 category="" group="" bucket="B" title="b1"',
+      'todo: id="a2" done=false estimate=30 category="" group="" bucket="A" title="a2"',
+      'todo: id="n1" done=false estimate=30 category="" group="" title="n1"',
+      "---",
+    ].join("\n")
+    const order = (s: string) => parseTimeline(s).todos.map((t) => `${t.id}:${t.bucket ?? ""}`)
+    expect(order(placeTodoInBucket(src, "n1", "A", "a2"))).toEqual(["a1:A", "b1:B", "n1:A", "a2:A"])
+    expect(order(placeTodoInBucket(src, "n1", "A", null))).toEqual(["a1:A", "b1:B", "a2:A", "n1:A"])
+    expect(order(placeTodoInBucket(src, "a1", "C", null))).toEqual(["a1:C", "b1:B", "a2:A", "n1:"])
+    expect(order(placeTodoInBucket(src, "a2", "A", "a1"))).toEqual(["a2:A", "a1:A", "b1:B", "n1:"])
+  })
+})

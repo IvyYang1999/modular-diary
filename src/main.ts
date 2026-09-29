@@ -7,7 +7,7 @@ import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } 
 import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
 import { CategorySettingsModal, DailyQuoteSettingsModal, HabitSettingsModal } from "./settings-modals"
 import { attachDialog } from "./agent/dialog"
-import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertHeaderLine, insertSpanLine, setItemBody, setTextTitle, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo } from "./edit/source-rewriter"
+import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertHeaderLine, insertSpanLine, setItemBody, setTextTitle, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo, placeTodoInBucket } from "./edit/source-rewriter"
 import { buildLayerToggles, buildToolbar, LayerView } from "./edit/toolbar"
 import { attachDrawInteraction, requestTimelineEntryDelete } from "./edit/draw-interaction"
 import { attachMarkerInteraction } from "./edit/marker-interaction"
@@ -15,7 +15,7 @@ import { showBlockMenu, showMarkerMenu } from "./edit/block-menu"
 import { attachHoverInfo, toggleBlockFocus } from "./edit/hover-info"
 import { applyGridToBody, attachGridInteract } from "./edit/grid-interact"
 import { compactGrid, defaultComponentSlot, GRID_COLS, GRID_ROW_H, gridRows, GridItem, HABITS_EMPTY_ROWS, MAX_GRID_COLS, serializeLayoutHeader } from "./core/grid-layout"
-import { inferDate, insertTimelineBlock } from "./insert"
+import { inferDate, insertTimelineBlock, timelineTemplate } from "./insert"
 import { attachWidthHandle } from "./edit/width-handle"
 import { openNotePopover } from "./edit/note-popover"
 import { openPointTimePopover, openTimePopover } from "./edit/time-popover"
@@ -167,6 +167,8 @@ export default class ModularDiaryPlugin extends Plugin {
   /** A composer to open focused the next time this day's block renders (nudge, block menu). */
   private pendingHourlog: { date: string; draft: HourlogComposerDraft } | null = null
   private nudgeEl: HTMLElement | null = null
+  /** A section just added as "custom": open its title editor on the next render. */
+  private pendingSectionRename: { path: string; index: number } | null = null
   private nudgeDismissedHour = -1
   /** Period blocks being browsed away from their written `days:` (per note + block ordinal). */
   private readonly periodBrowse = new Map<string, import("./core/types").PeriodSpec>()
@@ -534,7 +536,7 @@ export default class ModularDiaryPlugin extends Plugin {
           this.backfilling.add(el)
           void this.applyBlockTransform(el, ctx, source, (current) => arrivals.reduce((out, todo) =>
             this.parse(out).todos.some((own) => own.id === todo.id) ? out : insertTodo(out, {
-              id: todo.id, title: todo.title, group: todo.group, type: todo.type, estimateMin: todo.estimateMin, completed: false, due: todo.due,
+              id: todo.id, title: todo.title, group: todo.group, type: todo.type, estimateMin: todo.estimateMin, completed: false, due: todo.due, bucket: todo.bucket,
             }), current)).catch((error: unknown) => console.error("Modular Diary: failed to refill a recreated day", error))
             .finally(() => this.backfilling.delete(el))
         }
@@ -619,6 +621,12 @@ export default class ModularDiaryPlugin extends Plugin {
           },
           onSave: saveText,
           onRenameTitle: (index, title) => this.applyBlockTransform(el, ctx, source, (s) => setTextTitle(s, index, title || undefined)),
+          autoRenameIndex: (() => {
+            const pending = this.pendingSectionRename
+            if (!pending || pending.path !== ctx.sourcePath || pending.index >= doc.texts.length) return undefined
+            this.pendingSectionRename = null
+            return pending.index
+          })(),
           getDraft: (index) => this.textDrafts.get(textDraftKey(index)),
           onDraftChange: (index, draft, savedValue) => {
             const key = textDraftKey(index)
@@ -740,7 +748,11 @@ export default class ModularDiaryPlugin extends Plugin {
           for (const preset of [tr("sectionGratitude"), tr("sectionReading"), tr("sectionReview")]) {
             target.addItem((presetItem) => presetItem.setTitle(preset).onClick(() => addTextSection(preset)))
           }
-          target.addItem((presetItem) => presetItem.setTitle(tr("sectionCustom")).onClick(() => addTextSection(tr("sectionNew"))))
+          target.addItem((presetItem) => presetItem.setTitle(tr("sectionCustom")).onClick(() => {
+            // A custom section opens with its title ready to type.
+            this.pendingSectionRename = { path: ctx.sourcePath, index: doc.texts.length }
+            addTextSection(tr("sectionNew"))
+          }))
         })
         for (const [slotId, label, icon] of [
           ["habits", tr("addHabitComponent"), "list-checks"],
@@ -765,6 +777,9 @@ export default class ModularDiaryPlugin extends Plugin {
         menu.addItem((item) => item.setTitle(tr("layout")).setIsLabel(true).setSection("layout"))
         menu.addItem((item) =>
           item.setTitle(tr("setDefaultLayout")).setIcon("bookmark").setSection("layout").onClick(() => {
+            const previousLayout = this.settings.templateLayout
+            const previousWidth = this.settings.templateWidth
+            const previousHasText = this.settings.templateHasText
             if (body) {
               const items = Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot")).map((sl) => ({
                 id: sl.dataset.slot as GridItem["id"],
@@ -775,8 +790,20 @@ export default class ModularDiaryPlugin extends Plugin {
             this.settings.templateWidth = doc.width
             this.settings.templateHasText = doc.texts.length > 0
             // The template is now this block's shape: layout as it sits on screen, hidden
-            // components, todo layout and every text section with its title.
+            // components, todo layout and every text section with its title. The old one
+            // can come back from the notice.
+            const previous = { source: this.settings.templateSource, layout: previousLayout, width: previousWidth, hasText: previousHasText }
             this.settings.templateSource = skeletonFromSource(this.settings.templateLayout ? setHeaderValue(source, "layout", this.settings.templateLayout) : source)
+            const notice = new Notice(tr("templateSaved"), 8000)
+            const undo = notice.noticeEl.createEl("button", { cls: "modular-diary-notice-undo", text: tr("undo") })
+            undo.addEventListener("click", () => {
+              this.settings.templateSource = previous.source
+              this.settings.templateLayout = previous.layout
+              this.settings.templateWidth = previous.width
+              this.settings.templateHasText = previous.hasText
+              void this.saveSettings()
+              notice.hide()
+            })
             void this.saveSettings()
           })
         )
@@ -1068,7 +1095,7 @@ export default class ModularDiaryPlugin extends Plugin {
             if (draft) ownerEditDrafts?.set(draftId, { id: draft.id, input: { ...draft.input } })
             else ownerEditDrafts?.delete(draftId)
           },
-          onSetBucket: (id, bucket) => void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, id, { bucket: bucket || undefined })),
+          onSetBucket: (id, bucket, beforeId) => void this.applyBlockTransform(el, ctx, source, (value) => placeTodoInBucket(value, id, bucket, beforeId ?? null)),
           onLayoutMenu: (x, y) => {
             const menu = new Menu()
             const current = doc.todoView.layout ?? "list"
@@ -1118,6 +1145,7 @@ export default class ModularDiaryPlugin extends Plugin {
               id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
               title: input.title, group: "", type: input.type,
               estimateMin: input.estimateMinutes, completed: false,
+              ...(input.bucket ? { bucket: input.bucket } : {}),
             }
             void this.applyBlockTransform(el, ctx, source, (current) => insertTodo(
               this.addComponentSlot(current, doc, container, "todos"), value
@@ -1195,6 +1223,7 @@ export default class ModularDiaryPlugin extends Plugin {
                 const value = {
                   id: todo.id, title: todo.title, group: todo.group, type: todo.type,
                   estimateMin: todo.estimateMinutes, completed: false, due: doc.todos.find((own) => own.id === todo.id)?.due,
+                  bucket: doc.todos.find((own) => own.id === todo.id)?.bucket,
                 }
                 void (async () => {
                   try {
@@ -1748,7 +1777,7 @@ export default class ModularDiaryPlugin extends Plugin {
         // The timeline owns all context-menu gestures inside its SVG. A
         // WebView may retarget a marker label/line to the SVG root, so checking
         // only `rect` lets the enclosing Block menu steal time-point clicks.
-        if (t?.closest("button, input, textarea, a, .modular-diary-svg, .modular-diary-text-host, .modular-diary-add-menu")) return
+        if (t?.closest("button, input, textarea, a, .modular-diary-svg, .modular-diary-text-host, .modular-diary-text-header, .modular-diary-add-menu")) return
         e.preventDefault()
         // 点在组件空白上 -> 提供统一的自制「隐藏」菜单（off: 头，可从更多菜单重新显示）
         const slotEl = t?.closest(".modular-diary-slot") as HTMLElement | null
@@ -1847,6 +1876,14 @@ export default class ModularDiaryPlugin extends Plugin {
     }))
     if (items.length === 0) return source
     return setHeaderValue(source, "layout", serializeLayoutHeader(items))
+  }
+
+  /** The template in effect, as source: the saved skeleton, or the one the legacy layout fields imply. */
+  effectiveTemplateSource(): string {
+    if (this.settings.templateSource) return this.settings.templateSource
+    const legacy = timelineTemplate("2000-01-01", { layout: this.settings.templateLayout, width: this.settings.templateWidth, hasText: this.settings.templateHasText })
+    const inner = legacy.split("\n").slice(1, -1).join("\n")
+    return skeletonFromSource(inner)
   }
 
   private insertTemplate(): { source?: string; layout?: string; width?: number; hasText?: boolean } {

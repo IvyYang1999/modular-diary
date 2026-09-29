@@ -6,6 +6,7 @@ import { App, PluginSettingTab, Setting, setIcon } from "obsidian"
 import type ModularDiaryPlugin from "./main"
 import { ApiProvider } from "./agent/api-client"
 import { DEFAULT_TYPE_COLORS } from "./core/type-colors"
+import { templateProblems, templateSummary } from "./core/template"
 import { t as tr } from "./i18n"
 import type { HabitDefinition } from "./core/habits"
 import type { WeeklyTodoDefinition } from "./core/todos"
@@ -90,8 +91,16 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
 const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 
 export class ModularDiarySettingTab extends PluginSettingTab {
+  /** Saves a template edit still waiting for its debounce when the tab closes. */
+  private flushTemplate: (() => void) | null = null
+
   constructor(app: App, private plugin: ModularDiaryPlugin) {
     super(app, plugin)
+  }
+
+  hide(): void {
+    this.flushTemplate?.()
+    this.flushTemplate = null
   }
 
   display(): void {
@@ -173,14 +182,55 @@ export class ModularDiarySettingTab extends PluginSettingTab {
     const templateSetting = new Setting(timelineSettingsEl)
       .setName(tr("templateSetting"))
       .setDesc(tr("templateSettingDescription"))
-    templateSetting.settingEl.addClass("modular-diary-template-setting")
+    templateSetting.settingEl.classList.add("modular-diary-template-setting")
     const templateArea = templateSetting.controlEl.createEl("textarea", { cls: "modular-diary-template-source", attr: { rows: "6", spellcheck: "false", placeholder: tr("templatePlaceholder"), "aria-label": tr("templateSetting") } })
-    templateArea.value = this.plugin.settings.templateSource ?? ""
-    templateArea.addEventListener("change", async () => {
+    const templateInfo = templateSetting.controlEl.createDiv({ cls: "modular-diary-template-info" })
+    // Always show what is in effect: a saved skeleton, or the one the legacy layout fields imply.
+    templateArea.value = this.plugin.effectiveTemplateSource()
+    const paintTemplateInfo = (value: string): boolean => {
+      templateInfo.replaceChildren()
+      const problems = value.trim() ? templateProblems(value) : []
+      if (problems.length) {
+        templateInfo.classList.add("is-error")
+        for (const problem of problems) {
+          templateInfo.createDiv({ text: problem === "fence" ? tr("templateFence") : problem === "days" ? tr("templateDays") : tr("templateLine", { detail: problem.slice(5) }) })
+        }
+        return false
+      }
+      templateInfo.classList.remove("is-error")
+      const summary = templateSummary(value)
+      const parts = [
+        summary.sections.length ? tr("templateSections", { names: summary.sections.map((name) => name || tr("untitledSection")).join(" · ") }) : "",
+        summary.todoLayout !== "list" ? tr("templateTodoLayout", { layout: summary.todoLayout === "abc" ? tr("todoLayoutAbc") : tr("todoLayoutMatrix") }) : "",
+        summary.hidden.length ? tr("templateHidden", { count: String(summary.hidden.length) }) : "",
+      ].filter(Boolean)
+      templateInfo.textContent = (parts.length ? tr("templatePreview", { parts: parts.join("；") }) : tr("templatePreviewPlain"))
+      return true
+    }
+    paintTemplateInfo(templateArea.value)
+    let templateTimer = 0
+    const saveTemplate = async (): Promise<void> => {
+      activeWindow.clearTimeout(templateTimer)
       const value = templateArea.value.trim()
+      if (!paintTemplateInfo(value)) return
       this.plugin.settings.templateSource = value || undefined
       await this.plugin.saveSettings()
+    }
+    templateArea.addEventListener("input", () => {
+      activeWindow.clearTimeout(templateTimer)
+      templateTimer = activeWindow.setTimeout(() => void saveTemplate(), 300)
     })
+    templateArea.addEventListener("blur", () => void saveTemplate())
+    this.flushTemplate = () => void saveTemplate()
+    templateSetting.addExtraButton((button) => button.setIcon("rotate-ccw").setTooltip(tr("templateReset")).onClick(async () => {
+      this.plugin.settings.templateSource = undefined
+      this.plugin.settings.templateLayout = undefined
+      this.plugin.settings.templateWidth = undefined
+      this.plugin.settings.templateHasText = undefined
+      await this.plugin.saveSettings()
+      templateArea.value = this.plugin.effectiveTemplateSource()
+      paintTemplateInfo(templateArea.value)
+    }))
 
     new Setting(timelineSettingsEl)
       .setName(tr("nudgeNotifySetting"))

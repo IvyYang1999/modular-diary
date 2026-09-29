@@ -5035,40 +5035,70 @@ textarea.modular-diary-hourlog-body:focus { outline: none; background: var(--bac
   font-weight: var(--font-semibold, 600);
 }
 
-/* Todo layouts: ABC columns and the four quadrants. Each cell is a quiet box
- * with its own small list; rows inside keep the day todo row as it is. */
-.modular-diary-todo-list.is-bucketed { display: grid; gap: 8px; align-items: start; }
-.modular-diary-todo-list.is-abc { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Todo layouts: ABC columns and the four quadrants. Cells are quiet tinted
+ * panes (no outlines, as in the rest of the day block), equal height per row;
+ * rows inside are the day todo row unchanged. */
+.modular-diary-component-actions > button[hidden] { display: none; }
+.modular-diary-todo-list.is-bucketed { display: grid; gap: 6px; align-items: stretch; }
+.modular-diary-todo-list.is-abc { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .modular-diary-todo-list.is-matrix { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .modular-diary-todo-bucket {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  min-height: 64px;
+  min-height: 60px;
   padding: 6px 6px 6px 20px;
-  border: 1px solid var(--background-modifier-border);
   border-radius: var(--modular-diary-radius-group);
-  transition: background 0.12s, border-color 0.12s;
+  background: color-mix(in srgb, var(--background-secondary) 70%, transparent);
+  transition: background 0.12s, box-shadow 0.12s;
 }
-.modular-diary-todo-bucket.is-unassigned { grid-column: 1 / -1; min-height: 0; border-style: dashed; }
-.modular-diary-todo-bucket.is-over { border-color: var(--interactive-accent); background: color-mix(in srgb, var(--interactive-accent) 7%, transparent); }
-.modular-diary-todo-bucket-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; margin: 0 0 2px -14px; }
-.modular-diary-todo-bucket-name { font-size: var(--modular-diary-font-caption); font-weight: var(--font-semibold, 600); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.modular-diary-todo-bucket.is-unassigned {
+  grid-column: 1 / -1;
+  min-height: 0;
+  background: transparent;
+  border-top: 1px dashed var(--background-modifier-border);
+  border-radius: 0;
+}
+.modular-diary-todo-bucket.is-over { background: color-mix(in srgb, var(--interactive-accent) 9%, var(--background-secondary)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--interactive-accent) 55%, transparent); }
+.modular-diary-todo-bucket-head { display: flex; align-items: center; gap: 6px; min-height: 20px; margin: 0 0 2px -14px; }
+.modular-diary-todo-bucket-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--modular-diary-font-caption); font-weight: var(--font-semibold, 600); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Importance reads as a small dot before the name, not a coloured frame. */
+.modular-diary-todo-bucket-name::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); }
+.modular-diary-todo-bucket[data-bucket="A"] .modular-diary-todo-bucket-name::before,
+.modular-diary-todo-bucket[data-bucket="q1"] .modular-diary-todo-bucket-name::before { background: var(--text-error); }
+.modular-diary-todo-bucket[data-bucket="q2"] .modular-diary-todo-bucket-name::before { background: var(--interactive-accent); }
+.modular-diary-todo-bucket[data-bucket="A"] .modular-diary-todo-bucket-name { color: var(--text-normal); }
+.modular-diary-todo-bucket.is-unassigned .modular-diary-todo-bucket-name::before { display: none; }
 .modular-diary-todo-bucket-count { font-size: var(--modular-diary-font-micro); color: var(--text-faint); font-variant-numeric: tabular-nums; }
-.modular-diary-todo-bucket-list { display: flex; flex-direction: column; gap: 2px; min-height: 22px; }
+.modular-diary-container button.modular-diary-todo-bucket-add {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--modular-diary-radius-control);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  display: inline-grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.modular-diary-todo-bucket:is(:hover, :focus-within) button.modular-diary-todo-bucket-add,
+.modular-diary-container button.modular-diary-todo-bucket-add:focus-visible { opacity: 1; }
+.modular-diary-container button.modular-diary-todo-bucket-add:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.modular-diary-todo-bucket-add svg { width: 14px; height: 14px; }
+.modular-diary-todo-bucket-list { display: flex; flex-direction: column; gap: 2px; min-height: 22px; flex: 1; }
 .modular-diary-todo-bucket-list:empty::after { content: attr(data-empty); padding: 2px 0; font-size: var(--modular-diary-font-micro); color: var(--text-faint); }
 .modular-diary-todo-bucket button.modular-diary-item-drag { left: -18px; }
 .modular-diary-todo-row.is-drag-source { opacity: 0.35; }
-/* Quadrants read as two axes: the important row on top, the urgent column on the left. */
-.modular-diary-todo-list.is-matrix .modular-diary-todo-bucket[data-bucket="q1"] { border-color: color-mix(in srgb, var(--text-error) 35%, var(--background-modifier-border)); }
-.modular-diary-todo-list.is-matrix .modular-diary-todo-bucket[data-bucket="q2"] { border-color: color-mix(in srgb, var(--interactive-accent) 35%, var(--background-modifier-border)); }
-.modular-diary-todo-list.is-abc .modular-diary-todo-bucket[data-bucket="A"] .modular-diary-todo-bucket-name { color: var(--text-normal); }
-@container (max-width: 460px) {
-  .modular-diary-todo-list.is-abc,
+.modular-diary-todo-insert-line { height: 0; margin: -1px 0; border-top: 2px solid var(--interactive-accent); border-radius: 1px; pointer-events: none; }
+@container (max-width: 400px) {
   .modular-diary-todo-list.is-matrix { grid-template-columns: minmax(0, 1fr); }
 }
-
 .modular-diary-slot-todos { container-type: inline-size; }
 /* Template editor in settings: the skeleton is code, so it reads like code. */
 .modular-diary-template-setting { flex-wrap: wrap; }
@@ -5084,3 +5114,7 @@ textarea.modular-diary-template-source {
 /* Inside a cell the title gets the whole line; the numbers sit under it. */
 .modular-diary-todo-list.is-bucketed .modular-diary-todo-body { grid-template-columns: minmax(0, 1fr); gap: 1px; }
 .modular-diary-todo-list.is-bucketed .modular-diary-item-meta { font-size: var(--modular-diary-font-micro); }
+
+.modular-diary-template-info { margin-top: 6px; font-size: var(--font-ui-smaller); color: var(--text-muted); line-height: 1.5; }
+.modular-diary-template-info.is-error { color: var(--text-error); }
+.notice button.modular-diary-notice-undo { margin-left: 10px; }
