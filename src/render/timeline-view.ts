@@ -13,7 +13,7 @@ export interface TextPaneDeps {
 import { TimelineDoc } from "../core/types"
 import { statsByType } from "../core/stats"
 import { formatHours } from "../core/duration"
-import { fitSideLaneWidth, renderTimelineSvg, RenderOptions, SIDE_LANE_W } from "./svg-builder"
+import { fitSideLaneWidth, refreshNowIndicator, refreshNowIndicators, renderTimelineSvg, RenderOptions, SIDE_LANE_W } from "./svg-builder"
 import type { TextMeasurer } from "../core/text-wrap"
 import { hashTypeColor } from "../core/type-colors"
 import { t } from "../i18n"
@@ -344,6 +344,15 @@ function attachSideLaneFit(
       else live.setAttribute(name, value)
     }
     liveLane.replaceWith(nextLane.cloneNode(true))
+    // The now marker anchors its time text to the lane, so a lane resize has
+    // to carry the new geometry over and re-place it.
+    const nextNow = next.querySelector("g.modular-diary-now")
+    const liveNow = live.querySelector("g.modular-diary-now")
+    if (nextNow && liveNow) {
+      const fresh = nextNow.cloneNode(true) as Element
+      liveNow.replaceWith(fresh)
+      refreshNowIndicator(fresh)
+    }
     // Edit/focus visuals classify lane nodes by data-line; let the owning
     // interaction rebuild that state on the fresh group.
     live.dispatchEvent(new (domWindow?.CustomEvent ?? CustomEvent)("modular-diary-sync-edit-visual"))
@@ -595,6 +604,9 @@ export function renderTimelineInto(
       })
     }
   }
+
+  // The builder emits the now marker at 0,0; place it once the svg is mounted.
+  refreshNowIndicators(container)
 
   return container
 }

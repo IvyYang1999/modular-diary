@@ -143,6 +143,26 @@
   font-family: var(--font-monospace);
 }
 
+/* Current-time marker: the one line on the axis that is not user data, so it
+   uses the theme accent instead of a category colour. */
+.modular-diary-svg .modular-diary-now-line {
+  stroke: var(--color-red, #e5534b);
+  stroke-width: 1.25;
+  stroke-dasharray: 4 3;
+  opacity: 0.85;
+}
+
+.modular-diary-svg .modular-diary-now-dot {
+  fill: var(--color-red, #e5534b);
+}
+
+.modular-diary-svg .modular-diary-now-label {
+  font-size: var(--modular-diary-font-micro);
+  font-family: var(--font-monospace);
+  fill: var(--color-red, #e5534b);
+  opacity: 0.9;
+}
+
 .modular-diary-svg .modular-diary-span-preview-labels {
   pointer-events: none;
 }

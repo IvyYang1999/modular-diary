@@ -12,6 +12,7 @@ import { blockTextColor, darkBlockTextColor } from "../core/contrast"
 import { formatClock24, formatHours, durationMinutes } from "../core/duration"
 import { AXIS_PAD_TOP, AXIS_PAD_BOTTOM, LABEL_W, TRACK_PAD, inlineFontSize, SVG_LABEL_MAX_FONT_PX } from "../core/geometry"
 import { estimateTextWidth, isWideGlyph, TextMeasurer, wrapTextToWidth } from "../core/text-wrap"
+import { nowMinutesForDate } from "../core/now"
 
 export interface RenderOptions {
   /** type -> css color (D2). Unknown types fall back to FALLBACK_COLOR. */
@@ -37,6 +38,12 @@ export interface RenderOptions {
    * script-aware estimate (CJK one em, Latin about half).
    */
   measureNote?: TextMeasurer
+  /**
+   * The block's own date ("YYYY-MM-DD"). Set it to draw the current-time
+   * marker; the marker hides itself on any day that is not today, so the
+   * renderer stays pure and the clock lives in `refreshNowIndicator`.
+   */
+  nowDate?: string
 }
 
 export const FALLBACK_COLOR = "#bdbdbd"
@@ -242,6 +249,59 @@ function entryLabel(e: Entry): string {
 /** Side labels must stay inside the svg: cap length. */
 function truncate(text: string, max = 12): string {
   return text.length > max ? text.slice(0, max - 1) + "…" : text
+}
+
+/**
+ * Move (or hide) one current-time marker in place. Called on mount and on a
+ * per-minute tick: a full re-render would drop drafts and focus, so the group
+ * carries the geometry it needs to reposition itself.
+ */
+export function refreshNowIndicator(group: Element, now: Date = new Date()): void {
+  const num = (name: string): number => Number(group.getAttribute(name))
+  const minutes = nowMinutesForDate(group.getAttribute("data-date"), now)
+  const rangeStart = num("data-range-start")
+  const rangeEnd = num("data-range-end")
+  if (minutes === undefined || minutes < rangeStart || minutes > rangeEnd) {
+    group.setAttribute("visibility", "hidden")
+    return
+  }
+  group.removeAttribute("visibility")
+  const trackX = num("data-track-x")
+  const trackW = num("data-track-w")
+  const yy = num("data-pad-top") + ((minutes - rangeStart) / 60) * num("data-hour-height")
+  const line = group.querySelector(".modular-diary-now-line")
+  if (line) {
+    line.setAttribute("x1", String(trackX))
+    line.setAttribute("x2", String(trackX + trackW))
+    line.setAttribute("y1", String(yy))
+    line.setAttribute("y2", String(yy))
+  }
+  const dot = group.querySelector(".modular-diary-now-dot")
+  if (dot) {
+    dot.setAttribute("cx", String(trackX))
+    dot.setAttribute("cy", String(yy))
+  }
+  const label = group.querySelector(".modular-diary-now-label")
+  const laneX = group.getAttribute("data-lane-x")
+  if (label) {
+    // No side lane (a narrow slot) means no room for the time text; the line
+    // and dot still mark the position.
+    if (laneX) {
+      label.removeAttribute("visibility")
+      label.setAttribute("x", laneX)
+      label.setAttribute("y", String(yy + 3))
+      label.textContent = formatClock24(minutes)
+    } else {
+      label.setAttribute("visibility", "hidden")
+    }
+  }
+}
+
+/** Refresh every mounted marker under `root` (per-minute tick entry point). */
+export function refreshNowIndicators(root: ParentNode, now: Date = new Date()): void {
+  for (const group of Array.from(root.querySelectorAll("g.modular-diary-now"))) {
+    refreshNowIndicator(group, now)
+  }
 }
 
 export function renderTimelineSvg(doc: TimelineDoc, opts: RenderOptions): string {
@@ -488,6 +548,22 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   // The lane is one replaceable group so a slot resize can swap only the
   // labels while the track, blocks, markers and interaction-owned nodes stay.
   parts.push(`<g class="modular-diary-side-lane" data-lane-width="${laneW}">${laneParts.join("")}</g>`)
+
+  // Current-time marker, last so it sits above blocks and labels. The group
+  // carries its own geometry so the per-minute tick can move it without a
+  // re-render (see refreshNowIndicator).
+  if (opts.nowDate) {
+    parts.push(
+      `<g class="modular-diary-now" pointer-events="none" data-date="${escapeXml(opts.nowDate)}"` +
+        ` data-pad-top="${PAD_TOP}" data-hour-height="${hourHeight}"` +
+        ` data-range-start="${doc.rangeStart}" data-range-end="${doc.rangeEnd}"` +
+        ` data-track-x="${trackX}" data-track-w="${trackW}" data-lane-x="${laneW > 0 ? laneX : ""}">` +
+        `<line class="modular-diary-now-line" x1="0" y1="0" x2="0" y2="0"/>` +
+        `<circle class="modular-diary-now-dot" cx="0" cy="0" r="3"/>` +
+        `<text class="modular-diary-now-label" x="0" y="0"></text>` +
+        `</g>`
+    )
+  }
 
   // Height follows the full label layout even when the lane is hidden, so a
   // narrow slot never oscillates between "lane hidden" and "lane shown"

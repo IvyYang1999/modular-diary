@@ -1,7 +1,7 @@
 import { getLanguage, MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownRenderer, MarkdownView, Menu, normalizePath, Notice, Platform, Plugin, setIcon, TAbstractFile, TFile } from "obsidian"
 import { normalizeSpan, parseTimeline } from "./core/parser"
 import { formatClockPlain, formatEntryLine, formatMarkerLine } from "./core/format"
-import { FALLBACK_COLOR } from "./render/svg-builder"
+import { FALLBACK_COLOR, refreshNowIndicators } from "./render/svg-builder"
 import { hashTypeColor, pickVisibleType } from "./core/type-colors"
 import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } from "./render/timeline-view"
 import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
@@ -189,6 +189,9 @@ export default class ModularDiaryPlugin extends Plugin {
     configureI18n(getLanguage)
     await this.loadSettings()
     this.addSettingTab(new ModularDiarySettingTab(this.app, this))
+    // 当前时间标记：只移动已挂载 svg 里的那条线，不走重绘（重绘会丢输入草稿和焦点）。
+    // 30s 一次，所以整分钟最多迟 30s 才对上。
+    this.registerInterval(activeWindow.setInterval(() => this.refreshNowMarkers(), 30_000))
     const invalidateLedger = (file: TAbstractFile): void => {
       this.ledgerGeneration += 1
       this.weeklyLedger = null
@@ -528,6 +531,7 @@ export default class ModularDiaryPlugin extends Plugin {
           markerTypeColors: markerPaletteForRender,
           hourHeight: this.settings.hourHeight,
           width: this.settings.width,
+          nowDate: dateStr ?? undefined,
           showTimelineOnboarding,
           extraSlots,
           onAddFirstCategory: () => this.openCategorySettings(this.drawTool),
@@ -1593,6 +1597,14 @@ export default class ModularDiaryPlugin extends Plugin {
       width: this.settings.templateWidth,
       hasText: this.settings.templateHasText,
     }
+  }
+
+  /** Popout windows own their document, so collect every one before ticking. */
+  private refreshNowMarkers(): void {
+    const documents = new Set<Document>([activeDocument])
+    this.app.workspace.iterateAllLeaves((leaf) => documents.add(leaf.view.containerEl.ownerDocument))
+    const now = new Date()
+    for (const doc of documents) refreshNowIndicators(doc, now)
   }
 
   private blockDate(doc: { date?: string }, path: string): string | null {
