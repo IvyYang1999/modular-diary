@@ -68,14 +68,14 @@ const todos = block.todos.map((todo) => ({ ...todo, actualMinutes: actual.get(to
 window.__events = []
 const host = document.querySelector<HTMLElement>("#host")!
 renderPeriodInto(host, {
-  spec: block.period!, period, today, goals: goalProgress(block.goals, days), totals: periodTotals(days), todos, todoView: block.todoView,
+  spec: block.period!, browsing: true, period, today, goals: goalProgress(block.goals, days), totals: periodTotals(days), todos, todoView: block.todoView,
   days: days.map((d) => ({ ...d, allDay: todos.filter((t) => t.placement && t.placement.startMin === undefined && t.placement.date === d.date) })),
   rangeStartMin: 7 * 60, rangeEndMin: 23 * 60, indexReady: true, railWidth: block.railWidth ?? 248,
 }, {
   typeColors: colors, categories: Object.keys(colors),
   tagStyle: (tag) => tag === "模块日记" ? { background: "color-mix(in srgb, #53a3f2 22%, var(--background-primary))", color: "color-mix(in srgb, #53a3f2 70%, var(--text-normal))" } : null,
   tagSuggest: { tags: () => ["官网", "模块日记", "飞搜"] },
-  onShift: (d) => window.__events.push("shift:" + d), onToday: () => window.__events.push("today"),
+  onShift: (d) => window.__events.push("shift:" + d), onToday: () => window.__events.push("today"), onPin: () => window.__events.push("pin"),
   onOpenDay: (date) => window.__events.push("open:" + date),
   onAssign: (id, to) => window.__events.push("assign:" + id + ":" + to),
   onPlan: (id, date, startMin) => window.__events.push("plan:" + id + ":" + date + ":" + startMin),
@@ -139,9 +139,11 @@ for (const [name, vars] of Object.entries(themes)) {
     const namedBlocks = q(".modular-diary-period-block:not(.is-plan) .modular-diary-period-block-name").filter((n) => n.offsetParent && n.getBoundingClientRect().width > 8).length
     const blockFont = getComputedStyle(document.querySelector(".modular-diary-period-block")).fontSize
     const microFont = getComputedStyle(document.querySelector(".modular-diary-period-gutter span")).fontSize
+    const ticks = q(".modular-diary-period-meter-tick").length
+    const pinVisible = !!document.querySelector(".modular-diary-period-text-button.is-pin")
     const due = q(".modular-diary-period-due").map((d) => d.textContent)
     const toolbarRightPad = parseFloat(getComputedStyle(document.querySelector(".modular-diary-period-toolbar")).paddingRight)
-    return { railWidth, iconChrome, todoRows, flags, pills, heads, goals, bars, colHeight, due, toolbarRightPad, railHeight: railBox.height, mainHeight, flagsVisible, zeroActualShown, namedBlocks, blockFont, microFont }
+    return { railWidth, iconChrome, todoRows, flags, pills, heads, goals, bars, colHeight, due, toolbarRightPad, railHeight: railBox.height, mainHeight, flagsVisible, zeroActualShown, namedBlocks, blockFont, microFont, ticks, pinVisible }
   })
   if (Math.round(state.railWidth) !== 256) errors.push("rail: header must set the rail width, got " + state.railWidth)
   if (state.iconChrome !== "rgba(0, 0, 0, 0)") errors.push("toolbar icons must not inherit host button chrome: " + state.iconChrome)
@@ -157,6 +159,8 @@ for (const [name, vars] of Object.entries(themes)) {
   if (!state.flagsVisible) errors.push("placement flags must be fully visible inside the rail")
   if (state.zeroActualShown) errors.push("a zero actual must not be spelled out in the rail")
   if (state.namedBlocks < 5) errors.push("one-hour blocks must show what they are, got " + state.namedBlocks + " named blocks")
+  if (state.ticks !== 2) errors.push("category goals must show as ticks on their total bars: " + state.ticks)
+  if (!state.pinVisible) errors.push("a browsed period must offer to pin itself")
   if (state.blockFont !== state.microFont) errors.push(`block text must use the micro token like the hour labels: ${state.blockFont} vs ${state.microFont}`)
   if (state.due.length !== 1 || !state.due[0].includes("写周报")) errors.push("due flag belongs to Sunday only: " + JSON.stringify(state.due))
   if (state.toolbarRightPad < 40) errors.push("toolbar must leave room for Obsidian's edit button")
@@ -222,6 +226,16 @@ for (const [name, vars] of Object.entries(themes)) {
   await page.waitForTimeout(700)
   const railWrites = await page.evaluate((n) => window.__events.filter((e) => e.startsWith("rail:")).slice(n), railWritesBefore)
   if (railWrites.length !== 1) errors.push("keyboard resize must commit once: " + JSON.stringify(railWrites))
+  await page.locator(".modular-diary-period-text-button.is-pin").click()
+  await page.locator('.modular-diary-period-rail .modular-diary-todo-row[data-todo-id="t9"]').focus()
+  await page.keyboard.press("Alt+ArrowDown")
+  // Narrow block: the week comes first and keeps a fixed hour height.
+  await page.evaluate(() => { document.querySelector("#host").style.width = "600px" })
+  await page.waitForTimeout(120)
+  const narrow = await page.evaluate(() => ({ mainFirst: document.querySelector(".modular-diary-period-main").getBoundingClientRect().top < document.querySelector(".modular-diary-period-rail").getBoundingClientRect().top, hour: document.querySelector(".modular-diary-period").style.getPropertyValue("--modular-diary-period-hour") }))
+  if (!narrow.mainFirst || narrow.hour !== "28px") errors.push("narrow blocks show the week first at the default hour: " + JSON.stringify(narrow))
+  await page.locator("#host").screenshot({ path: path.join(out, "period-narrow.png") }); shots.push(path.join(out, "period-narrow.png"))
+  await page.evaluate(() => { document.querySelector("#host").style.width = "1180px" })
   await page.locator(".modular-diary-period-icon").nth(1).click()
   await page.locator(".modular-diary-period-head").nth(3).click()
   events = await page.evaluate(() => window.__events)
@@ -234,7 +248,7 @@ for (const [name, vars] of Object.entries(themes)) {
   await page.close()
 }
 await browser.close()
-for (const expected of ["assign:t10:2026-10-01", "plan:t13:2026-10-02:840", "assign:t11:pool", "goal:2:type:运动:240", "goal:null:tag:long2text:90", "add:新的周待办:30", "rail:316", "shift:1", "open:2026-10-01"]) if (!events.includes(expected)) errors.push("missing " + expected)
+for (const expected of ["assign:t10:2026-10-01", "plan:t13:2026-10-02:840", "assign:t11:pool", "goal:2:type:运动:240", "goal:null:tag:long2text:90", "add:新的周待办:30", "rail:316", "shift:1", "open:2026-10-01", "pin", "move:t9:2"]) if (!events.includes(expected)) errors.push("missing " + expected)
 if (events.some((e) => e.startsWith("plan:t10"))) errors.push("an uncategorised todo must not be planned")
 if (errors.length) { console.error("PERIOD CONTRACT FAILED", { errors, events, shots }); process.exit(1) }
 console.log("OK period smoke passed", JSON.stringify(events), "\n" + shots.join("\n"))

@@ -37,6 +37,8 @@ export interface PeriodDayView {
 
 export interface PeriodViewModel {
   spec: PeriodSpec
+  /** True while browsing a period other than the one written in `days:`. */
+  browsing: boolean
   period: ResolvedPeriod
   today: string
   goals: GoalProgress[]
@@ -59,6 +61,8 @@ export interface PeriodViewDeps {
   tagSuggest?: TagSuggestDeps
   onShift: (direction: 1 | -1) => void
   onToday: () => void
+  /** Write the period being browsed back into `days:`. */
+  onPin: () => void
   onOpenDay: (date: string) => void
   /** Place all-day on a date, or back to unplaced with POOL_ZONE. */
   onAssign: (id: string, to: string) => void
@@ -158,6 +162,33 @@ function attachDrag(root: HTMLElement, handle: HTMLElement, subject: DragSubject
     const color = subject.todo.type ? deps.typeColors[subject.todo.type] : undefined
     const duration = Math.max(PERIOD_SNAP_MINUTES, subject.todo.estimateMin || PERIOD_SNAP_MINUTES)
     const clear = (): void => { zone?.classList.remove("is-over"); preview?.remove(); preview = null; zone = null }
+    // Near an edge of the note or of the calendar strip, keep scrolling so far targets stay reachable.
+    let lastX = startX, lastY = startY, scrollFrame = 0
+    const win = dom.defaultView
+    const scrollers = ((): HTMLElement[] => {
+      const out: HTMLElement[] = []
+      const cal = root.querySelector<HTMLElement>(".modular-diary-period-cal-scroll")
+      if (cal) out.push(cal)
+      for (let node = root.parentElement; node; node = node.parentElement) {
+        const style = win?.getComputedStyle(node)
+        if (style && /(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) { out.push(node); break }
+      }
+      return out
+    })()
+    const autoscroll = (): void => {
+      scrollFrame = 0
+      if (!ghost) return
+      let moved = false
+      for (const scroller of scrollers) {
+        const rect = scroller.getBoundingClientRect()
+        const edge = 40, step = 10
+        const dy = lastY < rect.top + edge ? -step : lastY > rect.bottom - edge ? step : 0
+        const dx = lastX < rect.left + edge && lastX >= rect.left ? -step : lastX > rect.right - edge && lastX <= rect.right ? step : 0
+        if (dy && scroller.scrollHeight > scroller.clientHeight) { scroller.scrollTop += dy; moved = true }
+        if (dx && scroller.scrollWidth > scroller.clientWidth) { scroller.scrollLeft += dx; moved = true }
+      }
+      if (moved && win) scrollFrame = win.requestAnimationFrame(autoscroll)
+    }
     const canPlan = Boolean(subject.todo.type)
     const minutesAt = (axis: HTMLElement, clientY: number): number => {
       const rect = axis.getBoundingClientRect()
@@ -177,6 +208,8 @@ function attachDrag(root: HTMLElement, handle: HTMLElement, subject: DragSubject
         handle.classList.add("is-drag-source")
       }
       ghost.style.transform = `translate(${move.clientX + 12}px, ${move.clientY + 10}px)`
+      lastX = move.clientX; lastY = move.clientY
+      if (!scrollFrame && win) scrollFrame = win.requestAnimationFrame(autoscroll)
       const under = (dom.elementFromPoint(move.clientX, move.clientY)?.closest("[data-zone]") ?? null) as HTMLElement | null
       if (under !== zone) { clear(); zone = under; zone?.classList.add("is-over") }
       if (zone?.dataset.zoneKind === "axis") {
@@ -199,6 +232,7 @@ function attachDrag(root: HTMLElement, handle: HTMLElement, subject: DragSubject
       handle.removeEventListener("pointerup", onUp)
       handle.removeEventListener("pointercancel", onCancel)
       dom.removeEventListener("keydown", onKey, true)
+      if (scrollFrame && win) { win.cancelAnimationFrame(scrollFrame); scrollFrame = 0 }
       const dropped = zone, minutes = startMin, dragged = ghost !== null
       clear()
       ghost?.remove(); ghost = null
@@ -380,14 +414,24 @@ function renderTotals(rail: HTMLElement, model: PeriodViewModel, deps: PeriodVie
   const sum = model.totals.reduce((acc, item) => acc + item.minutes, 0)
   if (sum > 0) header.createEl("span", { cls: "modular-diary-component-count", text: formatTotal(sum) })
   const totals = section.createDiv({ cls: "modular-diary-period-totals" })
-  const max = model.totals[0]?.minutes ?? 0
+  const targets = new Map(model.goals.filter((g) => g.goal.kind === "type").map((g) => [g.goal.key, g.goal.targetMinutes]))
+  const max = Math.max(model.totals[0]?.minutes ?? 0, ...model.totals.map((total) => targets.get(total.type) ?? 0))
   for (const total of model.totals) {
+    const target = targets.get(total.type)
     totals.createEl("span", { cls: "modular-diary-period-total-name", text: total.type })
     const track = totals.createDiv({ cls: "modular-diary-period-meter" })
     const bar = track.createDiv({ cls: "modular-diary-period-meter-bar" })
     bar.style.width = `${max ? Math.max(3, Math.round(total.minutes / max * 100)) : 0}%`
     bar.style.background = deps.typeColors[total.type] ?? "var(--text-muted)"
-    totals.createEl("span", { cls: "modular-diary-period-total-hours", text: formatTotal(total.minutes) })
+    if (target && max) {
+      // The goal for this category, drawn on its own bar.
+      const tick = track.createDiv({ cls: `modular-diary-period-meter-tick${total.minutes >= target ? " is-met" : ""}` })
+      tick.style.left = `${Math.min(100, target / max * 100)}%`
+      tick.title = t("goalTick", { hours: formatTotal(target) })
+    }
+    const hours = totals.createEl("span", { cls: "modular-diary-period-total-hours" })
+    hours.createEl("span", { text: formatTotal(total.minutes) })
+    if (target) hours.createEl("span", { cls: "modular-diary-period-total-target", text: ` / ${formatTotal(target)}` })
   }
   if (model.totals.length === 0) section.createEl("p", { cls: "modular-diary-period-muted", text: t("periodNoRecords") })
 }
@@ -619,6 +663,13 @@ function fitHourHeight(root: HTMLElement, rail: HTMLElement, main: HTMLElement, 
     const cal = main.querySelector<HTMLElement>(".modular-diary-period-cal")
     const col = main.querySelector<HTMLElement>(".modular-diary-period-col")
     if (!cal || !col) return
+    // Stacked (narrow block): the rail no longer sits beside the week, so it sets nothing.
+    if (Math.abs(rail.getBoundingClientRect().top - main.getBoundingClientRect().top) > 4) {
+      root.style.setProperty("--modular-diary-period-hour", `${PERIOD_HOUR_HEIGHT}px`)
+      rail.classList.remove("is-capped")
+      rail.style.maxHeight = ""
+      return
+    }
     const chrome = cal.getBoundingClientRect().height - col.getBoundingClientRect().height
     // scrollHeight, not the box: capping the rail below must not feed back into this measure.
     const available = rail.scrollHeight - chrome - 14
@@ -632,6 +683,7 @@ function fitHourHeight(root: HTMLElement, rail: HTMLElement, main: HTMLElement, 
   }
   const observer = new win.ResizeObserver(() => { if (!frame) frame = win.requestAnimationFrame(measure) })
   observer.observe(rail)
+  observer.observe(root)
   measure()
   return () => observer.disconnect()
 }
@@ -651,6 +703,13 @@ export function renderPeriodInto(container: HTMLElement, model: PeriodViewModel,
     ? `${shortDate(model.period.start)} – ${shortDate(model.period.end)}`
     : t("periodTitle", { start: shortDate(model.period.start), end: shortDate(model.period.end), days: String(model.period.days.length) }) })
   if (model.spec.kind !== "this-week") bar.createEl("button", { cls: "modular-diary-period-text-button", text: t("thisWeek"), attr: { type: "button" } }).addEventListener("click", deps.onToday)
+  // Paging is a view state; only an explicit pin rewrites the note.
+  if (model.browsing) {
+    const pin = bar.createEl("button", { cls: "modular-diary-period-text-button is-pin", attr: { type: "button", title: t("pinPeriodHint") } })
+    setIcon(pin.createEl("span", { cls: "modular-diary-period-text-icon" }), "pin")
+    pin.appendChild(pin.ownerDocument.createTextNode(t("pinPeriod")))
+    pin.addEventListener("click", deps.onPin)
+  }
   if (!model.indexReady) bar.createEl("span", { cls: "modular-diary-period-loading", text: t("periodLoading") })
 
   const body = root.createDiv({ cls: "modular-diary-period-body" })

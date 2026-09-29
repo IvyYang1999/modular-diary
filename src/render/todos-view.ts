@@ -261,6 +261,8 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     row.dataset.todoId = item.id
     const drag = canDrag ? row.createEl("button", { cls: "modular-diary-item-drag modular-diary-todo-drag", attr: { type: "button", "aria-label": t("dragTodo", { name: item.title }) } }) : null
     if (drag) {
+      // One Tab stop per row: the grip stays a pointer affordance, the row reorders with Alt+↑/↓.
+      drag.tabIndex = -1
       appendSixDotGrip(drag)
       attachPointerRowSort({
         list,
@@ -285,6 +287,13 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     }
     // Lets a sibling surface (a period block's calendar pill) open this row's editor.
     row.addEventListener("modular-diary-edit", edit)
+    if (canDrag) row.addEventListener("keydown", (event) => {
+      if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown") || event.target !== row) return
+      event.preventDefault()
+      const target = sourceIndex + (event.key === "ArrowUp" ? -1 : 1)
+      if (target < 0 || target >= items.length) return
+      deps.onMove(item.id, target)
+    })
     if (deps.editDraft?.id === item.id) {
       row.classList.add("is-editing")
       editForm.open(deps.editDraft.input, { focus: false })

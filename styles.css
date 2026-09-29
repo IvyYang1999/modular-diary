@@ -4709,3 +4709,36 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
 }
 .modular-diary-container button.modular-diary-period-more:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
 .modular-diary-period-rail.is-capped { overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+
+/* Pin a browsed period back into the note. */
+.modular-diary-container button.modular-diary-period-text-button.is-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--background-modifier-border));
+  color: var(--text-accent);
+}
+.modular-diary-period-text-icon { display: inline-grid; place-items: center; }
+.modular-diary-period-text-icon svg { width: 12px; height: 12px; }
+/* A category's goal, as a tick on its total bar. */
+.modular-diary-period-meter { position: relative; overflow: visible; }
+.modular-diary-period-meter-bar { overflow: hidden; }
+.modular-diary-period-meter-tick {
+  position: absolute;
+  top: -3px;
+  width: 1.5px;
+  height: 10px;
+  margin-left: -0.75px;
+  border-radius: 1px;
+  background: var(--text-normal);
+  opacity: 0.55;
+}
+.modular-diary-period-meter-tick.is-met { background: var(--text-accent); opacity: 0.9; }
+.modular-diary-period-total-target { color: var(--text-faint); }
+/* Narrow blocks: the week first, the rail beneath it with lines kept short. */
+@container (max-width: 640px) {
+  .modular-diary-period-main { order: -1; border-bottom: 1px solid var(--background-modifier-border); }
+  .modular-diary-period-rail { border-bottom: 0; }
+  .modular-diary-period-rail :is(.modular-diary-period-goal-list, .modular-diary-period-totals) { max-width: 420px; }
+  .modular-diary-period-rail.is-capped { max-height: none !important; overflow: visible; }
+}

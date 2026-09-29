@@ -157,6 +157,8 @@ export default class ModularDiaryPlugin extends Plugin {
   /** Cross-day reads (weekly goals, push to tomorrow) go through this incremental index. */
   private readonly dayIndex = new DayIndex()
   private readonly backfilling = new WeakSet<HTMLElement>()
+  /** Period blocks being browsed away from their written `days:` (per note + block ordinal). */
+  private readonly periodBrowse = new Map<string, import("./core/types").PeriodSpec>()
   private dayIndexSeeded = false
   private dayIndexRefresh: Promise<void> | null = null
   private ledgerRefreshTimer = 0
@@ -1811,8 +1813,10 @@ export default class ModularDiaryPlugin extends Plugin {
 
   /** A `days:` block: the period's goals and todos live here; each column is that day's note. */
   private renderPeriodBlock(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext, doc: TimelineDoc): void {
-    const period = doc.period
-    if (!period) return
+    if (!doc.period) return
+    const browseKey = `${ctx.sourcePath}#${this.scrollTransactionKey(el, ctx).blockOrdinal}`
+    const browsed = this.periodBrowse.get(browseKey)
+    const period = browsed ?? doc.period
     const dom = el.ownerDocument
     const today = inferDate(null)
     const resolved = resolvePeriod(period, today)
@@ -1852,7 +1856,7 @@ export default class ModularDiaryPlugin extends Plugin {
     rangeStartMin = Math.max(0, rangeStartMin)
     rangeEndMin = Math.min(30 * 60, rangeEndMin)
     const model: PeriodViewModel = {
-      spec: period, period: resolved, today,
+      spec: period, browsing: Boolean(browsed), period: resolved, today,
       goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView: doc.todoView, days,
       rangeStartMin, rangeEndMin,
       indexReady: ready, railWidth: doc.railWidth ?? 248,
@@ -1881,8 +1885,19 @@ export default class ModularDiaryPlugin extends Plugin {
       categories: Object.keys(this.settings.spanTypeColors),
       tagStyle: (tag) => this.tagStyle(tag),
       tagSuggest: this.tagSuggestDeps(),
-      onShift: (direction) => void rewrite((current) => setHeaderValue(current, "days", formatPeriodSpec(shiftPeriod(period, today, direction)))),
-      onToday: () => void rewrite((current) => setHeaderValue(current, "days", "this-week")),
+      onShift: (direction) => {
+        const next = shiftPeriod(period, today, direction)
+        if (formatPeriodSpec(next) === formatPeriodSpec(doc.period!)) this.periodBrowse.delete(browseKey)
+        else this.periodBrowse.set(browseKey, next)
+        this.rerenderMountedTimelines()
+      },
+      onToday: () => {
+        if (doc.period!.kind === "this-week") this.periodBrowse.delete(browseKey)
+        else this.periodBrowse.set(browseKey, { spec: "this-week", kind: "this-week" })
+        this.rerenderMountedTimelines()
+      },
+      onPin: () => void rewrite((current) => setHeaderValue(current, "days", formatPeriodSpec(period)))
+        .then(() => { this.periodBrowse.delete(browseKey); this.rerenderMountedTimelines() }),
       onOpenDay: (date) => void this.openDay(date),
       onAssign: (id, to) => void (async () => {
         try {
