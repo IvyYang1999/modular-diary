@@ -4094,7 +4094,7 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
   font-size: var(--modular-diary-font-body, var(--font-ui-small));
   color: var(--text-normal);
 }
-.modular-diary-period-bar {
+.modular-diary-period-bar-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -4134,13 +4134,29 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
 .modular-diary-period-rail {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px 12px;
+  gap: 18px;
+  padding: 12px 12px 14px;
   border-right: 1px solid var(--background-modifier-border);
   background: var(--background-secondary);
 }
+.modular-diary-period-section { display: flex; flex-direction: column; gap: 6px; }
+.modular-diary-period-heading-row { display: flex; align-items: center; gap: 6px; }
+.modular-diary-period-heading-row .modular-diary-period-heading { flex: 1; }
+.modular-diary-period-count { font-size: var(--font-ui-smaller); color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.modular-diary-period-add {
+  width: 22px; height: 22px; padding: 0;
+  border-radius: var(--modular-diary-radius-control);
+  background: var(--modular-diary-surface-control);
+  color: var(--text-muted);
+  box-shadow: none;
+  display: grid; place-items: center;
+}
+.modular-diary-period-add .svg-icon { width: 14px; height: 14px; }
+.modular-diary-period-add:hover { color: var(--text-normal); }
+.modular-diary-period-add-form,
+.modular-diary-period-edit-form { margin-bottom: 4px; }
 .modular-diary-period-heading {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-semibold, 600);
   color: var(--text-muted);
@@ -4152,11 +4168,11 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
   color: var(--text-faint);
   line-height: 1.5;
 }
-.modular-diary-period-goal { display: flex; flex-direction: column; gap: 3px; }
+.modular-diary-period-goal { display: flex; flex-direction: column; gap: 3px; padding-top: 2px; }
 .modular-diary-period-goal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .modular-diary-period-goal-head b { font-weight: var(--font-semibold, 600); font-variant-numeric: tabular-nums; font-size: var(--font-ui-smaller); }
-.modular-diary-period-goal-track { height: 5px; border-radius: 3px; background: var(--modular-diary-surface-data-track); overflow: hidden; }
-.modular-diary-period-goal-bar { height: 100%; border-radius: 3px; background: var(--interactive-accent); transition: width 0.25s; }
+.modular-diary-period-bar-track { height: 6px; border-radius: 3px; background: var(--modular-diary-surface-data-track); overflow: hidden; }
+.modular-diary-period-bar { height: 100%; border-radius: 3px; background: var(--interactive-accent); transition: width 0.25s; }
 .modular-diary-period-goal-status { font-size: var(--font-ui-smaller); color: var(--text-faint); }
 .modular-diary-period-goal.is-complete .modular-diary-period-goal-status { color: var(--text-success, var(--text-accent)); }
 .modular-diary-period-pool,
@@ -4172,16 +4188,23 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
 }
 .modular-diary-period-pool.is-over,
 .modular-diary-period-allday.is-over { border-color: var(--text-normal); background: var(--background-modifier-hover); }
-.modular-diary-period-totals { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: var(--font-ui-smaller); color: var(--text-muted); }
-.modular-diary-period-total { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
-.modular-diary-period-total i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.modular-diary-period-totals {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px 8px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.modular-diary-period-total-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 5.5em; }
+.modular-diary-period-total-hours { font-variant-numeric: tabular-nums; color: var(--text-normal); }
 
 /* Compact chips are for the all-day strip and the pool only; todo rows elsewhere keep their own style. */
 .modular-diary-period-chip {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 2px 5px;
+  gap: 5px;
+  min-width: 0;
   padding: 3px 7px;
   border-radius: var(--modular-diary-radius-control);
   background: color-mix(in srgb, var(--modular-diary-chip-color, var(--text-muted)) 14%, var(--background-primary));
@@ -4206,12 +4229,11 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
 .modular-diary-period-chip-title {
   flex: 1;
   min-width: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
 }
+.modular-diary-period-chip-title .modular-diary-tag { font-size: 0.82em; }
 .modular-diary-period-chip.is-complete .modular-diary-period-chip-title { text-decoration: line-through; color: var(--text-muted); }
 .modular-diary-period-chip-due { font-size: 0.9em; color: var(--text-muted); white-space: nowrap; }
 .modular-diary-period-allday .modular-diary-period-chip .modular-diary-tag { display: none; }
@@ -4230,7 +4252,7 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
   display: grid;
   gap: 0 8px;
   padding: 10px 12px 14px;
-  min-width: 600px;
+  min-width: 720px;
 }
 .modular-diary-period-hours { grid-column: 1; position: relative; margin-top: 4px; }
 .modular-diary-period-hours span {
@@ -4303,9 +4325,15 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
 .modular-diary-period.is-dragging { cursor: grabbing; }
 
 /* A todo pushed to another day stays as a quiet shadow with a badge. */
+.modular-diary-todo-row.is-moved { opacity: 0.55; }
+.modular-diary-todo-row.is-moved:hover,
+.modular-diary-todo-row.is-moved:focus-within { opacity: 0.85; }
 .modular-diary-todo-row.is-moved .modular-diary-item-title,
 .modular-diary-todo-row.is-moved .modular-diary-item-meta { color: var(--text-muted); }
-.modular-diary-todo-row.is-moved .modular-diary-todo-check { opacity: 0.45; }
+.modular-diary-todo-row.is-moved .modular-diary-item-title { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent); }
+.modular-diary-todo-row.is-moved .modular-diary-todo-moved { text-decoration: none; }
+.modular-diary-todo-row.is-moved .modular-diary-todo-check { opacity: 0.4; }
+.modular-diary-todo-row.is-moved .modular-diary-tag { opacity: 0.7; }
 .modular-diary-todo-moved {
   display: inline-block;
   margin-left: 0.4em;
@@ -4324,9 +4352,11 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
 .modular-diary-tag-suggest {
   position: fixed;
   z-index: 1100;
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: stretch;
+  gap: 1px;
+  width: max-content;
   max-width: 280px;
   padding: 4px;
   border-radius: var(--modular-diary-radius-group, 7px);
@@ -4334,18 +4364,22 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
   border: 1px solid var(--background-modifier-border);
   box-shadow: var(--shadow-s, 0 6px 20px rgba(0, 0, 0, 0.14));
 }
-.modular-diary-tag-suggest-item {
+.modular-diary-tag-suggest button.modular-diary-tag-suggest-item {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  width: auto;
   height: 28px;
-  padding: 0 8px;
+  padding: 0 10px 0 6px;
+  margin: 0;
   border: 0;
-  background: none;
+  background: transparent;
   box-shadow: none;
+  color: var(--text-normal);
   border-radius: var(--modular-diary-radius-control, 5px);
   cursor: pointer;
   text-align: left;
   font-size: var(--font-ui-small);
 }
-.modular-diary-tag-suggest-item.is-active,
-.modular-diary-tag-suggest-item:hover { background: var(--background-modifier-hover); }
+.modular-diary-tag-suggest button.modular-diary-tag-suggest-item.is-active,
+.modular-diary-tag-suggest button.modular-diary-tag-suggest-item:hover { background: var(--background-modifier-hover); }

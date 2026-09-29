@@ -24,6 +24,7 @@ describe("tags", () => {
       todos: [{ id: "t", title: "x #官网", group: "", type: "写作", tags: ["官网"], estimateMin: 1, completed: false, line: 2 }],
     }
     expect(learnTagCategories(doc, { 飞搜: "杂事" })).toEqual({ 模块日记: "开发", 官网: "写作" })
+    expect(learnTagCategories({ entries: [{ plan: false, startMin: 0, endMin: 1, type: "", tags: ["散"], line: 0 }], todos: [] }, {})).toEqual({ 散: "" })
     expect(learnTagCategories(doc, { 飞搜: "杂事", 模块日记: "开发", 官网: "写作" })).toEqual({})
   })
 

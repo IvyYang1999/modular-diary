@@ -57,7 +57,7 @@ interface TodoFormController {
   close: () => void
 }
 
-function createTodoForm(
+export function createTodoForm(
   parent: HTMLElement,
   categories: string[],
   className: string,

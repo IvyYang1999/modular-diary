@@ -31,14 +31,18 @@ export function tagCategory(tag: string, table: Record<string, string>): string 
  * may later detach it or move it in settings. Returns only the additions so
  * the caller can decide whether anything is worth persisting.
  */
-export function learnTagCategories(doc: Pick<TimelineDoc, "entries" | "todos">, table: Record<string, string>): Record<string, string> {
+export function learnTagCategories(doc: Pick<TimelineDoc, "entries" | "todos"> & { spans?: TimelineDoc["spans"] }, table: Record<string, string>): Record<string, string> {
   const learned: Record<string, string> = {}
   const seen = (tag: string): boolean => tag in table || tag in learned
+  // Every tag is registered so it can be offered again; "" marks an independent one.
   for (const entry of doc.entries) {
-    for (const tag of entry.tags) if (!seen(tag) && entry.type) learned[tag] = entry.type
+    for (const tag of entry.tags) if (!seen(tag)) learned[tag] = entry.type ?? ""
   }
   for (const todo of doc.todos) {
-    for (const tag of todo.tags ?? []) if (!seen(tag) && todo.type) learned[tag] = todo.type
+    for (const tag of todo.tags ?? []) if (!seen(tag)) learned[tag] = todo.type ?? ""
+  }
+  for (const span of doc.spans ?? []) {
+    for (const tag of span.tags) if (!seen(tag)) learned[tag] = ""
   }
   return learned
 }

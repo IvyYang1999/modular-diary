@@ -76,7 +76,6 @@ export function attachTagSuggest(input: HTMLInputElement | HTMLTextAreaElement, 
     pop.style.left = `${Math.round(rect.left)}px`
     const below = rect.bottom + 4
     pop.style.top = `${Math.round(below + 240 > viewportH ? Math.max(4, rect.top - 4 - Math.min(240, items.length * 30 + 8)) : below)}px`
-    pop.style.minWidth = `${Math.round(Math.min(280, Math.max(160, rect.width)))}px`
     paint()
   }
   const update = (): void => {

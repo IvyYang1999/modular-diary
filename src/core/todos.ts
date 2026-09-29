@@ -44,6 +44,7 @@ export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem): 
     `group=${JSON.stringify(todo.group)}`,
     ...(todo.due ? [`due=${todo.due}`] : []),
     ...(todo.moved ? [`moved=${todo.moved}`] : []),
+    ...(todo.day ? [`day=${todo.day}`] : []),
     `title=${JSON.stringify(todo.title)}`,
   ].join(" ")
 }
@@ -114,11 +115,12 @@ export function parseReadableFields(value: string): Map<string, string> | null {
 function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | null {
   const fields = parseReadableFields(value)
   const keys = ["id", "done", "estimate", "category", "group", "title"]
-  const optional = ["due", "moved"]
+  const optional = ["due", "moved", "day"]
   if (!fields || keys.some((key) => !fields.has(key)) || [...fields.keys()].some((key) => !keys.includes(key) && !optional.includes(key))) return null
   const due = fields.get("due")
   const moved = fields.get("moved")
-  if ([due, moved].some((value) => value !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(value))) return null
+  const day = fields.get("day")
+  if ([due, moved, day].some((value) => value !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(value))) return null
   const id = fields.get("id") ?? ""
   const done = fields.get("done")
   const estimate = fields.get("estimate") ?? ""
@@ -138,6 +140,7 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
     tags: extractTags(title),
     ...(due ? { due } : {}),
     ...(moved ? { moved } : {}),
+    ...(day ? { day } : {}),
     line,
   }
 }

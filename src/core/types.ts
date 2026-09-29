@@ -99,6 +99,8 @@ export interface TodoItem {
    * that day's note is ever recreated empty.
    */
   moved?: string
+  /** Period-block todo assigned to a day as an all-day item (stays in the period block). */
+  day?: string
   line: number
 }
 

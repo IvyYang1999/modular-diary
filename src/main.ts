@@ -1823,79 +1823,67 @@ export default class ModularDiaryPlugin extends Plugin {
         date,
         entries: blocks.flatMap((block) => block.entries),
         spans: blocks.flatMap((block) => block.spans),
-        todos: blocks.flatMap((block) => block.todos).filter((todo) => !todo.moved),
+        todos: doc.todos.filter((todo) => todo.day === date),
         hasNote: blocks.length > 0,
       }
     })
     const model: PeriodViewModel = {
       spec: period, period: resolved, today,
-      goals: goalProgress(doc.goals, days), totals: periodTotals(days), pool: doc.todos.filter((todo) => !todo.moved), days,
+      goals: goalProgress(doc.goals, days), totals: periodTotals(days), pool: doc.todos.filter((todo) => !todo.day), days,
       rangeStartMin: this.settings.rangeStartHour * 60, rangeEndMin: this.settings.rangeEndHour * 60,
       indexReady: ready,
     }
     const container = el.createDiv({ cls: "modular-diary-container modular-diary-period-container" })
+    const fail = (date: string, error: unknown): void => {
+      console.error("Modular Diary: period block write failed", error)
+      if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("periodWriteFailed", { date }))
+    }
+    const rewrite = (transform: (current: string) => string): Promise<void> => this.applyBlockTransform(el, ctx, source, transform)
     renderPeriodInto(container, model, {
       typeColors: { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors },
+      categories: Object.keys(this.settings.spanTypeColors),
       tagStyle: (tag) => this.tagStyle(tag),
-      onShift: (direction) => void this.applyBlockTransform(el, ctx, source, (current) =>
-        setHeaderValue(current, "days", formatPeriodSpec(shiftPeriod(period, today, direction)))),
-      onToday: () => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "days", "this-week")),
+      tagSuggest: this.tagSuggestDeps(),
+      onShift: (direction) => void rewrite((current) => setHeaderValue(current, "days", formatPeriodSpec(shiftPeriod(period, today, direction)))),
+      onToday: () => void rewrite((current) => setHeaderValue(current, "days", "this-week")),
       onOpenDay: (date) => void this.openDay(date),
-      onMoveTodo: (id, from, to) => void this.movePeriodTodo(el, ctx, source, doc, id, from, to, null),
-      onPlanTodo: (id, from, date, startMin) => void this.movePeriodTodo(el, ctx, source, doc, id, from, date, startMin),
+      onAssign: (id, to) => void rewrite((current) => updateTodo(current, id, { day: to === POOL_ZONE ? undefined : to })),
+      onPlan: (id, date, startMin) => void (async () => {
+        const todo = doc.todos.find((item) => item.id === id)
+        if (!todo) return
+        if (!todo.type) { new Notice(tr("periodTodoNeedsCategory")); return }
+        const plan = buildScheduledPlan({ source: "todo", id, title: todo.title, type: todo.type, durationMin: todo.estimateMin }, startMin).line
+        try {
+          await this.writeToDay(date, (blockSource) => {
+            let out = blockSource
+            const bound = this.parse(out).entries.filter((entry) => entry.plan && entry.todoId === id).sort((a, b) => b.line - a.line)
+            for (const entry of bound) out = deleteEntryLine(out, entry.line)
+            return insertEntryLine(out, plan, startMin)
+          })
+          if (todo.day !== date) await rewrite((current) => updateTodo(current, id, { day: date }))
+        } catch (error) { fail(date, error) }
+      })(),
+      onAdd: (input) => void rewrite((current) => insertTodo(current, {
+        id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+        title: input.title, group: "", type: input.type, estimateMin: input.estimateMinutes, completed: false,
+      })),
+      onEdit: (id, input) => void rewrite((current) => updateTodo(current, id, { title: input.title, type: input.type, estimateMin: input.estimateMinutes })),
+      onMenu: (todo, x, y) => {
+        const menu = new Menu()
+        menu.addItem((item) => item.setTitle(todo.completed ? tr("markIncomplete") : tr("markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() =>
+          void rewrite((current) => updateTodo(current, todo.id, { completed: !todo.completed }))))
+        if (todo.day) menu.addItem((item) => item.setTitle(tr("unassignTodo")).setIcon("undo-2").onClick(() =>
+          void rewrite((current) => updateTodo(current, todo.id, { day: undefined }))))
+        menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() =>
+          void rewrite((current) => deleteTodo(current, todo.id))))
+        menu.showAtPosition({ x, y }, el.ownerDocument)
+      },
     })
   }
 
   private async openDay(date: string): Promise<void> {
     const path = await this.writeToDay(date, (blockSource) => blockSource)
     await this.app.workspace.openLinkText(path, "", false)
-  }
-
-  /**
-   * Move a todo between the period pool and days, optionally planning it at
-   * a time. Writes land on the destination first; the origin is cleaned up
-   * only after that succeeds, so a failure never loses the todo.
-   */
-  private async movePeriodTodo(
-    el: HTMLElement, ctx: MarkdownPostProcessorContext, source: string, doc: TimelineDoc,
-    id: string, from: string, to: string, startMin: number | null,
-  ): Promise<void> {
-    const todo = from === POOL_ZONE
-      ? doc.todos.find((item) => item.id === id)
-      : this.dayIndex.blocksForDate(from).flatMap((block) => block.todos).find((item) => item.id === id)
-    if (!todo) return
-    const value = { id: todo.id, title: todo.title, group: todo.group, type: todo.type, estimateMin: todo.estimateMin, completed: todo.completed, due: todo.due }
-    const hasTodo = (blockSource: string): boolean => this.parse(blockSource).todos.some((item) => item.id === id)
-    try {
-      if (to === POOL_ZONE) {
-        // Back in the pool the shadow (if any) becomes the real todo again.
-        await this.applyBlockTransform(el, ctx, source, (current) => hasTodo(current) ? updateTodo(current, id, { moved: undefined }) : insertTodo(current, value))
-        if (from !== POOL_ZONE) await this.writeToDay(from, (blockSource) => deleteTodo(blockSource, id))
-        return
-      }
-      let plan: string | null = null
-      if (startMin !== null) {
-        if (!todo.type) { new Notice(tr("periodTodoNeedsCategory")); return }
-        plan = buildScheduledPlan({ source: "todo", id, title: todo.title, type: todo.type, durationMin: todo.estimateMin }, startMin).line
-      }
-      await this.writeToDay(to, (blockSource) => {
-        let out = hasTodo(blockSource) ? blockSource : insertTodo(blockSource, value)
-        if (plan !== null && startMin !== null) {
-          const bound = this.parse(out).entries.filter((entry) => entry.plan && entry.todoId === id).sort((a, b) => b.line - a.line)
-          for (const entry of bound) out = deleteEntryLine(out, entry.line)
-          out = insertEntryLine(out, plan, startMin)
-        }
-        return out
-      })
-      if (from !== to) {
-        // The origin keeps a shadow pointing at the destination (see TodoItem.moved).
-        if (from === POOL_ZONE) await this.applyBlockTransform(el, ctx, source, (current) => updateTodo(current, id, { moved: to }))
-        else await this.writeToDay(from, (blockSource) => updateTodo(blockSource, id, { moved: to }))
-      }
-    } catch (error) {
-      console.error("Modular Diary: failed to move a period todo", error)
-      if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("periodWriteFailed", { date: to === POOL_ZONE ? from : to }))
-    }
   }
 
   private addComponentSlot(source: string, doc: { layout?: unknown }, container: HTMLElement, id: "habits" | "todos" | "quote"): string {
