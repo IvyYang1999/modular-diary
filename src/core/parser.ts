@@ -317,7 +317,7 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
     }
     case "off": {
       const ids = value.split(/[\s,，]+/).filter((t): t is import("./grid-layout").SlotId =>
-        ["toolbar", "stats", "dialog", "habits", "todos", "quote"].includes(t) // text/timeline 不允许隐藏
+        ["toolbar", "stats", "dialog", "habits", "todos", "quote", "hourlog"].includes(t) // text/timeline 不允许隐藏
       )
       doc.hiddenSlots.push(...ids)
       return

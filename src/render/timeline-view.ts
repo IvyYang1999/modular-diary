@@ -12,6 +12,7 @@ export interface TextPaneDeps {
 /** DOM mount: svg string + stats row + error list, into a code-block container. */
 import { TimelineDoc } from "../core/types"
 import { statsByType } from "../core/stats"
+import { tagMinutes } from "../core/tags"
 import { formatHours } from "../core/duration"
 import { fitSideLaneWidth, renderTimelineSvg, RenderOptions, SIDE_LANE_W } from "./svg-builder"
 import type { TextMeasurer } from "../core/text-wrap"
@@ -31,6 +32,8 @@ interface InlineEditorDeps {
 }
 
 export interface TimelineViewOptions extends RenderOptions {
+  /** Badge colours for `#tags` in the stats module (null = independent tag). */
+  tagStyle?: (tag: string) => { background: string; color: string } | null
   /** 仅给真正的新用户展示一次的时间轴拖拽引导。 */
   showTimelineOnboarding?: boolean
   /**
@@ -572,6 +575,22 @@ export function renderTimelineInto(
           placeLabel()
         })
         observer.observe(barWrap)
+      }
+    }
+    // Time per #tag (block notes, diary bodies and `@` spans; plans never count).
+    const byTag = Object.entries(tagMinutes([...doc.entries, ...(doc.spans ?? [])])).sort((a, b) => b[1] - a[1])
+    if (byTag.length > 0) {
+      const tags = box.createDiv({ cls: "modular-diary-stats-tags", attr: { "aria-label": t("statsByTag") } })
+      for (const [tag, minutes] of byTag) {
+        const item = tags.createEl("span", { cls: "modular-diary-stats-tag" })
+        const badge = item.createEl("span", { cls: "modular-diary-tag", text: `#${tag}` })
+        const style = opts.tagStyle?.(tag) ?? null
+        if (style) {
+          badge.classList.add("has-category")
+          badge.style.setProperty("--modular-diary-tag-bg", style.background)
+          badge.style.setProperty("--modular-diary-tag-fg", style.color)
+        }
+        item.createEl("span", { cls: "modular-diary-stats-tag-hours", text: formatHours(minutes) })
       }
     }
   } else if (statsSlot && doc.errors.length === 0) {

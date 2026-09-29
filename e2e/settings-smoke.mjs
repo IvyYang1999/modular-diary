@@ -43,6 +43,17 @@ export class PluginSettingTab {
     document.body.appendChild(this.containerEl)
   }
 }
+class ToggleControl {
+  input: HTMLInputElement
+  constructor(parent: HTMLElement) {
+    this.input = document.createElement("input")
+    this.input.type = "checkbox"
+    parent.appendChild(this.input)
+  }
+  setValue(value: boolean): this { this.input.checked = value; return this }
+  onChange(callback: (value: boolean) => void): this { this.input.addEventListener("change", () => callback(this.input.checked)); return this }
+}
+
 class TextControl {
   inputEl: HTMLInputElement
   constructor(parent: HTMLElement) { this.inputEl = document.createElement("input"); this.inputEl.type = "text"; parent.appendChild(this.inputEl) }
@@ -79,6 +90,7 @@ export class Setting {
   setDesc(value: string): this { const el = document.createElement("div"); el.className = "setting-item-description"; el.textContent = value; this.infoEl.appendChild(el); return this }
   setClass(value: string): this { this.settingEl.classList.add(value); return this }
   addText(callback: (control: TextControl) => void): this { callback(new TextControl(this.controlEl)); return this }
+  addToggle(callback: (control: ToggleControl) => void): this { callback(new ToggleControl(this.controlEl)); return this }
   addDropdown(callback: (control: DropdownControl) => void): this { callback(new DropdownControl(this.controlEl)); return this }
   addButton(callback: (control: ButtonControl) => void): this { callback(new ButtonControl(this.controlEl)); return this }
   addExtraButton(callback: (control: ButtonControl) => void): this { callback(new ButtonControl(this.controlEl)); return this }
@@ -131,7 +143,8 @@ const settings = {
   dialogBackend: "api", provider: "openai-compatible", apiKey: "", baseUrl: "", model: "",
   timelineOnboardingSeen: true,
 }
-const host = { settings, saveSettings: async () => { window.__saves += 1 } }
+const host = { settings, refreshHourlyNudge: () => undefined,
+    saveSettings: async () => { window.__saves += 1 } }
 window.__saves = 0
 window.__settings = settings
 renderCategorySettings(document.querySelector("#categories"), host)
@@ -414,7 +427,7 @@ if (!state.quoteSection.present || !state.quoteSection.hasLibrary || !state.quot
 if (state.todoRulesHeading !== "待办规则" || state.timelineHeading !== "时间轴") errors.push("global todo and timeline sections need clear concept-level headings")
 if (state.weeklyLegacyHeadingCount !== 0) errors.push("weekly cumulative todos must not appear as a separate top-level product concept")
 if (state.addWeeklyLabel !== "添加每周目标" || state.addWeeklyHeight > 36 || state.addWeeklyBackground !== "rgba(0, 0, 0, 0)" || state.addWeeklyBorderStyle !== "dashed") errors.push("empty recurring todo rules must use one compact shared dashed add action")
-if (state.timelineSettingNames.join("|") !== "默认时间范围（起–止，小时）|每小时高度（px）") errors.push("timeline defaults escaped their own settings section")
+if (state.timelineSettingNames.join("|") !== "默认时间范围（起–止，小时）|每小时高度（px）|整点提醒写小时日记") errors.push("timeline defaults escaped their own settings section")
 if (!["Habit name", "Tracked category", "Completion condition", "Target duration", "Repeat rule"].every((label) => state.englishLabels.includes(label))) errors.push("English habit fields are not locale-parity with Chinese")
 if (!state.englishGoalOptions.includes("Daily total below") || !state.englishGoalOptions.includes("Weekly completion count") || !state.englishRepeatOptions.includes("Every N days") || !state.englishRepeatOptions.includes("Specific calendar dates")) errors.push("English recurrence and completion-condition options are incomplete")
 if (globalNarrowState.categoryColumns !== 1 || globalNarrowState.habitColumns !== 3) errors.push("truly narrow global settings do not collapse into the compact two-field layout")

@@ -244,6 +244,11 @@ function truncate(text: string, max = 12): string {
   return text.length > max ? text.slice(0, max - 1) + "…" : text
 }
 
+function formatClockLabel(mark: { startMin: number; endMin: number }): string {
+  const clock = (m: number): string => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`
+  return `${clock(mark.startMin)}–${clock(mark.endMin)}`
+}
+
 export function renderTimelineSvg(doc: TimelineDoc, opts: RenderOptions): string {
   const view = opts.view ?? "all"
   const entries = doc.entries.filter((e) => (view === "all" ? true : view === "plan" ? e.plan : !e.plan))
@@ -344,6 +349,11 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
   // Blocks that carry inline copy are remembered so a time-point line can
   // skip them instead of striking through their duration/note text.
   const inlineTextBlocks: Array<{ x: number; w: number; y: number; h: number }> = []
+  // Hour diary: blocks with a body and categoryless spans get a bracket left of the track.
+  const diaryMarks: Array<{ line: number; kind: "entry" | "span"; startMin: number; endMin: number; y1: number; y2: number; color: string | null; preview: string; corner: { x: number; y: number } | null }> = []
+  for (const span of doc.spans ?? []) {
+    diaryMarks.push({ line: span.line, kind: "span", startMin: span.startMin, endMin: span.endMin, y1: y(span.startMin), y2: y(span.endMin), color: null, preview: span.body ?? span.text, corner: null })
+  }
   for (const p of placeActual(entries.filter((e) => !e.plan), trackX, trackW)) {
     const e = p.entry
     const color = opts.typeColors[e.type] ?? hashTypeColor(e.type)
@@ -357,6 +367,7 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
     parts.push(
       `<rect class="modular-diary-block" data-line="${e.line}" data-type="${escapeXml(e.type)}" x="${p.x}" y="${yy}" width="${p.w}" height="${hh}" rx="3" fill="${escapeXml(color)}" fill-opacity="${BLOCK_OPACITY}" style="--modular-diary-block-color:${escapeXml(color)}"${focusAttrs(entryLabel(e))}></rect>`
     )
+    if (e.body !== undefined) diaryMarks.push({ line: e.line, kind: "entry", startMin: e.startMin, endMin: e.endMin, y1: yy, y2: yy + hh, color, preview: e.body, corner: p.w >= 24 && hh >= 14 ? { x: p.x + p.w - 3, y: yy + 3 } : null })
     const label = formatHours(durationMinutes(e.startMin, e.endMin))
     // 备注排版（yyt 2026-08-17）：短备注与时长同行；长备注且块够高 ->
     // 时长加粗居中 + 备注第二行小字不加粗；再不行才去侧栏
@@ -398,6 +409,21 @@ function renderTimelineSvgEntries(doc: TimelineDoc, entries: Entry[], opts: Rend
       const side = e.note ? `${label} · ${truncate(e.note, 14)}` : label
       sideItems.push({ naturalY: yy + hh / 2, text: side, cls: "modular-diary-duration modular-diary-thin", dataLine: e.line, anchorX: p.x + p.w, thin: hh < THIN_LEADER_H })
     }
+  }
+
+  // Brackets sit between the hour labels and the track; their ends are the exact times.
+  for (const mark of diaryMarks) {
+    const x = trackX - 3
+    const y1 = mark.y1 + 1, y2 = Math.max(mark.y1 + 5, mark.y2 - 1)
+    const stroke = mark.color ? `stroke:color-mix(in srgb, ${escapeXml(mark.color)} 78%, var(--text-normal))` : ""
+    const preview = mark.preview.replace(/\s+/g, " ").trim()
+    parts.push(
+      `<g class="modular-diary-diary-mark is-${mark.kind}" data-line="${mark.line}" role="button" tabindex="-1" aria-label="${escapeXml(`${formatClockLabel(mark)}${preview ? " · " + truncate(preview, 40) : ""}`)}">` +
+        `<rect class="modular-diary-diary-hit" x="${x - 5}" y="${y1}" width="8" height="${y2 - y1}" fill="transparent"/>` +
+        `<path class="modular-diary-diary-bracket" d="M${x + 3} ${y1} H${x} V${y2} H${x + 3}" fill="none" style="${stroke}"/>` +
+      `</g>`
+    )
+    if (mark.corner) parts.push(`<text pointer-events="none" class="modular-diary-diary-corner" data-line="${mark.line}" x="${mark.corner.x}" y="${mark.corner.y + 8}" text-anchor="end">≡</text>`)
   }
 
   // Categorized annotations are interactive point markers. Markers at the

@@ -7,7 +7,7 @@ import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } 
 import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
 import { CategorySettingsModal, DailyQuoteSettingsModal, HabitSettingsModal } from "./settings-modals"
 import { attachDialog } from "./agent/dialog"
-import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertHeaderLine, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo } from "./edit/source-rewriter"
+import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertHeaderLine, insertSpanLine, setItemBody, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo } from "./edit/source-rewriter"
 import { buildLayerToggles, buildToolbar, LayerView } from "./edit/toolbar"
 import { attachDrawInteraction, requestTimelineEntryDelete } from "./edit/draw-interaction"
 import { attachMarkerInteraction } from "./edit/marker-interaction"
@@ -64,6 +64,8 @@ import { formatGoalLine, formatPeriodSpec, goalProgress, periodTotals, resolvePe
 import { POOL_ZONE, renderPeriodInto, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewModel } from "./render/period-view"
 import { buildScheduledPlan } from "./edit/timeline-schedule-drag"
 import { setNotePopoverTagSuggest } from "./edit/note-popover"
+import { composerDefaults, hourlogItems, linkableEntries, type HourlogItem } from "./core/hourlog"
+import { renderHourlogInto, type HourlogComposerDraft } from "./render/hourlog-view"
 import type { TagSuggestDeps } from "./edit/tag-suggest"
 
 /** Obsidian ships moment on window; the typed `moment` export is not callable without esModuleInterop. */
@@ -77,6 +79,8 @@ import { renderDailyQuoteInto } from "./render/daily-quote-view"
 import { dailyQuoteForDate, normalizeDailyQuoteDefinition, resolveQuoteInk } from "./core/daily-quotes"
 /** Quote slot default height: header + two lines of sentence + source, on the 20px grid. */
 const QUOTE_ROWS = 6
+/** Hour diary default height: header, two short pieces and the composer. */
+const HOURLOG_ROWS = 10
 import { createPointerRedrawGate } from "./edit/pointer-interaction"
 import { attachTimelineScheduleDrag } from "./edit/timeline-schedule-drag"
 import { buildTodoGroupMenuOptions, buildTodoSortMenuOptions } from "./edit/block-menu-model"
@@ -157,6 +161,12 @@ export default class ModularDiaryPlugin extends Plugin {
   /** Cross-day reads (weekly goals, push to tomorrow) go through this incremental index. */
   private readonly dayIndex = new DayIndex()
   private readonly backfilling = new WeakSet<HTMLElement>()
+  /** Unsaved "write a piece" drafts per block (note path + block ordinal). */
+  private readonly hourlogDrafts = new Map<string, HourlogComposerDraft>()
+  /** A composer to open focused the next time this day's block renders (nudge, block menu). */
+  private pendingHourlog: { date: string; draft: HourlogComposerDraft } | null = null
+  private nudgeEl: HTMLElement | null = null
+  private nudgeDismissedHour = -1
   /** Period blocks being browsed away from their written `days:` (per note + block ordinal). */
   private readonly periodBrowse = new Map<string, import("./core/types").PeriodSpec>()
   private dayIndexSeeded = false
@@ -238,6 +248,7 @@ export default class ModularDiaryPlugin extends Plugin {
       },
     })
     setNotePopoverTagSuggest(this.tagSuggestDeps())
+    this.setupHourlyNudge()
     this.addCommand({
       id: "insert-period-block",
       name: tr("insertPeriodBlock"),
@@ -553,6 +564,11 @@ export default class ModularDiaryPlugin extends Plugin {
         extraSlots.push(defaultComponentSlot("todos", Math.max(5, (doc.todos.length + dueWeeklyTodos.length) * 2 + 3), doc.side))
       }
       if (layoutHas("quote")) extraSlots.push(defaultComponentSlot("quote", QUOTE_ROWS, doc.side))
+      const diaryItems = hourlogItems(doc)
+      const pendingDiary = this.pendingHourlog && this.pendingHourlog.date === dateStr ? this.pendingHourlog : null
+      if ((diaryItems.length > 0 || layoutHas("hourlog") || pendingDiary) && !doc.hiddenSlots.includes("hourlog")) {
+        extraSlots.push(defaultComponentSlot("hourlog", Math.max(HOURLOG_ROWS, diaryItems.length * 4 + 6), doc.side))
+      }
       const textBlockKey = {
         ...this.mutationBlockKey(el, ctx), source,
         section: () => el.isConnected ? ctx.getSectionInfo(el) : null,
@@ -590,6 +606,7 @@ export default class ModularDiaryPlugin extends Plugin {
           width: this.settings.width,
           showTimelineOnboarding,
           extraSlots,
+          tagStyle,
           onAddFirstCategory: () => this.openCategorySettings(this.drawTool),
         },
         {
@@ -678,6 +695,7 @@ export default class ModularDiaryPlugin extends Plugin {
         habits: tr("habits"),
         todos: tr("todos"),
         quote: tr("dailyQuote"),
+        hourlog: tr("hourlog"),
       }
 
       const showMoreMenu = (x: number, y: number): void => {
@@ -718,6 +736,7 @@ export default class ModularDiaryPlugin extends Plugin {
           ["habits", tr("addHabitComponent"), "list-checks"],
           ["todos", tr("addTodoComponent"), "list-todo"],
           ["quote", tr("addDailyQuoteComponent"), "quote"],
+          ["hourlog", tr("addHourlogComponent"), "book-open-text"],
         ] as const) {
           if (container.querySelector(`.modular-diary-slot-${slotId}`) || doc.hiddenSlots.includes(slotId)) continue
           menu.addItem((item) => item.setTitle(label).setIcon(icon).setSection("components").onClick(() => {
@@ -829,7 +848,24 @@ export default class ModularDiaryPlugin extends Plugin {
         if (sameBlock(this.markerEditing, blockIdentity)) this.markerEditing = null
       }
 
-      const editNote = (ln: number): void => {
+      const hourlogKey = `${ctx.sourcePath}#${this.scrollTransactionKey(el, ctx).blockOrdinal}`
+      const flashTimeline = (line: number): void => {
+        const live = liveContainer()
+        const target = live?.querySelector<Element>(`rect.modular-diary-block[data-line="${line}"], .modular-diary-diary-mark[data-line="${line}"]`)
+        if (!target) return
+        target.scrollIntoView({ block: "nearest", inline: "nearest" })
+        target.classList.add("is-flash")
+        dom.defaultView?.setTimeout(() => target.classList.remove("is-flash"), 1400)
+      }
+      const focusDiaryCard = (line: number): void => {
+        const card = liveContainer()?.querySelector<HTMLElement>(`.modular-diary-hourlog-item[data-line="${line}"]`)
+        if (!card) return
+        card.scrollIntoView({ block: "nearest" })
+        card.classList.add("is-flash")
+        dom.defaultView?.setTimeout(() => card.classList.remove("is-flash"), 1400)
+        card.querySelector<HTMLTextAreaElement>("textarea")?.focus({ preventScroll: true })
+      }
+      const editNote = (ln: number, suffix = ""): void => {
         const target = targetForEntryLine(ln)
         // 写回触发的重渲染可能已替换 container；只允许回到同一个块，
         // 绝不能用 document.querySelector 命中同页/同文件的另一个块。
@@ -838,7 +874,7 @@ export default class ModularDiaryPlugin extends Plugin {
         const rect = live.querySelector(`rect.modular-diary-block[data-line="${ln}"]`)
         const e0 = doc.entries.find((it) => it.line === ln)
         if (!rect || !e0 || !target) return
-        openNotePopover(live, rect, rect.getBoundingClientRect(), e0.note ?? "", async (note) => {
+        openNotePopover(live, rect, rect.getBoundingClientRect(), `${e0.note ?? ""}${suffix}`, async (note) => {
           try {
             await this.applyBlockTransform(el, ctx, source, (s) => {
               const entries = this.parse(s).entries
@@ -856,6 +892,11 @@ export default class ModularDiaryPlugin extends Plugin {
             throw error
           }
         })
+        if (suffix) {
+          // Put the caret after the "#" and let the tag picker open straight away.
+          const input = dom.querySelector<HTMLInputElement>(".modular-diary-note-popover input")
+          if (input) { input.setSelectionRange(input.value.length, input.value.length); input.dispatchEvent(new Event("input", { bubbles: true })) }
+        }
       }
 
       const toolbar = buildToolbar({
@@ -1142,6 +1183,68 @@ export default class ModularDiaryPlugin extends Plugin {
         })
       }
 
+      const hourlogSlot = container.querySelector<HTMLElement>(".modular-diary-slot-hourlog")
+      if (hourlogSlot) {
+        const isToday = dateStr === inferDate(null)
+        const now = new Date()
+        const lastEnd = diaryItems.reduce((max, item) => Math.max(max, item.endMin), doc.rangeStart)
+        const nowMin = isToday ? now.getHours() * 60 + now.getMinutes() : Math.min(doc.rangeEnd, lastEnd + 60)
+        const fallback = composerDefaults(diaryItems, nowMin)
+        const draft: HourlogComposerDraft = pendingDiary?.draft
+          ?? this.hourlogDrafts.get(hourlogKey)
+          ?? { startMin: fallback.startMin, endMin: fallback.endMin, link: null, body: "" }
+        if (pendingDiary) this.pendingHourlog = null
+        const locateLine = (s: string, item: HourlogItem): number | undefined => {
+          const current = this.parse(s)
+          return item.kind === "entry"
+            ? current.entries.find((e) => !e.plan && e.startMin === item.startMin && e.endMin === item.endMin && e.type === item.type)?.line
+            : current.spans.find((sp) => sp.startMin === item.startMin && sp.endMin === item.endMin)?.line
+        }
+        const writeBody = (item: HourlogItem, body: string | undefined): Promise<void> => this.applyBlockTransform(el, ctx, source, (s) => {
+          const line = locateLine(s, item)
+          if (line === undefined) throw new Error(tr("sourceChanged"))
+          return setItemBody(s, line, body)
+        })
+        renderHourlogInto(hourlogSlot, diaryItems, {
+          typeColors: spanPaletteForRender,
+          tagStyle,
+          tagSuggest: this.tagSuggestDeps(),
+          linkable: linkableEntries(doc),
+          composer: draft,
+          onComposerChange: (next) => { if (next) this.hourlogDrafts.set(hourlogKey, next); else this.hourlogDrafts.delete(hourlogKey) },
+          onCreate: async (next) => {
+            const linked = next.link !== null ? doc.entries.find((e) => e.line === next.link) : undefined
+            await this.applyBlockTransform(el, ctx, source, (s) => {
+              if (linked) {
+                const line = this.parse(s).entries.find((e) => !e.plan && e.startMin === linked.startMin && e.endMin === linked.endMin && e.type === linked.type)?.line
+                if (line === undefined) throw new Error(tr("sourceChanged"))
+                return setItemBody(s, line, next.body)
+              }
+              return insertSpanLine(s, { startMin: next.startMin, endMin: next.endMin, body: next.body })
+            })
+            this.hourlogDrafts.delete(hourlogKey)
+          },
+          // An emptied block diary goes away; an emptied span keeps its line (and its tags).
+          onSaveBody: (item, body) => writeBody(item, body.trim() ? body : undefined),
+          onMenu: (item, x, y) => {
+            const menu = new Menu()
+            menu.addItem((mi) => mi.setTitle(tr("showOnTimeline")).setIcon("crosshair").onClick(() => flashTimeline(item.line)))
+            menu.addItem((mi) => mi.setTitle(tr("deleteDiary")).setIcon("trash").onClick(() => {
+              void (item.kind === "span"
+                ? this.applyBlockTransform(el, ctx, source, (s) => { const line = locateLine(s, item); if (line === undefined) throw new Error(tr("sourceChanged")); return deleteEntryLine(s, line) })
+                : writeBody(item, undefined))
+            }))
+            menu.showAtPosition({ x, y }, dom)
+          },
+          onLocate: (item) => flashTimeline(item.line),
+        })
+      }
+      // Brackets on the timeline lead to their piece of diary.
+      container.querySelectorAll<SVGGElement>(".modular-diary-diary-mark").forEach((mark) => {
+        mark.addEventListener("click", (event) => { event.stopPropagation(); focusDiaryCard(Number(mark.dataset.line)) })
+        mark.addEventListener("pointerdown", (event) => event.stopPropagation())
+      })
+
       const quoteSlot = container.querySelector<HTMLElement>(".modular-diary-slot-quote")
       if (quoteSlot) {
         // The sentence of the day and its tint come from settings only; the
@@ -1313,6 +1416,20 @@ export default class ModularDiaryPlugin extends Plugin {
           if (!entry || !menuTarget) return
           showBlockMenu(this.app, entry, spanPaletteTypes, todoViewItems.map((todo) => ({ id: todo.id, title: todo.title })), x, y, {
             editNote,
+            addTag: (ln) => editNote(ln, `${entry.note ? " " : ""}#`),
+            openDiary: (ln) => {
+              const existing = container.querySelector<HTMLElement>(`.modular-diary-hourlog-item[data-line="${ln}"]`)
+              if (existing) { focusDiaryCard(ln); return }
+              // Start a piece on this block: the composer opens linked to it.
+              const draft: HourlogComposerDraft = { startMin: entry.startMin, endMin: entry.endMin, link: ln, body: "", focus: true }
+              if (container.querySelector(".modular-diary-slot-hourlog")) {
+                this.hourlogDrafts.set(hourlogKey, draft)
+                this.rerenderMountedTimelines()
+              } else if (dateStr) {
+                this.pendingHourlog = { date: dateStr, draft }
+                void this.applyBlockTransform(el, ctx, source, (value) => this.addComponentSlot(value, doc, container, "hourlog"))
+              }
+            },
             editTimes: (ln) => {
               const live = liveContainer()
               if (!live) return
@@ -1612,7 +1729,7 @@ export default class ModularDiaryPlugin extends Plugin {
           menu.showAtPosition({ x: e.clientX, y: e.clientY }, dom)
           return
         }
-        if (slotId && ["toolbar", "stats", "dialog", "habits", "todos", "quote"].includes(slotId)) {
+        if (slotId && ["toolbar", "stats", "dialog", "habits", "todos", "quote", "hourlog"].includes(slotId)) {
           showActionMenuAtPoint(
             dom,
             e.clientX,
@@ -1783,6 +1900,44 @@ export default class ModularDiaryPlugin extends Plugin {
 
   private previousDate(date: string): string {
     return shiftDate(date, -1)
+  }
+
+  /**
+   * On the hour, a quiet status-bar line asks what the last hour went into.
+   * Clicking it opens today's note with the composer set to that hour.
+   */
+  private setupHourlyNudge(): void {
+    const item = this.addStatusBarItem()
+    item.addClass("modular-diary-nudge")
+    item.hide()
+    this.nudgeEl = item
+    this.registerInterval(activeWindow.setInterval(() => this.refreshHourlyNudge(), 30_000))
+    this.refreshHourlyNudge()
+  }
+
+  refreshHourlyNudge(): void {
+    const item = this.nudgeEl
+    if (!item) return
+    const now = new Date()
+    const hour = now.getHours()
+    const show = this.settings.hourlyNudge && hour > 0 && now.getMinutes() < 20 && hour !== this.nudgeDismissedHour
+    if (!show) { item.hide(); return }
+    if (item.dataset.hour === String(hour) && item.isShown()) return
+    item.dataset.hour = String(hour)
+    item.empty()
+    const clock = (h: number): string => `${String(h).padStart(2, "0")}:00`
+    const open = item.createEl("button", { cls: "modular-diary-nudge-open", text: `🕓 ${tr("hourlyNudge", { start: clock(hour - 1), end: clock(hour) })}`, attr: { type: "button" } })
+    const close = item.createEl("button", { cls: "modular-diary-nudge-close", attr: { type: "button", "aria-label": tr("dismiss") } })
+    setIcon(close, "x")
+    open.addEventListener("click", () => {
+      const today = inferDate(null)
+      this.pendingHourlog = { date: today, draft: { startMin: (hour - 1) * 60, endMin: hour * 60, link: null, body: "", focus: true } }
+      this.nudgeDismissedHour = hour
+      item.hide()
+      void this.openDay(today).then(() => this.rerenderMountedTimelines())
+    })
+    close.addEventListener("click", () => { this.nudgeDismissedHour = hour; item.hide() })
+    item.show()
   }
 
   /** Every tag the vault has used, settings first, for `#` completion. */
@@ -1978,7 +2133,7 @@ export default class ModularDiaryPlugin extends Plugin {
     await this.app.workspace.openLinkText(path, "", false)
   }
 
-  private addComponentSlot(source: string, doc: { layout?: unknown }, container: HTMLElement, id: "habits" | "todos" | "quote"): string {
+  private addComponentSlot(source: string, doc: { layout?: unknown }, container: HTMLElement, id: "habits" | "todos" | "quote" | "hourlog"): string {
     let out = removeOffSlot(this.persistLayoutOnce(source, doc, container), id)
     const parsed = this.parse(out)
     const items = parsed.layout ? [...parsed.layout] : []
@@ -1988,7 +2143,7 @@ export default class ModularDiaryPlugin extends Plugin {
     // the first free space of its column instead of pinning it under the
     // timeline. Rendering re-runs the same compaction, so this is what the
     // user would see anyway.
-    items.push({ ...defaultComponentSlot(id, id === "habits" ? HABITS_EMPTY_ROWS : id === "quote" ? QUOTE_ROWS : 8, parsed.side), y: maxY })
+    items.push({ ...defaultComponentSlot(id, id === "habits" ? HABITS_EMPTY_ROWS : id === "quote" ? QUOTE_ROWS : id === "hourlog" ? HOURLOG_ROWS : 8, parsed.side), y: maxY })
     return setHeaderValue(out, "layout", serializeLayoutHeader(compactGrid(items)))
   }
 

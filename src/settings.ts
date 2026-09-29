@@ -49,6 +49,8 @@ export interface ModularDiarySettings {
   dailyQuoteInk: string
   /** Tag -> category membership; a tag missing here is independent (neutral badge). */
   tagCategories: Record<string, string>
+  /** On the hour, ask in the status bar what the last hour went into. */
+  hourlyNudge: boolean
 }
 
 export const DEFAULT_SETTINGS: ModularDiarySettings = {
@@ -72,6 +74,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   dailyQuotes: [],
   dailyQuoteInk: "",
   tagCategories: {},
+  hourlyNudge: true,
 }
 
 const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -127,6 +130,15 @@ export class ModularDiarySettingTab extends PluginSettingTab {
           }
         })
       )
+
+    new Setting(timelineSettingsEl)
+      .setName(tr("hourlyNudgeSetting"))
+      .setDesc(tr("hourlyNudgeSettingDescription"))
+      .addToggle((toggle) => toggle.setValue(this.plugin.settings.hourlyNudge).onChange(async (value) => {
+        this.plugin.settings.hourlyNudge = value
+        await this.plugin.saveSettings()
+        this.plugin.refreshHourlyNudge()
+      }))
 
     for (const [scope, heading, description] of [
       ["span", tr("spanCategoriesHeading"), tr("spanCategoriesDescription")],
