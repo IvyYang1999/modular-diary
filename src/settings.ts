@@ -35,6 +35,8 @@ export interface ModularDiarySettings {
   templateLayout?: string
   templateWidth?: number
   templateHasText?: boolean
+  /** New-day template as block source: shape headers and titled sections (phase 4). */
+  templateSource?: string
   /** 新用户时间轴拖拽引导是否已经展示过（全局一次） */
   timelineOnboardingSeen: boolean
   /** Toolbar category list folded to two rows (opt-in, yyt 2026-09-09). */
@@ -167,6 +169,18 @@ export class ModularDiarySettingTab extends PluginSettingTab {
           this.plugin.refreshHourlyNudge()
         }
       }))
+
+    const templateSetting = new Setting(timelineSettingsEl)
+      .setName(tr("templateSetting"))
+      .setDesc(tr("templateSettingDescription"))
+    templateSetting.settingEl.addClass("modular-diary-template-setting")
+    const templateArea = templateSetting.controlEl.createEl("textarea", { cls: "modular-diary-template-source", attr: { rows: "6", spellcheck: "false", placeholder: tr("templatePlaceholder"), "aria-label": tr("templateSetting") } })
+    templateArea.value = this.plugin.settings.templateSource ?? ""
+    templateArea.addEventListener("change", async () => {
+      const value = templateArea.value.trim()
+      this.plugin.settings.templateSource = value || undefined
+      await this.plugin.saveSettings()
+    })
 
     new Setting(timelineSettingsEl)
       .setName(tr("nudgeNotifySetting"))

@@ -330,8 +330,8 @@ export function removeTimelineBlockFromContent(
   return lines.join("\n")
 }
 
-/** Set/replace the Nth free-text section (`===` 分隔，可多个). Empty text keeps a placeholder. */
-export function setTextSection(source: string, text: string, index = 0): string {
+/** Set/replace the Nth free-text section (`===` 分隔，可多个). Empty text keeps a placeholder; a new section may carry a title. */
+export function setTextSection(source: string, text: string, index = 0, title?: string): string {
   const lines = source.split("\n")
   const sepIdxs = lines.map((l, i) => (TEXT_SEPARATOR_RE.test(l) ? i : -1)).filter((i) => i >= 0)
   const trimmed = text.trim()
@@ -339,12 +339,27 @@ export function setTextSection(source: string, text: string, index = 0): string 
     // 目标不存在 -> 追加新区（index 0 等价于创建）
     const head = [...lines]
     while (head.length > 0 && head[head.length - 1].trim() === "") head.pop()
-    return [...head, "===", ...(trimmed === "" ? [] : trimmed.split("\n"))].join("\n")
+    return [...head, separatorLine(title), ...(trimmed === "" ? [] : trimmed.split("\n"))].join("\n")
   }
   const start = sepIdxs[index]
   const end = index + 1 < sepIdxs.length ? sepIdxs[index + 1] : lines.length
-  const replacement = trimmed === "" ? ["==="] : ["===", ...trimmed.split("\n")]
+  // The separator line (and its title) stays as written.
+  const replacement = trimmed === "" ? [lines[start]] : [lines[start], ...trimmed.split("\n")]
   lines.splice(start, end - start, ...replacement)
+  return lines.join("\n")
+}
+
+function separatorLine(title: string | undefined): string {
+  const clean = (title ?? "").replace(/\s+/g, " ").trim()
+  return clean ? `=== ${clean}` : "==="
+}
+
+/** Rename (or untitle) the Nth text section. */
+export function setTextTitle(source: string, index: number, title: string | undefined): string {
+  const lines = source.split("\n")
+  const sepIdxs = lines.map((l, i) => (TEXT_SEPARATOR_RE.test(l) ? i : -1)).filter((i) => i >= 0)
+  if (index >= sepIdxs.length) return source
+  lines[sepIdxs[index]] = separatorLine(title)
   return lines.join("\n")
 }
 

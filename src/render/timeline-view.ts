@@ -7,6 +7,8 @@ export interface TextPaneDeps {
   /** Drafts live above the disposable MarkdownPostProcessor DOM tree. */
   getDraft?: (index: number) => TextDraftState | null
   onDraftChange?: (index: number, draft: TextDraftState | null, savedValue?: string) => void
+  /** Rename a titled section; an empty title removes the heading. */
+  onRenameTitle?: (index: number, title: string) => void | Promise<void>
 }
 
 /** DOM mount: svg string + stats row + error list, into a code-block container. */
@@ -502,6 +504,35 @@ export function renderTimelineInto(
       }
     } else if (isTextSlot(it.id) && textPane) {
       const idx = it.id === "text" ? 0 : Number(it.id.slice(4)) - 1
+      const title = doc.textTitles?.[idx]
+      if (title) {
+        // A titled section (感恩日记, 阅读笔记…) reads like the other components: a header line, then the text.
+        slot.classList.add("has-title")
+        const header = slot.createDiv({ cls: "modular-diary-component-header modular-diary-text-header" })
+        const heading = header.createEl("button", { cls: "modular-diary-component-title modular-diary-text-title", text: title, attr: { type: "button", "aria-label": t("renameSection", { name: title }) } })
+        heading.addEventListener("click", () => {
+          const input = header.createEl("input", { cls: "modular-diary-text-title-input", attr: { type: "text", "aria-label": t("sectionTitle") } })
+          input.value = title
+          heading.hidden = true
+          input.focus()
+          input.select()
+          let done = false
+          const finish = (commit: boolean): void => {
+            if (done) return
+            done = true
+            const next = input.value.trim()
+            input.remove()
+            heading.hidden = false
+            if (commit && next !== title) void textPane.onRenameTitle?.(idx, next)
+          }
+          input.addEventListener("keydown", (event) => {
+            if (event.isComposing) return
+            if (event.key === "Enter") { event.preventDefault(); finish(true) }
+            if (event.key === "Escape") { event.preventDefault(); finish(false) }
+          })
+          input.addEventListener("blur", () => finish(true))
+        })
+      }
       const pane = slot.createDiv({ cls: "modular-diary-text-pane" })
       attachInlineTextEditor(pane, texts[idx] ?? "", {
         renderMarkdown: (host, text) => textPane.renderMarkdown(host, text),

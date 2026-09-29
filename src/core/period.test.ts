@@ -47,6 +47,22 @@ describe("period spec", () => {
   })
 })
 
+describe("todo layouts and buckets (phase 4)", () => {
+  it("round-trips layout= and bucket= and keeps old headers valid", async () => {
+    const { formatTodoViewHeaderValue, parseTodoViewHeaderValue } = await import("./todos")
+    expect(parseTodoViewHeaderValue("group=none sort=manual")).toEqual({ groupBy: "none", sortBy: "manual" })
+    const abc = parseTodoViewHeaderValue("group=none sort=manual layout=abc")!
+    expect(abc.layout).toBe("abc")
+    expect(formatTodoViewHeaderValue(abc)).toBe("group=none sort=manual layout=abc")
+    expect(formatTodoViewHeaderValue({ groupBy: "none", sortBy: "manual", layout: "list" })).toBe("group=none sort=manual")
+    expect(parseTodoViewHeaderValue("group=none sort=manual layout=kanban")).toBeNull()
+    const todo = parseTodoHeaderValue('id="t" done=false estimate=30 category="" group="" bucket="q2" title="读书"', 0)!
+    expect(todo.bucket).toBe("q2")
+    expect(formatTodoHeaderValue(todo)).toContain(' bucket="q2" ')
+    expect(formatTodoHeaderValue({ ...todo, bucket: undefined })).not.toContain("bucket")
+  })
+})
+
 describe("todo due date", () => {
   it("round-trips an optional due= and rejects a malformed one", () => {
     const todo = parseTodoHeaderValue('id="t8" done=false estimate=60 category="写作" group="" due=2026-10-04 title="写周报 #官网"', 3)

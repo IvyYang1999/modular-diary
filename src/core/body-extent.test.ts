@@ -73,3 +73,22 @@ describe("text that would break the block (review A6, A7)", () => {
     expect(formatBodyLines("行内 `code` 没问题")).toEqual(["  行内 `code` 没问题"])
   })
 })
+
+describe("titled text sections (phase 4)", () => {
+  it("parses a title after ===, and keeps untitled sections untitled", () => {
+    const doc = parseTimeline(["09:00-10:00 开发", "=== 感恩日记", "今天的阳光", "===", "自由文字"].join("\n"))
+    expect(doc.texts).toEqual(["今天的阳光", "自由文字"])
+    expect(doc.textTitles).toEqual(["感恩日记", undefined])
+    expect(doc.entries).toHaveLength(1)
+  })
+
+  it("keeps the title when the text changes, appends titled sections, renames and untitles", async () => {
+    const { setTextSection, setTextTitle } = await import("../edit/source-rewriter")
+    const src = ["09:00-10:00 开发", "=== 感恩日记", "旧"].join("\n")
+    expect(setTextSection(src, "新的一行", 0)).toBe(["09:00-10:00 开发", "=== 感恩日记", "新的一行"].join("\n"))
+    const added = setTextSection(src, "", 1, "阅读笔记")
+    expect(parseTimeline(added).textTitles).toEqual(["感恩日记", "阅读笔记"])
+    expect(parseTimeline(setTextTitle(added, 1, "读书")).textTitles).toEqual(["感恩日记", "读书"])
+    expect(parseTimeline(setTextTitle(added, 0, undefined)).textTitles).toEqual([undefined, "阅读笔记"])
+  })
+})

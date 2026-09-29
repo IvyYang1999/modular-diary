@@ -31,6 +31,8 @@ export interface TimelineDoc {
   texts: string[]
   /** 兼容读取：第一个文本区 */
   text?: string
+  /** Title of each text section (`=== 感恩日记`), parallel to texts; undefined for an untitled one. */
+  textTitles?: Array<string | undefined>
   /** 时间轴栏在左还是右（`side: left`，默认右）。 */
   side?: "left" | "right"
   /** 组件网格布局（`layout:` 头，id\@x,y,w,h）；缺省按 side/text 推导。 */
@@ -103,6 +105,8 @@ export interface TodoItem {
   moved?: string
   /** Period-block todo assigned to a day as an all-day item (stays in the period block). */
   day?: string
+  /** Cell in the ABC / four-quadrant layouts (A B C, or q1–q4); one field for whichever layout is on. */
+  bucket?: string
   line: number
 }
 
@@ -128,9 +132,13 @@ export type TodoGroupBy = "none" | "category" | "status"
 export type TodoSortBy = "manual" | "estimate" | "actual"
 export type TimelineDrawTool = "span" | "marker"
 
+export type TodoLayout = "list" | "abc" | "matrix"
+
 export interface TodoViewConfig {
   groupBy: TodoGroupBy
   sortBy: TodoSortBy
+  /** How the list is laid out: a plain list, ABC columns or the four quadrants. */
+  layout?: TodoLayout
 }
 
 export interface Annotation {

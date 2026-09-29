@@ -7,8 +7,16 @@
  */
 export const BODY_LINE_RE = /^(?: {2}|\t)\s*\S/
 
-/** Separator between the entry area and a free text area: an unindented `===`. */
-export const TEXT_SEPARATOR_RE = /^===\s*$/
+/**
+ * Separator between the entry area and a free text area: an unindented `===`,
+ * optionally followed by the section's title (`=== 感恩日记`).
+ */
+export const TEXT_SEPARATOR_RE = /^===(?:[ \t]+(\S.*?))?[ \t]*$/
+
+/** Title written after a section's `===`, if any. */
+export function separatorTitle(line: string): string | undefined {
+  return TEXT_SEPARATOR_RE.exec(line)?.[1] || undefined
+}
 
 /** Number of lines after `line` that make up its body (0 when none). */
 export function bodyExtent(lines: readonly string[], line: number): number {

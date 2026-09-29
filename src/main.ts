@@ -7,7 +7,7 @@ import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } 
 import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
 import { CategorySettingsModal, DailyQuoteSettingsModal, HabitSettingsModal } from "./settings-modals"
 import { attachDialog } from "./agent/dialog"
-import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertHeaderLine, insertSpanLine, setItemBody, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo } from "./edit/source-rewriter"
+import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertHeaderLine, insertSpanLine, setItemBody, setTextTitle, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo } from "./edit/source-rewriter"
 import { buildLayerToggles, buildToolbar, LayerView } from "./edit/toolbar"
 import { attachDrawInteraction, requestTimelineEntryDelete } from "./edit/draw-interaction"
 import { attachMarkerInteraction } from "./edit/marker-interaction"
@@ -60,6 +60,7 @@ import { DayIndex } from "./core/day-index"
 import { dailyNotePath, fillDailyTemplate, parseDailyNotesConfig, shiftDate, type DailyNotesConfig } from "./core/daily-notes"
 import { ensureBlockForDate } from "./core/day-content"
 import { learnTagCategories, tagCategory, unionMinutes } from "./core/tags"
+import { skeletonFromSource } from "./core/template"
 import { formatGoalLine, formatPeriodSpec, goalProgress, periodTotals, resolvePeriod, shiftPeriod } from "./core/period"
 import { POOL_ZONE, renderPeriodInto, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewModel } from "./render/period-view"
 import { buildScheduledPlan } from "./edit/timeline-schedule-drag"
@@ -72,7 +73,7 @@ import type { TagSuggestDeps } from "./edit/tag-suggest"
 type MomentLike = (input: string, format: string) => { format: (momentFormat: string) => string }
 const momentFormat = (momentFormat: string, date: string): string =>
   ((window as unknown as { moment?: MomentLike }).moment?.(date, "YYYY-MM-DD").format(momentFormat)) ?? date
-import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics } from "./core/todos"
+import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics, TODO_BUCKETS } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
 import { renderDailyQuoteInto } from "./render/daily-quote-view"
@@ -617,6 +618,7 @@ export default class ModularDiaryPlugin extends Plugin {
             void MarkdownRenderer.render(this.app, normalized, host, ctx.sourcePath, this)
           },
           onSave: saveText,
+          onRenameTitle: (index, title) => this.applyBlockTransform(el, ctx, source, (s) => setTextTitle(s, index, title || undefined)),
           getDraft: (index) => this.textDrafts.get(textDraftKey(index)),
           onDraftChange: (index, draft, savedValue) => {
             const key = textDraftKey(index)
@@ -707,12 +709,11 @@ export default class ModularDiaryPlugin extends Plugin {
         }))
         menu.addSeparator()
         menu.addItem((item) => item.setTitle(tr("components")).setIsLabel(true).setSection("components"))
-        // 添加文本框（常驻，可多个；落在点击的格子附近）
-        menu.addItem((item) =>
-          item.setTitle(tr("addTextBox")).setIcon("file-plus-2").setSection("components").onClick(() => {
+        // 添加文本框（常驻，可多个；落在点击的格子附近）。带标题的栏目（感恩日记、阅读笔记…）走同一条路。
+        const addTextSection = (title?: string): void => {
             void this.applyBlockTransform(el, ctx, source, (s) => {
               const newId = doc.texts.length === 0 ? "text" : `text${doc.texts.length + 1}`
-              let out = setTextSection(s, "", doc.texts.length) // 追加空文本区
+              let out = setTextSection(s, "", doc.texts.length, title) // 追加空文本区
               if (body) {
                 const bodyRect = body.getBoundingClientRect()
                 if (bodyRect.width > 100) {
@@ -730,8 +731,17 @@ export default class ModularDiaryPlugin extends Plugin {
               }
               return out
             })
-          })
-        )
+        }
+        menu.addItem((item) => item.setTitle(tr("addTextBox")).setIcon("file-plus-2").setSection("components").onClick(() => addTextSection()))
+        menu.addItem((item) => {
+          item.setTitle(tr("addTitledSection")).setIcon("heading").setSection("components")
+          const sub = (item as unknown as { setSubmenu?: () => Menu }).setSubmenu?.()
+          const target = sub ?? menu
+          for (const preset of [tr("sectionGratitude"), tr("sectionReading"), tr("sectionReview")]) {
+            target.addItem((presetItem) => presetItem.setTitle(preset).onClick(() => addTextSection(preset)))
+          }
+          target.addItem((presetItem) => presetItem.setTitle(tr("sectionCustom")).onClick(() => addTextSection(tr("sectionNew"))))
+        })
         for (const [slotId, label, icon] of [
           ["habits", tr("addHabitComponent"), "list-checks"],
           ["todos", tr("addTodoComponent"), "list-todo"],
@@ -764,6 +774,9 @@ export default class ModularDiaryPlugin extends Plugin {
             }
             this.settings.templateWidth = doc.width
             this.settings.templateHasText = doc.texts.length > 0
+            // The template is now this block's shape: layout as it sits on screen, hidden
+            // components, todo layout and every text section with its title.
+            this.settings.templateSource = skeletonFromSource(this.settings.templateLayout ? setHeaderValue(source, "layout", this.settings.templateLayout) : source)
             void this.saveSettings()
           })
         )
@@ -1012,7 +1025,7 @@ export default class ModularDiaryPlugin extends Plugin {
       const todoViewItems: TodoViewItem[] = [
         ...doc.todos.map((todo) => {
           const metrics = todoMetrics(todo, doc.entries)
-          return { ...todo, weekly: false, estimateMinutes: metrics.estimateMinutes, actualMinutes: metrics.actualMinutes, movedTo: todo.moved }
+          return { ...todo, weekly: false, estimateMinutes: metrics.estimateMinutes, actualMinutes: metrics.actualMinutes, movedTo: todo.moved, bucket: todo.bucket }
         }),
         ...dueWeeklyTodos.map((todo) => {
           const actualMinutes = weeklyEntries
@@ -1054,6 +1067,17 @@ export default class ModularDiaryPlugin extends Plugin {
           onEditDraftChange: (draft) => {
             if (draft) ownerEditDrafts?.set(draftId, { id: draft.id, input: { ...draft.input } })
             else ownerEditDrafts?.delete(draftId)
+          },
+          onSetBucket: (id, bucket) => void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, id, { bucket: bucket || undefined })),
+          onLayoutMenu: (x, y) => {
+            const menu = new Menu()
+            const current = doc.todoView.layout ?? "list"
+            for (const [value, label, icon] of [["list", tr("todoLayoutList"), "list"], ["abc", tr("todoLayoutAbc"), "columns-3"], ["matrix", tr("todoLayoutMatrix"), "grid-2x2"]] as const) {
+              menu.addItem((item) => item.setTitle(label).setIcon(icon).setChecked(current === value).onClick(() =>
+                void this.applyBlockTransform(el, ctx, source, (text) =>
+                  setHeaderValue(text, "todo-view", formatTodoViewHeaderValue({ ...doc.todoView, layout: value })))))
+            }
+            menu.showAtPosition({ x, y }, dom)
           },
           onGroupMenu: (x, y) => {
             const menu = new Menu()
@@ -1132,6 +1156,16 @@ export default class ModularDiaryPlugin extends Plugin {
           onMenu: (todo, x, y, edit) => {
             const menu = new Menu()
             menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
+            const layoutNow = doc.todoView.layout ?? "list"
+            if (layoutNow !== "list" && !todo.weekly) menu.addItem((item) => {
+              // Keyboard path into a cell, mirroring the grip drag.
+              item.setTitle(tr("moveToBucket")).setIcon("move-right")
+              const sub = (item as unknown as { setSubmenu?: () => Menu }).setSubmenu?.() ?? menu
+              for (const [key, labelKey] of [...TODO_BUCKETS[layoutNow], ["", "bucketNone"] as const]) {
+                sub.addItem((cell) => cell.setTitle(tr(labelKey)).setChecked((todo.bucket ?? "") === key).onClick(() =>
+                  void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { bucket: key || undefined }))))
+              }
+            })
             if (todo.weekly && dateStr) {
               menu.addItem((item) => item.setTitle(tr("endFutureTodo")).setIcon("calendar-off").onClick(() => {
                 const stored = this.settings.weeklyTodos.find((item) => item.id === todo.id)
@@ -1815,8 +1849,9 @@ export default class ModularDiaryPlugin extends Plugin {
     return setHeaderValue(source, "layout", serializeLayoutHeader(items))
   }
 
-  private insertTemplate(): { layout?: string; width?: number; hasText?: boolean } {
+  private insertTemplate(): { source?: string; layout?: string; width?: number; hasText?: boolean } {
     return {
+      source: this.settings.templateSource,
       layout: this.settings.templateLayout,
       width: this.settings.templateWidth,
       hasText: this.settings.templateHasText,

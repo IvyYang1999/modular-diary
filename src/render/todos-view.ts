@@ -5,6 +5,7 @@ import { t } from "../i18n"
 import { attachPointerRowSort } from "../edit/row-sort"
 import { appendSixDotGrip } from "./grip"
 import { TAG_RE } from "../core/tags"
+import { TODO_BUCKETS } from "../core/todos"
 import { attachTagSuggest, type TagSuggestDeps } from "../edit/tag-suggest"
 
 export interface TodoViewItem {
@@ -18,6 +19,8 @@ export interface TodoViewItem {
   actualMinutes: number
   /** Pushed to another day: shown here as a shadow, not counted, not schedulable. */
   movedTo?: string
+  /** Cell in the ABC / four-quadrant layouts. */
+  bucket?: string
   /** Quiet status pills after the title (a period todo's placement, its deadline). */
   flags?: Array<{ text: string; tone?: "placed" | "due" | "elsewhere" }>
 }
@@ -50,6 +53,10 @@ export interface TodoViewDeps {
   onToggle: (id: string, completed: boolean) => void | Promise<void>
   onMenu: (item: TodoViewItem, x: number, y: number, edit: () => void) => void
   onMove: (id: string, targetIndex: number) => void
+  /** Move a todo to a cell of the ABC / quadrant layout ("" = no cell). */
+  onSetBucket?: (id: string, bucket: string) => void
+  /** Open the layout picker (list / ABC / quadrants); the button shows only when given. */
+  onLayoutMenu?: (x: number, y: number) => void
   /** Badge colours for a `#tag`; null paints the neutral, independent badge. */
   tagStyle?: (tag: string) => { background: string; color: string } | null
   /** `#` autocomplete for the title inputs. */
@@ -207,8 +214,20 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   const completedAtRender = counted.filter((item) => item.completed).length
   const count = header.createEl("span", { cls: "modular-diary-component-count", text: `${completedAtRender}/${counted.length}` })
   const actions = header.createDiv({ cls: "modular-diary-component-actions" })
+  const layout = deps.view.layout ?? "list"
+  const buckets = layout === "list" ? null : TODO_BUCKETS[layout]
+  if (deps.onLayoutMenu) {
+    const layoutButton = actions.createEl("button", { attr: { type: "button", "aria-label": t("todoLayoutRule") } })
+    setIcon(layoutButton, layout === "matrix" ? "grid-2x2" : layout === "abc" ? "columns-3" : "list")
+    layoutButton.addEventListener("click", () => {
+      const rect = layoutButton.getBoundingClientRect()
+      deps.onLayoutMenu?.(rect.left, rect.bottom)
+    })
+  }
+  // Grouping has no meaning once the cells are the groups.
   const group = actions.createEl("button", { attr: { type: "button", "aria-label": t("todoGroupRule") } })
   setIcon(group, "list-tree")
+  group.hidden = Boolean(buckets)
   group.addEventListener("click", () => {
     const rect = group.getBoundingClientRect()
     deps.onGroupMenu(rect.left, rect.bottom)
@@ -238,7 +257,26 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     return
   }
 
-  const list = root.createDiv({ cls: "modular-diary-todo-list" })
+  const list = root.createDiv({ cls: `modular-diary-todo-list${buckets ? ` is-bucketed is-${layout}` : ""}` })
+  // ABC / quadrants: each cell is its own little list; todos without a known cell wait below.
+  const cellLists = new Map<string, HTMLElement>()
+  const makeCell = (key: string, label: string, extraCls = ""): HTMLElement => {
+    const cell = list.createEl("section", { cls: `modular-diary-todo-bucket${extraCls}` })
+    cell.dataset.bucket = key
+    const head = cell.createDiv({ cls: "modular-diary-todo-bucket-head" })
+    head.createEl("span", { cls: "modular-diary-todo-bucket-name", text: label })
+    head.createEl("span", { cls: "modular-diary-todo-bucket-count" })
+    const rows = cell.createDiv({ cls: "modular-diary-todo-bucket-list", attr: { "data-empty": t("dropHere") } })
+    cellLists.set(key, rows)
+    return rows
+  }
+  if (buckets) for (const [key, labelKey] of buckets) makeCell(key, t(labelKey))
+  const knownCells = new Set<string>(buckets ? buckets.map(([key]) => key) : [])
+  const listFor = (item: TodoViewItem): HTMLElement => {
+    if (!buckets) return list
+    const key = item.bucket && knownCells.has(item.bucket) ? item.bucket : ""
+    return cellLists.get(key) ?? makeCell("", t("bucketNone"), " is-unassigned")
+  }
   let lastGroup = "\0"
   const displayed = items.map((item, sourceIndex) => ({ item, sourceIndex }))
   if (deps.view.sortBy === "estimate") displayed.sort((a, b) => b.item.estimateMinutes - a.item.estimateMinutes || a.sourceIndex - b.sourceIndex)
@@ -252,19 +290,21 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   if (deps.view.groupBy === "status") displayed.sort((a, b) => Number(a.item.completed) - Number(b.item.completed))
   displayed.forEach(({ item, sourceIndex }) => {
     const groupName = groupFor(item)
-    if (deps.view.groupBy !== "none" && groupName !== lastGroup) {
+    if (!buckets && deps.view.groupBy !== "none" && groupName !== lastGroup) {
       list.createEl("span", { cls: "modular-diary-todo-group", text: groupName })
       lastGroup = groupName
     }
-    const row = list.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${canDrag ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
+    const rowDraggable = buckets ? !item.weekly && Boolean(deps.onSetBucket) : canDrag
+    const row = listFor(item).createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${rowDraggable ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
     row.tabIndex = 0
     row.dataset.todoId = item.id
-    const drag = canDrag ? row.createEl("button", { cls: "modular-diary-item-drag modular-diary-todo-drag", attr: { type: "button", "aria-label": t("dragTodo", { name: item.title }) } }) : null
+    const drag = rowDraggable ? row.createEl("button", { cls: "modular-diary-item-drag modular-diary-todo-drag", attr: { type: "button", "aria-label": t("dragTodo", { name: item.title }) } }) : null
     if (drag) {
       // One Tab stop per row: the grip stays a pointer affordance, the row reorders with Alt+↑/↓.
       drag.tabIndex = -1
       appendSixDotGrip(drag)
-      attachPointerRowSort({
+      if (buckets) attachBucketDrag(list, row, drag, (key) => deps.onSetBucket?.(item.id, key), item.bucket && knownCells.has(item.bucket) ? item.bucket : "")
+      else attachPointerRowSort({
         list,
         row,
         handle: drag,
@@ -368,5 +408,60 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       bar.style.width = `${Math.min(100, item.actualMinutes / item.estimateMinutes * 100)}%`
       bar.style.background = item.type ? (deps.typeColors[item.type] ?? "var(--interactive-accent)") : "var(--interactive-accent)"
     }
+  })
+  if (buckets) list.querySelectorAll<HTMLElement>(".modular-diary-todo-bucket").forEach((cell) => {
+    const rows = cell.querySelectorAll(".modular-diary-todo-row").length
+    cell.querySelector(".modular-diary-todo-bucket-count")!.textContent = rows ? String(rows) : ""
+  })
+}
+
+/**
+ * Drag a row by its grip into another cell of the ABC / quadrant layout. The
+ * row itself never moves in the DOM mid-drag; a ghost follows the pointer and
+ * the cell under it lights up. Esc cancels.
+ */
+function attachBucketDrag(list: HTMLElement, row: HTMLElement, handle: HTMLElement, onDrop: (bucket: string) => void, from: string): void {
+  handle.addEventListener("pointerdown", (event: PointerEvent) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    const dom = row.ownerDocument
+    const rect = row.getBoundingClientRect()
+    const offsetX = event.clientX - rect.left, offsetY = event.clientY - rect.top
+    let ghost: HTMLElement | null = null
+    let over: HTMLElement | null = null
+    const move = (e: PointerEvent): void => {
+      if (!ghost) {
+        ghost = row.cloneNode(true) as HTMLElement
+        ghost.classList.add("modular-diary-item-sort-ghost")
+        ghost.style.width = `${rect.width}px`
+        dom.body.appendChild(ghost)
+        row.classList.add("is-drag-source")
+      }
+      ghost.style.left = `${e.clientX - offsetX}px`
+      ghost.style.top = `${e.clientY - offsetY}px`
+      const cell = (dom.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>(".modular-diary-todo-bucket") ?? null)
+      const target = cell && list.contains(cell) ? cell : null
+      if (target !== over) { over?.classList.remove("is-over"); over = target; over?.classList.add("is-over") }
+    }
+    const end = (commit: boolean): void => {
+      handle.removeEventListener("pointermove", move)
+      handle.removeEventListener("pointerup", up)
+      handle.removeEventListener("pointercancel", cancel)
+      dom.removeEventListener("keydown", key, true)
+      ghost?.remove()
+      row.classList.remove("is-drag-source")
+      const target = over
+      over?.classList.remove("is-over")
+      if (commit && ghost && target && (target.dataset.bucket ?? "") !== from) onDrop(target.dataset.bucket ?? "")
+    }
+    const up = (): void => end(true)
+    const cancel = (): void => end(false)
+    const key = (e: KeyboardEvent): void => { if (e.key === "Escape") { e.preventDefault(); end(false) } }
+    handle.setPointerCapture(event.pointerId)
+    handle.addEventListener("pointermove", move)
+    handle.addEventListener("pointerup", up)
+    handle.addEventListener("pointercancel", cancel)
+    dom.addEventListener("keydown", key, true)
   })
 }

@@ -4,17 +4,25 @@ import { extractTags } from "./tags"
 export const DEFAULT_TODO_VIEW: TodoViewConfig = { groupBy: "none", sortBy: "manual" }
 
 export function formatTodoViewHeaderValue(view: TodoViewConfig): string {
-  return `group=${view.groupBy} sort=${view.sortBy}`
+  return `group=${view.groupBy} sort=${view.sortBy}${view.layout && view.layout !== "list" ? ` layout=${view.layout}` : ""}`
 }
 
 export function parseTodoViewHeaderValue(value: string): TodoViewConfig | null {
   const fields = Object.fromEntries(value.trim().split(/\s+/).map((part) => part.split("=", 2)))
   const groupBy = fields.group
   const sortBy = fields.sort
+  const layout = fields.layout ?? "list"
   if (!(["none", "category", "status"] as string[]).includes(groupBy)) return null
   if (!(["manual", "estimate", "actual"] as string[]).includes(sortBy)) return null
-  return { groupBy, sortBy } as TodoViewConfig
+  if (!(["list", "abc", "matrix"] as string[]).includes(layout)) return null
+  return { groupBy, sortBy, ...(layout !== "list" ? { layout } : {}) } as TodoViewConfig
 }
+
+/** Cells of each layout, in reading order: key written to `bucket=`, and its i18n label. */
+export const TODO_BUCKETS = {
+  abc: [["A", "bucketA"], ["B", "bucketB"], ["C", "bucketC"]],
+  matrix: [["q1", "bucketQ1"], ["q2", "bucketQ2"], ["q3", "bucketQ3"], ["q4", "bucketQ4"]],
+} as const
 
 export interface WeeklyTodoDefinition {
   id: string
@@ -45,6 +53,7 @@ export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem): 
     ...(todo.due ? [`due=${todo.due}`] : []),
     ...(todo.moved ? [`moved=${todo.moved}`] : []),
     ...(todo.day ? [`day=${todo.day}`] : []),
+    ...(todo.bucket ? [`bucket=${JSON.stringify(todo.bucket)}`] : []),
     `title=${JSON.stringify(todo.title)}`,
   ].join(" ")
 }
@@ -115,7 +124,7 @@ export function parseReadableFields(value: string): Map<string, string> | null {
 function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | null {
   const fields = parseReadableFields(value)
   const keys = ["id", "done", "estimate", "category", "group", "title"]
-  const optional = ["due", "moved", "day"]
+  const optional = ["due", "moved", "day", "bucket"]
   if (!fields || keys.some((key) => !fields.has(key)) || [...fields.keys()].some((key) => !keys.includes(key) && !optional.includes(key))) return null
   const due = fields.get("due")
   const moved = fields.get("moved")
@@ -141,6 +150,7 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
     ...(due ? { due } : {}),
     ...(moved ? { moved } : {}),
     ...(day ? { day } : {}),
+    ...(fields.get("bucket") ? { bucket: fields.get("bucket") } : {}),
     line,
   }
 }

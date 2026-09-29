@@ -1,5 +1,6 @@
 /** Insert a new Modular Diary timeline block at the cursor (editor menu / command). */
 import { Editor } from "obsidian"
+import { blockFromSkeleton } from "./core/template"
 
 /** Daily-note filename -> YYYY-MM-DD (supports 2026-08-18 / 2026.8.18sun 等); else today. */
 export function inferDate(fileBasename: string | null, now = new Date()): string {
@@ -14,12 +15,15 @@ export function inferDate(fileBasename: string | null, now = new Date()): string
 }
 
 export interface InsertTemplate {
+  /** A saved skeleton (phase 4) wins over the legacy layout fields. */
+  source?: string
   layout?: string
   width?: number
   hasText?: boolean
 }
 
 export function timelineTemplate(date: string, tpl: InsertTemplate = {}): string {
+  if (tpl.source && tpl.source.trim()) return `\`\`\`timeline\n${blockFromSkeleton(date, tpl.source)}\n\`\`\``
   const head = [`date: ${date}`]
   if (tpl.width) head.push(`width: ${tpl.width}`)
   if (tpl.layout) head.push(`layout: ${tpl.layout}`)
