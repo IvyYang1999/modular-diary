@@ -61,7 +61,7 @@ import { dailyNotePath, fillDailyTemplate, parseDailyNotesConfig, shiftDate, typ
 import { ensureBlockForDate } from "./core/day-content"
 import { learnTagCategories, tagCategory } from "./core/tags"
 import { formatGoalLine, formatPeriodSpec, goalProgress, periodTotals, resolvePeriod, shiftPeriod } from "./core/period"
-import { POOL_ZONE, renderPeriodInto, type PeriodDayView, type PeriodTodoView, type PeriodViewModel } from "./render/period-view"
+import { POOL_ZONE, renderPeriodInto, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewModel } from "./render/period-view"
 import { buildScheduledPlan } from "./edit/timeline-schedule-drag"
 import { setNotePopoverTagSuggest } from "./edit/note-popover"
 import type { TagSuggestDeps } from "./edit/tag-suggest"
@@ -1839,10 +1839,22 @@ export default class ModularDiaryPlugin extends Plugin {
       ...day,
       allDay: todos.filter((todo) => todo.placement && todo.placement.startMin === undefined && todo.placement.date === day.date),
     }))
+    // The grid grows to fit the week's records, so early mornings, late nights and
+    // after-midnight blocks are never counted in the totals but missing from the grid.
+    let rangeStartMin = this.settings.rangeStartHour * 60
+    let rangeEndMin = this.settings.rangeEndHour * 60
+    for (const day of dayData) {
+      for (const item of [...day.entries, ...day.spans]) {
+        rangeStartMin = Math.min(rangeStartMin, Math.floor(item.startMin / 60) * 60)
+        rangeEndMin = Math.max(rangeEndMin, Math.ceil(item.endMin / 60) * 60)
+      }
+    }
+    rangeStartMin = Math.max(0, rangeStartMin)
+    rangeEndMin = Math.min(30 * 60, rangeEndMin)
     const model: PeriodViewModel = {
       spec: period, period: resolved, today,
       goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView: doc.todoView, days,
-      rangeStartMin: this.settings.rangeStartHour * 60, rangeEndMin: this.settings.rangeEndHour * 60,
+      rangeStartMin, rangeEndMin,
       indexReady: ready, railWidth: doc.railWidth ?? 248,
     }
     const container = el.createDiv({ cls: "modular-diary-container modular-diary-period-container" })
@@ -1918,6 +1930,18 @@ export default class ModularDiaryPlugin extends Plugin {
         if (!todo) return
         const menu = new Menu()
         menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
+        menu.addItem((item) => {
+          item.setTitle(tr("scheduleOn")).setIcon("calendar-plus")
+          const withSub = item as unknown as { setSubmenu?: () => Menu }
+          const sub = withSub.setSubmenu?.()
+          const target = sub ?? menu
+          for (const date of resolved.days) target.addItem((dayItem) => dayItem
+            .setTitle(`${weekday(date)} ${Number(date.slice(5, 7))}.${Number(date.slice(8))}`)
+            .setChecked(todo.placement?.date === date && todo.placement.startMin === undefined)
+            .onClick(() => void (async () => {
+              try { await unplan(id); await rewrite((current) => updateTodo(current, id, { day: date })) } catch (error) { fail(date, error) }
+            })()))
+        })
         menu.addItem((item) => item.setTitle(todo.completed ? tr("markIncomplete") : tr("markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() =>
           void rewrite((current) => updateTodo(current, id, { completed: !todo.completed }))))
         if (todo.placement) menu.addItem((item) => item.setTitle(tr("unassignTodo")).setIcon("undo-2").onClick(() => void (async () => {

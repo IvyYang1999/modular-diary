@@ -19,7 +19,7 @@ export interface TodoViewItem {
   /** Pushed to another day: shown here as a shadow, not counted, not schedulable. */
   movedTo?: string
   /** Quiet status pills after the title (a period todo's placement, its deadline). */
-  flags?: Array<{ text: string; tone?: "placed" | "due" }>
+  flags?: Array<{ text: string; tone?: "placed" | "due" | "elsewhere" }>
 }
 
 export interface NewTodoInput {
@@ -35,6 +35,11 @@ export interface TodoEditDraft { id: string; input: NewTodoInput }
 export interface TodoViewDeps {
   /** Header title; defaults to the day todo list's name. */
   title?: string
+  /**
+   * Narrow-rail layout (period block): flags lead the second line, and a zero
+   * actual is not spelled out. Day todo lists keep their original meta line.
+   */
+  compactMeta?: boolean
   categories: string[]
   typeColors: Record<string, string>
   view: TodoViewConfig
@@ -278,6 +283,8 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       row.classList.add("is-editing")
       editForm.open({ title: item.title, type: item.type, estimateMinutes: item.estimateMinutes })
     }
+    // Lets a sibling surface (a period block's calendar pill) open this row's editor.
+    row.addEventListener("modular-diary-edit", edit)
     if (deps.editDraft?.id === item.id) {
       row.classList.add("is-editing")
       editForm.open(deps.editDraft.input, { focus: false })
@@ -333,9 +340,16 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     const titleEl = body.createEl("span", { cls: "modular-diary-item-title" })
     renderTitleWithTags(titleEl, item.title, deps.tagStyle)
     if (item.movedTo) titleEl.createEl("span", { cls: "modular-diary-todo-moved", text: t("movedToBadge", { date: item.movedTo.slice(5).replace("-", ".") }) })
-    for (const flag of item.flags ?? []) titleEl.createEl("span", { cls: `modular-diary-todo-flag is-${flag.tone ?? "placed"}`, text: flag.text })
+    if (!deps.compactMeta) for (const flag of item.flags ?? []) titleEl.createEl("span", { cls: `modular-diary-todo-flag is-${flag.tone ?? "placed"}`, text: flag.text })
     const metaParts = [item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) })].filter(Boolean)
-    body.createEl("span", { cls: "modular-diary-item-meta", text: metaParts.join(" · ") })
+    if (deps.compactMeta) {
+      const meta = body.createEl("span", { cls: "modular-diary-item-meta is-compact" })
+      for (const flag of item.flags ?? []) meta.createEl("span", { cls: `modular-diary-todo-flag is-${flag.tone ?? "placed"}`, text: flag.text })
+      const numbers = item.actualMinutes > 0
+        ? t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) })
+        : t("estimateOnly", { estimate: formatHours(item.estimateMinutes) })
+      meta.createEl("span", { cls: "modular-diary-item-meta-numbers", text: numbers })
+    } else body.createEl("span", { cls: "modular-diary-item-meta", text: metaParts.join(" · ") })
     // A zero-progress track is just a full-width grey underline that reads
     // as a row divider; quiet flat rows only paint the track once there is
     // progress to show.

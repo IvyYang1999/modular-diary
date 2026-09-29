@@ -132,20 +132,32 @@ for (const [name, vars] of Object.entries(themes)) {
     const goals = q(".modular-diary-period-goal").map((g) => g.textContent.replace(/\s+/g, " ").trim())
     const bars = q(".modular-diary-period-totals .modular-diary-period-meter-bar").map((b) => b.style.width)
     const colHeight = document.querySelector(".modular-diary-period-col").getBoundingClientRect().height
+    const railBox = document.querySelector(".modular-diary-period-rail").getBoundingClientRect()
+    const mainHeight = document.querySelector(".modular-diary-period-cal").getBoundingClientRect().height
+    const flagsVisible = q(".modular-diary-period-rail .modular-diary-todo-flag").every((f) => f.getBoundingClientRect().right <= railBox.right + 0.5 && f.getBoundingClientRect().width > 0)
+    const zeroActualShown = q(".modular-diary-period-rail .modular-diary-item-meta-numbers").some((m) => m.textContent.includes("实际 0h"))
+    const namedBlocks = q(".modular-diary-period-block:not(.is-plan) .modular-diary-period-block-name").filter((n) => n.offsetParent && n.getBoundingClientRect().width > 8).length
+    const blockFont = getComputedStyle(document.querySelector(".modular-diary-period-block")).fontSize
+    const microFont = getComputedStyle(document.querySelector(".modular-diary-period-gutter span")).fontSize
     const due = q(".modular-diary-period-due").map((d) => d.textContent)
     const toolbarRightPad = parseFloat(getComputedStyle(document.querySelector(".modular-diary-period-toolbar")).paddingRight)
-    return { railWidth, iconChrome, todoRows, flags, pills, heads, goals, bars, colHeight, due, toolbarRightPad }
+    return { railWidth, iconChrome, todoRows, flags, pills, heads, goals, bars, colHeight, due, toolbarRightPad, railHeight: railBox.height, mainHeight, flagsVisible, zeroActualShown, namedBlocks, blockFont, microFont }
   })
   if (Math.round(state.railWidth) !== 256) errors.push("rail: header must set the rail width, got " + state.railWidth)
   if (state.iconChrome !== "rgba(0, 0, 0, 0)") errors.push("toolbar icons must not inherit host button chrome: " + state.iconChrome)
   if (state.todoRows.length !== 6) errors.push("the rail lists every period todo with the day todo component: " + state.todoRows.length)
-  for (const expected of ["周三", "周五 10:00", "⚑ 周日", "周二 10:00"]) if (!state.flags.some((f) => f === expected)) errors.push("missing placement flag " + expected + " in " + JSON.stringify(state.flags))
+  for (const expected of ["周三", "周五 10:00", "⚑ 周日截止", "周二 10:00"]) if (!state.flags.some((f) => f === expected)) errors.push("missing placement flag " + expected + " in " + JSON.stringify(state.flags))
   if (state.pills.length !== 1 || state.pills.some(([, h, fs]) => h > 21 || parseFloat(fs) > 12)) errors.push("all-day pills must be compact: " + JSON.stringify(state.pills))
   if (!state.pills[0][0].includes("周视图重做") || state.pills[0][0].includes("#")) errors.push("pills show the title without tag noise: " + JSON.stringify(state.pills))
   if (state.heads.length !== 7 || !state.heads[2].startsWith("周三")) errors.push("seven day heads, Monday first")
-  if (!state.goals[0].includes("1h / 3h") || !state.goals[1].includes("3.25h / 2h")) errors.push("goal values wrong: " + JSON.stringify(state.goals))
+  if (!state.goals[0].includes("1h / 3h") || !state.goals[1].includes("3.3h / 2h")) errors.push("goal values wrong: " + JSON.stringify(state.goals))
   if (state.bars[0] !== "100%" || state.bars.length < 4) errors.push("totals are bars scaled to the largest: " + JSON.stringify(state.bars))
-  if (Math.abs(state.colHeight - 16 * 20) > 2) errors.push("hour height must be 20px: " + state.colHeight)
+  if (state.colHeight / 16 < 22 || state.colHeight / 16 > 40) errors.push("hour height must adapt within 22–40px: " + state.colHeight / 16)
+  if (state.colHeight / 16 < 40 && Math.abs(state.railHeight - state.mainHeight) > 48) errors.push(`calendar should end with the rail: rail ${state.railHeight} vs calendar ${state.mainHeight}`)
+  if (!state.flagsVisible) errors.push("placement flags must be fully visible inside the rail")
+  if (state.zeroActualShown) errors.push("a zero actual must not be spelled out in the rail")
+  if (state.namedBlocks < 5) errors.push("one-hour blocks must show what they are, got " + state.namedBlocks + " named blocks")
+  if (state.blockFont !== state.microFont) errors.push(`block text must use the micro token like the hour labels: ${state.blockFont} vs ${state.microFont}`)
   if (state.due.length !== 1 || !state.due[0].includes("写周报")) errors.push("due flag belongs to Sunday only: " + JSON.stringify(state.due))
   if (state.toolbarRightPad < 40) errors.push("toolbar must leave room for Obsidian's edit button")
 
@@ -160,10 +172,23 @@ for (const [name, vars] of Object.entries(themes)) {
   // Drag "飞搜精品内页" (60min) onto Friday at about 14:00: the preview is its full length.
   const row13 = await page.locator('.modular-diary-period-rail .modular-diary-todo-row[data-todo-id="t13"] .modular-diary-todo-body').boundingBox()
   const fri = await page.locator('.modular-diary-period-col[data-zone="2026-10-02"]').boundingBox()
+  const hourPx = fri.height / 16
   await page.mouse.move(row13.x + 30, row13.y + row13.height / 2); await page.mouse.down()
-  await page.mouse.move(fri.x + fri.width / 2, fri.y + 7.5 * 20, { steps: 8 })
-  const preview = await page.evaluate(() => { const p = document.querySelector(".modular-diary-period-drop-preview"); return p ? [p.dataset.time, Math.round(p.getBoundingClientRect().height)] : null })
+  await page.mouse.move(fri.x + fri.width / 2, fri.y + 7.5 * hourPx, { steps: 8 })
+  const preview = await page.evaluate(() => { const p = document.querySelector(".modular-diary-period-drop-preview"); return p ? [p.querySelector(".modular-diary-period-drop-time").textContent, Math.round(p.getBoundingClientRect().height), p.querySelector(".modular-diary-period-drop-title").textContent] : null })
   await page.mouse.up()
+  // A todo without a category cannot land on the hours: the preview says why and nothing is written.
+  const row10b = await page.locator('.modular-diary-period-rail .modular-diary-todo-row[data-todo-id="t10"] .modular-diary-todo-body').boundingBox()
+  await page.mouse.move(row10b.x + 30, row10b.y + row10b.height / 2); await page.mouse.down()
+  await page.mouse.move(fri.x + fri.width / 2, fri.y + 4 * hourPx, { steps: 8 })
+  const invalid = await page.evaluate(() => { const p = document.querySelector(".modular-diary-period-drop-preview"); return p ? [p.classList.contains("is-invalid"), p.textContent] : null })
+  await page.mouse.up()
+  // Right-click a pill → 编辑 opens that todo's editor in the rail.
+  const eventsBeforeMenu = await page.evaluate(() => window.__events.length)
+  await page.evaluate(() => { window.__openedEditor = false })
+  await page.evaluate(() => { const pill = document.querySelector(".modular-diary-period-pill"); const row = document.querySelector('.modular-diary-period-rail .modular-diary-todo-row[data-todo-id="t11"]'); row.addEventListener("modular-diary-edit", () => { window.__openedEditor = true }); pill.focus() })
+  await page.keyboard.press("Enter")
+  const menuFromKeyboard = await page.evaluate((n) => window.__events.slice(n), eventsBeforeMenu)
   // Drag a pill from Wednesday back to the list.
   const pill = await page.locator('.modular-diary-period-pill').first().boundingBox()
   const list = await page.locator('.modular-diary-period-todos').boundingBox()
@@ -181,23 +206,35 @@ for (const [name, vars] of Object.entries(themes)) {
   await page.locator(".modular-diary-period-goal-form").evaluate((f) => f.requestSubmit())
   // Todo add form fits the rail.
   await page.locator(".modular-diary-period-todos .modular-diary-component-actions button").last().click()
+  const estimateReadable = await page.evaluate(() => { const i = document.querySelector(".modular-diary-period-rail .modular-diary-todo-add-form .modular-diary-todo-estimate-input"); return i ? i.clientWidth >= 40 : false })
   const formBox = await page.evaluate(() => { const f = document.querySelector(".modular-diary-period-rail .modular-diary-todo-add-form"); const r = f.getBoundingClientRect(); const rail = document.querySelector(".modular-diary-period-rail").getBoundingClientRect(); return { right: r.right, railRight: rail.right, overflow: [...f.children].some((c) => c.getBoundingClientRect().right > rail.right + 0.5) } })
   await page.locator(".modular-diary-period-rail .modular-diary-todo-add-form .modular-diary-todo-title-input").fill("新的周待办")
   await page.locator(".modular-diary-period-rail .modular-diary-todo-add-form .modular-diary-todo-title-input").press("Enter")
   await page.locator("#host").screenshot({ path: path.join(out, "period-editing.png") }); shots.push(path.join(out, "period-editing.png"))
   // Rail resize.
+  if (!estimateReadable) errors.push("the estimate input must be wide enough to read")
   const handle = await page.locator(".modular-diary-period-rail-handle").boundingBox()
   await page.mouse.move(handle.x + 1, handle.y + 200); await page.mouse.down(); await page.mouse.move(handle.x + 61, handle.y + 200, { steps: 6 }); await page.mouse.up()
+  // Keyboard resizing writes once after the keys settle, not on every press.
+  await page.locator(".modular-diary-period-rail-handle").focus()
+  const railWritesBefore = await page.evaluate(() => window.__events.filter((e) => e.startsWith("rail:")).length)
+  await page.keyboard.press("ArrowRight"); await page.keyboard.press("ArrowRight"); await page.keyboard.press("ArrowRight")
+  await page.waitForTimeout(700)
+  const railWrites = await page.evaluate((n) => window.__events.filter((e) => e.startsWith("rail:")).slice(n), railWritesBefore)
+  if (railWrites.length !== 1) errors.push("keyboard resize must commit once: " + JSON.stringify(railWrites))
   await page.locator(".modular-diary-period-icon").nth(1).click()
   await page.locator(".modular-diary-period-head").nth(3).click()
   events = await page.evaluate(() => window.__events)
   if (!cellOver) errors.push("the all-day cell under the pointer must highlight")
-  if (!preview || preview[0] !== "14:00–15:00" || Math.abs(preview[1] - 20) > 2) errors.push("axis drop preview must show the todo's full length and time: " + JSON.stringify(preview))
+  if (!preview || preview[0] !== "14:00–15:00" || Math.abs(preview[1] - hourPx) > 3 || preview[2] !== "飞搜精品内页") errors.push("axis drop preview must show the title, the time and the todo's full length: " + JSON.stringify(preview))
+  if (!invalid || !invalid[0] || !invalid[1].includes("先给它选个分类")) errors.push("an uncategorised todo must show a disabled preview over the hours: " + JSON.stringify(invalid))
+  if (!menuFromKeyboard.includes("menu:t11")) errors.push("Enter on a focused pill must open its menu")
   if (formOpen !== 1) errors.push("clicking a goal opens its editor in place")
   if (formBox.overflow) errors.push("the todo add form must fit inside the rail: " + JSON.stringify(formBox))
   await page.close()
 }
 await browser.close()
 for (const expected of ["assign:t10:2026-10-01", "plan:t13:2026-10-02:840", "assign:t11:pool", "goal:2:type:运动:240", "goal:null:tag:long2text:90", "add:新的周待办:30", "rail:316", "shift:1", "open:2026-10-01"]) if (!events.includes(expected)) errors.push("missing " + expected)
+if (events.some((e) => e.startsWith("plan:t10"))) errors.push("an uncategorised todo must not be planned")
 if (errors.length) { console.error("PERIOD CONTRACT FAILED", { errors, events, shots }); process.exit(1) }
 console.log("OK period smoke passed", JSON.stringify(events), "\n" + shots.join("\n"))

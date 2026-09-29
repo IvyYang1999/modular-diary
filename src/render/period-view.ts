@@ -76,8 +76,13 @@ export interface PeriodViewDeps {
   onRailWidth: (px: number) => void
 }
 
-export const PERIOD_HOUR_HEIGHT = 20
+/** Starting hour height; the rendered block adapts it to the rail's height (22–40px). */
+export const PERIOD_HOUR_HEIGHT = 28
+export const PERIOD_HOUR_MIN = 22
+export const PERIOD_HOUR_MAX = 40
 export const PERIOD_SNAP_MINUTES = 30
+export const RAIL_DEFAULT = 248
+const ALLDAY_VISIBLE = 3
 export const POOL_ZONE = "pool"
 export const RAIL_MIN = 180
 export const RAIL_MAX = 420
@@ -89,6 +94,28 @@ const weekdayIndex = (date: string): number => {
   return new Date(y, m - 1, d).getDay()
 }
 export const weekday = (date: string): string => `${t("weekdayPrefix")}${t("weekdayNames").split(" ")[weekdayIndex(date)] ?? ""}`
+/** Spans read as clock durations (40m, 2h25m); sums and goals as hours with one decimal. */
+export function formatSpan(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes))
+  if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60), rest = m % 60
+  return rest === 0 ? `${h}h` : `${h}h${rest}m`
+}
+export function formatTotal(minutes: number): string {
+  const h = Math.round(minutes / 6) / 10
+  return `${Number.isInteger(h) ? h : h.toFixed(1)}h`
+}
+const shortDate = (date: string): string => `${Number(date.slice(5, 7))}.${Number(date.slice(8))}`
+/** Title without `#tags`: pills, ghosts and blocks show what the todo is, not how it is filed. */
+export const plainTitle = (title: string): string => title.replace(/#[^\s#]+/g, "").replace(/\s+/g, " ").trim() || title
+function isoWeek(date: string): number {
+  const [y, m, d] = date.split("-").map(Number)
+  const value = new Date(Date.UTC(y, m - 1, d))
+  const day = value.getUTCDay() || 7
+  value.setUTCDate(value.getUTCDate() + 4 - day)
+  const yearStart = new Date(Date.UTC(value.getUTCFullYear(), 0, 1))
+  return Math.ceil(((value.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
+}
 
 function tint(color: string): { background: string; color: string } {
   return {
@@ -131,9 +158,10 @@ function attachDrag(root: HTMLElement, handle: HTMLElement, subject: DragSubject
     const color = subject.todo.type ? deps.typeColors[subject.todo.type] : undefined
     const duration = Math.max(PERIOD_SNAP_MINUTES, subject.todo.estimateMin || PERIOD_SNAP_MINUTES)
     const clear = (): void => { zone?.classList.remove("is-over"); preview?.remove(); preview = null; zone = null }
+    const canPlan = Boolean(subject.todo.type)
     const minutesAt = (axis: HTMLElement, clientY: number): number => {
       const rect = axis.getBoundingClientRect()
-      const raw = model.rangeStartMin + ((clientY - rect.top) / PERIOD_HOUR_HEIGHT) * 60 - duration / 2
+      const raw = model.rangeStartMin + ((clientY - rect.top) / rect.height) * (model.rangeEndMin - model.rangeStartMin) - duration / 2
       const snapped = Math.round(raw / PERIOD_SNAP_MINUTES) * PERIOD_SNAP_MINUTES
       return Math.max(model.rangeStartMin, Math.min(snapped, model.rangeEndMin - duration))
     }
@@ -142,7 +170,7 @@ function attachDrag(root: HTMLElement, handle: HTMLElement, subject: DragSubject
         if (Math.hypot(move.clientX - startX, move.clientY - startY) < 4) return
         ghost = dom.createElement("div")
         ghost.className = "modular-diary-period-pill is-ghost"
-        ghost.textContent = subject.todo.title
+        ghost.textContent = plainTitle(subject.todo.title)
         if (color) ghost.style.setProperty("--modular-diary-pill-color", color)
         dom.body.appendChild(ghost)
         root.classList.add("is-dragging")
@@ -154,12 +182,15 @@ function attachDrag(root: HTMLElement, handle: HTMLElement, subject: DragSubject
       if (zone?.dataset.zoneKind === "axis") {
         startMin = minutesAt(zone, move.clientY)
         if (!preview) {
-          preview = zone.createDiv({ cls: "modular-diary-period-drop-preview" })
+          preview = zone.createDiv({ cls: `modular-diary-period-drop-preview${canPlan ? "" : " is-invalid"}` })
           if (color) preview.style.setProperty("--modular-diary-block-color", color)
+          preview.createEl("span", { cls: "modular-diary-period-drop-title", text: canPlan ? plainTitle(subject.todo.title) : t("needsCategoryShort") })
+          preview.createEl("span", { cls: "modular-diary-period-drop-time" })
         }
-        preview.style.top = `${((startMin - model.rangeStartMin) / 60) * PERIOD_HOUR_HEIGHT}px`
-        preview.style.height = `${(duration / 60) * PERIOD_HOUR_HEIGHT}px`
-        preview.dataset.time = `${clock(startMin)}–${clock(startMin + duration)}`
+        const span = model.rangeEndMin - model.rangeStartMin
+        preview.style.top = `${((startMin - model.rangeStartMin) / span) * 100}%`
+        preview.style.height = `${(duration / span) * 100}%`
+        preview.querySelector<HTMLElement>(".modular-diary-period-drop-time")!.textContent = `${clock(startMin)}–${clock(startMin + duration)}`
       }
       if (ghost) ghost.hidden = zone?.dataset.zoneKind === "axis"
     }
@@ -175,7 +206,7 @@ function attachDrag(root: HTMLElement, handle: HTMLElement, subject: DragSubject
       handle.classList.remove("is-drag-source")
       if (!commit || !dragged || !dropped) return
       const to = dropped.dataset.zone ?? ""
-      if (dropped.dataset.zoneKind === "axis") deps.onPlan(subject.todo.id, to, minutes)
+      if (dropped.dataset.zoneKind === "axis") { if (canPlan) deps.onPlan(subject.todo.id, to, minutes) }
       else if (to !== subject.from) deps.onAssign(subject.todo.id, to)
     }
     const onUp = (): void => finish(true)
@@ -278,12 +309,12 @@ function renderGoals(rail: HTMLElement, model: PeriodViewModel, deps: PeriodView
     if (item.goal.kind === "type") badge(head, item.goal.key, color ? tint(color) : null)
     else badge(head, `#${item.goal.key}`, deps.tagStyle?.(item.goal.key) ?? null)
     const value = head.createEl("span", { cls: "modular-diary-period-goal-value" })
-    value.createEl("b", { text: formatHours(item.doneMinutes) })
-    value.appendChild(value.ownerDocument.createTextNode(` / ${formatHours(item.goal.targetMinutes)}`))
+    value.createEl("b", { text: formatTotal(item.doneMinutes) })
+    value.appendChild(value.ownerDocument.createTextNode(` / ${formatTotal(item.goal.targetMinutes)}`))
     const track = row.createDiv({ cls: "modular-diary-period-meter" })
     const bar = track.createDiv({ cls: "modular-diary-period-meter-bar" })
     bar.style.width = `${Math.round(item.ratio * 100)}%`
-    bar.style.background = color ?? deps.tagStyle?.(item.goal.key)?.color ?? "var(--text-muted)"
+    bar.style.background = color ?? deps.tagStyle?.(item.goal.key)?.color ?? "color-mix(in srgb, var(--text-normal) 35%, var(--background-primary))"
     const edit = (): void => {
       closeEditor()
       row.hidden = true
@@ -295,10 +326,16 @@ function renderGoals(rail: HTMLElement, model: PeriodViewModel, deps: PeriodView
   }
 }
 
-function placementFlag(todo: PeriodTodoView): { text: string; tone: "placed" | "due" }[] {
-  const flags: { text: string; tone: "placed" | "due" }[] = []
-  if (todo.placement) flags.push({ text: todo.placement.startMin !== undefined ? `${weekday(todo.placement.date)} ${clock(todo.placement.startMin)}` : weekday(todo.placement.date), tone: "placed" })
-  if (todo.due) flags.push({ text: `⚑ ${weekday(todo.due)}`, tone: "due" })
+function placementFlag(todo: PeriodTodoView, model: PeriodViewModel): { text: string; tone: "placed" | "due" | "elsewhere" }[] {
+  const flags: { text: string; tone: "placed" | "due" | "elsewhere" }[] = []
+  const inPeriod = (date: string): boolean => date >= model.period.start && date <= model.period.end
+  // Outside the shown period a bare weekday would point at the wrong week.
+  const dayLabel = (date: string): string => inPeriod(date) ? weekday(date) : `${shortDate(date)} ${weekday(date)}`
+  if (todo.placement) {
+    const at = todo.placement.startMin !== undefined ? ` ${clock(todo.placement.startMin)}` : ""
+    flags.push({ text: `${dayLabel(todo.placement.date)}${at}`, tone: inPeriod(todo.placement.date) ? "placed" : "elsewhere" })
+  }
+  if (todo.due && !todo.completed) flags.push({ text: `⚑ ${dayLabel(todo.due)}${t("dueSuffix")}`, tone: "due" })
   return flags
 }
 
@@ -308,10 +345,11 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
   section.dataset.zoneKind = "list"
   const items: TodoViewItem[] = model.todos.map((todo) => ({
     id: todo.id, title: todo.title, group: todo.group, type: todo.type, completed: todo.completed, weekly: false,
-    estimateMinutes: todo.estimateMin, actualMinutes: todo.actualMinutes, flags: placementFlag(todo),
+    estimateMinutes: todo.estimateMin, actualMinutes: todo.actualMinutes, flags: placementFlag(todo, model),
   }))
   renderTodosInto(section, items, {
     title: t("periodTodos"),
+    compactMeta: true,
     categories: deps.categories,
     typeColors: deps.typeColors,
     view: model.todoView,
@@ -340,7 +378,7 @@ function renderTotals(rail: HTMLElement, model: PeriodViewModel, deps: PeriodVie
   const header = section.createDiv({ cls: "modular-diary-component-header" })
   header.createEl("span", { cls: "modular-diary-component-title", text: t("periodTotals") })
   const sum = model.totals.reduce((acc, item) => acc + item.minutes, 0)
-  if (sum > 0) header.createEl("span", { cls: "modular-diary-component-count", text: formatHours(sum) })
+  if (sum > 0) header.createEl("span", { cls: "modular-diary-component-count", text: formatTotal(sum) })
   const totals = section.createDiv({ cls: "modular-diary-period-totals" })
   const max = model.totals[0]?.minutes ?? 0
   for (const total of model.totals) {
@@ -349,7 +387,7 @@ function renderTotals(rail: HTMLElement, model: PeriodViewModel, deps: PeriodVie
     const bar = track.createDiv({ cls: "modular-diary-period-meter-bar" })
     bar.style.width = `${max ? Math.max(3, Math.round(total.minutes / max * 100)) : 0}%`
     bar.style.background = deps.typeColors[total.type] ?? "var(--text-muted)"
-    totals.createEl("span", { cls: "modular-diary-period-total-hours", text: formatHours(total.minutes) })
+    totals.createEl("span", { cls: "modular-diary-period-total-hours", text: formatTotal(total.minutes) })
   }
   if (model.totals.length === 0) section.createEl("p", { cls: "modular-diary-period-muted", text: t("periodNoRecords") })
 }
@@ -378,33 +416,91 @@ function attachRailResize(root: HTMLElement, handle: HTMLElement, deps: PeriodVi
     handle.addEventListener("pointerup", up)
     handle.addEventListener("pointercancel", up)
   })
+  // Keyboard steps only move the CSS variable; the file is written once the keys settle.
+  let commitTimer = 0
+  const commitSoon = (): void => {
+    const win = root.ownerDocument.defaultView
+    if (!win) return
+    win.clearTimeout(commitTimer)
+    commitTimer = win.setTimeout(() => deps.onRailWidth(Math.round(parseFloat(getComputedStyle(root).getPropertyValue("--modular-diary-rail-width")) || RAIL_DEFAULT)), 450)
+  }
   handle.addEventListener("keydown", (event) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
     event.preventDefault()
-    const current = parseFloat(getComputedStyle(root).getPropertyValue("--modular-diary-rail-width")) || 240
+    const current = parseFloat(getComputedStyle(root).getPropertyValue("--modular-diary-rail-width")) || RAIL_DEFAULT
     const next = Math.max(RAIL_MIN, Math.min(RAIL_MAX, current + (event.key === "ArrowRight" ? 16 : -16)))
     root.style.setProperty("--modular-diary-rail-width", `${next}px`)
-    deps.onRailWidth(next)
+    commitSoon()
+  })
+  handle.addEventListener("dblclick", () => {
+    root.style.setProperty("--modular-diary-rail-width", `${RAIL_DEFAULT}px`)
+    deps.onRailWidth(RAIL_DEFAULT)
   })
 }
 
 /* ── calendar ── */
 
+/** Side-by-side lanes for overlapping actual records (plans stay full width underneath). */
+function laneLayout(entries: Entry[]): Map<Entry, { lane: number; lanes: number }> {
+  const out = new Map<Entry, { lane: number; lanes: number }>()
+  const actual = entries.filter((entry) => !entry.plan).sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin)
+  let cluster: Entry[] = []
+  let clusterEnd = -1
+  let laneEnds: number[] = []
+  const flush = (): void => { for (const entry of cluster) out.get(entry)!.lanes = laneEnds.length; cluster = []; laneEnds = [] }
+  for (const entry of actual) {
+    if (entry.startMin >= clusterEnd) { flush(); clusterEnd = -1 }
+    let lane = laneEnds.findIndex((end) => end <= entry.startMin)
+    if (lane < 0) { lane = laneEnds.length; laneEnds.push(entry.endMin) } else laneEnds[lane] = entry.endMin
+    out.set(entry, { lane, lanes: 1 })
+    cluster.push(entry)
+    clusterEnd = Math.max(clusterEnd, entry.endMin)
+  }
+  flush()
+  return out
+}
+
 function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): void {
   const scroll = host.createDiv({ cls: "modular-diary-period-cal-scroll" })
   const cal = scroll.createDiv({ cls: "modular-diary-period-cal" })
   const count = model.days.length
+  const hours = (model.rangeEndMin - model.rangeStartMin) / 60
   cal.style.setProperty("--modular-diary-period-days", String(count))
-  cal.style.setProperty("--modular-diary-period-hour", `${PERIOD_HOUR_HEIGHT}px`)
-  const bodyHeight = ((model.rangeEndMin - model.rangeStartMin) / 60) * PERIOD_HOUR_HEIGHT
-  const y = (minutes: number): number => ((minutes - model.rangeStartMin) / 60) * PERIOD_HOUR_HEIGHT
+  cal.style.setProperty("--modular-diary-period-hours", String(hours))
+  const span = model.rangeEndMin - model.rangeStartMin
+  const pct = (minutes: number): string => `${((minutes - model.rangeStartMin) / span) * 100}%`
+  const pctLen = (minutes: number): string => `${(minutes / span) * 100}%`
+  const todoById = new Map(model.todos.map((todo) => [todo.id, todo]))
+  const openRowEditor = (id: string): void => {
+    const row = root.querySelector<HTMLElement>(`.modular-diary-period-rail .modular-diary-todo-row[data-todo-id="${CSS.escape(id)}"]`)
+    if (!row) return
+    row.scrollIntoView({ block: "nearest" })
+    row.dispatchEvent(new CustomEvent("modular-diary-edit"))
+  }
+  const menuFor = (el: HTMLElement, id: string): void => {
+    const open = (x: number, y: number): void => deps.onTodoMenu?.(id, x, y, () => openRowEditor(id))
+    el.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); open(event.clientX, event.clientY) })
+    el.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+        event.preventDefault()
+        const rect = el.getBoundingClientRect()
+        open(rect.left, rect.bottom)
+      } else if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault()
+        deps.onAssign(id, POOL_ZONE)
+      }
+    })
+  }
 
-  // Row 1: day heads.
+  // Row 1: day heads (also all-day drop targets).
   cal.createDiv({ cls: "modular-diary-period-corner" })
   for (const day of model.days) {
     const isToday = day.date === model.today
     const past = day.date < model.today
-    const head = cal.createDiv({ cls: `modular-diary-period-head${isToday ? " is-today" : ""}${past ? " is-past" : ""}`, attr: { role: "button", tabindex: "0", "aria-label": t("openDay", { date: day.date }) } })
+    const label = day.hasNote ? t("openDayNamed", { date: shortDate(day.date) }) : t("createDayNamed", { date: shortDate(day.date) })
+    const head = cal.createDiv({ cls: `modular-diary-period-head${isToday ? " is-today" : ""}${past ? " is-past" : ""}${day.hasNote ? "" : " is-missing"}`, attr: { role: "button", tabindex: "0", "aria-label": label, title: label } })
+    head.dataset.zone = day.date
+    head.dataset.zoneKind = "list"
     head.createEl("span", { cls: "modular-diary-period-head-weekday", text: weekday(day.date) })
     head.createEl("span", { cls: "modular-diary-period-head-date", text: String(Number(day.date.slice(8))) })
     const open = (): void => deps.onOpenDay(day.date)
@@ -420,83 +516,152 @@ function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewM
     cell.dataset.zoneKind = "list"
     for (const todo of day.allDay) {
       const pill = cell.createDiv({ cls: `modular-diary-period-pill${todo.completed ? " is-complete" : ""}`, attr: { tabindex: "0" } })
-      pill.textContent = todo.title.replace(/#[^\s#]+/g, "").trim() || todo.title
-      pill.title = `${todo.title}${todo.type ? " · " + todo.type : ""} · ${formatHours(todo.estimateMin)}`
+      pill.textContent = plainTitle(todo.title)
+      pill.title = `${todo.title}${todo.type ? " · " + todo.type : ""} · ${formatSpan(todo.estimateMin)}`
       const color = todo.type ? deps.typeColors[todo.type] : undefined
       if (color) pill.style.setProperty("--modular-diary-pill-color", color)
       attachDrag(root, pill, { todo, from: day.date }, model, deps)
-      pill.addEventListener("contextmenu", (event) => {
-        event.preventDefault()
-        event.stopPropagation()
-        deps.onTodoMenu?.(todo.id, event.clientX, event.clientY, () => undefined)
-      })
+      menuFor(pill, todo.id)
     }
     for (const todo of model.todos) {
       if (todo.due !== day.date || todo.completed) continue
-      cell.createDiv({ cls: "modular-diary-period-due", text: `⚑ ${todo.title.replace(/#[^\s#]+/g, "").trim() || todo.title}`, attr: { title: t("dueOn", { date: monthDay(todo.due) }) } })
+      cell.createDiv({ cls: "modular-diary-period-due", text: `⚑ ${plainTitle(todo.title)}`, attr: { title: t("dueOn", { date: monthDay(todo.due) }) } })
+    }
+    // A busy day shows three items and a "+N"; the band never pushes the hours off screen.
+    const items = Array.from(cell.children) as HTMLElement[]
+    if (items.length > ALLDAY_VISIBLE) {
+      items.slice(ALLDAY_VISIBLE - 1).forEach((item) => item.classList.add("is-overflow"))
+      const more = cell.createEl("button", { cls: "modular-diary-period-more", text: `+${items.length - ALLDAY_VISIBLE + 1}`, attr: { type: "button", "aria-label": t("showAllAllDay") } })
+      more.addEventListener("click", () => {
+        const expanded = cal.classList.toggle("is-allday-expanded")
+        cal.querySelectorAll<HTMLElement>(".modular-diary-period-more").forEach((button) => { button.hidden = expanded })
+      })
     }
   }
 
-  // Row 3: hours.
+  // Row 3: hours. Everything below is positioned in % of the column, so the
+  // hour height is a single CSS variable the block tunes after layout.
   const gutter = cal.createDiv({ cls: "modular-diary-period-gutter" })
-  gutter.style.height = `${bodyHeight}px`
   for (let h = Math.ceil(model.rangeStartMin / 60) + 1; h * 60 < model.rangeEndMin; h += 1) {
     if (h % 2 !== 0) continue
-    gutter.createEl("span", { text: `${h % 24}` }).style.top = `${y(h * 60)}px`
+    gutter.createEl("span", { text: `${h % 24}` }).style.top = pct(h * 60)
   }
   const nowMin = (() => { const now = new Date(); return now.getHours() * 60 + now.getMinutes() })()
+  let anything = false
   for (const day of model.days) {
     const col = cal.createDiv({ cls: `modular-diary-period-col${day.date === model.today ? " is-today" : ""}` })
     col.dataset.zone = day.date
     col.dataset.zoneKind = "axis"
-    col.style.height = `${bodyHeight}px`
-    col.style.backgroundPositionY = `${-y(Math.ceil(model.rangeStartMin / 60) * 60) + y(model.rangeStartMin)}px`
+    col.style.setProperty("--modular-diary-period-offset", `${(Math.ceil(model.rangeStartMin / 60) * 60 - model.rangeStartMin) / 60}`)
+    const lanes = laneLayout(day.entries)
     const sorted = [...day.entries].sort((a, b) => Number(!a.plan) - Number(!b.plan) || a.startMin - b.startMin)
     for (const entry of sorted) {
       if (entry.endMin <= model.rangeStartMin || entry.startMin >= model.rangeEndMin) continue
-      const top = y(Math.max(entry.startMin, model.rangeStartMin))
-      const height = Math.max(3, y(Math.min(entry.endMin, model.rangeEndMin)) - top - 1)
+      anything = true
+      const start = Math.max(entry.startMin, model.rangeStartMin)
+      const end = Math.min(entry.endMin, model.rangeEndMin)
       const color = deps.typeColors[entry.type] ?? "var(--text-faint)"
       const block = col.createDiv({ cls: `modular-diary-period-block${entry.plan ? " is-plan" : ""}` })
-      block.style.top = `${top + 0.5}px`
-      block.style.height = `${height}px`
+      block.style.top = pct(start)
+      block.style.height = pctLen(end - start)
+      const lane = lanes.get(entry)
+      if (lane && lane.lanes > 1) {
+        block.style.left = `calc(3px + (100% - 7px) * ${lane.lane / lane.lanes})`
+        block.style.right = `calc(4px + (100% - 7px) * ${(lane.lanes - lane.lane - 1) / lane.lanes})`
+      }
       block.style.setProperty("--modular-diary-block-color", color)
       if (!entry.plan && color.startsWith("#")) block.style.color = blockTextColor(color)
+      const name = entry.note ? plainTitle(entry.note) : entry.type
       block.title = `${entry.plan ? t("planLabel") + " · " : ""}${clock(entry.startMin)}–${clock(entry.endMin)} ${entry.type}${entry.note ? " · " + entry.note : ""}`
-      if (height >= 30 && entry.note) block.createEl("span", { cls: "modular-diary-period-block-note", text: entry.note.replace(/#[^\s#]+/g, "").trim() || entry.note })
-      if (height >= 15) block.createEl("span", { cls: "modular-diary-period-block-time", text: formatHours(entry.endMin - entry.startMin) })
+      const inner = block.createDiv({ cls: "modular-diary-period-block-inner" })
+      inner.createEl("span", { cls: "modular-diary-period-block-name", text: name })
+      inner.createEl("span", { cls: "modular-diary-period-block-time", text: formatSpan(entry.endMin - entry.startMin) })
+      // A plan already covered by what actually happened keeps only its hatching.
+      if (entry.plan && day.entries.some((other) => !other.plan && other.startMin < entry.endMin && other.endMin > entry.startMin)) block.classList.add("is-covered")
+      // A plan that belongs to a period todo moves like the todo itself.
+      const owned = entry.plan && entry.todoId ? todoById.get(entry.todoId) : undefined
+      if (owned) {
+        block.classList.add("is-owned")
+        block.tabIndex = 0
+        attachDrag(root, block, { todo: owned, from: `plan:${day.date}` }, model, deps)
+        menuFor(block, owned.id)
+      }
     }
     for (const item of day.spans) {
       const mark = col.createDiv({ cls: "modular-diary-period-span" })
-      mark.style.top = `${y(item.startMin)}px`
-      mark.style.height = `${Math.max(4, y(item.endMin) - y(item.startMin))}px`
+      mark.style.top = pct(Math.max(item.startMin, model.rangeStartMin))
+      mark.style.height = pctLen(Math.min(item.endMin, model.rangeEndMin) - Math.max(item.startMin, model.rangeStartMin))
       mark.title = `${clock(item.startMin)}–${clock(item.endMin)} ${item.text}`
     }
     if (day.date === model.today && nowMin >= model.rangeStartMin && nowMin <= model.rangeEndMin) {
-      col.createDiv({ cls: "modular-diary-period-now" }).style.top = `${y(nowMin)}px`
+      col.createDiv({ cls: "modular-diary-period-now" }).style.top = pct(nowMin)
     }
   }
+  if (!anything && model.todos.length === 0 && model.days.every((day) => day.allDay.length === 0)) {
+    host.createDiv({ cls: "modular-diary-period-empty-hint", text: t("periodEmptyHint") })
+  }
+  const paintOverflow = (): void => { scroll.classList.toggle("is-scrollable-right", scroll.scrollLeft + scroll.clientWidth < scroll.scrollWidth - 1) }
+  scroll.addEventListener("scroll", paintOverflow, { passive: true })
+  queueMicrotask(paintOverflow)
+}
+
+/**
+ * Fit the hour height to the rail so the calendar and the rail end together:
+ * short weeks get roomier hours (up to 40px), long rails never stretch the
+ * calendar past that.
+ */
+function fitHourHeight(root: HTMLElement, rail: HTMLElement, main: HTMLElement, hours: number): () => void {
+  const win = root.ownerDocument.defaultView
+  if (!win || typeof win.ResizeObserver !== "function") return () => undefined
+  let frame = 0
+  const measure = (): void => {
+    frame = 0
+    const cal = main.querySelector<HTMLElement>(".modular-diary-period-cal")
+    const col = main.querySelector<HTMLElement>(".modular-diary-period-col")
+    if (!cal || !col) return
+    const chrome = cal.getBoundingClientRect().height - col.getBoundingClientRect().height
+    // scrollHeight, not the box: capping the rail below must not feed back into this measure.
+    const available = rail.scrollHeight - chrome - 14
+    const ideal = Math.floor(available / hours)
+    const hour = Math.max(PERIOD_HOUR_MIN, Math.min(PERIOD_HOUR_MAX, ideal))
+    root.style.setProperty("--modular-diary-period-hour", `${hour}px`)
+    // A very long rail scrolls on its own instead of stretching the week past 40px an hour.
+    const capped = ideal > PERIOD_HOUR_MAX
+    rail.classList.toggle("is-capped", capped)
+    rail.style.maxHeight = capped ? `${Math.round(chrome + hour * hours + 14)}px` : ""
+  }
+  const observer = new win.ResizeObserver(() => { if (!frame) frame = win.requestAnimationFrame(measure) })
+  observer.observe(rail)
+  measure()
+  return () => observer.disconnect()
 }
 
 export function renderPeriodInto(container: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): HTMLElement {
-  const root = container.createDiv({ cls: "modular-diary-period" })
+  const root = container.createDiv({ cls: `modular-diary-period${model.indexReady ? "" : " is-loading"}` })
   root.style.setProperty("--modular-diary-rail-width", `${model.railWidth}px`)
+  root.style.setProperty("--modular-diary-period-hour", `${PERIOD_HOUR_HEIGHT}px`)
 
   const bar = root.createDiv({ cls: "modular-diary-period-toolbar" })
   iconButton(bar, "chevron-left", t("previousPeriod")).addEventListener("click", () => deps.onShift(-1))
   iconButton(bar, "chevron-right", t("nextPeriod")).addEventListener("click", () => deps.onShift(1))
-  bar.createEl("span", { cls: "modular-diary-period-title", text: t("periodTitle", { start: monthDay(model.period.start), end: monthDay(model.period.end), days: String(model.period.days.length) }) })
+  const title = bar.createEl("span", { cls: "modular-diary-period-title" })
+  const isWeek = model.period.days.length === 7 && weekdayIndex(model.period.start) === 1
+  if (isWeek) title.createEl("span", { cls: "modular-diary-period-title-week", text: t("weekNumber", { week: String(isoWeek(model.period.start)) }) })
+  title.createEl("span", { text: isWeek
+    ? `${shortDate(model.period.start)} – ${shortDate(model.period.end)}`
+    : t("periodTitle", { start: shortDate(model.period.start), end: shortDate(model.period.end), days: String(model.period.days.length) }) })
   if (model.spec.kind !== "this-week") bar.createEl("button", { cls: "modular-diary-period-text-button", text: t("thisWeek"), attr: { type: "button" } }).addEventListener("click", deps.onToday)
-  if (!model.indexReady) bar.createEl("span", { cls: "modular-diary-period-loading", attr: { "aria-label": t("periodLoading"), title: t("periodLoading") } })
+  if (!model.indexReady) bar.createEl("span", { cls: "modular-diary-period-loading", text: t("periodLoading") })
 
   const body = root.createDiv({ cls: "modular-diary-period-body" })
   const rail = body.createEl("aside", { cls: "modular-diary-period-rail" })
   renderGoals(rail, model, deps)
   renderTodoList(rail, root, model, deps)
   renderTotals(rail, model, deps)
-  const handle = body.createDiv({ cls: "modular-diary-period-rail-handle", attr: { role: "separator", tabindex: "0", "aria-orientation": "vertical", "aria-label": t("resizeRail") } })
+  const handle = body.createDiv({ cls: "modular-diary-period-rail-handle", attr: { role: "separator", tabindex: "0", "aria-orientation": "vertical", "aria-label": t("resizeRail"), title: t("resizeRail") } })
   attachRailResize(root, handle, deps)
   const main = body.createDiv({ cls: "modular-diary-period-main" })
   renderCalendar(main, root, model, deps)
+  fitHourHeight(root, rail, main, (model.rangeEndMin - model.rangeStartMin) / 60)
   return root
 }
