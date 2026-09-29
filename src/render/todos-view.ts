@@ -12,6 +12,8 @@ export interface TodoViewItem {
   type?: string
   completed: boolean
   weekly: boolean
+  /** Backed by a `- [ ]` line in the note body rather than the code block. */
+  body?: boolean
   estimateMinutes: number
   actualMinutes: number
 }
@@ -37,6 +39,8 @@ export interface TodoViewDeps {
   onToggle: (id: string, completed: boolean) => void | Promise<void>
   onMenu: (item: TodoViewItem, x: number, y: number, edit: () => void) => void
   onMove: (id: string, targetIndex: number) => void
+  /** Block length a note-body todo gets when dragged onto the timeline. */
+  defaultScheduleMinutes?: number
   draft?: NewTodoInput | null
   onDraftChange?: (draft: NewTodoInput | null) => void
   editDraft?: TodoEditDraft | null
@@ -287,16 +291,32 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       })
     })
     const body = row.createDiv({ cls: "modular-diary-todo-body" })
-    if (item.estimateMinutes > 0 && item.type) {
+    // A note-body todo has nowhere to store a category or an estimate, so it
+    // is still draggable: the host resolves the category from the toolbar and
+    // the block gets a default length the reader can then resize.
+    const scheduleMinutes = item.estimateMinutes > 0
+      ? item.estimateMinutes
+      : (item.body === true ? deps.defaultScheduleMinutes ?? 0 : 0)
+    if (scheduleMinutes > 0 && (Boolean(item.type) || item.body === true)) {
       body.classList.add("modular-diary-schedule-source")
       body.dataset.scheduleSource = "todo"
       body.dataset.scheduleId = item.id
       body.dataset.scheduleTitle = item.title
-      body.dataset.scheduleType = item.type
-      body.dataset.scheduleDuration = String(item.estimateMinutes)
+      // Left empty on purpose for a body todo: the drag resolves it live.
+      body.dataset.scheduleType = item.type ?? ""
+      body.dataset.scheduleDuration = String(scheduleMinutes)
     }
     body.createEl("span", { cls: "modular-diary-item-title", text: item.title })
-    const metaParts = [item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) })].filter(Boolean)
+    // The category only showed as the progress bar's colour, which says
+    // nothing until the row has progress to paint.
+    // A note-body todo has nowhere to store an estimate, so "0m / 0m" would
+    // be pure noise until it has real numbers to show.
+    const untimedBodyTodo = item.body === true && item.estimateMinutes === 0 && item.actualMinutes === 0
+    const metaParts = [
+      item.weekly ? t("weeklyGoal") : "",
+      item.type ?? "",
+      untimedBodyTodo ? "" : t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) }),
+    ].filter(Boolean)
     body.createEl("span", { cls: "modular-diary-item-meta", text: metaParts.join(" · ") })
     // A zero-progress track is just a full-width grey underline that reads
     // as a row divider; quiet flat rows only paint the track once there is
