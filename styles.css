@@ -1921,6 +1921,55 @@
   margin-left: calc(var(--modular-diary-todo-depth, 0) * 14px);
 }
 
+/* A node wraps one row plus its descendants: the unit that drags as a whole. */
+.modular-diary-todo-node {
+  position: relative;
+}
+
+.modular-diary-todo-node.is-drag-source {
+  opacity: 0.35;
+}
+
+/* The collapse chevron leads a parent's title. */
+button.modular-diary-todo-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  margin-right: 1px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  vertical-align: -0.25em;
+  cursor: pointer;
+}
+
+button.modular-diary-todo-toggle:hover {
+  color: var(--text-muted);
+}
+
+button.modular-diary-todo-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+
+.modular-diary-todo-collapsed-count {
+  margin: 0 0.3em;
+  color: var(--text-faint);
+  font-size: 0.84em;
+}
+
+/* Dropping onto the middle of this row makes the drag a re-parent. */
+.modular-diary-todo-row.modular-diary-item-drop-child {
+  outline: 2px dashed var(--interactive-accent);
+  outline-offset: -1px;
+  border-radius: var(--modular-diary-radius-control);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+}
+
 .modular-diary-todo-row:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: -1px;

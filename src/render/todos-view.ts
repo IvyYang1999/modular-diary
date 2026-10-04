@@ -69,6 +69,11 @@ export interface TodoViewDeps {
   groupOrder?: string[]
   /** Reorder a group among its same-level siblings (key = composite group key). */
   onMoveGroup?: (key: string, targetIndex: number) => void
+  /** Session state: which parent todos are collapsed. */
+  collapsed?: (id: string) => boolean
+  onToggleCollapse?: (id: string) => void
+  /** Drop a todo onto another row to make it that todo's child. */
+  onReparent?: (id: string, parentId: string) => void
   /** Move a todo to a cell of the ABC / quadrant layout ("" = no cell), before another todo or at the cell's end. */
   onSetBucket?: (id: string, bucket: string, beforeId?: string | null) => void
   /** Open the layout picker (list / ABC / quadrants); the button shows only when given. */
@@ -361,14 +366,35 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   // Drag targets are indexes into the block-owned rows in source order;
   // weekly goals live in settings and keep their own ordering there.
   const ownedIds = items.filter((item) => !item.weekly).map((item) => item.id)
-  /** A drop at position `targetIndex` within one group's rows, mapped onto the owned todos. */
+  const weeklyIds = new Set(items.filter((item) => item.weekly).map((item) => item.id))
+  const subtreeIdsOf = (id: string): Set<string> => new Set([id, ...todoTree.descendantIds(id)])
+  /** A drop at node position `targetIndex` within one sibling list, mapped onto the owned todos (subtree blocks move whole). */
   const mapContainerMove = (containerIds: string[], draggedId: string, targetIndex: number): number => {
+    const draggedSet = subtreeIdsOf(draggedId)
+    const without = ownedIds.filter((id) => !draggedSet.has(id))
     const remaining = containerIds.filter((id) => id !== draggedId)
-    const without = ownedIds.filter((id) => id !== draggedId)
-    const nextOwned = remaining.slice(targetIndex).find((id) => without.includes(id))
-    if (nextOwned) return without.indexOf(nextOwned)
-    const prevOwned = [...remaining.slice(0, targetIndex)].reverse().find((id) => without.includes(id))
-    return prevOwned ? without.indexOf(prevOwned) + 1 : 0
+    const nextSibling = remaining.slice(targetIndex).find((id) => without.includes(id))
+    if (nextSibling) return without.indexOf(nextSibling)
+    const before = [...remaining.slice(0, targetIndex)].reverse().find((id) => without.includes(id))
+    if (!before) return 0
+    // The subtree lands after the previous sibling's own subtree.
+    const beforeSet = subtreeIdsOf(before)
+    let target = without.indexOf(before)
+    without.forEach((id, index) => { if (beforeSet.has(id) && index > target) target = index })
+    return target + 1
+  }
+  /** One commit path for pointer drops and Alt+arrows: owned rows map onto subtree-aware indexes, weekly rows onto their own list. */
+  const emitMove = (item: TodoViewItem, containerIds: string[] | null, targetIndex: number): void => {
+    if (!containerIds) {
+      deps.onMove(item.id, targetIndex)
+      return
+    }
+    if (item.weekly) {
+      const remaining = containerIds.filter((id) => id !== item.id)
+      deps.onMove(item.id, remaining.slice(0, targetIndex).filter((id) => weeklyIds.has(id)).length)
+      return
+    }
+    deps.onMove(item.id, mapContainerMove(containerIds, item.id, targetIndex))
   }
   /** A group section: header (draggable when onMoveGroup is wired) with rows appended by the caller. */
   const renderGroupSection = (container: HTMLElement, key: string, label: string, sub: boolean): HTMLElement => {
@@ -409,10 +435,10 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     header.createEl("span", { cls: "modular-diary-todo-group-name", text: label })
     return section
   }
-  const renderRow = (item: TodoViewItem, sourceIndex: number, host: HTMLElement, containerIds: string[] | null, depth: number): void => {
+  const renderRow = (item: TodoViewItem, sourceIndex: number, node: HTMLElement, siblings: HTMLElement, containerIds: string[] | null, depth: number, childCount: number, collapsed: boolean): void => {
     // Bucket cells are chosen per root; children follow their root's cell.
     const rowDraggable = buckets ? !item.weekly && Boolean(deps.onSetBucket) && todoTree.parentOf(item.id) === null : manualSort && (!grouped || !item.weekly)
-    const row = host.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${rowDraggable ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
+    const row = node.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${rowDraggable ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
     if (depth > 0) row.style.setProperty("--modular-diary-todo-depth", String(depth))
     row.tabIndex = 0
     row.dataset.todoId = item.id
@@ -421,14 +447,27 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       // One Tab stop per row: the grip stays a pointer affordance, the row reorders with Alt+↑/↓.
       drag.tabIndex = -1
       appendSixDotGrip(drag)
-      if (buckets) attachBucketDrag(list, row, drag, (key, beforeId) => deps.onSetBucket?.(item.id, key, beforeId), item.bucket && knownCells.has(item.bucket) ? item.bucket : "")
-      else attachPointerRowSort({
-        list: host,
-        row,
-        handle: drag,
-        rowSelector: ".modular-diary-todo-row",
-        onMove: (targetIndex) => deps.onMove(item.id, grouped && containerIds ? mapContainerMove(containerIds, item.id, targetIndex) : targetIndex),
-      })
+      if (buckets) attachBucketDrag(list, node, drag, (key, beforeId) => deps.onSetBucket?.(item.id, key, beforeId), item.bucket && knownCells.has(item.bucket) ? item.bucket : "")
+      else {
+        // Drop targets for re-parenting: any block-owned row in this component, never the dragged subtree or a weekly goal.
+        const forbidden = subtreeIdsOf(item.id)
+        attachPointerRowSort({
+          list: siblings,
+          row: node,
+          handle: drag,
+          rowSelector: ".modular-diary-todo-node",
+          ghostElement: () => row.cloneNode(true) as HTMLElement,
+          childDrops: deps.onReparent && !item.movedTo
+            ? () => Array.from(root.querySelectorAll<HTMLElement>(".modular-diary-todo-row[data-todo-id]"))
+              .filter((candidate) => {
+                const id = candidate.dataset.todoId ?? ""
+                return id !== "" && id !== item.id && !forbidden.has(id) && !weeklyIds.has(id)
+              })
+              .map((candidate) => ({ row: candidate, onChild: () => deps.onReparent?.(item.id, candidate.dataset.todoId ?? "") }))
+            : undefined,
+          onMove: (targetIndex) => emitMove(item, containerIds, targetIndex),
+        })
+      }
     }
     const editForm = createTodoForm(
       row,
@@ -451,14 +490,14 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     if (buckets && rowDraggable) row.addEventListener("keydown", (event) => {
       if (!event.altKey || event.target !== row) return
       const cellKey = item.bucket && knownCells.has(item.bucket) ? item.bucket : ""
-      const siblings = Array.from(row.parentElement?.querySelectorAll<HTMLElement>(":scope > .modular-diary-todo-row") ?? [])
-      const at = siblings.indexOf(row)
+      const siblingsInCell = Array.from(node.parentElement?.children ?? []).filter((child): child is HTMLElement => child instanceof HTMLElement && child.matches(".modular-diary-todo-node"))
+      const at = siblingsInCell.indexOf(node)
       if (event.key === "ArrowUp" || event.key === "ArrowDown") {
         // Up and down stay inside the cell.
         event.preventDefault()
-        const neighbour = siblings[at + (event.key === "ArrowUp" ? -1 : 1)]
+        const neighbour = siblingsInCell[at + (event.key === "ArrowUp" ? -1 : 1)]
         if (!neighbour) return
-        const beforeId = event.key === "ArrowUp" ? neighbour.dataset.todoId : siblings[at + 2]?.dataset.todoId ?? null
+        const beforeId = event.key === "ArrowUp" ? neighbour.dataset.todoNode : siblingsInCell[at + 2]?.dataset.todoNode ?? null
         deps.onSetBucket?.(item.id, cellKey, beforeId ?? null)
       } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         // Left and right step to the neighbouring cell (reading order).
@@ -469,21 +508,14 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
         if (next !== undefined && next !== cellKey) deps.onSetBucket?.(item.id, next, null)
       }
     })
-    else if (grouped && rowDraggable) row.addEventListener("keydown", (event) => {
+    else if (rowDraggable) row.addEventListener("keydown", (event) => {
       if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown") || event.target !== row || !containerIds) return
       event.preventDefault()
-      const siblings = Array.from(host.querySelectorAll<HTMLElement>(":scope > .modular-diary-todo-row"))
-      const at = siblings.indexOf(row)
+      const siblingsInList = Array.from(node.parentElement?.children ?? []).filter((child): child is HTMLElement => child instanceof HTMLElement && child.matches(".modular-diary-todo-node"))
+      const at = siblingsInList.indexOf(node)
       const target = at + (event.key === "ArrowUp" ? -1 : 1)
-      if (at < 0 || target < 0 || target >= siblings.length) return
-      deps.onMove(item.id, mapContainerMove(containerIds, item.id, target))
-    })
-    else if (manualSort && !grouped) row.addEventListener("keydown", (event) => {
-      if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown") || event.target !== row) return
-      event.preventDefault()
-      const target = sourceIndex + (event.key === "ArrowUp" ? -1 : 1)
-      if (target < 0 || target >= items.length) return
-      deps.onMove(item.id, target)
+      if (at < 0 || target < 0 || target >= siblingsInList.length) return
+      emitMove(item, containerIds, target)
     })
     if (deps.editDraft?.id === item.id) {
       row.classList.add("is-editing")
@@ -538,6 +570,15 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       body.dataset.scheduleDuration = String(item.estimateMinutes)
     }
     const titleEl = body.createEl("span", { cls: "modular-diary-item-title" })
+    if (childCount > 0) {
+      const toggle = titleEl.createEl("button", { cls: "modular-diary-todo-toggle", attr: { type: "button", "aria-expanded": String(!collapsed), "aria-label": collapsed ? t("expandSubtodos") : t("collapseSubtodos") } })
+      setIcon(toggle, collapsed ? "chevron-right" : "chevron-down")
+      toggle.addEventListener("click", (event) => {
+        event.stopPropagation()
+        deps.onToggleCollapse?.(item.id)
+      })
+      if (collapsed) titleEl.createEl("span", { cls: "modular-diary-todo-collapsed-count", text: `+${todoTree.descendantIds(item.id).length}` })
+    }
     renderTitleWithTags(titleEl, item.title, deps.tagStyle)
     if (item.movedTo) titleEl.createEl("span", { cls: "modular-diary-todo-moved", text: t("movedToBadge", { date: item.movedTo.slice(5).replace("-", ".") }) })
     if (!deps.compactMeta) for (const flag of item.flags ?? []) titleEl.createEl("span", { cls: `modular-diary-todo-flag is-${flag.tone ?? "placed"}`, text: flag.text })
@@ -567,11 +608,20 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       bar.style.background = item.type ? (deps.typeColors[item.type] ?? "var(--interactive-accent)") : "var(--interactive-accent)"
     }
   }
-  /** Render a root and its whole subtree into host, depth-indented, preorder. */
+  /** A todo and its whole subtree wrapped in one draggable node, preorder, depth-indented. */
   const renderSubtree = (entry: TreeEntry, depth: number, host: HTMLElement, containerIds: string[] | null): void => {
     containerIds?.push(entry.id)
-    renderRow(entry, entry.sourceIndex, host, containerIds, depth)
-    for (const child of sortSiblings(todoTree.childrenOf(entry.id))) renderSubtree(child, depth + 1, host, containerIds)
+    const node = host.createDiv({ cls: "modular-diary-todo-node" })
+    node.dataset.todoNode = entry.id
+    const children = sortSiblings(todoTree.childrenOf(entry.id))
+    const collapsed = children.length > 0 && (deps.collapsed?.(entry.id) ?? false)
+    if (collapsed) node.classList.add("is-collapsed")
+    renderRow(entry, entry.sourceIndex, node, host, containerIds, depth, children.length, collapsed)
+    // Collapsed: the subtree is not rendered at all — drag orders stay among visible siblings.
+    if (children.length > 0 && !collapsed) {
+      const childHost = node.createDiv({ cls: "modular-diary-todo-children" })
+      for (const child of children) renderSubtree(child, depth + 1, childHost, containerIds)
+    }
   }
   if (grouped) {
     const groupTree = groupTodoTree(todoTree.roots, deps.view, deps.groupOrder ?? [])
@@ -595,7 +645,8 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   } else if (buckets) {
     for (const entry of sortSiblings(todoTree.roots)) renderSubtree(entry, 0, listFor(entry), null)
   } else {
-    for (const entry of sortSiblings(todoTree.roots)) renderSubtree(entry, 0, list, null)
+    const ids: string[] = []
+    for (const entry of sortSiblings(todoTree.roots)) renderSubtree(entry, 0, list, ids)
   }
   // Same count as the component header: done/total, shadows of pushed todos not counted.
   if (buckets) list.querySelectorAll<HTMLElement>(".modular-diary-todo-bucket").forEach((cell) => {
@@ -611,14 +662,15 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
  * type and columns); an insertion line shows where it lands. The row itself
  * never moves in the DOM mid-drag. Esc cancels.
  */
-function attachBucketDrag(list: HTMLElement, row: HTMLElement, handle: HTMLElement, onDrop: (bucket: string, beforeId: string | null) => void, from: string): void {
+function attachBucketDrag(list: HTMLElement, node: HTMLElement, handle: HTMLElement, onDrop: (bucket: string, beforeId: string | null) => void, from: string): void {
   handle.addEventListener("pointerdown", (event: PointerEvent) => {
     if (event.button !== 0) return
     event.preventDefault()
     event.stopPropagation()
-    const dom = row.ownerDocument
-    const rect = row.getBoundingClientRect()
-    const style = dom.defaultView?.getComputedStyle(row)
+    const dom = node.ownerDocument
+    const rect = node.getBoundingClientRect()
+    const innerRow = node.matches(".modular-diary-todo-row") ? node : node.querySelector<HTMLElement>(":scope > .modular-diary-todo-row") ?? node
+    const style = dom.defaultView?.getComputedStyle(innerRow)
     const offsetX = event.clientX - rect.left, offsetY = event.clientY - rect.top
     let ghost: HTMLElement | null = null
     let over: HTMLElement | null = null
@@ -627,13 +679,12 @@ function attachBucketDrag(list: HTMLElement, row: HTMLElement, handle: HTMLEleme
     marker.className = "modular-diary-todo-insert-line"
     const move = (e: PointerEvent): void => {
       if (!ghost) {
-        ghost = row.cloneNode(true) as HTMLElement
+        ghost = innerRow.cloneNode(true) as HTMLElement
         ghost.classList.add("modular-diary-item-sort-ghost")
         ghost.setAttribute("aria-hidden", "true")
         ghost.removeAttribute("tabindex")
         ghost.querySelectorAll<HTMLElement>("button, input, select, textarea, [tabindex]").forEach((element) => { element.tabIndex = -1 })
         ghost.style.width = `${rect.width}px`
-        ghost.style.height = `${rect.height}px`
         if (style) {
           ghost.style.gridTemplateColumns = style.gridTemplateColumns
           ghost.style.fontFamily = style.fontFamily
@@ -642,7 +693,7 @@ function attachBucketDrag(list: HTMLElement, row: HTMLElement, handle: HTMLEleme
           ghost.style.borderRadius = style.borderRadius
         }
         dom.body.appendChild(ghost)
-        row.classList.add("is-drag-source")
+        node.classList.add("is-drag-source")
         list.classList.add("is-dragging")
       }
       ghost.style.left = `${e.clientX - offsetX}px`
@@ -651,10 +702,10 @@ function attachBucketDrag(list: HTMLElement, row: HTMLElement, handle: HTMLEleme
       const target = cell && list.contains(cell) ? cell : null
       if (target !== over) { over?.classList.remove("is-over"); over = target; over?.classList.add("is-over") }
       if (!target) { marker.remove(); beforeId = null; return }
-      // The row whose middle is below the pointer is the one we land before.
-      const rowsIn = Array.from(target.querySelectorAll<HTMLElement>(".modular-diary-todo-bucket-list > .modular-diary-todo-row")).filter((r) => r !== row)
-      const next = rowsIn.find((r) => { const b = r.getBoundingClientRect(); return e.clientY < b.top + b.height / 2 }) ?? null
-      beforeId = next?.dataset.todoId ?? null
+      // The node whose middle is below the pointer is the one we land before.
+      const nodesIn = Array.from(target.querySelectorAll<HTMLElement>(".modular-diary-todo-bucket-list > .modular-diary-todo-node")).filter((candidate) => candidate !== node)
+      const next = nodesIn.find((candidate) => { const b = candidate.getBoundingClientRect(); return e.clientY < b.top + b.height / 2 }) ?? null
+      beforeId = next?.dataset.todoNode ?? null
       const holder = target.querySelector<HTMLElement>(".modular-diary-todo-bucket-list")!
       if (next) holder.insertBefore(marker, next)
       else holder.appendChild(marker)
@@ -667,16 +718,16 @@ function attachBucketDrag(list: HTMLElement, row: HTMLElement, handle: HTMLEleme
       const dragged = ghost !== null
       ghost?.remove()
       marker.remove()
-      row.classList.remove("is-drag-source")
+      node.classList.remove("is-drag-source")
       list.classList.remove("is-dragging")
       const target = over
       over?.classList.remove("is-over")
       if (!commit || !dragged || !target) return
       const bucket = target.dataset.bucket ?? ""
       // Same cell and same place: nothing to write.
-      const siblings = Array.from(target.querySelectorAll<HTMLElement>(".modular-diary-todo-bucket-list > .modular-diary-todo-row"))
-      const at = siblings.indexOf(row)
-      if (bucket === from && at >= 0 && (siblings[at + 1]?.dataset.todoId ?? null) === beforeId) return
+      const siblings = Array.from(target.querySelectorAll<HTMLElement>(".modular-diary-todo-bucket-list > .modular-diary-todo-node"))
+      const at = siblings.indexOf(node)
+      if (bucket === from && at >= 0 && (siblings[at + 1]?.dataset.todoNode ?? null) === beforeId) return
       onDrop(bucket, beforeId)
     }
     const up = (): void => end(true)

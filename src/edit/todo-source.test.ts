@@ -3,8 +3,8 @@ import { parseTimeline } from "../core/parser"
 import { todoMetrics } from "../core/todos"
 import type { TodoItem } from "../core/types"
 import {
-  addHabitSkip, deleteEntryLine, deleteTodo, deleteTodoSubtree, insertChildTodo, insertTodo, moveTodo, removeHabitSkip, setEntryTodoBinding,
-  setHeaderValue, setTodoCompleted, updateTodo,
+  addHabitSkip, deleteEntryLine, deleteTodo, deleteTodoSubtree, insertChildTodo, insertTodo, moveTodo, moveTodoSubtree, removeHabitSkip, setEntryTodoBinding,
+  setHeaderValue, setTodoCompleted, setTodoParent, updateTodo,
 } from "./source-rewriter"
 
 const item = (id: string, title = id): Omit<TodoItem, "line"> => ({
@@ -118,5 +118,41 @@ describe("todo and habit source rewrites", () => {
     expect(parseTimeline(out).todos.map((todo) => todo.id)).toEqual(["z"])
     expect(out).not.toContain("[todo:p]")
     expect(out).toContain("09:00-10:00 开发")
+  })
+
+  it("moves a whole subtree as one block", () => {
+    let source = "---"
+    source = insertTodo(source, item("a"))
+    source = insertChildTodo(source, "a", item("a1"))
+    source = insertChildTodo(source, "a", item("a2"))
+    source = insertTodo(source, item("b"))
+    // Drop "a" after "b": rest is [b], so the block lands at index 1.
+    expect(parseTimeline(moveTodoSubtree(source, "a", 1)).todos.map((todo) => todo.id)).toEqual(["b", "a", "a1", "a2"])
+    // Dropping before "b" keeps it first.
+    expect(parseTimeline(moveTodoSubtree(source, "a1", 0)).todos.map((todo) => todo.id)).toEqual(["a1", "a", "a2", "b"])
+  })
+
+  it("re-parents into the last child slot and back out to the roots", () => {
+    let source = "---"
+    source = insertTodo(source, item("r1"))
+    source = insertTodo(source, item("r2"))
+    source = insertTodo(source, item("c1"))
+    // c1 becomes r1's child and parks right after it.
+    source = setTodoParent(source, "c1", "r1")
+    expect(parseTimeline(source).todos.map((todo) => [todo.id, todo.parent ?? ""])).toEqual([["r1", ""], ["c1", "r1"], ["r2", ""]])
+    // r2 becomes c1's child: it must land inside r1's subtree, after c1.
+    source = setTodoParent(source, "r2", "c1")
+    expect(parseTimeline(source).todos.map((todo) => [todo.id, todo.parent ?? ""])).toEqual([["r1", ""], ["c1", "r1"], ["r2", "c1"]])
+    // Freeing r2 puts it back after the last root (r1).
+    source = setTodoParent(source, "r2", undefined)
+    expect(parseTimeline(source).todos.map((todo) => [todo.id, todo.parent ?? ""])).toEqual([["r1", ""], ["c1", "r1"], ["r2", ""]])
+  })
+
+  it("refuses to re-parent into its own subtree", () => {
+    let source = "---"
+    source = insertTodo(source, item("a"))
+    source = insertChildTodo(source, "a", item("a1"))
+    const cycle = setTodoParent(source, "a", "a1")
+    expect(parseTimeline(cycle).todos.map((todo) => todo.id)).toEqual(parseTimeline(source).todos.map((todo) => todo.id))
   })
 })

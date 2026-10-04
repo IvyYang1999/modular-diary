@@ -215,6 +215,70 @@ export function moveTodo(source: string, id: string, targetIndex: number): strin
   return lines.join("\n")
 }
 
+/** The whole subtree as one block, in source order. */
+function subtreeOf(doc: { todos: TodoItem[] }, id: string): TodoItem[] {
+  const ids = new Set([id, ...indexTodoTree(doc.todos).descendantIds(id)])
+  return doc.todos.filter((todo) => ids.has(todo.id))
+}
+
+/** Move a todo and its subtree as one block; `targetIndex` counts the todos left after the move. */
+export function moveTodoSubtree(source: string, id: string, targetIndex: number): string {
+  const doc = parseTimeline(source)
+  if (!doc.todos.some((todo) => todo.id === id)) return source
+  const subtree = subtreeOf(doc, id)
+  const subtreeIds = new Set(subtree.map((todo) => todo.id))
+  const ordered = doc.todos.filter((todo) => !subtreeIds.has(todo.id))
+  ordered.splice(Math.max(0, Math.min(targetIndex, ordered.length)), 0, ...subtree)
+  const lines = source.split("\n")
+  const todoLines = doc.todos.map((todo) => todo.line).sort((a, b) => a - b)
+  const values = ordered.map((todo) => `todo: ${formatTodoHeaderValue(todo)}`)
+  todoLines.forEach((line, index) => { lines[line] = values[index] })
+  return lines.join("\n")
+}
+
+/** Move a subtree so it lands right after `anchorId`'s subtree (parent's last child slot). */
+export function moveTodoSubtreeAfter(source: string, id: string, anchorId: string): string {
+  const doc = parseTimeline(source)
+  const subtreeIds = new Set(subtreeOf(doc, id).map((todo) => todo.id))
+  // An anchor that is missing or inside the moved subtree degrades to "append at the end".
+  if (!doc.todos.some((todo) => todo.id === anchorId) || subtreeIds.has(anchorId)) return moveTodoSubtree(source, id, doc.todos.length)
+  const anchorTree = indexTodoTree(doc.todos)
+  // The parent link is already updated, so the anchor's subtree would swallow the moved
+  // item itself; measure the anchor's subtree without it.
+  const anchorIds = new Set([anchorId, ...anchorTree.descendantIds(anchorId)].filter((id) => !subtreeIds.has(id)))
+  // Last subtree member in source order, robust to a non-preorder hand-edited source.
+  const last = doc.todos.filter((todo) => anchorIds.has(todo.id)).reduce((acc, todo) => (todo.line > acc.line ? todo : acc))
+  const rest = doc.todos.filter((todo) => !subtreeIds.has(todo.id))
+  return moveTodoSubtree(source, id, rest.findIndex((todo) => todo.id === last.id) + 1)
+}
+
+/**
+ * Re-parent a todo (undefined = back to a root) and park it in preorder:
+ * as the new parent's last child, or after the last root when freed.
+ */
+export function setTodoParent(source: string, id: string, parent: string | undefined): string {
+  const doc = parseTimeline(source)
+  const tree = indexTodoTree(doc.todos)
+  if (!doc.todos.some((todo) => todo.id === id)) return source
+  if (parent && (parent === id || new Set(tree.descendantIds(id)).has(parent))) return source
+  const out = updateTodo(source, id, { parent })
+  if (!parent) {
+    const anchor = lastRootId(parseTimeline(out).todos, id)
+    return anchor === null ? out : moveTodoSubtreeAfter(out, id, anchor)
+  }
+  // Park as the parent's last child; when it already is the only child, the anchor is the parent itself.
+  const siblings = indexTodoTree(parseTimeline(out).todos).childrenOf(parent).filter((child) => child.id !== id)
+  if (siblings.length === 0) return moveTodoSubtreeAfter(out, id, parent)
+  return moveTodoSubtreeAfter(out, id, siblings[siblings.length - 1].id)
+}
+
+/** The last root that is not the moved subtree itself; null when it is the only root. */
+function lastRootId(todos: TodoItem[], id: string): string | null {
+  const tree = indexTodoTree(todos)
+  const roots = tree.roots.filter((root) => root.id !== id)
+  return roots.length > 0 ? roots[roots.length - 1].id : null
+}
+
 /**
  * Put a todo into a cell and at a position there, in one change: before
  * `beforeId`, or after the last todo already in that cell (its place in the
@@ -230,7 +294,7 @@ export function placeTodoInBucket(source: string, id: string, bucket: string, be
     const lastInCell = rest.map((todo) => (todo.bucket ?? "") === bucket).lastIndexOf(true)
     if (lastInCell >= 0) target = lastInCell + 1
   }
-  if (target >= 0) out = moveTodo(out, id, target)
+  if (target >= 0) out = moveTodoSubtree(out, id, target)
   return out
 }
 

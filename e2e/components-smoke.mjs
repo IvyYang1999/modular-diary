@@ -232,17 +232,34 @@ renderTodosInto(createSlot("todos-grouped-sortable", 260), [
 
 // Sub-todos: parent= builds the tree; a parent rolls up subtree totals; the
 // "modular-diary-add-child" row event opens the add form with the parent preset.
-renderTodosInto(createSlot("todos-tree", 220), [
-  { id: "tp", title: "优化 openTrends", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 0, actualMinutes: 0 },
-  { id: "tc1", title: "功能优化", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 60, actualMinutes: 30, parent: "tp" },
-  { id: "tg1", title: "加载速度", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 15, actualMinutes: 0, parent: "tc1" },
-  { id: "tc2", title: "社媒", group: "", type: "develop", completed: true, weekly: false, estimateMinutes: 30, actualMinutes: 0, parent: "tp" },
-  { id: "tz", title: "独立任务", group: "", type: "read", completed: false, weekly: false, estimateMinutes: 20, actualMinutes: 0 },
-], {
-  categories: Object.keys(colors), typeColors: colors, view: { groupBy: "none", sortBy: "manual" },
-  onAdd: (input) => window.__events.push("todo-add:" + input.title + ":" + input.estimateMinutes + ":" + (input.parent ?? "")),
-  onEdit: () => {}, onGroupMenu: () => {}, onSortMenu: () => {}, onToggle: () => {}, onMenu: () => {}, onMove: () => {},
-})
+const treeTodoSlot = createSlot("todos-tree", 430)
+// Grips hang into the row's left gutter; padding keeps them inside the slot (and hit-testable).
+treeTodoSlot.style.paddingLeft = "36px"
+window.__treeCollapsed = []
+const renderTreeTodos = (): void => {
+  treeTodoSlot.replaceChildren()
+  renderTodosInto(treeTodoSlot, [
+    { id: "tp", title: "优化 openTrends", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 0, actualMinutes: 0 },
+    { id: "tc1", title: "功能优化", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 60, actualMinutes: 30, parent: "tp" },
+    { id: "tg1", title: "加载速度", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 15, actualMinutes: 0, parent: "tc1" },
+    { id: "tc2", title: "社媒", group: "", type: "develop", completed: true, weekly: false, estimateMinutes: 30, actualMinutes: 0, parent: "tp" },
+    { id: "tz", title: "独立任务", group: "", type: "read", completed: false, weekly: false, estimateMinutes: 20, actualMinutes: 0 },
+  ], {
+    categories: Object.keys(colors), typeColors: colors, view: { groupBy: "none", sortBy: "manual" },
+    collapsed: (id) => window.__treeCollapsed.includes(id),
+    onToggleCollapse: (id) => {
+      const at = window.__treeCollapsed.indexOf(id)
+      if (at < 0) window.__treeCollapsed.push(id)
+      else window.__treeCollapsed.splice(at, 1)
+      renderTreeTodos()
+    },
+    onAdd: (input) => window.__events.push("todo-add:" + input.title + ":" + input.estimateMinutes + ":" + (input.parent ?? "")),
+    onReparent: (id, parent) => window.__events.push("todo-reparent:" + id + ":" + parent),
+    onEdit: () => {}, onGroupMenu: () => {}, onSortMenu: () => {}, onToggle: () => {}, onMenu: () => {},
+    onMove: (id, index) => window.__events.push("tree-move:" + id + ":" + index),
+  })
+}
+renderTreeTodos()
 
 const persistentTodoSlot = createSlot("todos-edit-session", 150)
 let persistentEditDraft: any = null
@@ -819,6 +836,51 @@ const todoTree = await page.evaluate(() => {
 })
 await page.locator('.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-add-form .modular-diary-todo-title-input').fill("新子任务")
 await page.locator('.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-add-form').dispatchEvent("submit")
+// Collapse: the chevron hides the whole subtree and re-renders without it.
+const treeToggle = page.locator('.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-row[data-todo-id="tp"] .modular-diary-todo-toggle')
+await treeToggle.click()
+const collapsedTree = await page.evaluate(() => {
+  const slot = document.querySelector('.modular-diary-slot[data-slot="todos-tree"]')
+  return {
+    rows: [...slot.querySelectorAll(".modular-diary-todo-row")].map((row) => row.dataset.todoId),
+    expanded: slot.querySelector('.modular-diary-todo-row[data-todo-id="tp"] .modular-diary-todo-toggle')?.getAttribute("aria-expanded") ?? "",
+    count: slot.querySelector('.modular-diary-todo-row[data-todo-id="tp"] .modular-diary-todo-collapsed-count')?.textContent ?? "",
+  }
+})
+await treeToggle.click()
+// Dragging a parent moves its whole subtree as one block.
+const treeRow = (id) => page.locator(`.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-row[data-todo-id="${id}"]`)
+const tc1Grip = treeRow("tc1").locator(".modular-diary-todo-drag")
+await tc1Grip.scrollIntoViewIfNeeded()
+const tc1GripBox = await tc1Grip.boundingBox()
+const tc2Box = await treeRow("tc2").boundingBox()
+if (!tc1GripBox || !tc2Box) throw new Error("tree drag fixture has no measurable geometry")
+await page.mouse.move(tc1GripBox.x + tc1GripBox.width / 2, tc1GripBox.y + tc1GripBox.height / 2)
+await page.waitForTimeout(20)
+await page.mouse.down()
+await page.mouse.move(tc2Box.x + tc2Box.width / 2, tc2Box.y + tc2Box.height - 2, { steps: 6 })
+const subtreeDrag = await page.evaluate(() => {
+  const node = document.querySelector('.modular-diary-todo-node[data-todo-node="tc1"]')
+  const order = [...(node?.parentElement?.children ?? [])].map((child) => child.dataset.todoNode ?? "?")
+  return {
+    ghost: document.querySelector(".modular-diary-item-sort-ghost")?.textContent ?? "",
+    order,
+    subtreeIntact: Boolean(node?.querySelector('.modular-diary-todo-row[data-todo-id="tg1"]')),
+  }
+})
+await page.mouse.up()
+// Dropping onto the middle of a row re-parents instead of reordering.
+const tzGrip = treeRow("tz").locator(".modular-diary-todo-drag")
+await treeRow("tp").scrollIntoViewIfNeeded({ block: "center" })
+await tzGrip.hover()
+const tpBox = await treeRow("tp").boundingBox()
+if (!tpBox) throw new Error("reparent drag fixture has no measurable geometry")
+await page.mouse.down()
+await page.mouse.move(tpBox.x + tpBox.width / 2, tpBox.y + tpBox.height / 2, { steps: 4 })
+const reparentDrag = await page.evaluate(() => ({
+  highlighted: document.querySelector(".modular-diary-todo-row.modular-diary-item-drop-child")?.dataset.todoId ?? "",
+}))
+await page.mouse.up()
 const events = await page.evaluate(() => window.__events)
 await page.locator("#host").screenshot({ path: path.join(out, "components-light.png") })
 await page.locator(".habit-badge-contract").screenshot({ path: path.join(out, "habit-status-badges-light.png") })
@@ -977,6 +1039,9 @@ if (!todoTree || todoTree.order.join("|") !== "tp|tc1|tg1|tc2|tz") errors.push("
 if (todoTree && !(parseFloat(todoTree.indents[2]) > parseFloat(todoTree.indents[1]) && parseFloat(todoTree.indents[1]) > parseFloat(todoTree.indents[0]))) errors.push("sub-todos must indent one step per depth: " + JSON.stringify(todoTree))
 if (todoTree && !todoTree.parentMeta.includes("子项 1/3")) errors.push("a parent todo must report its subtree done/total count: " + JSON.stringify(todoTree))
 if (todoTree && !todoTree.addFormVisible) errors.push("the add-child row event must open the add form")
+if (collapsedTree.rows.join("|") !== "tp|tz" || collapsedTree.expanded !== "false" || collapsedTree.count !== "+3") errors.push("collapsing a parent must hide its subtree and count it: " + JSON.stringify(collapsedTree))
+if (subtreeDrag.order.join("|") !== "tc2|tc1" || !subtreeDrag.subtreeIntact || !subtreeDrag.ghost.includes("功能优化")) errors.push("dragging a parent must move its subtree as one block: " + JSON.stringify(subtreeDrag))
+if (reparentDrag.highlighted !== "tp") errors.push("dropping onto a row's middle must highlight the re-parent target: " + JSON.stringify(reparentDrag))
 if (state.groupedTodoHandleCount !== 0) errors.push("derived todo views must not advertise manual drag sorting")
 if (!state.groupedTodoSortLabel.includes("切换为手动排序后可拖拽")) errors.push("derived todo views must explain how to restore manual drag sorting")
 if (state.groupedScheduleSourceCount !== 3 || state.scheduleSourceCursor !== "grab") errors.push("estimated items must remain directly schedulable even in a derived Todo view")
@@ -1003,12 +1068,14 @@ if (state.todoHeaderActionIcons.join("|") !== "list-tree|arrow-up-down|plus") er
 if (state.habitHeaderActionCount !== 1 || state.habitHeaderActionLabel !== "编辑打卡项目" || state.habitHeaderActionIcon !== "pencil") errors.push("habit header must expose one clearly named pencil edit action")
 if (!todoEditWasVisible || todoEditInitial.title !== "整理发布清单" || todoEditInitial.category !== "develop" || todoEditInitial.estimate !== "1" || todoEditInitial.estimateUnit !== "hours") errors.push("todo edit form must open prefilled with an intelligible duration unit")
 if (state.weeklyCheckboxDisabled !== 1) errors.push("weekly todo must remain automatic")
-for (const expected of ["habit-edit", "habit-menu:weekly", "habit-move:weekly:1", "todo-menu:local", "todo-move:local:2", "todo-toggle:local:true", "empty-habit-edit", "empty-todo-add:空状态新任务"]) {
+for (const expected of ["habit-edit", "habit-menu:weekly", "habit-move:weekly:1", "todo-menu:local", "todo-move:local:1", "todo-toggle:local:true", "empty-habit-edit", "empty-todo-add:空状态新任务"]) {
   if (!events.includes(expected)) errors.push("missing interaction " + expected)
 }
 if (!events.includes("todo-edit:local:整理发布清单:45")) errors.push("todo estimate edit did not reach the persistence contract")
 if (!events.includes("todo-add:整理学习资料:30")) errors.push("hour-based todo creation did not convert to canonical minutes")
 if (!events.includes("todo-add:新子任务:30:tp")) errors.push("adding a sub-todo did not carry the parent id through the add form")
+if (!events.includes("tree-move:tc1:1")) errors.push("a subtree drop must map onto the owned todo order: " + JSON.stringify(subtreeDrag))
+if (!events.includes("todo-reparent:tz:tp")) errors.push("a drop onto a row must re-parent instead of reorder")
 if (!events.includes('todo-group-move:"c:read":1')) errors.push("group keyboard reorder did not reach the persistence contract")
 if (!events.includes("todo-move:ga:3")) errors.push("row reorder inside a group must map onto the block-owned todo order")
 if (minuteValueBeforeUnitSwitch !== "30" || hourValueAfterUnitSwitch !== "30" || minuteValueAfterUnitSwitch !== "0.5" || hourValueAfterRoundTrip !== "0.5") errors.push("switching Todo duration units must reinterpret the authored number without rewriting it")

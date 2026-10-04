@@ -6,6 +6,11 @@ export interface PointerRowSortOptions {
   onMove: (targetIndex: number) => void
   /** Custom drag ghost (e.g. a group header instead of the whole section). Defaults to a full row clone. */
   ghostElement?: () => HTMLElement
+  /**
+   * Rows that accept a drop onto their middle band: instead of reordering,
+   * the drop calls `onChild` (e.g. "make this todo a child of that row").
+   */
+  childDrops?: () => Array<{ row: HTMLElement; onChild: () => void }>
 }
 
 /**
@@ -63,6 +68,18 @@ export function attachPointerRowSort(options: PointerRowSortOptions): void {
     row.classList.add("modular-diary-item-sort-placeholder")
 
     let active = true
+    let childDrop: { row: HTMLElement; onChild: () => void } | null = null
+    let childHighlighted: HTMLElement | null = null
+    /** The pointer over a candidate's middle band (30–70%) means "drop onto", not "drop between". */
+    const findChildDrop = (moveEvent: PointerEvent): { row: HTMLElement; onChild: () => void } | null => {
+      for (const target of options.childDrops?.() ?? []) {
+        const rect = target.row.getBoundingClientRect()
+        if (moveEvent.clientX >= rect.left && moveEvent.clientX <= rect.right
+          && moveEvent.clientY >= rect.top + rect.height * 0.3
+          && moveEvent.clientY <= rect.top + rect.height * 0.7) return target
+      }
+      return null
+    }
     const releaseCapture = (): void => {
       if (list.hasPointerCapture(pointerId)) list.releasePointerCapture(pointerId)
     }
@@ -75,6 +92,9 @@ export function attachPointerRowSort(options: PointerRowSortOptions): void {
       ghost.remove()
       list.classList.remove("is-ordering")
       row.classList.remove("modular-diary-item-sort-placeholder")
+      childHighlighted?.classList.remove("modular-diary-item-drop-child")
+      childHighlighted = null
+      childDrop = null
     }
     const restore = (): void => {
       if (originalNext?.parentNode === list) list.insertBefore(row, originalNext)
@@ -84,6 +104,24 @@ export function attachPointerRowSort(options: PointerRowSortOptions): void {
       if (!active || moveEvent.pointerId !== pointerId) return
       moveEvent.preventDefault()
       ghost.style.transform = `translate3d(0, ${moveEvent.clientY - startY}px, 0)`
+      const childTarget = findChildDrop(moveEvent)
+      if (childTarget) {
+        // A drop-on-row: park the row back at its origin; the highlight carries the intent.
+        if (originalNext?.parentNode === list) list.insertBefore(row, originalNext)
+        else list.appendChild(row)
+        if (childHighlighted !== childTarget.row) {
+          childHighlighted?.classList.remove("modular-diary-item-drop-child")
+          childHighlighted = childTarget.row
+          childHighlighted.classList.add("modular-diary-item-drop-child")
+        }
+        childDrop = childTarget
+        return
+      }
+      if (childHighlighted) {
+        childHighlighted.classList.remove("modular-diary-item-drop-child")
+        childHighlighted = null
+      }
+      childDrop = null
       const peers = rows().filter((candidate) => candidate !== row)
       const before = peers.find((candidate) => {
         const candidateRect = candidate.getBoundingClientRect()
@@ -95,9 +133,14 @@ export function attachPointerRowSort(options: PointerRowSortOptions): void {
     const commit = (): void => {
       if (!active) return
       active = false
+      const drop = childDrop
       const targetIndex = rows().indexOf(row)
       cleanup()
       releaseCapture()
+      if (drop) {
+        drop.onChild()
+        return
+      }
       if (targetIndex >= 0 && targetIndex !== originalIndex) onMove(targetIndex)
     }
     const cancel = (): void => {

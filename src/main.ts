@@ -7,7 +7,7 @@ import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } 
 import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
 import { CategorySettingsModal, DailyQuoteSettingsModal, HabitSettingsModal } from "./settings-modals"
 import { attachDialog } from "./agent/dialog"
-import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, deleteTodoSubtree, extractBlockSourceFromContent, insertChildTodo, insertEntryLine, insertHeaderLine, insertSpanLine, setItemBody, setTextTitle, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, setTodoCompleted, updateTodo, placeTodoInBucket } from "./edit/source-rewriter"
+import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, deleteTodoSubtree, extractBlockSourceFromContent, insertChildTodo, insertEntryLine, insertHeaderLine, insertMarkerLine, insertSpanLine, insertTodo, moveTodo, moveTodoSubtree, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setItemBody, setTextSection, setTextTitle, setTodoCompleted, setTodoParent, updateTodo, placeTodoInBucket } from "./edit/source-rewriter"
 import { buildLayerToggles, buildToolbar, LayerView } from "./edit/toolbar"
 import { attachDrawInteraction, requestTimelineEntryDelete } from "./edit/draw-interaction"
 import { attachMarkerInteraction } from "./edit/marker-interaction"
@@ -172,6 +172,8 @@ export default class ModularDiaryPlugin extends Plugin {
   private nudgeDismissedHour = -1
   /** Period blocks being browsed away from their written `days:` (per note + block ordinal). */
   private readonly periodBrowse = new Map<string, import("./core/types").PeriodSpec>()
+  /** Session state: parent todos whose sub-todos are collapsed (view-only). */
+  private readonly todoCollapsed = new Set<string>()
   private dayIndexSeeded = false
   private dayIndexRefresh: Promise<void> | null = null
   private ledgerRefreshTimer = 0
@@ -1103,6 +1105,15 @@ export default class ModularDiaryPlugin extends Plugin {
           },
           onSetBucket: (id, bucket, beforeId) => void this.applyBlockTransform(el, ctx, source, (value) => placeTodoInBucket(value, id, bucket, beforeId ?? null)),
           groupOrder: doc.todoGroupOrder,
+          collapsed: (id) => this.todoCollapsed.has(id),
+          onToggleCollapse: (id) => {
+            if (this.todoCollapsed.has(id)) this.todoCollapsed.delete(id)
+            else this.todoCollapsed.add(id)
+            this.rerenderMountedTimelines()
+          },
+          onReparent: (id, parentId) => {
+            void this.applyBlockTransform(el, ctx, source, (value) => setTodoParent(value, id, parentId))
+          },
           onMoveGroup: (key, targetIndex) => {
             const tree = groupTodoTree(todoViewItems, doc.todoView, doc.todoGroupOrder)
             void this.applyBlockTransform(el, ctx, source, (value) =>
@@ -1179,19 +1190,23 @@ export default class ModularDiaryPlugin extends Plugin {
           onMove: (id, targetIndex) => {
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
             if (weekly) {
+              // The view maps weekly drops onto the weekly list itself.
               const ordered = [...this.settings.weeklyTodos].sort((a, b) => a.order - b.order)
               const from = ordered.findIndex((item) => item.id === id)
               const [moved] = ordered.splice(from, 1)
-              ordered.splice(Math.max(0, Math.min(targetIndex - doc.todos.length, ordered.length)), 0, moved)
+              ordered.splice(Math.max(0, Math.min(targetIndex, ordered.length)), 0, moved)
               ordered.forEach((item, index) => { item.order = index })
               this.settings.weeklyTodos = ordered
               void this.saveSettings({ rerender: true })
-            } else void this.applyBlockTransform(el, ctx, source, (value) => moveTodo(value, id, targetIndex))
+            } else void this.applyBlockTransform(el, ctx, source, (value) => moveTodoSubtree(value, id, targetIndex))
           },
           onMenu: (todo, x, y, edit, addChild) => {
             const menu = new Menu()
             menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
             if (addChild) menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("list-plus").onClick(addChild))
+            if (!todo.weekly && todo.parent) menu.addItem((item) => item.setTitle(tr("unparentTodo")).setIcon("corner-left-up").onClick(() => {
+              void this.applyBlockTransform(el, ctx, source, (value) => setTodoParent(value, todo.id, undefined))
+            }))
             const childCount = indexTodoTree(doc.todos).descendantIds(todo.id).length
             const deleteLabel = childCount > 0 ? tr("deleteTodoWithChildren", { count: childCount }) : tr("deleteTodo")
             const remove = (): void => {
@@ -1216,11 +1231,17 @@ export default class ModularDiaryPlugin extends Plugin {
               }))
             } else if (todo.movedTo) {
               const movedTo = todo.movedTo
+              const subtreeIds = [todo.id, ...indexTodoTree(doc.todos).descendantIds(todo.id)]
               menu.addItem((item) => item.setTitle(tr("recallTodo")).setIcon("undo-2").onClick(() => {
                 void (async () => {
                   try {
-                    await this.writeToDay(movedTo, (blockSource) => deleteTodo(blockSource, todo.id))
-                    await this.applyBlockTransform(el, ctx, source, (current) => updateTodo(current, todo.id, { moved: undefined }))
+                    // The whole pushed subtree comes back; shadows clear with it.
+                    await this.writeToDay(movedTo, (blockSource) => deleteTodoSubtree(blockSource, todo.id))
+                    await this.applyBlockTransform(el, ctx, source, (current) => {
+                      let out = current
+                      for (const id of subtreeIds) out = updateTodo(out, id, { moved: undefined })
+                      return out
+                    })
                   } catch (error) {
                     console.error("Modular Diary: failed to recall a pushed todo", error)
                     if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("periodWriteFailed", { date: movedTo }))
@@ -1233,20 +1254,34 @@ export default class ModularDiaryPlugin extends Plugin {
             } else {
               if (dateStr) menu.addItem((item) => item.setTitle(tr("pushTodoToTomorrow")).setIcon("calendar-plus").onClick(() => {
                 const target = shiftDate(dateStr, 1)
-                const value = {
-                  id: todo.id, title: todo.title, group: todo.group, type: todo.type,
-                  estimateMin: todo.estimateMinutes, completed: false, due: doc.todos.find((own) => own.id === todo.id)?.due,
-                  bucket: doc.todos.find((own) => own.id === todo.id)?.bucket,
-                  note: doc.todos.find((own) => own.id === todo.id)?.note,
-                }
+                const own = doc.todos.find((candidate) => candidate.id === todo.id)
+                if (!own) return
+                // The whole subtree is pushed and keeps its parent links there.
+                const subtreeIds = [own.id, ...indexTodoTree(doc.todos).descendantIds(own.id)]
                 void (async () => {
                   try {
                     // Tomorrow first: if that write fails nothing here changes.
-                    // Today's line stays as a shadow (moved=) so the push survives
+                    // Today's lines stay as shadows (moved=) so the push survives
                     // tomorrow's note being deleted and recreated.
-                    await this.writeToDay(target, (blockSource) =>
-                      this.parse(blockSource).todos.some((existing) => existing.id === todo.id) ? blockSource : insertTodo(blockSource, value))
-                    await this.applyBlockTransform(el, ctx, source, (current) => updateTodo(current, todo.id, { moved: target }))
+                    await this.writeToDay(target, (blockSource) => {
+                      let out = blockSource
+                      for (const id of subtreeIds) {
+                        if (this.parse(out).todos.some((existing) => existing.id === id)) continue
+                        const line = doc.todos.find((candidate) => candidate.id === id)!
+                        const value = {
+                          id: line.id, title: line.title, group: line.group, type: line.type,
+                          estimateMin: line.estimateMin, completed: line.completed, due: line.due,
+                          bucket: line.bucket, note: line.note, parent: line.parent,
+                        }
+                        out = line.parent && subtreeIds.includes(line.parent) ? insertChildTodo(out, line.parent, value) : insertTodo(out, value)
+                      }
+                      return out
+                    })
+                    await this.applyBlockTransform(el, ctx, source, (current) => {
+                      let out = current
+                      for (const id of subtreeIds) out = updateTodo(out, id, { moved: target })
+                      return out
+                    })
                     new Notice(tr("pushedTodoToDay", { date: target }))
                   } catch (error) {
                     console.error("Modular Diary: failed to push todo to tomorrow", error)
@@ -2193,7 +2228,16 @@ export default class ModularDiaryPlugin extends Plugin {
       onAssign: (id, to) => void (async () => {
         try {
           await unplan(id)
-          await rewrite((current) => updateTodo(current, id, { day: to === POOL_ZONE ? undefined : to }))
+          // Scheduling a parent all-day carries the subtree: planned children keep their own time slots.
+          const ids = [id, ...indexTodoTree(doc.todos).descendantIds(id)]
+          await rewrite((current) => {
+            let out = current
+            for (const sub of ids) {
+              if (sub !== id && plannedAt.has(sub)) continue
+              out = updateTodo(out, sub, { day: to === POOL_ZONE ? undefined : to })
+            }
+            return out
+          })
         } catch (error) { fail(to, error) }
       })(),
       onPlan: (id, date, startMin) => void (async () => {
@@ -2222,7 +2266,14 @@ export default class ModularDiaryPlugin extends Plugin {
       onEdit: (id, input) => void rewrite((current) => updateTodo(current, id, { title: input.title, type: input.type, estimateMin: input.estimateMinutes, note: input.note })),
       onToggle: (id, completed) => rewrite((current) => setTodoCompleted(current, id, completed)),
       onDelete: (id) => void rewrite((current) => deleteTodoSubtree(current, id)),
-      onMove: (id, targetIndex) => void rewrite((current) => moveTodo(current, id, targetIndex)),
+      onMove: (id, targetIndex) => void rewrite((current) => moveTodoSubtree(current, id, targetIndex)),
+      collapsed: (id) => this.todoCollapsed.has(id),
+      onToggleCollapse: (id) => {
+        if (this.todoCollapsed.has(id)) this.todoCollapsed.delete(id)
+        else this.todoCollapsed.add(id)
+        this.rerenderMountedTimelines()
+      },
+      onReparent: (id, parentId) => void rewrite((current) => setTodoParent(current, id, parentId)),
       onMoveGroup: (key, targetIndex) => void rewrite((current) =>
         setHeaderValue(current, "todo-groups", JSON.stringify(moveTodoGroupKey(groupTodoTree(todos, doc.todoView, doc.todoGroupOrder), key, targetIndex)))),
       onGroupMenu: (x, y) => this.showTodoGroupMenu(dom, x, y, doc.todoView, setView),
@@ -2238,16 +2289,30 @@ export default class ModularDiaryPlugin extends Plugin {
         const menu = new Menu()
         menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
         if (addChild) menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("list-plus").onClick(addChild))
+        if (todo.parent) menu.addItem((item) => item.setTitle(tr("unparentTodo")).setIcon("corner-left-up").onClick(() =>
+          void rewrite((current) => setTodoParent(current, id, undefined))))
         menu.addItem((item) => {
           item.setTitle(tr("scheduleOn")).setIcon("calendar-plus")
           const withSub = item as unknown as { setSubmenu?: () => Menu }
           const sub = withSub.setSubmenu?.()
           const target = sub ?? menu
+          // Assigning a parent carries its unplanned descendants along.
+          const subtree = [id, ...indexTodoTree(doc.todos).descendantIds(id)]
           for (const date of resolved.days) target.addItem((dayItem) => dayItem
             .setTitle(`${weekday(date)} ${Number(date.slice(5, 7))}.${Number(date.slice(8))}`)
             .setChecked(todo.placement?.date === date && todo.placement.startMin === undefined)
             .onClick(() => void (async () => {
-              try { await unplan(id); await rewrite((current) => updateTodo(current, id, { day: date })) } catch (error) { fail(date, error) }
+              try {
+                await unplan(id)
+                await rewrite((current) => {
+                  let out = current
+                  for (const member of subtree) {
+                    if (member !== id && plannedAt.has(member)) continue
+                    out = updateTodo(out, member, { day: date })
+                  }
+                  return out
+                })
+              } catch (error) { fail(date, error) }
             })()))
         })
         menu.addItem((item) => item.setTitle(todo.completed ? tr("markIncomplete") : tr("markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() =>

@@ -76,6 +76,10 @@ export interface PeriodViewDeps {
   onMove: (id: string, targetIndex: number) => void
   /** Reorder a todo group among its same-level siblings (composite group key). */
   onMoveGroup?: (key: string, targetIndex: number) => void
+  /** Session state for collapsed parent todos, drop-on-row re-parenting. */
+  collapsed?: (id: string) => boolean
+  onToggleCollapse?: (id: string) => void
+  onReparent?: (id: string, parentId: string) => void
   onGroupMenu: (x: number, y: number) => void
   onSortMenu: (x: number, y: number) => void
   onTodoMenu?: (id: string, x: number, y: number, edit: () => void, addChild: (() => void) | null) => void
@@ -393,6 +397,9 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
     typeColors: deps.typeColors,
     view: model.todoView,
     groupOrder: model.todoGroupOrder,
+    collapsed: deps.collapsed,
+    onToggleCollapse: deps.onToggleCollapse,
+    onReparent: deps.onReparent,
     tagStyle: deps.tagStyle,
     tagSuggest: deps.tagSuggest,
     onAdd: deps.onAdd,
