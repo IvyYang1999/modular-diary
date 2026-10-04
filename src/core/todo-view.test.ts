@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { parseTimeline } from "./parser"
-import { flatTodoGroupOrder, formatTodoViewHeaderValue, groupTodoTree, moveTodoGroupKey, parseTodoViewHeaderValue } from "./todos"
+import { flatTodoGroupOrder, formatTodoViewHeaderValue, groupTodoTree, indexTodoTree, moveTodoGroupKey, parseTodoViewHeaderValue } from "./todos"
 
 describe("todo view rules", () => {
   it("round-trips the block-local grouping and sorting rule", () => {
@@ -84,5 +84,25 @@ describe("todo-groups header", () => {
     const doc = parseTimeline("todo-groups: not json\n---")
     expect(doc.todoGroupOrder).toEqual([])
     expect(doc.errors).toEqual([])
+  })
+})
+
+describe("todo tree index", () => {
+  const node = (id: string, parent?: string): { id: string; parent?: string } => ({ id, ...(parent ? { parent } : {}) })
+
+  it("indexes roots, children, depth and descendants from parent links alone", () => {
+    const tree = indexTodoTree([node("a"), node("b", "a"), node("c", "b"), node("d")])
+    expect(tree.roots.map((entry) => entry.id)).toEqual(["a", "d"])
+    expect(tree.childrenOf("a").map((entry) => entry.id)).toEqual(["b"])
+    expect(tree.depthOf("c")).toBe(2)
+    expect(tree.descendantIds("a")).toEqual(["b", "c"])
+    expect(tree.rootOf("c").id).toBe("a")
+  })
+
+  it("treats missing or cyclic parents as roots instead of breaking", () => {
+    const tree = indexTodoTree([node("a", "ghost"), node("b", "c"), node("c", "b")])
+    expect(tree.roots.map((entry) => entry.id)).toEqual(["a", "b", "c"])
+    expect(tree.parentOf("a")).toBeNull()
+    expect(tree.parentOf("b")).toBeNull()
   })
 })

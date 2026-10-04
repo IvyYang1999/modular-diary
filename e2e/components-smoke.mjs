@@ -230,6 +230,20 @@ renderTodosInto(createSlot("todos-grouped-sortable", 260), [
   onMoveGroup: (key, index) => window.__events.push("todo-group-move:" + JSON.stringify(key) + ":" + index),
 })
 
+// Sub-todos: parent= builds the tree; a parent rolls up subtree totals; the
+// "modular-diary-add-child" row event opens the add form with the parent preset.
+renderTodosInto(createSlot("todos-tree", 220), [
+  { id: "tp", title: "优化 openTrends", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 0, actualMinutes: 0 },
+  { id: "tc1", title: "功能优化", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 60, actualMinutes: 30, parent: "tp" },
+  { id: "tg1", title: "加载速度", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 15, actualMinutes: 0, parent: "tc1" },
+  { id: "tc2", title: "社媒", group: "", type: "develop", completed: true, weekly: false, estimateMinutes: 30, actualMinutes: 0, parent: "tp" },
+  { id: "tz", title: "独立任务", group: "", type: "read", completed: false, weekly: false, estimateMinutes: 20, actualMinutes: 0 },
+], {
+  categories: Object.keys(colors), typeColors: colors, view: { groupBy: "none", sortBy: "manual" },
+  onAdd: (input) => window.__events.push("todo-add:" + input.title + ":" + input.estimateMinutes + ":" + (input.parent ?? "")),
+  onEdit: () => {}, onGroupMenu: () => {}, onSortMenu: () => {}, onToggle: () => {}, onMenu: () => {}, onMove: () => {},
+})
+
 const persistentTodoSlot = createSlot("todos-edit-session", 150)
 let persistentEditDraft: any = null
 const persistentRefreshGate = createPointerRedrawGate()
@@ -788,6 +802,23 @@ const groupedSortable = await page.evaluate(() => {
     noteBelowTitle: Boolean(noteRect && titleRect && noteRect.top >= titleRect.bottom - 1),
   }
 })
+// Sub-todo tree: preorder rows, per-depth indent, parent rollup, add-child form.
+const todoTree = await page.evaluate(() => {
+  const slot = document.querySelector('.modular-diary-slot[data-slot="todos-tree"]')
+  if (!slot) return null
+  const rows = [...slot.querySelectorAll(".modular-diary-todo-row")]
+  const parentRow = slot.querySelector('.modular-diary-todo-row[data-todo-id="tp"]')
+  parentRow?.dispatchEvent(new CustomEvent("modular-diary-add-child"))
+  const form = slot.querySelector(".modular-diary-todo-add-form")
+  return {
+    order: rows.map((row) => row.dataset.todoId),
+    indents: rows.map((row) => getComputedStyle(row).marginLeft),
+    parentMeta: parentRow?.querySelector(".modular-diary-item-meta")?.textContent ?? "",
+    addFormVisible: Boolean(form && !form.hidden),
+  }
+})
+await page.locator('.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-add-form .modular-diary-todo-title-input').fill("新子任务")
+await page.locator('.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-add-form').dispatchEvent("submit")
 const events = await page.evaluate(() => window.__events)
 await page.locator("#host").screenshot({ path: path.join(out, "components-light.png") })
 await page.locator(".habit-badge-contract").screenshot({ path: path.join(out, "habit-status-badges-light.png") })
@@ -890,7 +921,7 @@ const [noProgress, halfProgress, noEstimate] = narrowRows.progressRows
 if (!noProgress || noProgress.tracks !== 0 || !halfProgress || halfProgress.tracks !== 1 || !near(halfProgress.barRatio, 0.5) || !noEstimate || noEstimate.tracks !== 0) {
   errors.push("todo progress track must appear only once there is progress: " + JSON.stringify(narrowRows.progressRows))
 }
-if (state.slotCount !== 8) errors.push("expected eight component slots")
+if (state.slotCount !== 9) errors.push("expected nine component slots")
 if (!near(state.weeklyHabitRatio, 0.5)) errors.push("weekly habit progress must carry across days")
 if (!near(state.todoRatios[0], 0.5) || !near(state.todoRatios[1], 0.5)) errors.push("todo actual/estimate progress is wrong")
 if (state.rowBorderRadius !== "7px" || state.rowBackground !== "rgba(0, 0, 0, 0)" || state.rowBorderWidth !== "1px" || state.rowBorderStyle !== "solid") errors.push("habit rows must be compact outlined status rows")
@@ -902,7 +933,7 @@ if (state.todoGroupCount !== 0 || state.todoGroupControls !== 0) errors.push("to
 if (!state.todoEstimateUnitOptions.length || state.todoEstimateUnitOptions.some((options) => options !== "分钟|小时")) errors.push("todo estimate must offer both minute and hour units")
 if (!state.draftVisible || state.draftTitle !== "未保存草稿" || state.draftEstimate !== "0.5" || state.draftEstimateUnit !== "hours") errors.push("todo draft must survive a renderer replacement with its chosen duration unit")
 if (state.draftRestoreFocus !== "draft-restore-focus-owner") errors.push("restoring a todo creation draft stole focus from another active interaction")
-if (state.todoRowsDraggable.some(Boolean) || state.todoHandleDraggable || state.todoHandleCount !== 8) errors.push("todo sorting must use one pointer-owned handle per row rather than native HTML drag")
+if (state.todoRowsDraggable.some(Boolean) || state.todoHandleDraggable || state.todoHandleCount !== 13) errors.push("todo sorting must use one pointer-owned handle per row rather than native HTML drag")
 if (state.todoHandleOpacity !== "0" || todoHandleHoverOpacity !== "1" || todoHandleFocusOpacity !== "1") errors.push("todo drag handles must reveal only on row hover or focus")
 if (todoSequentialHoverOpacities.join("|") !== "0|1|0") errors.push("moving hover to another Todo row must hide the previously focused row grip")
 if (todoOrderingHoverGrip.opacity !== "0" || todoOrderingHoverGrip.pointerEvents !== "none") errors.push("an ordering Todo list must suppress the hovered candidate row grip")
@@ -942,6 +973,10 @@ if (!groupedSortable || groupedSortable.topKeys.join("|") !== "c:read|c:develop"
 if (groupedSortable.readSubLabels.join("|") !== "#阅读|无标签") errors.push("tag sub-groups must nest under their category with the untagged one last: " + JSON.stringify(groupedSortable))
 if (groupedSortable.groupGripCount !== 6 || groupedSortable.rowGripCount !== 4 || groupedSortable.weeklyGripCount !== 0) errors.push("grouped manual todos need a grip per group and per owned row, never on weekly goals: " + JSON.stringify(groupedSortable))
 if (groupedSortable.noteText !== "先列大纲" || !groupedSortable.noteBelowTitle) errors.push("a todo note must render as small print below its title: " + JSON.stringify(groupedSortable))
+if (!todoTree || todoTree.order.join("|") !== "tp|tc1|tg1|tc2|tz") errors.push("sub-todos must render in preorder under their parent: " + JSON.stringify(todoTree))
+if (todoTree && !(parseFloat(todoTree.indents[2]) > parseFloat(todoTree.indents[1]) && parseFloat(todoTree.indents[1]) > parseFloat(todoTree.indents[0]))) errors.push("sub-todos must indent one step per depth: " + JSON.stringify(todoTree))
+if (todoTree && !todoTree.parentMeta.includes("子项 1/3")) errors.push("a parent todo must report its subtree done/total count: " + JSON.stringify(todoTree))
+if (todoTree && !todoTree.addFormVisible) errors.push("the add-child row event must open the add form")
 if (state.groupedTodoHandleCount !== 0) errors.push("derived todo views must not advertise manual drag sorting")
 if (!state.groupedTodoSortLabel.includes("切换为手动排序后可拖拽")) errors.push("derived todo views must explain how to restore manual drag sorting")
 if (state.groupedScheduleSourceCount !== 3 || state.scheduleSourceCursor !== "grab") errors.push("estimated items must remain directly schedulable even in a derived Todo view")
@@ -973,6 +1008,7 @@ for (const expected of ["habit-edit", "habit-menu:weekly", "habit-move:weekly:1"
 }
 if (!events.includes("todo-edit:local:整理发布清单:45")) errors.push("todo estimate edit did not reach the persistence contract")
 if (!events.includes("todo-add:整理学习资料:30")) errors.push("hour-based todo creation did not convert to canonical minutes")
+if (!events.includes("todo-add:新子任务:30:tp")) errors.push("adding a sub-todo did not carry the parent id through the add form")
 if (!events.includes('todo-group-move:"c:read":1')) errors.push("group keyboard reorder did not reach the persistence contract")
 if (!events.includes("todo-move:ga:3")) errors.push("row reorder inside a group must map onto the block-owned todo order")
 if (minuteValueBeforeUnitSwitch !== "30" || hourValueAfterUnitSwitch !== "30" || minuteValueAfterUnitSwitch !== "0.5" || hourValueAfterRoundTrip !== "0.5") errors.push("switching Todo duration units must reinterpret the authored number without rewriting it")

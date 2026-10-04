@@ -101,6 +101,8 @@ export interface TodoItem {
   due?: string
   /** Free-text note shown in small type under the title. */
   note?: string
+  /** Parent todo id: this line is a sub-todo. Line order is the tree's preorder. */
+  parent?: string
   /**
    * The day this todo was pushed to. The line stays where it was as a
    * durable shadow: it shows "moved" here, and it refills the destination if

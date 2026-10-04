@@ -3,8 +3,8 @@ import { parseTimeline } from "../core/parser"
 import { todoMetrics } from "../core/todos"
 import type { TodoItem } from "../core/types"
 import {
-  addHabitSkip, deleteEntryLine, deleteTodo, insertTodo, moveTodo, removeHabitSkip, setEntryTodoBinding,
-  setHeaderValue, updateTodo,
+  addHabitSkip, deleteEntryLine, deleteTodo, deleteTodoSubtree, insertChildTodo, insertTodo, moveTodo, removeHabitSkip, setEntryTodoBinding,
+  setHeaderValue, setTodoCompleted, updateTodo,
 } from "./source-rewriter"
 
 const item = (id: string, title = id): Omit<TodoItem, "line"> => ({
@@ -76,5 +76,47 @@ describe("todo and habit source rewrites", () => {
     source = setHeaderValue(source, "todo-view", "group=category sort=estimate")
     source = setHeaderValue(source, "todo-view", "group=none sort=manual")
     expect(parseTimeline(source).todos.map((todo) => todo.id)).toEqual(manualOrder)
+  })
+
+  it("inserts a child right after its parent's subtree, keeping preorder", () => {
+    let source = "date: 2026-08-23\n---"
+    source = insertTodo(source, item("a", "根"))
+    source = insertTodo(source, item("z", "另一个"))
+    source = insertChildTodo(source, "a", item("a1", "子一"))
+    source = insertChildTodo(source, "a1", item("a1i", "孙"))
+    source = insertChildTodo(source, "a", item("a2", "子二"))
+    expect(parseTimeline(source).todos.map((todo) => [todo.id, todo.parent ?? ""])).toEqual([
+      ["a", ""], ["a1", "a"], ["a1i", "a1"], ["a2", "a"], ["z", ""],
+    ])
+  })
+
+  it("cascades completion down the subtree and bubbles it up", () => {
+    let source = "---"
+    source = insertTodo(source, item("p"))
+    source = insertChildTodo(source, "p", item("c1"))
+    source = insertChildTodo(source, "p", item("c2"))
+    // Completing the parent completes the children.
+    source = setTodoCompleted(source, "p", true)
+    expect(parseTimeline(source).todos.map((todo) => [todo.id, todo.completed]))
+      .toEqual([["p", true], ["c1", true], ["c2", true]])
+    // Un-checking one child un-dones the parent.
+    source = setTodoCompleted(source, "c1", false)
+    expect(parseTimeline(source).todos.map((todo) => [todo.id, todo.completed]))
+      .toEqual([["p", false], ["c1", false], ["c2", true]])
+    // Completing the last open child completes the parent.
+    source = setTodoCompleted(source, "c1", true)
+    expect(parseTimeline(source).todos.map((todo) => todo.completed))
+      .toEqual([true, true, true])
+  })
+
+  it("deletes the whole subtree along with its entry bindings", () => {
+    let source = "---\n09:00-10:00 开发 写代码 [todo:p]"
+    source = insertTodo(source, item("p"))
+    source = insertChildTodo(source, "p", item("c1"))
+    source = insertTodo(source, item("z"))
+    const out = deleteTodoSubtree(source, "p")
+    expect(parseTimeline(out).todos.map((todo) => todo.id)).toEqual(["z"])
+    expect(out).not.toContain("[todo:p]")
+    expect(out).toContain("09:00-10:00 开发")
   })
 })

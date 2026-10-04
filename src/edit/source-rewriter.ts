@@ -7,7 +7,7 @@ import { parseTimeline } from "../core/parser"
 import { bodyExtent, escapeSectionLine, headerInsertIndex, headerZone, TEXT_SEPARATOR_RE } from "../core/body-extent"
 import { formatBodyLines, formatEntryLine, formatSpanLine } from "../core/format"
 import { MIN_TIMELINE_SPAN_MINUTES } from "../core/duration"
-import { formatTodoHeaderValue } from "../core/todos"
+import { formatTodoHeaderValue, indexTodoTree } from "../core/todos"
 import { parseRecoverableLayoutHeader } from "../core/grid-layout"
 import type { TodoItem } from "../core/types"
 
@@ -135,12 +135,61 @@ export function insertTodo(source: string, todo: Omit<TodoItem, "line">): string
   return lines.join("\n")
 }
 
+/** Insert a sub-todo right after its parent's subtree, keeping the source in preorder. */
+export function insertChildTodo(source: string, parentId: string, todo: Omit<TodoItem, "line">): string {
+  const doc = parseTimeline(source)
+  const parent = doc.todos.find((item) => item.id === parentId)
+  if (!parent) return insertTodo(source, todo)
+  const subtree = new Set([parentId, ...indexTodoTree(doc.todos).descendantIds(parentId)])
+  const lastLine = Math.max(...doc.todos.filter((item) => subtree.has(item.id)).map((item) => item.line))
+  const lines = source.split("\n")
+  lines.splice(lastLine + 1, 0, `todo: ${formatTodoHeaderValue({ ...todo, parent: parentId })}`)
+  return lines.join("\n")
+}
+
 export function updateTodo(source: string, id: string, patch: Partial<Omit<TodoItem, "id" | "line">>): string {
   const current = parseTimeline(source).todos.find((todo) => todo.id === id)
   if (!current) return source
   const lines = source.split("\n")
   lines[current.line] = `todo: ${formatTodoHeaderValue({ ...current, ...patch })}`
   return lines.join("\n")
+}
+
+/**
+ * Toggle a todo. Descendants follow the toggle; afterwards each ancestor is
+ * done exactly when all of its children are. All of it is written back line
+ * by line, so the markdown stays the truth.
+ */
+export function setTodoCompleted(source: string, id: string, completed: boolean): string {
+  const doc = parseTimeline(source)
+  if (!doc.todos.some((todo) => todo.id === id)) return source
+  const tree = indexTodoTree(doc.todos)
+  const done = new Map(doc.todos.map((todo) => [todo.id, todo.completed]))
+  const changed = new Set<string>([id, ...tree.descendantIds(id)])
+  for (const sub of changed) done.set(sub, completed)
+  let cursor = tree.parentOf(id)
+  while (cursor) {
+    const children = tree.childrenOf(cursor)
+    const next = children.length > 0 && children.every((child) => done.get(child.id))
+    if (done.get(cursor) !== next) { done.set(cursor, next); changed.add(cursor) }
+    cursor = tree.parentOf(cursor)
+  }
+  const lines = source.split("\n")
+  for (const todo of doc.todos) {
+    if (changed.has(todo.id)) lines[todo.line] = `todo: ${formatTodoHeaderValue({ ...todo, completed: done.get(todo.id)! })}`
+  }
+  return lines.join("\n")
+}
+
+/** Delete a todo together with its whole subtree (and entry bindings of each). */
+export function deleteTodoSubtree(source: string, id: string): string {
+  const doc = parseTimeline(source)
+  const ids = new Set([id, ...indexTodoTree(doc.todos).descendantIds(id)])
+  // Descending line order keeps the remaining line numbers valid mid-surgery.
+  const doomed = doc.todos.filter((todo) => ids.has(todo.id)).sort((a, b) => b.line - a.line)
+  let out = source
+  for (const todo of doomed) out = deleteTodo(out, todo.id)
+  return out
 }
 
 export function deleteTodo(source: string, id: string): string {

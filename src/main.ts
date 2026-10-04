@@ -7,7 +7,7 @@ import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } 
 import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
 import { CategorySettingsModal, DailyQuoteSettingsModal, HabitSettingsModal } from "./settings-modals"
 import { attachDialog } from "./agent/dialog"
-import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertHeaderLine, insertSpanLine, setItemBody, setTextTitle, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo, placeTodoInBucket } from "./edit/source-rewriter"
+import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, deleteTodoSubtree, extractBlockSourceFromContent, insertChildTodo, insertEntryLine, insertHeaderLine, insertSpanLine, setItemBody, setTextTitle, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, setTodoCompleted, updateTodo, placeTodoInBucket } from "./edit/source-rewriter"
 import { buildLayerToggles, buildToolbar, LayerView } from "./edit/toolbar"
 import { attachDrawInteraction, requestTimelineEntryDelete } from "./edit/draw-interaction"
 import { attachMarkerInteraction } from "./edit/marker-interaction"
@@ -73,7 +73,7 @@ import type { TagSuggestDeps } from "./edit/tag-suggest"
 type MomentLike = (input: string, format: string) => { format: (momentFormat: string) => string }
 const momentFormat = (momentFormat: string, date: string): string =>
   ((window as unknown as { moment?: MomentLike }).moment?.(date, "YYYY-MM-DD").format(momentFormat)) ?? date
-import { formatTodoViewHeaderValue, groupTodoTree, isWeeklyTodoDue, moveTodoGroupKey, todoMetrics, TODO_BUCKETS } from "./core/todos"
+import { formatTodoViewHeaderValue, groupTodoTree, indexTodoTree, isWeeklyTodoDue, moveTodoGroupKey, todoMetrics, TODO_BUCKETS } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
 import { renderDailyQuoteInto } from "./render/daily-quote-view"
@@ -1151,9 +1151,10 @@ export default class ModularDiaryPlugin extends Plugin {
               ...(input.bucket ? { bucket: input.bucket } : {}),
               ...(input.note ? { note: input.note } : {}),
             }
-            void this.applyBlockTransform(el, ctx, source, (current) => insertTodo(
-              this.addComponentSlot(current, doc, container, "todos"), value
-            ))
+            void this.applyBlockTransform(el, ctx, source, (current) =>
+              input.parent
+                ? insertChildTodo(this.addComponentSlot(current, doc, container, "todos"), input.parent, value)
+                : insertTodo(this.addComponentSlot(current, doc, container, "todos"), value))
           },
           onEdit: (id, input) => {
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
@@ -1173,7 +1174,7 @@ export default class ModularDiaryPlugin extends Plugin {
             }))
           },
           onToggle: (id, completed) => {
-            return this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, id, { completed }))
+            return this.applyBlockTransform(el, ctx, source, (value) => setTodoCompleted(value, id, completed))
           },
           onMove: (id, targetIndex) => {
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
@@ -1187,9 +1188,15 @@ export default class ModularDiaryPlugin extends Plugin {
               void this.saveSettings({ rerender: true })
             } else void this.applyBlockTransform(el, ctx, source, (value) => moveTodo(value, id, targetIndex))
           },
-          onMenu: (todo, x, y, edit) => {
+          onMenu: (todo, x, y, edit, addChild) => {
             const menu = new Menu()
             menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
+            if (addChild) menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("list-plus").onClick(addChild))
+            const childCount = indexTodoTree(doc.todos).descendantIds(todo.id).length
+            const deleteLabel = childCount > 0 ? tr("deleteTodoWithChildren", { count: childCount }) : tr("deleteTodo")
+            const remove = (): void => {
+              void this.applyBlockTransform(el, ctx, source, (value) => deleteTodoSubtree(value, todo.id))
+            }
             const layoutNow = doc.todoView.layout ?? "list"
             if (layoutNow !== "list" && !todo.weekly) menu.addItem((item) => {
               // Keyboard path into a cell, mirroring the grip drag.
@@ -1247,9 +1254,7 @@ export default class ModularDiaryPlugin extends Plugin {
                   }
                 })()
               }))
-              menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => {
-                void this.applyBlockTransform(el, ctx, source, (value) => deleteTodo(value, todo.id))
-              }))
+              menu.addItem((item) => item.setTitle(deleteLabel).setIcon("trash").onClick(remove))
             }
             menu.showAtPosition({ x, y }, dom)
           },
@@ -2206,14 +2211,17 @@ export default class ModularDiaryPlugin extends Plugin {
           if (todo.day) await rewrite((current) => updateTodo(current, id, { day: undefined }))
         } catch (error) { fail(date, error) }
       })(),
-      onAdd: (input) => void rewrite((current) => insertTodo(current, {
-        id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-        title: input.title, group: "", type: input.type, estimateMin: input.estimateMinutes, completed: false,
-        ...(input.note ? { note: input.note } : {}),
-      })),
+      onAdd: (input) => void rewrite((current) => {
+        const value = {
+          id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+          title: input.title, group: "", type: input.type, estimateMin: input.estimateMinutes, completed: false,
+          ...(input.note ? { note: input.note } : {}),
+        }
+        return input.parent ? insertChildTodo(current, input.parent, value) : insertTodo(current, value)
+      }),
       onEdit: (id, input) => void rewrite((current) => updateTodo(current, id, { title: input.title, type: input.type, estimateMin: input.estimateMinutes, note: input.note })),
-      onToggle: (id, completed) => rewrite((current) => updateTodo(current, id, { completed })),
-      onDelete: (id) => void rewrite((current) => deleteTodo(current, id)),
+      onToggle: (id, completed) => rewrite((current) => setTodoCompleted(current, id, completed)),
+      onDelete: (id) => void rewrite((current) => deleteTodoSubtree(current, id)),
       onMove: (id, targetIndex) => void rewrite((current) => moveTodo(current, id, targetIndex)),
       onMoveGroup: (key, targetIndex) => void rewrite((current) =>
         setHeaderValue(current, "todo-groups", JSON.stringify(moveTodoGroupKey(groupTodoTree(todos, doc.todoView, doc.todoGroupOrder), key, targetIndex)))),
@@ -2224,11 +2232,12 @@ export default class ModularDiaryPlugin extends Plugin {
           .forEach(({ value, title, checked }) => menu.addItem((item) => item.setTitle(title).setChecked(checked).onClick(() => setView({ sortBy: value }))))
         menu.showAtPosition({ x, y }, dom)
       },
-      onTodoMenu: (id, x, y, edit) => {
+      onTodoMenu: (id, x, y, edit, addChild) => {
         const todo = todos.find((item) => item.id === id)
         if (!todo) return
         const menu = new Menu()
         menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
+        if (addChild) menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("list-plus").onClick(addChild))
         menu.addItem((item) => {
           item.setTitle(tr("scheduleOn")).setIcon("calendar-plus")
           const withSub = item as unknown as { setSubmenu?: () => Menu }
@@ -2242,11 +2251,12 @@ export default class ModularDiaryPlugin extends Plugin {
             })()))
         })
         menu.addItem((item) => item.setTitle(todo.completed ? tr("markIncomplete") : tr("markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() =>
-          void rewrite((current) => updateTodo(current, id, { completed: !todo.completed }))))
+          void rewrite((current) => setTodoCompleted(current, id, !todo.completed))))
         if (todo.placement) menu.addItem((item) => item.setTitle(tr("unassignTodo")).setIcon("undo-2").onClick(() => void (async () => {
           try { await unplan(id); await rewrite((current) => updateTodo(current, id, { day: undefined })) } catch (error) { fail(todo.placement?.date ?? "", error) }
         })()))
-        menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => void rewrite((current) => deleteTodo(current, id))))
+        const childCount = indexTodoTree(doc.todos).descendantIds(id).length
+        menu.addItem((item) => item.setTitle(childCount > 0 ? tr("deleteTodoWithChildren", { count: childCount }) : tr("deleteTodo")).setIcon("trash").onClick(() => void rewrite((current) => deleteTodoSubtree(current, id))))
         menu.showAtPosition({ x, y }, dom)
       },
       onSaveGoal: (line, goal) => void rewrite((current) => line === null

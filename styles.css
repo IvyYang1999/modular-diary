@@ -1916,6 +1916,11 @@
   grid-template-columns: 22px minmax(0, 1fr);
 }
 
+/* Sub-todos indent per depth; the grip rides along since it anchors the row. */
+.modular-diary-todo-row {
+  margin-left: calc(var(--modular-diary-todo-depth, 0) * 14px);
+}
+
 .modular-diary-todo-row:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: -1px;

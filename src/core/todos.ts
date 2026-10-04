@@ -135,6 +135,87 @@ export function moveTodoGroupKey<T>(tree: TodoGroupNode<T>[], key: string, targe
   return flatTodoGroupOrder(nextTree)
 }
 
+/* ── sub-todos (`parent=`) ── */
+
+export interface TodoTreeIndex<T> {
+  /** Roots in item order; an item whose parent is missing or cyclic is a root. */
+  roots: T[]
+  childrenOf: (id: string) => T[]
+  parentOf: (id: string) => string | null
+  depthOf: (id: string) => number
+  /** All descendant ids in preorder. */
+  descendantIds: (id: string) => string[]
+  rootOf: (id: string) => T
+}
+
+/**
+ * Derive the todo tree from `parent=` links. The tree never depends on line
+ * adjacency: a reordered source still renders the same hierarchy, with each
+ * sibling list in source order.
+ */
+export function indexTodoTree<T extends { id: string; parent?: string }>(items: T[]): TodoTreeIndex<T> {
+  const byId = new Map(items.map((item) => [item.id, item]))
+  const effectiveParent = new Map<string, string | null>()
+  for (const item of items) {
+    let parent = item.parent && byId.has(item.parent) ? item.parent : null
+    if (parent) {
+      // Cycle check: walk the raw parent chain up from the candidate parent.
+      const seen = new Set<string>([item.id])
+      let cursor: string | null = parent
+      while (cursor && byId.has(cursor)) {
+        if (seen.has(cursor)) { parent = null; break }
+        seen.add(cursor)
+        cursor = byId.get(cursor)?.parent ?? null
+      }
+    }
+    effectiveParent.set(item.id, parent)
+  }
+  const children = new Map<string, T[]>()
+  const roots: T[] = []
+  for (const item of items) {
+    const parent = effectiveParent.get(item.id) ?? null
+    if (!parent) { roots.push(item); continue }
+    const siblings = children.get(parent) ?? []
+    siblings.push(item)
+    children.set(parent, siblings)
+  }
+  const parentOf = (id: string): string | null => effectiveParent.get(id) ?? null
+  const depthOf = (id: string): number => {
+    let depth = 0
+    let cursor = parentOf(id)
+    while (cursor) { depth += 1; cursor = parentOf(cursor) }
+    return depth
+  }
+  const descendantIds = (id: string): string[] => {
+    const out: string[] = []
+    const walk = (parent: string): void => {
+      for (const child of children.get(parent) ?? []) {
+        out.push(child.id)
+        walk(child.id)
+      }
+    }
+    walk(id)
+    return out
+  }
+  const rootOf = (id: string): T => {
+    let current = byId.get(id) ?? items[0]
+    let cursor = parentOf(current.id)
+    while (cursor) {
+      current = byId.get(cursor)!
+      cursor = parentOf(cursor)
+    }
+    return current
+  }
+  return {
+    roots,
+    childrenOf: (id) => children.get(id) ?? [],
+    parentOf,
+    depthOf,
+    descendantIds,
+    rootOf,
+  }
+}
+
 export interface WeeklyTodoDefinition {
   id: string
   title: string
@@ -168,6 +249,7 @@ export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem): 
     ...(todo.day ? [`day=${todo.day}`] : []),
     ...(todo.bucket ? [`bucket=${JSON.stringify(todo.bucket)}`] : []),
     ...(todo.note ? [`note=${JSON.stringify(todo.note)}`] : []),
+    ...(todo.parent ? [`parent=${JSON.stringify(todo.parent)}`] : []),
     `title=${JSON.stringify(todo.title)}`,
   ].join(" ")
 }
@@ -238,7 +320,7 @@ export function parseReadableFields(value: string): Map<string, string> | null {
 function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | null {
   const fields = parseReadableFields(value)
   const keys = ["id", "done", "estimate", "category", "group", "title"]
-  const optional = ["due", "moved", "day", "bucket", "note"]
+  const optional = ["due", "moved", "day", "bucket", "note", "parent"]
   if (!fields || keys.some((key) => !fields.has(key)) || [...fields.keys()].some((key) => !keys.includes(key) && !optional.includes(key))) return null
   const due = fields.get("due")
   const moved = fields.get("moved")
@@ -250,9 +332,11 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
   const type = fields.get("category") ?? ""
   const group = fields.get("group") ?? ""
   const title = fields.get("title") ?? ""
+  const parent = fields.get("parent")
   const estimateMin = Number(estimate)
   if (!/^[a-z0-9_-]+$/i.test(id) || (done !== "true" && done !== "false") ||
       !/^\d+$/.test(estimate) || !Number.isFinite(estimateMin) || !title) return null
+  if (parent !== undefined && !/^[a-z0-9_-]+$/i.test(parent)) return null
   return {
     id,
     completed: done === "true",
@@ -266,6 +350,7 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
     ...(day ? { day } : {}),
     ...(fields.get("bucket") ? { bucket: fields.get("bucket") } : {}),
     ...(fields.get("note") ? { note: fields.get("note") } : {}),
+    ...(parent && parent !== id ? { parent } : {}),
     line,
   }
 }

@@ -44,6 +44,13 @@ describe("todo source model", () => {
     expect(parseTodoHeaderValue(value, noted.line)).toEqual(noted)
   })
 
+  it("round-trips the parent link of a sub-todo", () => {
+    const child = { ...todo, id: "child", parent: "landing" }
+    const value = formatTodoHeaderValue(child)
+    expect(value).toContain('parent="landing"')
+    expect(parseTodoHeaderValue(value, child.line)).toEqual(child)
+  })
+
   it("keeps the manual estimate and sums only actual bound blocks", () => {
     const estimated = { ...todo, estimateMin: 45 }
     const entries = [

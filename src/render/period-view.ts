@@ -78,7 +78,7 @@ export interface PeriodViewDeps {
   onMoveGroup?: (key: string, targetIndex: number) => void
   onGroupMenu: (x: number, y: number) => void
   onSortMenu: (x: number, y: number) => void
-  onTodoMenu?: (id: string, x: number, y: number, edit: () => void) => void
+  onTodoMenu?: (id: string, x: number, y: number, edit: () => void, addChild: (() => void) | null) => void
   onSaveGoal: (line: number | null, goal: GoalDraft) => void
   onDeleteGoal: (line: number) => void
   onRailWidth: (px: number) => void
@@ -383,7 +383,7 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
   section.dataset.zoneKind = "list"
   const items: TodoViewItem[] = model.todos.map((todo) => ({
     id: todo.id, title: todo.title, group: todo.group, type: todo.type, completed: todo.completed, weekly: false,
-    tags: todo.tags, note: todo.note,
+    tags: todo.tags, note: todo.note, parent: todo.parent,
     estimateMinutes: todo.estimateMin, actualMinutes: todo.actualMinutes, flags: placementFlag(todo, model),
   }))
   renderTodosInto(section, items, {
@@ -402,7 +402,7 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
     onToggle: deps.onToggle,
     onMove: deps.onMove,
     onMoveGroup: deps.onMoveGroup,
-    onMenu: (item, x, y, edit) => deps.onTodoMenu?.(item.id, x, y, edit),
+    onMenu: (item, x, y, edit, addChild) => deps.onTodoMenu?.(item.id, x, y, edit, addChild),
   })
   const byId = new Map(model.todos.map((todo) => [todo.id, todo]))
   section.querySelectorAll<HTMLElement>(".modular-diary-todo-row[data-todo-id]").forEach((row) => {
@@ -528,8 +528,14 @@ function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewM
     row.scrollIntoView({ block: "nearest" })
     row.dispatchEvent(new CustomEvent("modular-diary-edit"))
   }
+  const addChildFor = (id: string): void => {
+    const row = root.querySelector<HTMLElement>(`.modular-diary-period-rail .modular-diary-todo-row[data-todo-id="${CSS.escape(id)}"]`)
+    if (!row) return
+    row.scrollIntoView({ block: "nearest" })
+    row.dispatchEvent(new CustomEvent("modular-diary-add-child"))
+  }
   const menuFor = (el: HTMLElement, id: string): void => {
-    const open = (x: number, y: number): void => deps.onTodoMenu?.(id, x, y, () => openRowEditor(id))
+    const open = (x: number, y: number): void => deps.onTodoMenu?.(id, x, y, () => openRowEditor(id), () => addChildFor(id))
     el.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); open(event.clientX, event.clientY) })
     el.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
