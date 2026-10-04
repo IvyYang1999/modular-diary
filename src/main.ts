@@ -15,7 +15,7 @@ import { showBlockMenu, showMarkerMenu } from "./edit/block-menu"
 import { attachHoverInfo, toggleBlockFocus } from "./edit/hover-info"
 import { applyGridToBody, attachGridInteract } from "./edit/grid-interact"
 import { compactGrid, defaultComponentSlot, GRID_COLS, GRID_ROW_H, gridRows, GridItem, HABITS_EMPTY_ROWS, MAX_GRID_COLS, serializeLayoutHeader } from "./core/grid-layout"
-import { inferDate, insertTimelineBlock, timelineTemplate } from "./insert"
+import { inferDate, insertPeriodBlock, insertTimelineBlock, timelineTemplate } from "./insert"
 import { attachWidthHandle } from "./edit/width-handle"
 import { openNotePopover } from "./edit/note-popover"
 import { openPointTimePopover, openTimePopover } from "./edit/time-popover"
@@ -73,7 +73,7 @@ import type { TagSuggestDeps } from "./edit/tag-suggest"
 type MomentLike = (input: string, format: string) => { format: (momentFormat: string) => string }
 const momentFormat = (momentFormat: string, date: string): string =>
   ((window as unknown as { moment?: MomentLike }).moment?.(date, "YYYY-MM-DD").format(momentFormat)) ?? date
-import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics, TODO_BUCKETS } from "./core/todos"
+import { formatTodoViewHeaderValue, groupTodoTree, isWeeklyTodoDue, moveTodoGroupKey, todoMetrics, TODO_BUCKETS } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
 import { renderDailyQuoteInto } from "./render/daily-quote-view"
@@ -84,7 +84,7 @@ const QUOTE_ROWS = 6
 const HOURLOG_ROWS = 10
 import { createPointerRedrawGate } from "./edit/pointer-interaction"
 import { attachTimelineScheduleDrag } from "./edit/timeline-schedule-drag"
-import { buildTodoGroupMenuOptions, buildTodoSortMenuOptions } from "./edit/block-menu-model"
+import { buildTodoGroupMenuOptions, buildTodoSortMenuOptions, buildTodoSubGroupMenuOptions } from "./edit/block-menu-model"
 import { migrateCategoryPalettes, type LegacyCategoryPaletteSettings } from "./core/category-palettes"
 import { mountSourceMode, sourceDraftCanApply, sourceDraftMatchesLive, type SourceModeSession } from "./edit/source-mode"
 import { TimelineVisualCoordinator } from "./edit/timeline-visual-coordinator"
@@ -256,9 +256,7 @@ export default class ModularDiaryPlugin extends Plugin {
       id: "insert-period-block",
       name: tr("insertPeriodBlock"),
       editorCallback: (editor) => {
-        const cursor = editor.getCursor()
-        const prefix = editor.getLine(cursor.line).trim() === "" ? "" : "\n"
-        editor.replaceRange(`${prefix}\`\`\`timeline\ndays: this-week\n---\n\`\`\`\n`, cursor)
+        insertPeriodBlock(editor)
       },
     })
     // 撤销/重做兜底按窗口注册：弹出窗口拥有独立 Document。
@@ -346,6 +344,14 @@ export default class ModularDiaryPlugin extends Plugin {
             .setIcon("calendar-clock")
             .onClick(() => {
               insertTimelineBlock(editor, this.app.workspace.getActiveFile()?.basename ?? null, this.insertTemplate())
+            })
+        )
+        menu.addItem((item) =>
+          item
+            .setTitle(tr("insertPeriodBlock"))
+            .setIcon("calendar-range")
+            .onClick(() => {
+              insertPeriodBlock(editor)
             })
         )
       })
@@ -536,7 +542,7 @@ export default class ModularDiaryPlugin extends Plugin {
           this.backfilling.add(el)
           void this.applyBlockTransform(el, ctx, source, (current) => arrivals.reduce((out, todo) =>
             this.parse(out).todos.some((own) => own.id === todo.id) ? out : insertTodo(out, {
-              id: todo.id, title: todo.title, group: todo.group, type: todo.type, estimateMin: todo.estimateMin, completed: false, due: todo.due, bucket: todo.bucket,
+              id: todo.id, title: todo.title, group: todo.group, type: todo.type, estimateMin: todo.estimateMin, completed: false, due: todo.due, bucket: todo.bucket, note: todo.note,
             }), current)).catch((error: unknown) => console.error("Modular Diary: failed to refill a recreated day", error))
             .finally(() => this.backfilling.delete(el))
         }
@@ -1096,6 +1102,12 @@ export default class ModularDiaryPlugin extends Plugin {
             else ownerEditDrafts?.delete(draftId)
           },
           onSetBucket: (id, bucket, beforeId) => void this.applyBlockTransform(el, ctx, source, (value) => placeTodoInBucket(value, id, bucket, beforeId ?? null)),
+          groupOrder: doc.todoGroupOrder,
+          onMoveGroup: (key, targetIndex) => {
+            const tree = groupTodoTree(todoViewItems, doc.todoView, doc.todoGroupOrder)
+            void this.applyBlockTransform(el, ctx, source, (value) =>
+              setHeaderValue(value, "todo-groups", JSON.stringify(moveTodoGroupKey(tree, key, targetIndex))))
+          },
           onLayoutMenu: (x, y) => {
             const menu = new Menu()
             const current = doc.todoView.layout ?? "list"
@@ -1107,21 +1119,12 @@ export default class ModularDiaryPlugin extends Plugin {
             menu.showAtPosition({ x, y }, dom)
           },
           onGroupMenu: (x, y) => {
-            const menu = new Menu()
             const setView = (patch: Partial<typeof doc.todoView>): void => {
               const next = { ...doc.todoView, ...patch }
               void this.applyBlockTransform(el, ctx, source, (value) =>
                 setHeaderValue(value, "todo-view", formatTodoViewHeaderValue(next)))
             }
-            buildTodoGroupMenuOptions(doc.todoView.groupBy, {
-              none: tr("todoGroupNone"),
-              category: tr("todoGroupCategory"),
-              status: tr("todoGroupStatus"),
-            }).forEach(({ value, title, checked }) => menu.addItem((item) => item
-              .setTitle(title)
-              .setChecked(checked)
-              .onClick(() => setView({ groupBy: value }))))
-            menu.showAtPosition({ x, y }, dom)
+            this.showTodoGroupMenu(dom, x, y, doc.todoView, setView)
           },
           onSortMenu: (x, y) => {
             const menu = new Menu()
@@ -1146,6 +1149,7 @@ export default class ModularDiaryPlugin extends Plugin {
               title: input.title, group: "", type: input.type,
               estimateMin: input.estimateMinutes, completed: false,
               ...(input.bucket ? { bucket: input.bucket } : {}),
+              ...(input.note ? { note: input.note } : {}),
             }
             void this.applyBlockTransform(el, ctx, source, (current) => insertTodo(
               this.addComponentSlot(current, doc, container, "todos"), value
@@ -1157,6 +1161,7 @@ export default class ModularDiaryPlugin extends Plugin {
               weekly.title = input.title
               weekly.type = input.type
               weekly.targetMinutes = input.estimateMinutes
+              weekly.note = input.note
               void this.saveSettings({ rerender: true })
               return
             }
@@ -1164,6 +1169,7 @@ export default class ModularDiaryPlugin extends Plugin {
               title: input.title,
               type: input.type,
               estimateMin: input.estimateMinutes,
+              note: input.note,
             }))
           },
           onToggle: (id, completed) => {
@@ -1224,6 +1230,7 @@ export default class ModularDiaryPlugin extends Plugin {
                   id: todo.id, title: todo.title, group: todo.group, type: todo.type,
                   estimateMin: todo.estimateMinutes, completed: false, due: doc.todos.find((own) => own.id === todo.id)?.due,
                   bucket: doc.todos.find((own) => own.id === todo.id)?.bucket,
+                  note: doc.todos.find((own) => own.id === todo.id)?.note,
                 }
                 void (async () => {
                   try {
@@ -2070,6 +2077,25 @@ export default class ModularDiaryPlugin extends Plugin {
     }
   }
 
+  /** The todo grouping menu: primary grouping, and a second level once the first is on. */
+  private showTodoGroupMenu(dom: Document, x: number, y: number, view: TimelineDoc["todoView"], setView: (patch: Partial<TimelineDoc["todoView"]>) => void): void {
+    const menu = new Menu()
+    const titles = { none: tr("todoGroupNone"), category: tr("todoGroupCategory"), status: tr("todoGroupStatus"), tag: tr("todoGroupTag") }
+    buildTodoGroupMenuOptions(view.groupBy, titles).forEach(({ value, title, checked }) => menu.addItem((item) => item
+      .setTitle(title)
+      .setChecked(checked)
+      .onClick(() => setView({ groupBy: value }))))
+    if (view.groupBy !== "none") {
+      menu.addSeparator()
+      menu.addItem((item) => item.setTitle(tr("todoSubGroupRule")).setIsLabel(true))
+      buildTodoSubGroupMenuOptions(view.groupBy, view.group2 ?? "none", titles).forEach(({ value, title, checked }) => menu.addItem((item) => item
+        .setTitle(title)
+        .setChecked(checked)
+        .onClick(() => setView({ group2: value === "none" ? undefined : value }))))
+    }
+    menu.showAtPosition({ x, y }, dom)
+  }
+
   /** A `days:` block: the period's goals and todos live here; each column is that day's note. */
   private renderPeriodBlock(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext, doc: TimelineDoc): void {
     if (!doc.period) return
@@ -2117,6 +2143,7 @@ export default class ModularDiaryPlugin extends Plugin {
     const model: PeriodViewModel = {
       spec: period, browsing: Boolean(browsed), period: resolved, today,
       goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView: doc.todoView, days,
+      todoGroupOrder: doc.todoGroupOrder,
       rangeStartMin, rangeEndMin,
       indexReady: ready, railWidth: doc.railWidth ?? 248,
     }
@@ -2182,17 +2209,15 @@ export default class ModularDiaryPlugin extends Plugin {
       onAdd: (input) => void rewrite((current) => insertTodo(current, {
         id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
         title: input.title, group: "", type: input.type, estimateMin: input.estimateMinutes, completed: false,
+        ...(input.note ? { note: input.note } : {}),
       })),
-      onEdit: (id, input) => void rewrite((current) => updateTodo(current, id, { title: input.title, type: input.type, estimateMin: input.estimateMinutes })),
+      onEdit: (id, input) => void rewrite((current) => updateTodo(current, id, { title: input.title, type: input.type, estimateMin: input.estimateMinutes, note: input.note })),
       onToggle: (id, completed) => rewrite((current) => updateTodo(current, id, { completed })),
       onDelete: (id) => void rewrite((current) => deleteTodo(current, id)),
       onMove: (id, targetIndex) => void rewrite((current) => moveTodo(current, id, targetIndex)),
-      onGroupMenu: (x, y) => {
-        const menu = new Menu()
-        buildTodoGroupMenuOptions(doc.todoView.groupBy, { none: tr("todoGroupNone"), category: tr("todoGroupCategory"), status: tr("todoGroupStatus") })
-          .forEach(({ value, title, checked }) => menu.addItem((item) => item.setTitle(title).setChecked(checked).onClick(() => setView({ groupBy: value }))))
-        menu.showAtPosition({ x, y }, dom)
-      },
+      onMoveGroup: (key, targetIndex) => void rewrite((current) =>
+        setHeaderValue(current, "todo-groups", JSON.stringify(moveTodoGroupKey(groupTodoTree(todos, doc.todoView, doc.todoGroupOrder), key, targetIndex)))),
+      onGroupMenu: (x, y) => this.showTodoGroupMenu(dom, x, y, doc.todoView, setView),
       onSortMenu: (x, y) => {
         const menu = new Menu()
         buildTodoSortMenuOptions(doc.todoView.sortBy, { manual: tr("todoSortManual"), estimate: tr("todoSortEstimate"), actual: tr("todoSortActual") })

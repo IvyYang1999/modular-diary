@@ -30,7 +30,7 @@ export function buildTodoMenuOptions(
   ]
 }
 
-export type TodoGroupValue = "none" | "category" | "status"
+export type TodoGroupValue = "none" | "category" | "status" | "tag"
 
 export interface TodoGroupMenuOption {
   title: string
@@ -43,11 +43,26 @@ export function buildTodoGroupMenuOptions(
   current: TodoGroupValue,
   titles: Record<TodoGroupValue, string>
 ): TodoGroupMenuOption[] {
-  return (["none", "category", "status"] as const).map((value) => ({
+  return (["none", "category", "status", "tag"] as const).map((value) => ({
     title: titles[value],
     value,
     checked: current === value,
   }))
+}
+
+/** Second-level grouping: everything except "same as the primary level". */
+export function buildTodoSubGroupMenuOptions(
+  primary: TodoGroupValue,
+  current: TodoGroupValue,
+  titles: Record<TodoGroupValue, string>
+): TodoGroupMenuOption[] {
+  return (["none", "category", "status", "tag"] as const)
+    .filter((value) => value === "none" || value !== primary)
+    .map((value) => ({
+      title: titles[value],
+      value,
+      checked: current === value,
+    }))
 }
 
 export type TodoSortValue = "manual" | "estimate" | "actual"

@@ -45,6 +45,8 @@ export interface TimelineDoc {
   todos: TodoItem[]
   /** Block-local presentation rule for the Todo component. */
   todoView: TodoViewConfig
+  /** Dragged group order for the todo list (`todo-groups:` header, flat composite keys). */
+  todoGroupOrder: string[]
   /** Present when the block is a period view (`days:`). */
   period?: PeriodSpec
   /** Period block: width of the goals/todos rail in px (`rail:` header). */
@@ -97,6 +99,8 @@ export interface TodoItem {
   tags?: string[]
   /** Deadline (YYYY-MM-DD); a period block flags it on that day. */
   due?: string
+  /** Free-text note shown in small type under the title. */
+  note?: string
   /**
    * The day this todo was pushed to. The line stays where it was as a
    * durable shadow: it shows "moved" here, and it refills the destination if
@@ -128,7 +132,9 @@ export interface PeriodGoal {
   line: number
 }
 
-export type TodoGroupBy = "none" | "category" | "status"
+export type TodoGroupBy = "none" | "category" | "status" | "tag"
+/** Second grouping level inside a primary group; never "none" when present, never equal to groupBy. */
+export type TodoSubGroupBy = "category" | "status" | "tag"
 export type TodoSortBy = "manual" | "estimate" | "actual"
 export type TimelineDrawTool = "span" | "marker"
 
@@ -137,6 +143,8 @@ export type TodoLayout = "list" | "abc" | "matrix"
 export interface TodoViewConfig {
   groupBy: TodoGroupBy
   sortBy: TodoSortBy
+  /** Secondary grouping inside each primary group (`group2=` in the todo-view header). */
+  group2?: TodoSubGroupBy
   /** How the list is laid out: a plain list, ABC columns or the four quadrants. */
   layout?: TodoLayout
 }

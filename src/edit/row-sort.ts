@@ -4,6 +4,8 @@ export interface PointerRowSortOptions {
   handle: HTMLElement
   rowSelector: string
   onMove: (targetIndex: number) => void
+  /** Custom drag ghost (e.g. a group header instead of the whole section). Defaults to a full row clone. */
+  ghostElement?: () => HTMLElement
 }
 
 /**
@@ -30,7 +32,7 @@ export function attachPointerRowSort(options: PointerRowSortOptions): void {
     const originalNext = row.nextSibling
     const rect = row.getBoundingClientRect()
     const style = domWindow?.getComputedStyle(row)
-    const ghost = row.cloneNode(true) as HTMLElement
+    const ghost = (options.ghostElement?.() ?? row.cloneNode(true)) as HTMLElement
     ghost.classList.remove("is-dragging", "modular-diary-item-sort-placeholder")
     ghost.classList.add("modular-diary-item-sort-ghost")
     ghost.setAttribute("aria-hidden", "true")
@@ -41,7 +43,8 @@ export function attachPointerRowSort(options: PointerRowSortOptions): void {
     ghost.style.left = `${rect.left}px`
     ghost.style.top = `${rect.top}px`
     ghost.style.width = `${rect.width}px`
-    ghost.style.height = `${rect.height}px`
+    // A custom ghost (e.g. just a group header) keeps its own natural height.
+    if (!options.ghostElement) ghost.style.height = `${rect.height}px`
     if (style) {
       ghost.style.borderRadius = style.borderRadius
       ghost.style.gridTemplateColumns = style.gridTemplateColumns

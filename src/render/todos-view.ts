@@ -5,7 +5,7 @@ import { t } from "../i18n"
 import { attachPointerRowSort } from "../edit/row-sort"
 import { appendSixDotGrip } from "./grip"
 import { TAG_RE } from "../core/tags"
-import { TODO_BUCKETS } from "../core/todos"
+import { groupTodoTree, TODO_BUCKETS } from "../core/todos"
 import { attachTagSuggest, type TagSuggestDeps } from "../edit/tag-suggest"
 
 export interface TodoViewItem {
@@ -17,6 +17,10 @@ export interface TodoViewItem {
   weekly: boolean
   estimateMinutes: number
   actualMinutes: number
+  /** `#tags` from the title; grouping by tag reads the first one. */
+  tags?: string[]
+  /** Free-text note shown in small type under the title. */
+  note?: string
   /** Pushed to another day: shown here as a shadow, not counted, not schedulable. */
   movedTo?: string
   /** Cell in the ABC / four-quadrant layouts. */
@@ -32,6 +36,8 @@ export interface NewTodoInput {
   type?: string
   estimateMinutes: number
   estimateUnit?: DurationInputUnit
+  /** Small-print note under the title. */
+  note?: string
   /** Preserve the authored number while a draft is remounted. */
   estimateValue?: string
 }
@@ -55,6 +61,10 @@ export interface TodoViewDeps {
   onToggle: (id: string, completed: boolean) => void | Promise<void>
   onMenu: (item: TodoViewItem, x: number, y: number, edit: () => void) => void
   onMove: (id: string, targetIndex: number) => void
+  /** Dragged group order (`todo-groups:` header) for grouped views. */
+  groupOrder?: string[]
+  /** Reorder a group among its same-level siblings (key = composite group key). */
+  onMoveGroup?: (key: string, targetIndex: number) => void
   /** Move a todo to a cell of the ABC / quadrant layout ("" = no cell), before another todo or at the cell's end. */
   onSetBucket?: (id: string, bucket: string, beforeId?: string | null) => void
   /** Open the layout picker (list / ABC / quadrants); the button shows only when given. */
@@ -118,6 +128,8 @@ export function createTodoForm(
   setIcon(save, "check")
   const error = form.createDiv({ cls: "modular-diary-todo-form-error", attr: { role: "status", "aria-live": "polite" } })
   error.hidden = true
+  // The note field is the form's quiet second row (full grid width).
+  const note = form.createEl("input", { cls: "modular-diary-todo-note-input", attr: { type: "text", placeholder: t("todoNotePlaceholder"), "aria-label": t("note") } })
   const clearError = (): void => {
     error.hidden = true
     error.textContent = ""
@@ -142,8 +154,10 @@ export function createTodoForm(
     estimateMinutes: readEstimateMinutes(),
     estimateUnit: currentUnit,
     estimateValue: estimate.value,
+    note: note.value,
   })
   title.addEventListener("input", () => { clearError(); emitDraft() })
+  note.addEventListener("input", emitDraft)
   category.addEventListener("change", emitDraft)
   estimate.addEventListener("input", () => { clearError(); emitDraft() })
   estimateUnit.addEventListener("change", () => {
@@ -168,7 +182,7 @@ export function createTodoForm(
       showError(t("invalidDuration"), estimate)
       return
     }
-    const input = { title: title.value.trim(), type: category.value || undefined, estimateMinutes: readEstimateMinutes(), estimateUnit: currentUnit }
+    const input = { title: title.value.trim(), type: category.value || undefined, estimateMinutes: readEstimateMinutes(), estimateUnit: currentUnit, ...(note.value.trim() ? { note: note.value.trim() } : {}) }
     close()
     onSubmit(input)
   })
@@ -177,6 +191,7 @@ export function createTodoForm(
     open: (value, options) => {
       clearError()
       title.value = value.title
+      note.value = value.note ?? ""
       fillCategories(value.type)
       currentUnit = value.estimateUnit ?? preferredDurationUnit(value.estimateMinutes)
       syncEstimateControl(Math.max(0, value.estimateMinutes))
@@ -209,7 +224,7 @@ export function renderTitleWithTags(el: HTMLElement, text: string, tagStyle?: (t
 
 export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: TodoViewDeps): void {
   const root = slot.createDiv({ cls: "modular-diary-todos" })
-  const canDrag = deps.view.groupBy === "none" && deps.view.sortBy === "manual"
+  const manualSort = deps.view.sortBy === "manual"
   const header = root.createDiv({ cls: "modular-diary-component-header" })
   header.createEl("span", { cls: "modular-diary-component-title", text: deps.title ?? t("todoList") })
   const counted = items.filter((item) => !item.movedTo)
@@ -234,7 +249,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     const rect = group.getBoundingClientRect()
     deps.onGroupMenu(rect.left, rect.bottom)
   })
-  const sortLabel = canDrag ? t("todoSortRule") : `${t("todoSortRule")} · ${t("todoManualSortHint")}`
+  const sortLabel = manualSort ? t("todoSortRule") : `${t("todoSortRule")} · ${t("todoManualSortHint")}`
   const sort = actions.createEl("button", { attr: { type: "button", "aria-label": sortLabel } })
   setIcon(sort, "arrow-up-down")
   sort.addEventListener("click", () => {
@@ -296,25 +311,64 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     const key = item.bucket && knownCells.has(item.bucket) ? item.bucket : ""
     return cellLists.get(key) ?? makeCell("", t("bucketNone"), " is-unassigned")
   }
-  let lastGroup = "\0"
+  const grouped = !buckets && deps.view.groupBy !== "none"
   const displayed = items.map((item, sourceIndex) => ({ item, sourceIndex }))
   if (deps.view.sortBy === "estimate") displayed.sort((a, b) => b.item.estimateMinutes - a.item.estimateMinutes || a.sourceIndex - b.sourceIndex)
   if (deps.view.sortBy === "actual") displayed.sort((a, b) => b.item.actualMinutes - a.item.actualMinutes || a.sourceIndex - b.sourceIndex)
-  const groupFor = (item: TodoViewItem): string => {
-    if (deps.view.groupBy === "category") return item.type || t("noCategory")
-    if (deps.view.groupBy === "status") return item.completed ? t("complete") : t("incomplete")
-    return ""
+  // Drag targets are indexes into the block-owned rows in source order;
+  // weekly goals live in settings and keep their own ordering there.
+  const ownedIds = items.filter((item) => !item.weekly).map((item) => item.id)
+  /** A drop at position `targetIndex` within one group's rows, mapped onto the owned todos. */
+  const mapContainerMove = (containerIds: string[], draggedId: string, targetIndex: number): number => {
+    const remaining = containerIds.filter((id) => id !== draggedId)
+    const without = ownedIds.filter((id) => id !== draggedId)
+    const nextOwned = remaining.slice(targetIndex).find((id) => without.includes(id))
+    if (nextOwned) return without.indexOf(nextOwned)
+    const prevOwned = [...remaining.slice(0, targetIndex)].reverse().find((id) => without.includes(id))
+    return prevOwned ? without.indexOf(prevOwned) + 1 : 0
   }
-  if (deps.view.groupBy === "category") displayed.sort((a, b) => groupFor(a.item).localeCompare(groupFor(b.item)))
-  if (deps.view.groupBy === "status") displayed.sort((a, b) => Number(a.item.completed) - Number(b.item.completed))
-  displayed.forEach(({ item, sourceIndex }) => {
-    const groupName = groupFor(item)
-    if (!buckets && deps.view.groupBy !== "none" && groupName !== lastGroup) {
-      list.createEl("span", { cls: "modular-diary-todo-group", text: groupName })
-      lastGroup = groupName
+  /** A group section: header (draggable when onMoveGroup is wired) with rows appended by the caller. */
+  const renderGroupSection = (container: HTMLElement, key: string, label: string, sub: boolean): HTMLElement => {
+    const section = dom.createElement("section")
+    section.className = `modular-diary-todo-group-section${sub ? " is-sub" : ""}`
+    section.dataset.groupKey = key
+    container.appendChild(section)
+    const header = section.createDiv({ cls: "modular-diary-todo-group" })
+    if (deps.onMoveGroup) {
+      const grip = header.createEl("button", { cls: "modular-diary-item-drag modular-diary-todo-group-drag", attr: { type: "button", "aria-label": t("dragGroup", { name: label }) } })
+      // One Tab stop per group: the grip stays a pointer affordance, the header reorders with Alt+↑/↓.
+      grip.tabIndex = -1
+      appendSixDotGrip(grip)
+      attachPointerRowSort({
+        list: container,
+        row: section,
+        handle: grip,
+        rowSelector: ".modular-diary-todo-group-section",
+        ghostElement: () => {
+          const ghost = dom.createElement("div")
+          ghost.className = "modular-diary-todo-group"
+          ghost.textContent = label
+          return ghost
+        },
+        onMove: (targetIndex) => deps.onMoveGroup?.(key, targetIndex),
+      })
+      header.tabIndex = 0
+      header.addEventListener("keydown", (event) => {
+        if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown") || event.target !== header) return
+        event.preventDefault()
+        const siblings = Array.from(container.children).filter((child): child is HTMLElement => child instanceof HTMLElement && child.matches(".modular-diary-todo-group-section"))
+        const at = siblings.indexOf(section)
+        const target = at + (event.key === "ArrowUp" ? -1 : 1)
+        if (at < 0 || target < 0 || target >= siblings.length) return
+        deps.onMoveGroup?.(key, target)
+      })
     }
-    const rowDraggable = buckets ? !item.weekly && Boolean(deps.onSetBucket) : canDrag
-    const row = listFor(item).createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${rowDraggable ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
+    header.createEl("span", { cls: "modular-diary-todo-group-name", text: label })
+    return section
+  }
+  const renderRow = (item: TodoViewItem, sourceIndex: number, host: HTMLElement, containerIds: string[] | null): void => {
+    const rowDraggable = buckets ? !item.weekly && Boolean(deps.onSetBucket) : manualSort && (!grouped || !item.weekly)
+    const row = host.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${rowDraggable ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
     row.tabIndex = 0
     row.dataset.todoId = item.id
     const drag = rowDraggable ? row.createEl("button", { cls: "modular-diary-item-drag modular-diary-todo-drag", attr: { type: "button", "aria-label": t("dragTodo", { name: item.title }) } }) : null
@@ -324,11 +378,11 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       appendSixDotGrip(drag)
       if (buckets) attachBucketDrag(list, row, drag, (key, beforeId) => deps.onSetBucket?.(item.id, key, beforeId), item.bucket && knownCells.has(item.bucket) ? item.bucket : "")
       else attachPointerRowSort({
-        list,
+        list: host,
         row,
         handle: drag,
         rowSelector: ".modular-diary-todo-row",
-        onMove: (targetIndex) => deps.onMove(item.id, targetIndex),
+        onMove: (targetIndex) => deps.onMove(item.id, grouped && containerIds ? mapContainerMove(containerIds, item.id, targetIndex) : targetIndex),
       })
     }
     const editForm = createTodoForm(
@@ -367,7 +421,16 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
         if (next !== undefined && next !== cellKey) deps.onSetBucket?.(item.id, next, null)
       }
     })
-    else if (canDrag) row.addEventListener("keydown", (event) => {
+    else if (grouped && rowDraggable) row.addEventListener("keydown", (event) => {
+      if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown") || event.target !== row || !containerIds) return
+      event.preventDefault()
+      const siblings = Array.from(host.querySelectorAll<HTMLElement>(":scope > .modular-diary-todo-row"))
+      const at = siblings.indexOf(row)
+      const target = at + (event.key === "ArrowUp" ? -1 : 1)
+      if (at < 0 || target < 0 || target >= siblings.length) return
+      deps.onMove(item.id, mapContainerMove(containerIds, item.id, target))
+    })
+    else if (manualSort && !grouped) row.addEventListener("keydown", (event) => {
       if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown") || event.target !== row) return
       event.preventDefault()
       const target = sourceIndex + (event.key === "ArrowUp" ? -1 : 1)
@@ -439,6 +502,8 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
         : t("estimateOnly", { estimate: formatHours(item.estimateMinutes) })
       meta.createEl("span", { cls: "modular-diary-item-meta-numbers", text: numbers })
     } else body.createEl("span", { cls: "modular-diary-item-meta", text: metaParts.join(" · ") })
+    // The note sits on its own full-width row under title + meta.
+    if (item.note) body.createDiv({ cls: "modular-diary-todo-note", text: item.note, attr: { title: item.note } })
     // A zero-progress track is just a full-width grey underline that reads
     // as a row divider; quiet flat rows only paint the track once there is
     // progress to show.
@@ -448,7 +513,26 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       bar.style.width = `${Math.min(100, item.actualMinutes / item.estimateMinutes * 100)}%`
       bar.style.background = item.type ? (deps.typeColors[item.type] ?? "var(--interactive-accent)") : "var(--interactive-accent)"
     }
-  })
+  }
+  if (grouped) {
+    const tree = groupTodoTree(displayed.map(({ item, sourceIndex }) => ({ ...item, sourceIndex })), deps.view, deps.groupOrder ?? [])
+    for (const node of tree) {
+      const section = renderGroupSection(list, node.key, node.label, false)
+      if (node.subs.length === 0) {
+        const rows = section.createDiv({ cls: "modular-diary-todo-group-rows" })
+        for (const leaf of node.items) renderRow(leaf, leaf.sourceIndex, rows, node.items.map((entry) => entry.id))
+      } else {
+        const subsHost = section.createDiv({ cls: "modular-diary-todo-subs" })
+        for (const sub of node.subs) {
+          const subSection = renderGroupSection(subsHost, sub.key, sub.label, true)
+          const subRows = subSection.createDiv({ cls: "modular-diary-todo-group-rows" })
+          for (const leaf of sub.items) renderRow(leaf, leaf.sourceIndex, subRows, sub.items.map((entry) => entry.id))
+        }
+      }
+    }
+  } else {
+    for (const { item, sourceIndex } of displayed) renderRow(item, sourceIndex, listFor(item), null)
+  }
   // Same count as the component header: done/total, shadows of pushed todos not counted.
   if (buckets) list.querySelectorAll<HTMLElement>(".modular-diary-todo-bucket").forEach((cell) => {
     const rows = Array.from(cell.querySelectorAll<HTMLElement>(".modular-diary-todo-row")).filter((row) => !row.classList.contains("is-moved"))

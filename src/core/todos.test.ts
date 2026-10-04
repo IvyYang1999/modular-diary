@@ -36,6 +36,14 @@ describe("todo source model", () => {
     )).toEqual(todo)
   })
 
+  it("round-trips the small-print note, including quotes and emoji", () => {
+    const noted = { ...todo, note: '先给 "设计" 过目 🎨' }
+    const value = formatTodoHeaderValue(noted)
+    expect(value).toContain('note="先给 \\"设计\\" 过目 🎨"')
+    expect(value.indexOf("note=")).toBeLessThan(value.indexOf("title="))
+    expect(parseTodoHeaderValue(value, noted.line)).toEqual(noted)
+  })
+
   it("keeps the manual estimate and sums only actual bound blocks", () => {
     const estimated = { ...todo, estimateMin: 45 }
     const entries = [

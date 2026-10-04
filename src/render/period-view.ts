@@ -45,6 +45,8 @@ export interface PeriodViewModel {
   totals: Array<{ type: string; minutes: number }>
   todos: PeriodTodoView[]
   todoView: TodoViewConfig
+  /** Dragged todo group order (`todo-groups:` header). */
+  todoGroupOrder: string[]
   days: PeriodDayView[]
   rangeStartMin: number
   rangeEndMin: number
@@ -72,6 +74,8 @@ export interface PeriodViewDeps {
   onToggle: (id: string, completed: boolean) => void | Promise<void>
   onDelete: (id: string) => void
   onMove: (id: string, targetIndex: number) => void
+  /** Reorder a todo group among its same-level siblings (composite group key). */
+  onMoveGroup?: (key: string, targetIndex: number) => void
   onGroupMenu: (x: number, y: number) => void
   onSortMenu: (x: number, y: number) => void
   onTodoMenu?: (id: string, x: number, y: number, edit: () => void) => void
@@ -379,6 +383,7 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
   section.dataset.zoneKind = "list"
   const items: TodoViewItem[] = model.todos.map((todo) => ({
     id: todo.id, title: todo.title, group: todo.group, type: todo.type, completed: todo.completed, weekly: false,
+    tags: todo.tags, note: todo.note,
     estimateMinutes: todo.estimateMin, actualMinutes: todo.actualMinutes, flags: placementFlag(todo, model),
   }))
   renderTodosInto(section, items, {
@@ -387,6 +392,7 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
     categories: deps.categories,
     typeColors: deps.typeColors,
     view: model.todoView,
+    groupOrder: model.todoGroupOrder,
     tagStyle: deps.tagStyle,
     tagSuggest: deps.tagSuggest,
     onAdd: deps.onAdd,
@@ -395,6 +401,7 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
     onSortMenu: deps.onSortMenu,
     onToggle: deps.onToggle,
     onMove: deps.onMove,
+    onMoveGroup: deps.onMoveGroup,
     onMenu: (item, x, y, edit) => deps.onTodoMenu?.(item.id, x, y, edit),
   })
   const byId = new Map(model.todos.map((todo) => [todo.id, todo]))
@@ -561,7 +568,7 @@ function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewM
     for (const todo of day.allDay) {
       const pill = cell.createDiv({ cls: `modular-diary-period-pill${todo.completed ? " is-complete" : ""}`, attr: { tabindex: "0" } })
       pill.textContent = plainTitle(todo.title)
-      pill.title = `${todo.title}${todo.type ? " · " + todo.type : ""} · ${formatSpan(todo.estimateMin)}`
+      pill.title = `${todo.title}${todo.type ? " · " + todo.type : ""} · ${formatSpan(todo.estimateMin)}${todo.note ? `\n${todo.note}` : ""}`
       const color = todo.type ? deps.typeColors[todo.type] : undefined
       if (color) pill.style.setProperty("--modular-diary-pill-color", color)
       attachDrag(root, pill, { todo, from: day.date }, model, deps)

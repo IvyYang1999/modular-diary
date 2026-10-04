@@ -81,6 +81,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     habitSkips: [],
     todos: [],
     todoView: { ...DEFAULT_TODO_VIEW },
+    todoGroupOrder: [],
     goals: [],
     texts: [],
   }
@@ -357,6 +358,14 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       const view = parseTodoViewHeaderValue(value)
       if (view) doc.todoView = view
       else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
+      return
+    }
+    case "todo-groups": {
+      // Dragged group order (view state): a JSON array of composite group keys.
+      try {
+        const parsed: unknown = JSON.parse(value)
+        if (Array.isArray(parsed)) doc.todoGroupOrder = parsed.filter((key): key is string => typeof key === "string")
+      } catch { /* malformed view state is simply ignored */ }
       return
     }
     case "rail": {

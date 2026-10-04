@@ -43,3 +43,10 @@ export function insertTimelineBlock(editor: Editor, fileBasename: string | null,
   const separator = text.split("\n").findIndex((line) => line.trim() === "---")
   editor.setCursor({ line: cursor.line + (separator >= 0 ? separator + 1 : 1), ch: 0 })
 }
+
+/** Insert a period (week-plan) block at the cursor: `days: this-week`. */
+export function insertPeriodBlock(editor: Editor): void {
+  const cursor = editor.getCursor()
+  const prefix = editor.getLine(cursor.line).trim() === "" ? "" : "\n"
+  editor.replaceRange(`${prefix}\`\`\`timeline\ndays: this-week\n---\n\`\`\`\n`, cursor)
+}
