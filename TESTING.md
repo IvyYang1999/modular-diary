@@ -45,8 +45,35 @@ After a save failure, the draft remains editable and the local Retry control (or
 Enter for notes, Cmd/Ctrl+Enter for text) starts a new attempt. Window events do
 not restart a failed attempt.
 
-On macOS with Obsidian installed, `node e2e/obsidian-recovery-native.mjs`
+On macOS with Obsidian installed, `node e2e/obsidian-recovery-native.mjs --allow-foreground`
 launches a separate profile and synthetic vault with the built plugin. It checks
 Live Preview note editing during a background refresh, note and text persistence
 in the real vault file, and rendering after a normal App reload. It never opens
 or reloads the user's existing vault, and does not toggle plugin enablement.
+
+## Editor save interleavings
+
+`e2e/save-recovery-smoke.mjs` invokes the production plugin methods in source
+and reading modes. Its matrix crosses six real source changes (outer size,
+layout, Todo completion, timer endpoint, timeline note, another text slot) with
+three orderings (action first, text first, parallel). It also checks separate
+fences in one note, shifted line ranges, persistence in flight with newer typing
+and resize, and twelve same-file conflicts producing one warning while keeping
+the draft. `--writes-only` runs just these host-adapter contracts locally;
+`npm run verify` always includes the browser layer.
+
+`src/edit/source-revisions.test.ts` checks content-anchored lineage, isolation
+between files/panes, duplicates, removed slots, quoted empty slots and external
+non-overlapping changes. Scoped saves compare the draft's original text rather
+than the entire block and retain that baseline across redraws. Structural
+ambiguity fails closed: replacement/removal and ambiguous duplicates are never
+selected by an ordinal alone. Local lineage retains at most 128 applied changes
+per pane/file; very old detached renderers may need manual reconciliation.
+Simultaneous external edits to both the non-text portion and other text slots
+can remove every independent content anchor and are conservatively rejected.
+
+CI publishes synthetic browser screenshots as `save-recovery-visuals`. They
+are host-adapter evidence, not a native Obsidian acceptance claim. The optional
+native gate now checks real resize plus two text saves and requires explicitly
+scheduled foreground permission before it creates a profile or opens a window.
+It never installs into or touches the active Vault.

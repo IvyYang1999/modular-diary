@@ -36,6 +36,7 @@ import {
   type ViewportAnchor,
 } from "./edit/viewport-anchor"
 import { resolveTimelineSource } from "./edit/source-location"
+import { SourceRevisions, resolveTextMutation, type TextMutation } from "./edit/source-revisions"
 import { ScrollTransactionRegistry, type ScrollTransactionKey } from "./edit/scroll-transaction"
 import { chooseMutationView, findOwningView, resolvePersistedOwnerView, resolveTransactionOwner } from "./edit/view-owner"
 import { timelineFenceOrdinal, timelineSourceAtOrdinal } from "./edit/block-identity"
@@ -138,6 +139,8 @@ export default class ModularDiaryPlugin extends Plugin {
   private todoDrafts = new WeakMap<object, Map<string, NewTodoInput>>()
   private todoEditDrafts = new WeakMap<object, Map<string, TodoEditDraft>>()
   private readonly textDrafts = new TextDraftRegistry<object>()
+  private readonly sourceRevisions = new SourceRevisions()
+  private readonly textSaveNotices = new Map<string, { notice: Notice; expires: number }>()
   private sourceDrafts = new WeakMap<HTMLElement, SourceModeSession>()
   private readonly ledgerModifiedPaths = new Set<string>()
   private weeklyLedger: DatedTimelineEntries[] | null = null
@@ -174,6 +177,9 @@ export default class ModularDiaryPlugin extends Plugin {
     this.todoDrafts = new WeakMap()
     this.todoEditDrafts = new WeakMap()
     this.textDrafts.clear()
+    this.sourceRevisions.clear()
+    this.textSaveNotices.forEach(({ notice }) => notice.hide())
+    this.textSaveNotices.clear()
     this.sourceDrafts = new WeakMap()
     const domWindow = activeWindow
     if (this.ledgerRefreshTimer) domWindow.clearTimeout(this.ledgerRefreshTimer)
@@ -509,17 +515,8 @@ export default class ModularDiaryPlugin extends Plugin {
         blockOrdinal: draftBlockOrdinal,
         index,
       })
-      const saveText = async (index: number, text: string): Promise<void> => {
-        try {
-          const key = textDraftKey(index)
-          await this.textDrafts.enqueue(key, () =>
-            this.applyTextBlockTransform(textBlockKey, (s) => setTextSection(s, text, index))
-          )
-        } catch (error) {
-          new Notice(error instanceof Error ? error.message : tr("textSaveFailed"), 8000)
-          throw error
-        }
-      }
+      const saveText = (index: number, text: string): Promise<void> =>
+        this.saveTextDraft(textDraftKey(index), textBlockKey, doc.texts[index] ?? "", text)
       const container = renderTimelineInto(
         el,
         doc,
@@ -546,7 +543,7 @@ export default class ModularDiaryPlugin extends Plugin {
             // A completion from a disposed renderer must not replace or clear
             // newer typing in the remounted editor.
             if (savedValue !== undefined && this.textDrafts.get(key)?.value !== savedValue) return
-            if (draft) this.textDrafts.set(key, draft)
+            if (draft) this.textDrafts.set(key, { ...draft, baseText: this.textDrafts.get(key)?.baseText ?? draft.baseText })
             else this.textDrafts.delete(key)
           },
         }
@@ -1875,7 +1872,8 @@ export default class ModularDiaryPlugin extends Plugin {
    */
   private async applyTextBlockTransform(
     key: ScrollTransactionKey<object> & { source: string; section?: () => { lineStart: number; lineEnd: number } | null },
-    transform: (source: string) => string
+    transform: (source: string) => string,
+    mutation?: TextMutation,
   ): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(key.path)
     if (!(file instanceof TFile)) throw new Error(tr("fileNotFound"))
@@ -1889,10 +1887,15 @@ export default class ModularDiaryPlugin extends Plugin {
     if (view && !readingOwner) {
       const editor = view.editor
       const content = editor.getValue()
-      const location = resolveTimelineSource(content, key.source, key.section?.() ?? null)
+      const hint = key.section?.() ?? null
+      const known = this.sourceRevisions.resolve(content, key.owner, key.path, key.source, hint)
+      if (!known && this.sourceRevisions.candidates(content, key.owner, key.path, key.source).length > 0) {
+        throw new Error(tr("sourceChanged"))
+      }
+      const location = mutation ? resolveTextMutation(content, key.source, hint, mutation, known) : known
       if (!location) throw new Error(tr("sourceChanged"))
       key.blockOrdinal = timelineFenceOrdinal(content, location.lineStart)
-      const newSource = transform(location.source)
+      const newSource = mutation ? setTextSection(location.source, mutation.text, mutation.index) : transform(location.source)
 
       const host = this.timelineVisuals.findHost(key.path, key.owner, key.blockOrdinal)
       const visualContainer = host?.querySelector<HTMLElement>(".modular-diary-container") ?? null
@@ -1931,6 +1934,8 @@ export default class ModularDiaryPlugin extends Plugin {
               if (codeMirrorWrite) codeMirrorWrite.apply()
               else editor.replaceRange(replacement, from, to)
             }
+            this.sourceRevisions.remember(key.owner, key.path, location.source, newSource)
+            this.advanceTextDraftBase(key, mutation)
             key.source = newSource
             if (host) this.blockSources.set(host, newSource)
           },
@@ -1958,16 +1963,56 @@ export default class ModularDiaryPlugin extends Plugin {
 
     let savedSource = key.source
     await this.app.vault.process(file, (content) => {
-      const location = resolveTimelineSource(content, key.source, key.section?.() ?? null)
+      const hint = key.section?.() ?? null
+      const known = this.sourceRevisions.resolve(content, key.owner, key.path, key.source, hint)
+      if (!known && this.sourceRevisions.candidates(content, key.owner, key.path, key.source).length > 0) {
+        throw new Error(tr("sourceChanged"))
+      }
+      const location = mutation ? resolveTextMutation(content, key.source, hint, mutation, known) : known
       if (!location) throw new Error(tr("sourceChanged"))
-      const newSource = transform(location.source)
+      key.blockOrdinal = timelineFenceOrdinal(content, location.lineStart)
+      const newSource = mutation ? setTextSection(location.source, mutation.text, mutation.index) : transform(location.source)
       const updated = newSource === location.source
         ? content
         : replaceBlockInContent(content, location, newSource)
+      this.sourceRevisions.remember(key.owner, key.path, location.source, newSource)
       savedSource = newSource
       return updated
     })
+    this.advanceTextDraftBase(key, mutation)
     key.source = savedSource
+  }
+
+  /** Slot queue and notification ownership survive renderer disposal. */
+  private async saveTextDraft(
+    draftKey: TextDraftKey<object>,
+    blockKey: ScrollTransactionKey<object> & { source: string; section?: () => { lineStart: number; lineEnd: number } | null },
+    initialText: string,
+    text: string,
+  ): Promise<void> {
+    try {
+      await this.textDrafts.enqueue(draftKey, () => {
+        const mutation = { index: draftKey.index, text, baseText: this.textDrafts.get(draftKey)?.baseText ?? initialText }
+        return this.applyTextBlockTransform(blockKey, source => setTextSection(source, text, draftKey.index), mutation)
+      })
+      this.textSaveNotices.get(draftKey.path)?.notice.hide()
+      this.textSaveNotices.delete(draftKey.path)
+    } catch (error) {
+      // A file-level warning coalesces failures; each slot retains its Retry.
+      if ((this.textSaveNotices.get(draftKey.path)?.expires ?? 0) <= Date.now()) {
+        const message = error instanceof Error && error.message === tr("sourceChanged")
+          ? tr("textSaveConflict") : tr("textSaveFailed")
+        this.textSaveNotices.set(draftKey.path, { notice: new Notice(message, 8000), expires: Date.now() + 8000 })
+      }
+      throw error
+    }
+  }
+
+  private advanceTextDraftBase(key: ScrollTransactionKey<object>, mutation?: TextMutation): void {
+    if (!mutation) return
+    const draftKey = { ...key, index: mutation.index }
+    const draft = this.textDrafts.get(draftKey)
+    if (draft) this.textDrafts.set(draftKey, { ...draft, baseText: mutation.text.trim() })
   }
 
   /** Sole write path into markdown (D7/D3 共用): transform block source, splice back. */
@@ -1992,7 +2037,8 @@ export default class ModularDiaryPlugin extends Plugin {
     const readingOwner = view?.getMode?.() === "preview"
     if (view && !readingOwner) {
       const editor = view.editor
-      const section = resolveTimelineSource(editor.getValue(), expectedSource, hint)
+      const owner = view.leaf
+      const section = this.sourceRevisions.resolve(editor.getValue(), owner, ctx.sourcePath, expectedSource, hint)
       if (!section) throw new Error(tr("sourceChanged"))
       const liveSource = section.source
       const newSource = transform(liveSource)
@@ -2035,6 +2081,7 @@ export default class ModularDiaryPlugin extends Plugin {
             if (codeMirrorWrite) codeMirrorWrite.apply()
             else editor.replaceRange(replacement, from, to)
           }
+          this.sourceRevisions.remember(owner, ctx.sourcePath, liveSource, newSource)
           this.blockSources.set(el, newSource)
         }
         await applyDurableWrite({
@@ -2077,7 +2124,8 @@ export default class ModularDiaryPlugin extends Plugin {
     const visualRollback: { current: (() => void) | null } = { current: null }
     try {
       await this.app.vault.process(file, (content) => {
-        const section = resolveTimelineSource(content, expectedSource, hint)
+        const owner = view?.leaf ?? this.scrollTransactionKey(el, ctx, hint, undefined, content).owner
+        const section = this.sourceRevisions.resolve(content, owner, ctx.sourcePath, expectedSource, hint)
         if (!section) throw new Error(tr("sourceChanged"))
         const liveSource = section.source
         const newSource = transform(liveSource)
@@ -2096,6 +2144,7 @@ export default class ModularDiaryPlugin extends Plugin {
           visualContainer,
           resolveRemountVisualMode(options.remountVisual, Boolean(visualRollback.current))
         )
+        this.sourceRevisions.remember(owner, ctx.sourcePath, liveSource, newSource)
         committedSource = newSource
         return replaceBlockInContent(content, section, newSource)
       })

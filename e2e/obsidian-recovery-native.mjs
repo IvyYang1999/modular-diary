@@ -6,6 +6,12 @@ import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
+// This optional gate intentionally uses OS focus. Never open a test window
+// unless its operator has scheduled the foreground run explicitly.
+if (!process.argv.includes('--allow-foreground')) {
+ console.error('Native Obsidian smoke needs scheduled foreground permission; pass --allow-foreground after approval.')
+ process.exit(2)
+}
 const root=path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const out=fs.mkdtempSync(path.join(os.tmpdir(),'modular-diary-native-recovery-'))
 const profile=path.join(out,'profile'),vault=path.join(out,'vault'),plugins=path.join(vault,'.obsidian','plugins','modular-diary')
@@ -16,7 +22,7 @@ fs.writeFileSync(path.join(vault,'.obsidian','community-plugins.json'),JSON.stri
 fs.writeFileSync(path.join(vault,'.obsidian','core-plugins.json'),'[]')
 fs.writeFileSync(path.join(plugins,'data.json'),JSON.stringify({spanTypeColors:{work:'#55b8d8'},timelineOnboardingSeen:true}))
 for(const name of ['main.js','manifest.json','styles.css'])fs.copyFileSync(path.join(root,name),path.join(plugins,name))
-const original='# Recovery\n\n```timeline\ndate: 2026-09-17\nrange: 7-12\n---\n08:00-09:00 work original note\n===\nOriginal diary text\n```\n\nEnd of fixture\n'
+const original='# Recovery\n\n```timeline\ndate: 2026-09-17\nrange: 7-12\n---\n08:00-09:00 work original note\n===\nOriginal diary text\n===\nOriginal second text\n```\n\nEnd of fixture\n'
 fs.writeFileSync(path.join(vault,'Recovery.md'),original)
 // The packaged app disables Electron's Node inspector. Use its renderer CDP
 // endpoint instead; the endpoint receipt is created only in this private profile.
@@ -61,21 +67,47 @@ try{
  await text.press('Control+Enter')
  await page.locator('.workspace-leaf.mod-active .view-header-title').click()
  await page.waitForFunction(async()=> (await app.vault.read(app.vault.getAbstractFileByPath('Recovery.md'))).includes('Native saved diary'))
+ // Two pending text slots and an actual outer-block resize must coexist.
+ const panes=page.locator('.modular-diary-text-pane')
+ await panes.nth(0).click()
+ await panes.nth(0).locator('textarea').fill('Native resized diary')
+ const container=page.locator('.modular-diary-container').first()
+ const beforeSize=await container.boundingBox()
+ const handle=container.locator('.modular-diary-block-resize-se')
+ const grip=await handle.boundingBox()
+ assert.ok(grip && beforeSize)
+ await page.mouse.move(grip.x+grip.width/2,grip.y+grip.height/2)
+ await page.mouse.down()
+ await page.mouse.move(grip.x+grip.width/2-80,grip.y+grip.height/2+60,{steps:8})
+ await page.mouse.up()
+ await page.waitForFunction(async()=> (await app.vault.read(app.vault.getAbstractFileByPath('Recovery.md'))).includes('block-size:'))
+ const afterSize=await container.boundingBox()
+ assert.ok(Math.abs(afterSize.width-beforeSize.width)>20 || Math.abs(afterSize.height-beforeSize.height)>20,'Resize must change actual geometry')
+ await page.locator('.workspace-leaf.mod-active .view-header-title').click()
+ await page.waitForFunction(async()=> (await app.vault.read(app.vault.getAbstractFileByPath('Recovery.md'))).includes('Native resized diary'))
+ await panes.nth(1).click()
+ await panes.nth(1).locator('textarea').fill('Native second saved text')
+ await panes.nth(1).locator('textarea').press('Control+Enter')
+ await page.locator('.workspace-leaf.mod-active .view-header-title').click()
+ await page.waitForFunction(async()=> (await app.vault.read(app.vault.getAbstractFileByPath('Recovery.md'))).includes('Native second saved text'))
+ assert.equal(await page.locator('.modular-diary-save-retry:not([hidden])').count(),0)
+ assert.equal(await page.locator('.notice').filter({hasText:'源码已变化'}).count(),0)
+ await page.screenshot({path:path.join(out,'native-resized-texts.png')})
  // Vault.read can observe its cache before the adapter finishes the file write.
  // Wait at the actual disk boundary before exercising a normal App reload.
  const diskDeadline=Date.now()+5000
  let durable=''
  while(Date.now()<diskDeadline){
    durable=fs.readFileSync(path.join(vault,'Recovery.md'),'utf8')
-   if(durable.includes('Native saved note')&&durable.includes('Native saved diary'))break
+   if(durable.includes('Native saved note')&&durable.includes('Native resized diary')&&durable.includes('Native second saved text'))break
    await new Promise(r=>setTimeout(r,50))
  }
- assert.ok(durable.includes('Native saved note')&&durable.includes('Native saved diary'),'Both edits must reach the real vault file: '+JSON.stringify(durable))
+ assert.ok(durable.includes('Native saved note')&&durable.includes('Native resized diary')&&durable.includes('Native second saved text'),'Both edits must reach the real vault file: '+JSON.stringify(durable))
  await page.reload()
  await page.waitForFunction(()=>typeof app!=='undefined'&&!!app.plugins.plugins["modular-diary"],null,{timeout:15000})
  await page.evaluate(async()=>{const file=app.vault.getAbstractFileByPath('Recovery.md');const leaf=app.workspace.getLeaf(false);await leaf.openFile(file);leaf.view.editor?.setCursor({line:0,ch:0})})
  await page.waitForSelector('.modular-diary-container',{timeout:15000})
- assert.ok(await page.locator('.modular-diary-text-host').textContent().then(s=>s.includes('Native saved diary')))
+ assert.ok(await page.locator('.modular-diary-container').first().textContent().then(s=>s.includes('Native resized diary')&&s.includes('Native second saved text')))
  assert.ok(await page.locator('.modular-diary-note').textContent().then(s=>s.includes('Native saved note')))
  assert.equal(await page.evaluate(()=>app.plugins.enabledPlugins.has('modular-diary')),true)
  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(vault,'.obsidian','community-plugins.json'),'utf8')),['modular-diary'])

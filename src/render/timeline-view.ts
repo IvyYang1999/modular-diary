@@ -112,6 +112,7 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     }
   }
   const edit = (draft: TextDraftState | null = null, focus = true, caretAtEnd = false): void => {
+    let baseText = draft?.baseText ?? text
     // Entering edit mode replaces the rendered Markdown tree. Capture the
     // actual visible owner before that replacement; otherwise CodeMirror or
     // the browser may reveal the newly focused textarea at scrollTop=0.
@@ -130,7 +131,7 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     let failed = draft?.saveFailed ?? false
     let disposed = false
     const publishDraft = (shouldFocus = dom.activeElement === ta): void => {
-      deps.onDraftChange?.({ value: ta.value, editing: true, shouldFocus, saveFailed: failed }, disposed ? ta.value : undefined)
+      deps.onDraftChange?.({ baseText, value: ta.value, editing: true, shouldFocus, saveFailed: failed }, disposed ? ta.value : undefined)
     }
     const slot = pane.closest<HTMLElement>(".modular-diary-slot")
     let resizing = false
@@ -176,10 +177,11 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     let commitPromise: Promise<void> | null = null
     const commit = (explicit = false): Promise<void> => {
       if (disposed || (failed && !explicit)) return Promise.resolve()
+      const wasFailed = failed
       if (explicit) failed = false
       if (finished) return Promise.resolve()
       if (commitPromise) return commitPromise
-      if (ta.value === text) {
+      if (!wasFailed && ta.value === text) {
         finished = true
         deps.onDraftChange?.(null)
         show() // 没变就不写回，避免无谓重渲染
@@ -191,6 +193,7 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
       const submitted = ta.value
       const running = Promise.resolve().then(() => deps.onSave(submitted)).then(() => {
         text = submitted
+        baseText = submitted
         // 输入极快时，保存进行中可能又出现新字符；继续提交最新值，不能
         // 因为前一笔已经成功就把后来的字符视为已保存。
         if (ta.value !== submitted) {

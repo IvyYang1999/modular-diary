@@ -18,3 +18,11 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run verify
+        env:
+          MD_SAVE_RECOVERY_OUT: ${{ runner.temp }}/modular-diary-save-recovery
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: save-recovery-visuals
+          path: ${{ runner.temp }}/modular-diary-save-recovery/*.png
+          if-no-files-found: ignore
