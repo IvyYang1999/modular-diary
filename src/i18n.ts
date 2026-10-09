@@ -4,6 +4,7 @@ const messages = {
   zh: {
     insertTimelineBlock: "插入 Modular Diary 时间轴块",
     insertTimeline: "插入 Modular Diary 时间轴",
+    textSaveConflict: "文字尚未保存，草稿已保留。请检查对应正文的源码改动后，点击该文本框的“重试”。",
     textSaveFailed: "Modular Diary 文字尚未保存：草稿已安全保留，请稍后重试",
     category: "分类",
     statistics: "统计",
@@ -306,6 +307,7 @@ const messages = {
   en: {
     insertTimelineBlock: "Insert Modular Diary timeline block",
     insertTimeline: "Insert Modular Diary timeline",
+    textSaveConflict: "Text is not saved; your draft is kept. Check source changes in that text section, then click Retry in the text box.",
     textSaveFailed: "Modular Diary hasn't saved the text yet. Your draft is safe; try again shortly.",
     category: "Category",
     statistics: "Statistics",

@@ -6,6 +6,7 @@ export interface TextDraftKey<Owner extends object> {
 }
 
 export interface TextDraftState {
+  baseText?: string
   value: string
   editing: boolean
   shouldFocus: boolean
