@@ -48,10 +48,14 @@ describe("todo sorting menu copy", () => {
       manual: "手动排序",
       estimate: "按预计时长",
       actual: "按实际时长",
+      difficulty: "难度",
+      priority: "优先级",
     })).toEqual([
       { title: "手动排序", value: "manual", checked: false },
       { title: "按预计时长", value: "estimate", checked: true },
       { title: "按实际时长", value: "actual", checked: false },
+      { title: "难度", value: "difficulty", checked: false },
+      { title: "优先级", value: "priority", checked: false },
     ])
   })
 })

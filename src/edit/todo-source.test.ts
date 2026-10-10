@@ -54,7 +54,7 @@ describe("todo and habit source rewrites", () => {
       "---",
     ].join("\n")
     const updated = updateTodo(legacy, "task", { title: "开发 | 发布 50%" })
-    expect(updated).toContain('todo: id="task" done=false estimate=30 category="开发" group="" title="开发 | 发布 50%"')
+    expect(updated).toContain('- [ ] todo: id="task" estimate=30 category="开发" group="" title="开发 | 发布 50%"')
     expect(updated).not.toContain("%E5")
     expect(parseTimeline(updated).todos[0]).toMatchObject({ id: "task", title: "开发 | 发布 50%", type: "开发" })
   })

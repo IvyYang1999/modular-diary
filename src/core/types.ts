@@ -65,11 +65,15 @@ export interface TodoItem {
   type?: string
   estimateMin: number
   completed: boolean
+  partial?: boolean
+  note?: string
+  difficulty?: number
+  priority?: string
   line: number
 }
 
 export type TodoGroupBy = "none" | "category" | "status"
-export type TodoSortBy = "manual" | "estimate" | "actual"
+export type TodoSortBy = "manual" | "estimate" | "actual" | "difficulty" | "priority"
 export type TimelineDrawTool = "span" | "marker"
 
 export interface TodoViewConfig {

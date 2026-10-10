@@ -57,6 +57,7 @@ import {
 } from "./edit/remount-visual"
 import { habitProgress, isHabitDue, moveHabitInVisibleOrder, normalizeHabitDefinition, orderedHabits, type HabitDefinition } from "./core/habits"
 import { extractDatedTimelineEntries, filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledger"
+import { appendPostponedTodo, nextTodoDate, removePostponedTodo, transferPostponedTodo } from "./edit/todo-postpone"
 import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
@@ -129,6 +130,7 @@ interface BlockTransformOptions {
  * M1 渲染 / M2 对话框 / M3 画板编辑（选荧光笔→拖色块→写回；右键菜单）。
  */
 export default class ModularDiaryPlugin extends Plugin {
+  private readonly todoPostponements = new Map<string, Promise<void>>()
   settings: ModularDiarySettings = DEFAULT_SETTINGS
   private readonly mountedTimelines = new MountedTimelineRegistry()
   private readonly scrollTransactions = new ScrollTransactionRegistry<object, TimelineScrollSnapshot>()
@@ -936,6 +938,7 @@ export default class ModularDiaryPlugin extends Plugin {
           categories: spanPaletteTypes,
           typeColors: spanPaletteForRender,
           view: doc.todoView,
+          priorities: this.settings.todoPriorities,
           draft: ownerDrafts.get(draftId) ?? null,
           onDraftChange: (draft) => {
             if (draft) ownerDrafts?.set(draftId, { ...draft })
@@ -974,6 +977,8 @@ export default class ModularDiaryPlugin extends Plugin {
               manual: tr("todoSortManual"),
               estimate: tr("todoSortEstimate"),
               actual: tr("todoSortActual"),
+              difficulty: tr("todoDifficulty"),
+              priority: tr("todoPriority"),
             }).forEach(({ value, title, checked }) => menu.addItem((item) => item
               .setTitle(title)
               .setChecked(checked)
@@ -985,6 +990,7 @@ export default class ModularDiaryPlugin extends Plugin {
               id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
               title: input.title, group: "", type: input.type,
               estimateMin: input.estimateMinutes, completed: false,
+              note: input.note, difficulty: input.difficulty, priority: input.priority,
             }
             void this.applyBlockTransform(el, ctx, source, (current) => insertTodo(
               this.addComponentSlot(current, doc, container, "todos"), value
@@ -993,6 +999,9 @@ export default class ModularDiaryPlugin extends Plugin {
           onEdit: (id, input) => {
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
             if (weekly) {
+              weekly.note = input.note
+              weekly.difficulty = input.difficulty
+              weekly.priority = input.priority
               weekly.title = input.title
               weekly.type = input.type
               weekly.targetMinutes = input.estimateMinutes
@@ -1003,10 +1012,11 @@ export default class ModularDiaryPlugin extends Plugin {
               title: input.title,
               type: input.type,
               estimateMin: input.estimateMinutes,
+              note: input.note, difficulty: input.difficulty, priority: input.priority,
             }))
           },
           onToggle: (id, completed) => {
-            return this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, id, { completed }))
+            return this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, id, { completed, partial: false }))
           },
           onMove: (id, targetIndex) => {
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
@@ -1023,6 +1033,21 @@ export default class ModularDiaryPlugin extends Plugin {
           onMenu: (todo, x, y, edit) => {
             const menu = new Menu()
             menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
+            if (!todo.weekly) {
+              if (!todo.completed && dateStr) menu.addItem((item) => item
+                .setTitle(tr("postponeTodo", { path: this.tomorrowTodoPath(ctx.sourcePath, dateStr) }))
+                .setIcon("calendar-arrow-right")
+                .onClick(() => { void this.postponeTodoToTomorrow(el, ctx, source, todo.id, dateStr).catch(() => new Notice(tr("postponeTodoFailed"))) }))
+              menu.addItem((item) => item.setTitle(tr("markPartial")).setIcon("circle-slash").setChecked(Boolean(todo.partial)).onClick(() => {
+                void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: false, partial: true }))
+              }))
+              menu.addItem((item) => item.setTitle(tr("markIncomplete")).setIcon("circle").onClick(() => {
+                void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: false, partial: false }))
+              }))
+              menu.addItem((item) => item.setTitle(tr("markComplete")).setIcon("check").onClick(() => {
+                void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: true, partial: false }))
+              }))
+            }
             if (todo.weekly && dateStr) {
               menu.addItem((item) => item.setTitle(tr("endFutureTodo")).setIcon("calendar-off").onClick(() => {
                 const stored = this.settings.weeklyTodos.find((item) => item.id === todo.id)
@@ -2159,6 +2184,64 @@ export default class ModularDiaryPlugin extends Plugin {
     }
   }
 
+  private tomorrowTodoPath(sourcePath: string, date: string): string {
+    const slash = sourcePath.lastIndexOf("/")
+    return normalizePath((slash >= 0 ? sourcePath.slice(0, slash + 1) : "") + nextTodoDate(date) + ".md")
+  }
+
+  /** Repeated transport/UI calls for the same business key share one transfer. */
+  private postponeTodoToTomorrow(el: HTMLElement, ctx: MarkdownPostProcessorContext, source: string, id: string, date: string): Promise<void> {
+    const targetPath = this.tomorrowTodoPath(ctx.sourcePath, date)
+    if (targetPath === ctx.sourcePath) return Promise.reject(new Error("same-todo-destination"))
+    const key = `${ctx.sourcePath}\u0000${id}`
+    const active = this.todoPostponements.get(key)
+    if (active) return active
+    const operation = this.performTodoPostponement(el, ctx, source, id, date, targetPath)
+      .finally(() => { this.todoPostponements.delete(key) })
+    this.todoPostponements.set(key, operation)
+    return operation
+  }
+
+  private async performTodoPostponement(el: HTMLElement, ctx: MarkdownPostProcessorContext, source: string, id: string, date: string, targetPath: string): Promise<void> {
+    const matches = parseTimeline(source).todos.filter((todo) => todo.id === id)
+    if (matches.length !== 1 || matches[0].completed) throw new Error("invalid-postponement-source")
+    const todo = matches[0], tomorrow = nextTodoDate(date)
+    let target: TFile | null = null
+    const assertNoUnsavedTarget = (content: string): void => {
+      this.app.workspace.iterateAllLeaves((leaf) => {
+        const view = leaf.view
+        if (view instanceof MarkdownView && view.file?.path === targetPath && view.getMode() === "source" && view.editor.getValue() !== content) {
+          throw new Error("tomorrow-note-has-unsaved-edits")
+        }
+      })
+    }
+    await transferPostponedTodo({
+      copy: async () => {
+        const existing = this.app.vault.getAbstractFileByPath(targetPath)
+        if (existing && !(existing instanceof TFile)) throw new Error("invalid-todo-destination")
+        if (existing instanceof TFile) {
+          target = existing
+          assertNoUnsavedTarget(await this.app.vault.read(target))
+          await this.app.vault.process(target, (content) => {
+            assertNoUnsavedTarget(content)
+            return appendPostponedTodo(content, tomorrow, todo)
+          })
+        } else target = await this.app.vault.create(targetPath, appendPostponedTodo("", tomorrow, todo))
+      },
+      verifyCopy: async () => {
+        if (!target || this.app.vault.getAbstractFileByPath(targetPath) !== target) return false
+        const content = await this.app.vault.read(target)
+        return appendPostponedTodo(content, tomorrow, todo) === content
+      },
+      removeOriginal: async () => {
+        await this.applyBlockTransform(el, ctx, source, (current) => {
+          if (parseTimeline(current).date !== parseTimeline(source).date) throw new Error("postponement-date-changed")
+          return removePostponedTodo(current, todo)
+        })
+      },
+    })
+  }
+
   async loadSettings(): Promise<void> {
     const data = (await this.loadData()) as (Partial<ModularDiarySettings> & LegacyCategoryPaletteSettings) | null
     const hasPersistedSettings = data !== null
@@ -2177,6 +2260,7 @@ export default class ModularDiaryPlugin extends Plugin {
         order: Number.isFinite(todo.order) ? todo.order : order,
       })),
       dailyQuotes: (data?.dailyQuotes ?? []).map((quote, order) => normalizeDailyQuoteDefinition(quote, order)),
+      todoPriorities: Array.isArray(data?.todoPriorities) ? [...new Set(data.todoPriorities.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map((value) => value.trim()))] : [...DEFAULT_SETTINGS.todoPriorities],
       dailyQuoteInk: typeof data?.dailyQuoteInk === "string" ? data.dailyQuoteInk : "",
       timelineOnboardingSeen: resolveTimelineOnboardingSeen(
         data?.timelineOnboardingSeen,

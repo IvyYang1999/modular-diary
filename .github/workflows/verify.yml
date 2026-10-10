@@ -26,3 +26,10 @@ jobs:
           name: save-recovery-visuals
           path: ${{ runner.temp }}/modular-diary-save-recovery/*.png
           if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: todo-batch-visuals
+          path: /tmp/modular-diary-todo-batch-*/*.png
+          if-no-files-found: ignore

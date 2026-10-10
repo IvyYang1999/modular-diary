@@ -4069,3 +4069,46 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
   margin-left: auto;
   max-width: 100%;
 }
+
+/* Optional Todo data stays quiet; the editor uses full-width rows at narrow slot sizes. */
+.modular-diary-todo-note {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: var(--modular-diary-font-caption);
+}
+.modular-diary-todo-form .modular-diary-todo-note-input {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  box-sizing: border-box;
+  resize: vertical;
+  font: inherit;
+  font-size: var(--modular-diary-font-caption);
+}
+.modular-diary-todo-form .modular-diary-todo-difficulty { grid-column: 1 / 3; }
+.modular-diary-todo-form .modular-diary-todo-priority { grid-column: 3 / -1; }
+.modular-diary-todo-row.is-partial .modular-diary-todo-check { position: relative; }
+.modular-diary-todo-row.is-partial .modular-diary-todo-check::after {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 12px;
+  left: calc(50% - 6px);
+  top: calc(50% - 6px);
+  border-radius: 6px 0 0 6px;
+  background: currentColor;
+  pointer-events: none;
+}
+
+.modular-diary-todo-body > .modular-diary-item-meta {
+  grid-column: 2;
+  grid-row: 1;
+}
+.modular-diary-todo-form input,
+.modular-diary-todo-form select,
+.modular-diary-todo-form button { box-sizing: border-box; }

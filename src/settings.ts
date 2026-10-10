@@ -43,6 +43,8 @@ export interface ModularDiarySettings {
   habits: HabitDefinition[]
   /** Weekly cumulative Todo goals shown every day until the weekly quota is reached. */
   weeklyTodos: WeeklyTodoDefinition[]
+  /** Highest priority first; authored Todo values survive tier removal/renaming. */
+  todoPriorities: string[]
   /** Global sentence library shared by every Daily Quote component. */
   dailyQuotes: DailyQuoteDefinition[]
   /** Span category whose colour tints quote slots by default ("" = untinted). */
@@ -67,6 +69,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   categoriesCollapsed: false,
   habits: [],
   weeklyTodos: [],
+  todoPriorities: ["P1", "P2", "P3"],
   dailyQuotes: [],
   dailyQuoteInk: "",
 }
@@ -188,6 +191,14 @@ export class ModularDiarySettingTab extends PluginSettingTab {
       })
     }
     renderWeeklyTodos()
+    new Setting(weeklyTodoSection).setName(tr("todoPrioritySettings")).setDesc(tr("todoPrioritySettingsHint"))
+      .addTextArea((control) => {
+        control.inputEl.setAttribute("aria-label", tr("todoPrioritySettings"))
+        control.setValue(this.plugin.settings.todoPriorities.join("\n")).onChange(async (value) => {
+        this.plugin.settings.todoPriorities = [...new Set(value.split("\n").map((line) => line.trim()).filter(Boolean))]
+        await this.plugin.saveSettings({ rerender: true })
+        })
+      })
 
     const quoteSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     quoteSection.dataset.settingsSection = "daily-quotes"
