@@ -8,6 +8,13 @@ violations, not a claim to have recovered its missing rationale.
 
 ## Frozen acceptance envelope
 
+The verbatim original requirement paragraphs, complete expectations, source
+UIDs/versions/digests and the user's Daily Notes decision are now in
+[pr9-requirement-sources.md](pr9-requirement-sources.md). This matrix is an index,
+not the requirement source. The source document also binds a local read-only
+snapshot containing the complete DCC bodies and related human thread context,
+so review does not depend on a running DCC app.
+
 Deliver one branch and one PR repairing reproducible explicit violations. Keep
 existing styles, colors, controls and layout. No merge, release, live Vault writes,
 unrelated features or Daily Notes reimplementation. Block only explicit acceptance
