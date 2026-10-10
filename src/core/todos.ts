@@ -37,7 +37,7 @@ const decodeLegacyField = (value: string): string | null => {
   try { return decodeURIComponent(value) } catch { return null }
 }
 
-export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem): string {
+export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem, noteSourceValue?: string): string {
   return [
     `id=${JSON.stringify(todo.id)}`,
     `done=${todo.completed ? "true" : "false"}`,
@@ -45,7 +45,7 @@ export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem): 
     `category=${JSON.stringify(todo.type ?? "")}`,
     `group=${JSON.stringify(todo.group)}`,
     `title=${JSON.stringify(todo.title)}`,
-    ...(todo.note ? [`note=${JSON.stringify(todo.note)}`] : []),
+    ...(noteSourceValue !== undefined ? [`note=${noteSourceValue}`] : todo.note ? [`note=${JSON.stringify(todo.note)}`] : []),
     ...(todo.difficulty !== undefined ? [`difficulty=${todo.difficulty}`] : []),
     ...(todo.priority ? [`priority=${JSON.stringify(todo.priority)}`] : []),
   ].join(" ")
@@ -65,7 +65,7 @@ function parseLegacyTodoHeaderValue(value: string, line: number): TodoItem | nul
   }
 }
 
-function parseReadableFields(value: string): Map<string, string> | null {
+function parseReadableFields(value: string, rawFields?: Map<string, string>): Map<string, string> | null {
   const fields = new Map<string, string>()
   let cursor = 0
   while (cursor < value.length) {
@@ -78,6 +78,7 @@ function parseReadableFields(value: string): Map<string, string> | null {
     cursor += keyMatch[0].length
     if (cursor >= value.length) return null
 
+    const valueStart = cursor
     let fieldValue: string
     if (value[cursor] === '"') {
       const start = cursor
@@ -110,8 +111,16 @@ function parseReadableFields(value: string): Map<string, string> | null {
       if (!fieldValue) return null
     }
     fields.set(key, fieldValue)
+    rawFields?.set(key, value.slice(valueStart, cursor))
   }
   return fields
+}
+
+/** Reuse the field scanner so text inside quoted titles cannot become a field. */
+export function todoNoteSourceValue(text: string): string | undefined {
+  const rawFields = new Map<string, string>()
+  const value = text.trim().replace(/^(?:- \[[ xX/]\] )?todo:\s*/, "")
+  return parseReadableFields(value, rawFields) ? rawFields.get("note") : undefined
 }
 
 function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | null {
@@ -164,8 +173,8 @@ export function todoMetrics(todo: TodoItem, entries: Entry[]): { estimateMinutes
 }
 
 /** The checkbox is the single source of completion for new task rows. */
-export function formatTodoSourceLine(todo: Omit<TodoItem, "line">): string {
-  const fields = formatTodoHeaderValue(todo).replace(/ done=(?:true|false)/, "")
+export function formatTodoSourceLine(todo: Omit<TodoItem, "line">, noteSourceValue?: string): string {
+  const fields = formatTodoHeaderValue(todo, noteSourceValue).replace(/ done=(?:true|false)/, "")
   return `- [${todo.completed ? "x" : todo.partial ? "/" : " "}] todo: ${fields}`
 }
 

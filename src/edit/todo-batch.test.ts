@@ -30,6 +30,16 @@ describe("todo batch source contract", () => {
     expect(updated).toContain(rawNote + '\n---')
     expect(parseTimeline(updated).todos[0]).toMatchObject({ title: "新标题", note })
   })
+  it("preserves the field independently of its position and of field-like title text", () => {
+    const source = '- [/] todo: id="a" note="\\u5907注" estimate=30 category="" group="" title="检查 note="\n---'
+    const updated = updateTodo(source, "a", { title: "新 note=", note: "备注", difficulty: 3 })
+    expect(updated).toContain('note="\\u5907注"')
+    expect(parseTimeline(updated).todos[0]).toMatchObject({ title: "新 note=", note: "备注", partial: true, difficulty: 3 })
+    expect(parseTimeline(updated).errors).toEqual([])
+    const cleared = updateTodo(updated, "a", { note: undefined, priority: "P1" })
+    expect(parseTimeline(cleared).todos[0].note).toBeUndefined()
+    expect(cleared).not.toContain('note="\\u5907注"')
+  })
   it("writes and reads Markdown half-completion and retains all data through normal toggles", () => {
     const source = updateTodo(insertTodo("---", { ...todo, note: "尾巴" }), "a", { partial: true })
     expect(source).toMatch(/^- \[\/\] todo:/)
