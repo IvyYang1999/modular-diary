@@ -77,3 +77,15 @@ are host-adapter evidence, not a native Obsidian acceptance claim. The optional
 native gate now checks real resize plus two text saves and requires explicitly
 scheduled foreground permission before it creates a profile or opens a window.
 It never installs into or touches the active Vault.
+
+## Todo batch contracts
+
+`e2e/todo-batch-smoke.mjs` uses the production Todo renderer/parser/rewriter with
+synthetic disk-backed source. It checks note preload, title-only preservation,
+draft remount, note/attribute clears, sorting/source agreement, ordinary completion,
+half-completion, narrow dark/light layout and a transfer to tomorrow. The transfer
+calls the production plugin methods through the same disk-backed Obsidian host
+adapter exercised by `e2e/todo-postpone-host.mjs`; that gate covers duplicate
+invocations, persisted copy acknowledgement, retries and conflicting/unsaved data.
+CI uploads the synthetic images as `todo-batch-visuals`. This does not prove a
+native Obsidian reload or installation in the active Vault.

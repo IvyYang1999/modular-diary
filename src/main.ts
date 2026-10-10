@@ -57,6 +57,7 @@ import {
 } from "./edit/remount-visual"
 import { habitProgress, isHabitDue, moveHabitInVisibleOrder, normalizeHabitDefinition, orderedHabits, type HabitDefinition } from "./core/habits"
 import { extractDatedTimelineEntries, filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledger"
+import { appendPostponedTodo, nextTodoDate, removePostponedTodo, transferPostponedTodo } from "./edit/todo-postpone"
 import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
@@ -129,6 +130,7 @@ interface BlockTransformOptions {
  * M1 渲染 / M2 对话框 / M3 画板编辑（选荧光笔→拖色块→写回；右键菜单）。
  */
 export default class ModularDiaryPlugin extends Plugin {
+  private readonly todoPostponements = new Map<string, Promise<void>>()
   settings: ModularDiarySettings = DEFAULT_SETTINGS
   private readonly mountedTimelines = new MountedTimelineRegistry()
   private readonly scrollTransactions = new ScrollTransactionRegistry<object, TimelineScrollSnapshot>()
@@ -1032,6 +1034,10 @@ export default class ModularDiaryPlugin extends Plugin {
             const menu = new Menu()
             menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
             if (!todo.weekly) {
+              if (!todo.completed && dateStr) menu.addItem((item) => item
+                .setTitle(tr("postponeTodo", { path: this.tomorrowTodoPath(ctx.sourcePath, dateStr) }))
+                .setIcon("calendar-arrow-right")
+                .onClick(() => { void this.postponeTodoToTomorrow(el, ctx, source, todo.id, dateStr).catch(() => new Notice(tr("postponeTodoFailed"))) }))
               menu.addItem((item) => item.setTitle(tr("markPartial")).setIcon("circle-slash").setChecked(Boolean(todo.partial)).onClick(() => {
                 void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: false, partial: true }))
               }))
@@ -2176,6 +2182,64 @@ export default class ModularDiaryPlugin extends Plugin {
       visualRollback.current?.()
       throw error
     }
+  }
+
+  private tomorrowTodoPath(sourcePath: string, date: string): string {
+    const slash = sourcePath.lastIndexOf("/")
+    return normalizePath((slash >= 0 ? sourcePath.slice(0, slash + 1) : "") + nextTodoDate(date) + ".md")
+  }
+
+  /** Repeated transport/UI calls for the same business key share one transfer. */
+  private postponeTodoToTomorrow(el: HTMLElement, ctx: MarkdownPostProcessorContext, source: string, id: string, date: string): Promise<void> {
+    const targetPath = this.tomorrowTodoPath(ctx.sourcePath, date)
+    if (targetPath === ctx.sourcePath) return Promise.reject(new Error("same-todo-destination"))
+    const key = `${ctx.sourcePath}\u0000${id}`
+    const active = this.todoPostponements.get(key)
+    if (active) return active
+    const operation = this.performTodoPostponement(el, ctx, source, id, date, targetPath)
+      .finally(() => { this.todoPostponements.delete(key) })
+    this.todoPostponements.set(key, operation)
+    return operation
+  }
+
+  private async performTodoPostponement(el: HTMLElement, ctx: MarkdownPostProcessorContext, source: string, id: string, date: string, targetPath: string): Promise<void> {
+    const matches = parseTimeline(source).todos.filter((todo) => todo.id === id)
+    if (matches.length !== 1 || matches[0].completed) throw new Error("invalid-postponement-source")
+    const todo = matches[0], tomorrow = nextTodoDate(date)
+    let target: TFile | null = null
+    const assertNoUnsavedTarget = (content: string): void => {
+      this.app.workspace.iterateAllLeaves((leaf) => {
+        const view = leaf.view
+        if (view instanceof MarkdownView && view.file?.path === targetPath && view.getMode() === "source" && view.editor.getValue() !== content) {
+          throw new Error("tomorrow-note-has-unsaved-edits")
+        }
+      })
+    }
+    await transferPostponedTodo({
+      copy: async () => {
+        const existing = this.app.vault.getAbstractFileByPath(targetPath)
+        if (existing && !(existing instanceof TFile)) throw new Error("invalid-todo-destination")
+        if (existing instanceof TFile) {
+          target = existing
+          assertNoUnsavedTarget(await this.app.vault.read(target))
+          await this.app.vault.process(target, (content) => {
+            assertNoUnsavedTarget(content)
+            return appendPostponedTodo(content, tomorrow, todo)
+          })
+        } else target = await this.app.vault.create(targetPath, appendPostponedTodo("", tomorrow, todo))
+      },
+      verifyCopy: async () => {
+        if (!target || this.app.vault.getAbstractFileByPath(targetPath) !== target) return false
+        const content = await this.app.vault.read(target)
+        return appendPostponedTodo(content, tomorrow, todo) === content
+      },
+      removeOriginal: async () => {
+        await this.applyBlockTransform(el, ctx, source, (current) => {
+          if (parseTimeline(current).date !== parseTimeline(source).date) throw new Error("postponement-date-changed")
+          return removePostponedTodo(current, todo)
+        })
+      },
+    })
   }
 
   async loadSettings(): Promise<void> {

@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import esbuild from 'esbuild'
 import { chromium } from 'playwright'
+import { createPostponeHost } from './todo-postpone-host.mjs'
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'modular-diary-todo-batch-'))
 const sourceFile = path.join(out, 'synthetic.timeline')
@@ -41,7 +42,7 @@ function mount(){
  onEdit:(id,i)=>persist(s=>updateTodo(s,id,{title:i.title,type:i.type,estimateMin:i.estimateMinutes,note:i.note,difficulty:i.difficulty,priority:i.priority})),
  onToggle:(id,completed)=>persist(s=>updateTodo(s,id,{completed,partial:false})),
  onMenu:(item,x,y,edit)=>{document.querySelector('#menu')?.remove();const menu=document.body.createDiv({});menu.id='menu';
- for(const [label,action] of [['编辑',edit],['半完成',()=>persist(s=>updateTodo(s,item.id,{completed:false,partial:true}))]]){
+ for(const [label,action] of [['编辑',edit],['半完成',()=>persist(s=>updateTodo(s,item.id,{completed:false,partial:true}))],['推到明天',()=>{queue=queue.then(async()=>{const result=await window.postponeSource(source,item.id);source=result;mount()});return queue}]]){
  const b=menu.createEl('button',{text:label,attr:{type:'button'}});b.onclick=()=>{menu.remove();action()}
  }},
  onGroupMenu:()=>{},onSortMenu:()=>{},onMove:()=>{},
@@ -63,6 +64,12 @@ try {
  const page=await browser.newPage({viewport:{width:560,height:600}})
  const errors=[];page.on('pageerror',e=>errors.push(e.message))
  await page.exposeFunction('persistSource',source=>fs.writeFileSync(sourceFile,source))
+ let tomorrowContent=''
+ await page.exposeFunction('postponeSource',async(source,id)=>{
+   const host=createPostponeHost({sourceValue:source,id});await host.run();tomorrowContent=host.readTarget()
+   const updated=host.readSource().match(/^```timeline\n([\s\S]*?)\n```/)[1]
+   fs.writeFileSync(sourceFile,updated);return updated
+ })
  await page.goto('file://'+path.join(out,'index.html'))
  const row=id=>page.locator('[data-todo-id="'+id+'"]')
  await row('low').click({button:'right'});await page.getByRole('button',{name:'编辑',exact:true}).click()
@@ -114,6 +121,13 @@ try {
  assert.ok(bounds.scroll<=bounds.width+1,JSON.stringify(bounds))
  await row('high').getByRole('button',{name:'保存',exact:true}).focus()
  await page.screenshot({path:path.join(out,'todo-editor-narrow-dark.png')})
+ await row('high').locator('textarea').press('Escape')
+ await row('low').click({button:'right'});await page.getByRole('button',{name:'半完成',exact:true}).click();await page.evaluate(()=>window.whenSaved())
+ await row('low').click({button:'right'});await page.getByRole('button',{name:'推到明天',exact:true}).click();await page.evaluate(()=>window.whenSaved())
+ assert.equal(await row('low').count(),0)
+ assert.ok(!fs.readFileSync(sourceFile,'utf8').includes('id="low"'))
+ assert.ok(tomorrowContent.includes('- [/] todo: id="low"'))
+ assert.ok(tomorrowContent.includes('date: 2026-10-11'))
  assert.deepEqual(errors,[])
  console.log('OK Todo file-backed UI contracts; synthetic screenshots:',out)
 } finally {await browser.close()}

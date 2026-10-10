@@ -192,10 +192,13 @@ export class ModularDiarySettingTab extends PluginSettingTab {
     }
     renderWeeklyTodos()
     new Setting(weeklyTodoSection).setName(tr("todoPrioritySettings")).setDesc(tr("todoPrioritySettingsHint"))
-      .addTextArea((control) => control.setValue(this.plugin.settings.todoPriorities.join("\n")).onChange(async (value) => {
+      .addTextArea((control) => {
+        control.inputEl.setAttribute("aria-label", tr("todoPrioritySettings"))
+        control.setValue(this.plugin.settings.todoPriorities.join("\n")).onChange(async (value) => {
         this.plugin.settings.todoPriorities = [...new Set(value.split("\n").map((line) => line.trim()).filter(Boolean))]
         await this.plugin.saveSettings({ rerender: true })
-      }))
+        })
+      })
 
     const quoteSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     quoteSection.dataset.settingsSection = "daily-quotes"

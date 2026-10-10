@@ -50,6 +50,12 @@ class TextControl {
   setPlaceholder(value: string): this { this.inputEl.placeholder = value; return this }
   onChange(callback: (value: string) => void): this { this.inputEl.addEventListener("change", () => callback(this.inputEl.value)); return this }
 }
+class TextareaControl {
+  inputEl: HTMLTextAreaElement
+  constructor(parent: HTMLElement) { this.inputEl = document.createElement("textarea"); parent.appendChild(this.inputEl) }
+  setValue(value: string): this { this.inputEl.value = value; return this }
+  onChange(callback: (value: string) => void): this { this.inputEl.addEventListener("change", () => callback(this.inputEl.value)); return this }
+}
 class DropdownControl {
   selectEl: HTMLSelectElement
   constructor(parent: HTMLElement) { this.selectEl = document.createElement("select"); parent.appendChild(this.selectEl) }
@@ -79,6 +85,7 @@ export class Setting {
   setDesc(value: string): this { const el = document.createElement("div"); el.className = "setting-item-description"; el.textContent = value; this.infoEl.appendChild(el); return this }
   setClass(value: string): this { this.settingEl.classList.add(value); return this }
   addText(callback: (control: TextControl) => void): this { callback(new TextControl(this.controlEl)); return this }
+  addTextArea(callback: (control: TextareaControl) => void): this { callback(new TextareaControl(this.controlEl)); return this }
   addDropdown(callback: (control: DropdownControl) => void): this { callback(new DropdownControl(this.controlEl)); return this }
   addButton(callback: (control: ButtonControl) => void): this { callback(new ButtonControl(this.controlEl)); return this }
   addExtraButton(callback: (control: ButtonControl) => void): this { callback(new ButtonControl(this.controlEl)); return this }
@@ -122,7 +129,7 @@ const settings = {
     { id: "weekly", name: "运动", type: "sport", targetMinutes: 180, targetPeriod: "week", schedule: { kind: "daily" }, repeatWeekly: false, weekAnchor: "2026-08-17", order: 1 },
     { id: "any", name: "发布", type: "develop", targetMinutes: 0, targetPeriod: "day", schedule: { kind: "weekdays" }, order: 2 },
     { id: "count", name: "复盘", type: "develop", targetMinutes: 0, targetPeriod: "week", targetMetric: "count", targetCount: 3, schedule: { kind: "daily" }, repeatWeekly: true, order: 3 },
-  ], weeklyTodos: [], hourHeight: 48, width: 200, rangeStartHour: 7, rangeEndHour: 23,
+  ], weeklyTodos: [], todoPriorities: ["P1", "P2", "P3"], hourHeight: 48, width: 200, rangeStartHour: 7, rangeEndHour: 23,
   dailyQuotes: [],
   dailyQuoteDefaults: {
     theme: "timeline", layout: "left", font: "interface", fontSize: 20,
@@ -378,9 +385,14 @@ const changedState = await page.evaluate(() => ({
   storedName: window.__settings?.habits?.[0]?.name ?? null,
   dailyRepeatCount: document.querySelectorAll('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="repeat"]').length,
 }))
+const priorityTiers = page.locator("#global-settings [data-settings-section='todo-rules'] textarea")
+await priorityTiers.fill("马上\n 随时 \n马上")
+await priorityTiers.dispatchEvent("change")
+const customPriorityTiers = await page.evaluate(() => window.__settings.todoPriorities)
 await browser.close()
 
 const errors = []
+if (customPriorityTiers.join("|") !== "马上|随时") errors.push("custom priority tiers must persist highest-first and deduplicate without editing Todos")
 if (state.rows !== 4) errors.push("expected four habit editors covering duration, no-target, and count layouts")
 for (const column of ["name", "category", "goal", "repeat", "actions"]) {
   const positions = state.rowColumns.map((row) => row[column]).filter((value) => value !== null)
