@@ -41,3 +41,10 @@ it('rejects stale source removal and keeps historical bindings', () => {
  expect(parseTimeline(removePostponedTodo(original, todo)).todos).toEqual([])
  expect(() => removePostponedTodo(original.replace('有尾巴','标题变了'), todo)).toThrow('source-changed')
 })
+
+it('reveals copied Todos and refuses same ID on another date', () => {
+ const hidden = '```timeline\ndate: 2026-10-11\noff: todos stats\n---\n```'
+ const copied = appendPostponedTodo(hidden, '2026-10-11', todo)
+ expect(parseTimeline([...timelineFences(copied)][0].source).hiddenSlots).toEqual(['stats'])
+ expect(() => appendPostponedTodo(copied.replace('2026-10-11','2026-10-09'),'2026-10-11',todo)).toThrow('id-conflict')
+})

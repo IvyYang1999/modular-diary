@@ -2,7 +2,7 @@ import { parseTimeline } from "../core/parser"
 import { formatTodoSourceLine } from "../core/todos"
 import type { TodoItem } from "../core/types"
 import { timelineFences } from "./block-identity"
-import { insertTodo, replaceBlockInContent } from "./source-rewriter"
+import { insertTodo, removeOffSlot, replaceBlockInContent } from "./source-rewriter"
 
 export function nextTodoDate(value: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("invalid-todo-date")
@@ -19,17 +19,20 @@ const equalTodo = (a: Omit<TodoItem, "line">, b: Omit<TodoItem, "line">): boolea
 export function appendPostponedTodo(content: string, date: string, todo: TodoItem): string {
   if (todo.completed) throw new Error("completed-todo-cannot-postpone")
   const fences = [...timelineFences(content)]
-  const sameId = fences.flatMap((fence) => { const doc = parseTimeline(fence.source); return doc.todos.filter((item) => item.id === todo.id).map((item) => ({ date: doc.date, item })) })
-  if (sameId.length > 0) {
-    if (sameId.length === 1 && sameId[0].date === date && equalTodo(sameId[0].item, todo)) return content
-    throw new Error("postponed-todo-id-conflict")
-  }
   const targets = fences.filter((fence) => parseTimeline(fence.source).date === date)
   if (targets.length > 1) throw new Error("ambiguous-tomorrow-timeline")
+  if (targets.length === 1 && parseTimeline(targets[0].source).errors.length) throw new Error("invalid-tomorrow-timeline")
+  const sameId = fences.flatMap((fence) => { const doc = parseTimeline(fence.source); return doc.todos.filter((item) => item.id === todo.id).map((item) => ({ date: doc.date, item })) })
+  if (sameId.length > 0) {
+    if (sameId.length === 1 && sameId[0].date === date && equalTodo(sameId[0].item, todo)) {
+      const target = targets[0]
+      return replaceBlockInContent(content, target, removeOffSlot(target.source, "todos"))
+    }
+    throw new Error("postponed-todo-id-conflict")
+  }
   if (targets.length === 1) {
     const target = targets[0]
-    if (parseTimeline(target.source).errors.length) throw new Error("invalid-tomorrow-timeline")
-    return replaceBlockInContent(content, target, insertTodo(target.source, todo))
+    return replaceBlockInContent(content, target, insertTodo(removeOffSlot(target.source, "todos"), todo))
   }
   const block = "```timeline\n" + insertTodo(`date: ${date}\n---`, todo) + "\n```\n"
   return content + (content && !content.endsWith("\n\n") ? "\n\n" : "") + block

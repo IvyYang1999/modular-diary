@@ -57,8 +57,8 @@ const built=await esbuild.build({stdin:{contents:entry,resolveDir:root,loader:'t
 const css=fs.readFileSync(path.join(root,'styles.css'),'utf8')
 fs.writeFileSync(path.join(out,'index.html'),`<!doctype html><meta charset="utf-8"><style>
 :root{--background-primary:#fff;--background-secondary:#f5f5f5;--background-modifier-border:#ccc;--background-modifier-form-field:#fff;--text-normal:#222;--text-muted:#666;--text-faint:#777;--text-accent:#555;--interactive-accent:#555;--background-modifier-hover:#eee;--text-error:#c33;--font-interface:system-ui}
-body{margin:20px;font-family:system-ui} #host{width:430px;min-height:320px} #menu{position:absolute;top:0;right:0}
-${css}</style><p>隔离测试数据 · 文件写入适配器</p><div id="host" class="modular-diary-slot modular-diary-slot-todos"></div><script>${built.outputFiles[0].text}</script>`)
+body{margin:20px;font-family:system-ui} #host{position:relative;width:430px;min-height:320px} #menu{position:absolute;top:0;right:0}
+${css}</style><p>隔离测试数据 · 文件写入适配器</p><main class="modular-diary-container"><div id="host" class="modular-diary-slot modular-diary-slot-todos"></div></main><script>${built.outputFiles[0].text}</script>`)
 const browser=await chromium.launch({headless:true})
 try {
  const page=await browser.newPage({viewport:{width:560,height:600}})
@@ -100,6 +100,8 @@ try {
  assert.ok(fs.readFileSync(sourceFile,'utf8').includes('- [/] todo: id="low"'))
  assert.ok(await row('low').evaluate(r=>r.classList.contains('is-partial')))
  assert.equal(await row('low').locator('.modular-diary-todo-check').getAttribute('aria-pressed'),'mixed')
+ const noteLayout=await row('low').evaluate(row=>{const title=row.querySelector('.modular-diary-item-title').getBoundingClientRect(),note=row.querySelector('.modular-diary-todo-note').getBoundingClientRect();return {titleBottom:title.bottom,noteTop:note.top}})
+ assert.ok(noteLayout.noteTop>=noteLayout.titleBottom,'notes must occupy a separate row beneath the title')
  await row('low').hover();await page.screenshot({path:path.join(out,'todo-partial-light.png')})
  await row('low').locator('.modular-diary-todo-check').click();await page.evaluate(()=>window.whenSaved())
  assert.ok(fs.readFileSync(sourceFile,'utf8').includes('- [x] todo: id="low"'))
@@ -115,6 +117,7 @@ try {
  assert.doesNotMatch(savedRow,/note=|difficulty=|priority=/)
  await page.setViewportSize({width:360,height:600})
  await page.evaluate(()=>{document.querySelector('#host').style.width='320px';const s=document.documentElement.style;s.setProperty('--background-primary','#222');s.setProperty('--background-modifier-form-field','#333');s.setProperty('--text-normal','#eee');s.setProperty('--text-muted','#bbb');s.setProperty('--text-faint','#aaa');document.body.style.background='#222';document.body.style.color='#eee'})
+ await page.waitForFunction(()=>Math.abs(document.querySelector('#host').getBoundingClientRect().width-320)<1)
  await row('high').press('Shift+F10');await page.getByRole('button',{name:'编辑',exact:true}).click()
  await row('high').locator('textarea').fill('窄侧栏备注，测试滚动与换行')
  const bounds=await row('high').locator('.modular-diary-todo-edit-form').evaluate(f=>({width:f.getBoundingClientRect().width,scroll:f.scrollWidth}))

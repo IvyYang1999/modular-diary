@@ -4072,6 +4072,8 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
 
 /* Optional Todo data stays quiet; the editor uses full-width rows at narrow slot sizes. */
 .modular-diary-todo-note {
+  grid-column: 1 / -1;
+  grid-row: 2;
   display: block;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -4083,6 +4085,7 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
   width: 100%;
   min-width: 0;
   min-height: 48px;
+  box-sizing: border-box;
   resize: vertical;
   font: inherit;
   font-size: var(--modular-diary-font-caption);
@@ -4101,3 +4104,11 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
   background: currentColor;
   pointer-events: none;
 }
+
+.modular-diary-todo-body > .modular-diary-item-meta {
+  grid-column: 2;
+  grid-row: 1;
+}
+.modular-diary-todo-form input,
+.modular-diary-todo-form select,
+.modular-diary-todo-form button { box-sizing: border-box; }
