@@ -119,7 +119,7 @@ function parseReadableFields(value: string, rawFields?: Map<string, string>): Ma
 /** Reuse the field scanner so text inside quoted titles cannot become a field. */
 export function todoNoteSourceValue(text: string): string | undefined {
   const rawFields = new Map<string, string>()
-  const value = text.trim().replace(/^(?:- \[[ xX/]\] )?todo:\s*/, "")
+  const value = text.trim().replace(/^(?:- \[[ xX/]\] )?todo\s*:\s*/i, "")
   return parseReadableFields(value, rawFields) ? rawFields.get("note") : undefined
 }
 

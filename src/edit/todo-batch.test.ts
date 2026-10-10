@@ -40,6 +40,11 @@ describe("todo batch source contract", () => {
     expect(parseTimeline(cleared).todos[0].note).toBeUndefined()
     expect(cleared).not.toContain('note="\\u5907注"')
   })
+  it.each(["todo:", "todo :", "TODO:"])("retains note escapes with the accepted header prefix %s", (prefix) => {
+    const source = prefix + ' ' + formatTodoHeaderValue(todo) + ' note="\\u5907注"\n---'
+    expect(parseTimeline(source).todos[0].note).toBe("备注")
+    expect(updateTodo(source, "a", { title: "新标题", note: "备注" })).toContain('note="\\u5907注"')
+  })
   it("writes and reads Markdown half-completion and retains all data through normal toggles", () => {
     const source = updateTodo(insertTodo("---", { ...todo, note: "尾巴" }), "a", { partial: true })
     expect(source).toMatch(/^- \[\/\] todo:/)
