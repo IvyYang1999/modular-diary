@@ -89,3 +89,5 @@ adapter exercised by `e2e/todo-postpone-host.mjs`; that gate covers duplicate
 invocations, persisted copy acknowledgement, retries and conflicting/unsaved data.
 CI uploads the synthetic images as `todo-batch-visuals`. This does not prove a
 native Obsidian reload or installation in the active Vault.
+
+The Todo postponement host also verifies the enabled core Daily Notes options with real Moment formatting: a source in `daily/` transfers to `Journal/YYYY/MM/日记 DD.md`, creates missing subfolders, appends to an existing custom-named note, and rejects disabled/unavailable settings, folder collisions, failed folder creation, unsafe paths, same-note targets and settings changes after the menu displayed its destination. The UI adapter displays the production-resolved destination and captures `todo-daily-notes-destination.png`; it does not prove the native Obsidian Menu or core plugin itself is loaded.

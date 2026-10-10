@@ -12,6 +12,21 @@ export function nextTodoDate(value: string): string {
   return date.toISOString().slice(0, 10)
 }
 
+/** Daily Notes owns the destination. Never guess a directory if its options are unavailable. */
+export function dailyNotesTodoPath(date: string, options: unknown, formatDate: (date: string, format: string) => string): string {
+  if (!options || typeof options !== "object") throw new Error("daily-notes-unavailable")
+  const { folder, format } = options as { folder?: unknown; format?: unknown }
+  if ((folder !== undefined && typeof folder !== "string") || (format !== undefined && typeof format !== "string")) throw new Error("invalid-daily-notes-settings")
+  const directory = (folder as string | undefined)?.trim() ?? ""
+  const filename = formatDate(nextTodoDate(date), (format as string | undefined) || "YYYY-MM-DD")
+  const validate = (value: string): void => {
+    if (value.startsWith("/") || /[\\:\x00-\x1f]/.test(value) || value.split("/").some((part) => part === "." || part === ".." || part.startsWith("."))) throw new Error("unsafe-daily-notes-path")
+  }
+  validate(directory); validate(filename)
+  if (!filename || filename.endsWith("/")) throw new Error("invalid-daily-notes-filename")
+  return [directory, filename.endsWith(".md") ? filename : filename + ".md"].filter(Boolean).join("/").replace(/\/+/g, "/")
+}
+
 const equalTodo = (a: Omit<TodoItem, "line">, b: Omit<TodoItem, "line">): boolean =>
   formatTodoSourceLine(a) === formatTodoSourceLine(b)
 

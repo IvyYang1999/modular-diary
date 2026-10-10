@@ -1,4 +1,5 @@
-import { getLanguage, MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownRenderer, MarkdownView, Menu, normalizePath, Notice, Platform, Plugin, setIcon, TAbstractFile, TFile } from "obsidian"
+import { getLanguage, MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownRenderer, MarkdownView, Menu, moment, normalizePath, Notice, Platform, Plugin, setIcon, TAbstractFile, TFile, TFolder } from "obsidian"
+import type momentFactory from "moment"
 import { normalizeSpan, parseTimeline } from "./core/parser"
 import { formatClockPlain, formatEntryLine, formatMarkerLine } from "./core/format"
 import { FALLBACK_COLOR } from "./render/svg-builder"
@@ -57,7 +58,7 @@ import {
 } from "./edit/remount-visual"
 import { habitProgress, isHabitDue, moveHabitInVisibleOrder, normalizeHabitDefinition, orderedHabits, type HabitDefinition } from "./core/habits"
 import { extractDatedTimelineEntries, filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledger"
-import { appendPostponedTodo, nextTodoDate, removePostponedTodo, transferPostponedTodo } from "./edit/todo-postpone"
+import { appendPostponedTodo, dailyNotesTodoPath, nextTodoDate, removePostponedTodo, transferPostponedTodo } from "./edit/todo-postpone"
 import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
@@ -1034,10 +1035,15 @@ export default class ModularDiaryPlugin extends Plugin {
             const menu = new Menu()
             menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
             if (!todo.weekly) {
-              if (!todo.completed && dateStr) menu.addItem((item) => item
-                .setTitle(tr("postponeTodo", { path: this.tomorrowTodoPath(ctx.sourcePath, dateStr) }))
-                .setIcon("calendar-arrow-right")
-                .onClick(() => { void this.postponeTodoToTomorrow(el, ctx, source, todo.id, dateStr).catch(() => new Notice(tr("postponeTodoFailed"))) }))
+              if (!todo.completed && dateStr) {
+                let targetPath: string | null = null
+                try { targetPath = this.tomorrowTodoPath(dateStr) } catch { /* Unavailable Daily Notes must not break other menu actions. */ }
+                menu.addItem((item) => item
+                  .setTitle(targetPath ? tr("postponeTodo", { path: targetPath }) : tr("postponeTodoUnavailable"))
+                  .setIcon("calendar-arrow-right")
+                  .setDisabled(!targetPath)
+                  .onClick(() => { void this.postponeTodoToTomorrow(el, ctx, source, todo.id, dateStr, targetPath ?? undefined).catch(() => new Notice(tr("postponeTodoFailed"))) }))
+              }
               menu.addItem((item) => item.setTitle(tr("markPartial")).setIcon("circle-slash").setChecked(Boolean(todo.partial)).onClick(() => {
                 void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: false, partial: true }))
               }))
@@ -2184,14 +2190,39 @@ export default class ModularDiaryPlugin extends Plugin {
     }
   }
 
-  private tomorrowTodoPath(sourcePath: string, date: string): string {
-    const slash = sourcePath.lastIndexOf("/")
-    return normalizePath((slash >= 0 ? sourcePath.slice(0, slash + 1) : "") + nextTodoDate(date) + ".md")
+  private tomorrowTodoPath(date: string): string {
+    // Core plugin options are not exposed in Obsidian's public TypeScript declarations.
+    const internal = (this.app as unknown as {
+      internalPlugins?: { getEnabledPluginById?: (id: string) => { options?: unknown } | undefined }
+    }).internalPlugins
+    const options = internal?.getEnabledPluginById?.("daily-notes")?.options
+    return normalizePath(dailyNotesTodoPath(date, options, (day, format) => (moment as unknown as typeof momentFactory)(day, "YYYY-MM-DD", true).format(format)))
+  }
+
+  private async ensureTodoDestinationFolder(targetPath: string): Promise<void> {
+    const parts = targetPath.split("/")
+    parts.pop()
+    let directory = ""
+    for (const part of parts) {
+      directory = directory ? directory + "/" + part : part
+      let existing = this.app.vault.getAbstractFileByPath(directory)
+      if (!existing) {
+        try { await this.app.vault.createFolder(directory) }
+        catch (error) {
+          // Another transfer may have created the shared directory meanwhile.
+          if (!(this.app.vault.getAbstractFileByPath(directory) instanceof TFolder)) throw error
+        }
+        existing = this.app.vault.getAbstractFileByPath(directory)
+      }
+      if (!(existing instanceof TFolder)) throw new Error("invalid-todo-destination-folder")
+    }
   }
 
   /** Repeated transport/UI calls for the same business key share one transfer. */
-  private postponeTodoToTomorrow(el: HTMLElement, ctx: MarkdownPostProcessorContext, source: string, id: string, date: string): Promise<void> {
-    const targetPath = this.tomorrowTodoPath(ctx.sourcePath, date)
+  private postponeTodoToTomorrow(el: HTMLElement, ctx: MarkdownPostProcessorContext, source: string, id: string, date: string, displayedTarget?: string): Promise<void> {
+    let targetPath: string
+    try { targetPath = this.tomorrowTodoPath(date) } catch (error) { return Promise.reject(error) }
+    if (displayedTarget && displayedTarget !== targetPath) return Promise.reject(new Error("daily-notes-settings-changed"))
     if (targetPath === ctx.sourcePath) return Promise.reject(new Error("same-todo-destination"))
     const key = `${ctx.sourcePath}\u0000${id}`
     const active = this.todoPostponements.get(key)
@@ -2226,7 +2257,10 @@ export default class ModularDiaryPlugin extends Plugin {
             assertNoUnsavedTarget(content)
             return appendPostponedTodo(content, tomorrow, todo)
           })
-        } else target = await this.app.vault.create(targetPath, appendPostponedTodo("", tomorrow, todo))
+        } else {
+          await this.ensureTodoDestinationFolder(targetPath)
+          target = await this.app.vault.create(targetPath, appendPostponedTodo("", tomorrow, todo))
+        }
       },
       verifyCopy: async () => {
         if (!target || this.app.vault.getAbstractFileByPath(targetPath) !== target) return false

@@ -9,6 +9,8 @@ import { chromium } from 'playwright'
 import { createPostponeHost } from './todo-postpone-host.mjs'
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'modular-diary-todo-batch-'))
+const dailyNotes = {folder:'Journal',format:'YYYY/MM/[日记] DD'}
+const destination = createPostponeHost({dailyNotes}).destination()
 const sourceFile = path.join(out, 'synthetic.timeline')
 const authoredNote = 'note="  \\u5907注\\n第二行  "'
 const initial = 'date: 2026-10-10\ntodo: id="low" done=false estimate=30 category="work" group="" title="简单任务" '+ authoredNote +' difficulty=1 priority="随时"\ntodo: id="high" done=false estimate=60 category="work" group="" title="重要任务" difficulty=5 priority="马上"\ntodo: id="unset" done=false estimate=0 category="" group="" title="旧待办"\n---\n09:00-10:00 work'
@@ -42,7 +44,7 @@ function mount(){
  onEdit:(id,i)=>persist(s=>updateTodo(s,id,{title:i.title,type:i.type,estimateMin:i.estimateMinutes,note:i.note,difficulty:i.difficulty,priority:i.priority})),
  onToggle:(id,completed)=>persist(s=>updateTodo(s,id,{completed,partial:false})),
  onMenu:(item,x,y,edit)=>{document.querySelector('#menu')?.remove();const menu=document.body.createDiv({});menu.id='menu';
- for(const [label,action] of [['编辑',edit],['半完成',()=>persist(s=>updateTodo(s,item.id,{completed:false,partial:true}))],['推到明天',()=>{queue=queue.then(async()=>{const result=await window.postponeSource(source,item.id);source=result;mount()});return queue}]]){
+ for(const [label,action] of [['编辑',edit],['半完成',()=>persist(s=>updateTodo(s,item.id,{completed:false,partial:true}))],[${JSON.stringify('推到明天 → ')}+${JSON.stringify(destination)},()=>{queue=queue.then(async()=>{const result=await window.postponeSource(source,item.id);source=result;mount()});return queue}]]){
  const b=menu.createEl('button',{text:label,attr:{type:'button'}});b.onclick=()=>{menu.remove();action()}
  }},
  onGroupMenu:()=>{},onSortMenu:()=>{},onMove:()=>{},
@@ -66,7 +68,7 @@ try {
  await page.exposeFunction('persistSource',source=>fs.writeFileSync(sourceFile,source))
  let tomorrowContent=''
  await page.exposeFunction('postponeSource',async(source,id)=>{
-   const host=createPostponeHost({sourceValue:source,id});await host.run();tomorrowContent=host.readTarget()
+   const host=createPostponeHost({sourceValue:source,id,dailyNotes});await host.run();tomorrowContent=host.readTarget()
    const updated=host.readSource().match(/^```timeline\n([\s\S]*?)\n```/)[1]
    fs.writeFileSync(sourceFile,updated);return updated
  })
@@ -126,7 +128,10 @@ try {
  await page.screenshot({path:path.join(out,'todo-editor-narrow-dark.png')})
  await row('high').locator('textarea').press('Escape')
  await row('low').click({button:'right'});await page.getByRole('button',{name:'半完成',exact:true}).click();await page.evaluate(()=>window.whenSaved())
- await row('low').click({button:'right'});await page.getByRole('button',{name:'推到明天',exact:true}).click();await page.evaluate(()=>window.whenSaved())
+ await row('low').click({button:'right'});assert.equal(destination,'Journal/2026/10/日记 11.md')
+ await page.getByRole('button',{name:'推到明天 → '+destination,exact:true}).hover()
+ await page.screenshot({path:path.join(out,'todo-daily-notes-destination.png')})
+ await page.getByRole('button',{name:'推到明天 → '+destination,exact:true}).click();await page.evaluate(()=>window.whenSaved())
  assert.equal(await row('low').count(),0)
  assert.ok(!fs.readFileSync(sourceFile,'utf8').includes('id="low"'))
  assert.ok(tomorrowContent.includes('- [/] todo: id="low"'))
