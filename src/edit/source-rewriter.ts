@@ -6,7 +6,7 @@
 import { parseTimeline } from "../core/parser"
 import { formatEntryLine } from "../core/format"
 import { MIN_TIMELINE_SPAN_MINUTES } from "../core/duration"
-import { formatTodoSourceLine } from "../core/todos"
+import { formatTodoSourceLine, todoNoteSourceValue } from "../core/todos"
 import { parseRecoverableLayoutHeader } from "../core/grid-layout"
 import type { TodoItem } from "../core/types"
 
@@ -111,13 +111,10 @@ export function updateTodo(source: string, id: string, patch: Partial<Omit<TodoI
   })
   if (unchanged) return source
   const lines = source.split("\n")
-  let updated = formatTodoSourceLine({ ...current, ...patch })
-  // Preserve authored JSON escaping/spacing inside the note unless its value changed.
-  if (patch.note === undefined || patch.note === current.note) {
-    const rawNote = /(?:^|\s)note=("(?:[^"\\]|\\.)*")/.exec(lines[current.line])
-    if (rawNote) updated = updated.replace(/note="(?:[^"\\]|\\.)*"/, () => `note=${rawNote[1]}`)
-  }
-  lines[current.line] = updated
+  const next = { ...current, ...patch }
+  // Preserve the actual field token, including empty/unquoted values and escapes.
+  const noteSourceValue = next.note === current.note ? todoNoteSourceValue(lines[current.line]) : undefined
+  lines[current.line] = formatTodoSourceLine(next, noteSourceValue)
   return lines.join("\n")
 }
 

@@ -109,8 +109,12 @@ function createTodoForm(
     priority.value = selected ?? ""
   }
   const note = form.createEl("textarea", { cls: "modular-diary-todo-note-input", attr: { "aria-label": t("note"), placeholder: t("note"), rows: "2" } })
+  let originalNote = ""
+  let displayedNote = ""
   const extraValues = (): Pick<NewTodoInput, "note" | "difficulty" | "priority"> => ({
-    note: note.value, difficulty: difficulty.value ? Number(difficulty.value) : undefined, priority: priority.value || undefined,
+    // Textareas normalize CR/CRLF. Keep the authored value while its display is unchanged.
+    note: note.value === displayedNote ? originalNote : note.value,
+    difficulty: difficulty.value ? Number(difficulty.value) : undefined, priority: priority.value || undefined,
   })
   note.addEventListener("input", () => emitDraft())
   difficulty.addEventListener("change", () => emitDraft())
@@ -176,7 +180,9 @@ function createTodoForm(
     form,
     open: (value, options) => {
       clearError()
-      note.value = value.note ?? ""
+      originalNote = value.note ?? ""
+      note.value = originalNote
+      displayedNote = note.value
       difficulty.value = value.difficulty === undefined ? "" : String(value.difficulty)
       fillPriorities(value.priority)
       title.value = value.title

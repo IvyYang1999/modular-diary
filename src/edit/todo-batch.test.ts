@@ -17,6 +17,34 @@ describe("todo batch source contract", () => {
     expect(parseTimeline(updated).todos[0]).toMatchObject({ title: "新标题", note: "  备注\n第二行  " })
     expect(updateTodo(updated, "a", { note: "" })).not.toContain(" note=")
   })
+  it("does not mistake note= inside a title for the actual note field", () => {
+    const source = 'todo: ' + formatTodoHeaderValue({ ...todo, title: "检查 note=" }) + ' note="真实备注"\n---'
+    const updated = updateTodo(source, "a", { title: "新标题", note: "真实备注" })
+    expect(parseTimeline(updated).todos[0]).toMatchObject({ title: "新标题", note: "真实备注" })
+    expect(updated).toContain('note="真实备注"')
+  })
+  it.each(['note=备注', 'note=""', 'note="\\u5907注"'])("retains the accepted note token %s verbatim on title-only saves", (rawNote) => {
+    const source = 'todo: ' + formatTodoHeaderValue(todo) + ' ' + rawNote + '\n---'
+    const note = parseTimeline(source).todos[0].note
+    const updated = updateTodo(source, "a", { title: "新标题", note })
+    expect(updated).toContain(rawNote + '\n---')
+    expect(parseTimeline(updated).todos[0]).toMatchObject({ title: "新标题", note })
+  })
+  it("preserves the field independently of its position and of field-like title text", () => {
+    const source = '- [/] todo: id="a" note="\\u5907注" estimate=30 category="" group="" title="检查 note="\n---'
+    const updated = updateTodo(source, "a", { title: "新 note=", note: "备注", difficulty: 3 })
+    expect(updated).toContain('note="\\u5907注"')
+    expect(parseTimeline(updated).todos[0]).toMatchObject({ title: "新 note=", note: "备注", partial: true, difficulty: 3 })
+    expect(parseTimeline(updated).errors).toEqual([])
+    const cleared = updateTodo(updated, "a", { note: undefined, priority: "P1" })
+    expect(parseTimeline(cleared).todos[0].note).toBeUndefined()
+    expect(cleared).not.toContain('note="\\u5907注"')
+  })
+  it.each(["todo:", "todo :", "TODO:"])("retains note escapes with the accepted header prefix %s", (prefix) => {
+    const source = prefix + ' ' + formatTodoHeaderValue(todo) + ' note="\\u5907注"\n---'
+    expect(parseTimeline(source).todos[0].note).toBe("备注")
+    expect(updateTodo(source, "a", { title: "新标题", note: "备注" })).toContain('note="\\u5907注"')
+  })
   it("writes and reads Markdown half-completion and retains all data through normal toggles", () => {
     const source = updateTodo(insertTodo("---", { ...todo, note: "尾巴" }), "a", { partial: true })
     expect(source).toMatch(/^- \[\/\] todo:/)
