@@ -52,6 +52,7 @@ function mount(){
 }
 window.sortTodos=sortBy=>persist(s=>setHeaderValue(s,'todo-view',formatTodoViewHeaderValue({...parseTimeline(s).todoView,sortBy})))
 window.remount=mount
+window.loadSource=value=>persist(()=>value)
 window.whenSaved=()=>queue
 mount()
 `
@@ -74,6 +75,26 @@ try {
  })
  await page.goto('file://'+path.join(out,'index.html'))
  const row=id=>page.locator('[data-todo-id="'+id+'"]')
+ // A textarea normalizes CR/CRLF to LF. Editing only a title must not
+ // silently rewrite an untouched note, including after draft remount.
+ for(const rawNote of ['note="第一行\\r\\n第二行"','note="第一行\\r第二行"']){
+   const value='date: 2026-10-10\n- [ ] todo: id="newline" estimate=0 category="" group="" title="原标题" '+rawNote+'\n---'
+   await page.evaluate(value=>window.loadSource(value),value)
+   await row('newline').click({button:'right'});await page.getByRole('button',{name:'编辑',exact:true}).click()
+   assert.equal(await row('newline').locator('textarea').inputValue(),'第一行\n第二行')
+   await row('newline').getByRole('textbox',{name:'待办内容'}).fill('只改标题')
+   await page.evaluate(()=>window.remount())
+   await row('newline').getByRole('button',{name:'保存',exact:true}).click();await page.evaluate(()=>window.whenSaved())
+   const saved=fs.readFileSync(sourceFile,'utf8')
+   assert.ok(saved.includes('title="只改标题"'),'save must actually change the title')
+   assert.ok(saved.includes(rawNote),'untouched CR/CRLF note token must remain exact through the form and remount')
+   await row('newline').click({button:'right'});await page.getByRole('button',{name:'编辑',exact:true}).click()
+   assert.equal(await row('newline').locator('textarea').inputValue(),'第一行\n第二行')
+   await row('newline').locator('textarea').fill('明确修改\n备注')
+   await row('newline').getByRole('button',{name:'保存',exact:true}).click();await page.evaluate(()=>window.whenSaved())
+   assert.ok(fs.readFileSync(sourceFile,'utf8').includes('note="明确修改\\n备注"'),'intentional note edits must still save')
+ }
+ await page.evaluate(value=>window.loadSource(value),initial)
  await row('low').click({button:'right'});await page.getByRole('button',{name:'编辑',exact:true}).click()
  const form=row('low').locator('.modular-diary-todo-edit-form')
  assert.equal(await form.locator('textarea').inputValue(),'  备注\n第二行  ')
