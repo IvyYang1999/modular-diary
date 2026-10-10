@@ -11,11 +11,14 @@ export function parseTodoViewHeaderValue(value: string): TodoViewConfig | null {
   const groupBy = fields.group
   const sortBy = fields.sort
   if (!(["none", "category", "status"] as string[]).includes(groupBy)) return null
-  if (!(["manual", "estimate", "actual"] as string[]).includes(sortBy)) return null
+  if (!(["manual", "estimate", "actual", "difficulty", "priority"] as string[]).includes(sortBy)) return null
   return { groupBy, sortBy } as TodoViewConfig
 }
 
 export interface WeeklyTodoDefinition {
+  note?: string
+  difficulty?: number
+  priority?: string
   id: string
   title: string
   group: string
@@ -42,6 +45,9 @@ export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem): 
     `category=${JSON.stringify(todo.type ?? "")}`,
     `group=${JSON.stringify(todo.group)}`,
     `title=${JSON.stringify(todo.title)}`,
+    ...(todo.note ? [`note=${JSON.stringify(todo.note)}`] : []),
+    ...(todo.difficulty !== undefined ? [`difficulty=${todo.difficulty}`] : []),
+    ...(todo.priority ? [`priority=${JSON.stringify(todo.priority)}`] : []),
   ].join(" ")
 }
 
@@ -111,7 +117,7 @@ function parseReadableFields(value: string): Map<string, string> | null {
 function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | null {
   const fields = parseReadableFields(value)
   const keys = ["id", "done", "estimate", "category", "group", "title"]
-  if (!fields || fields.size !== keys.length || keys.some((key) => !fields.has(key))) return null
+  if (!fields || [...fields.keys()].some((key) => ![...keys, "note", "difficulty", "priority"].includes(key)) || keys.some((key) => !fields.has(key))) return null
   const id = fields.get("id") ?? ""
   const done = fields.get("done")
   const estimate = fields.get("estimate") ?? ""
@@ -121,7 +127,12 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
   const estimateMin = Number(estimate)
   if (!/^[a-z0-9_-]+$/i.test(id) || (done !== "true" && done !== "false") ||
       !/^\d+$/.test(estimate) || !Number.isFinite(estimateMin) || !title) return null
+  const difficulty = fields.get("difficulty")
+  if (difficulty !== undefined && !/^[1-5]$/.test(difficulty)) return null
   return {
+    ...(fields.has("note") ? { note: fields.get("note") } : {}),
+    ...(difficulty !== undefined ? { difficulty: Number(difficulty) } : {}),
+    ...(fields.has("priority") ? { priority: fields.get("priority") } : {}),
     id,
     completed: done === "true",
     estimateMin: Math.round(estimateMin),
@@ -150,4 +161,26 @@ export function todoMetrics(todo: TodoItem, entries: Entry[]): { estimateMinutes
   const bound = entries.filter((entry) => entry.todoId === todo.id)
   const actualMinutes = bound.filter((entry) => !entry.plan).reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0)
   return { estimateMinutes: todo.estimateMin, actualMinutes }
+}
+
+/** The checkbox is the single source of completion for new task rows. */
+export function formatTodoSourceLine(todo: Omit<TodoItem, "line">): string {
+  const fields = formatTodoHeaderValue(todo).replace(/ done=(?:true|false)/, "")
+  return `- [${todo.completed ? "x" : todo.partial ? "/" : " "}] todo: ${fields}`
+}
+
+export function parseTodoSourceLine(text: string, line: number): TodoItem | null {
+  const match = /^- \[([ xX/])\] todo:\s*(id=.*)$/.exec(text)
+  if (!match) return null
+  const todo = parseTodoHeaderValue(match[2].replace(/^(id="(?:[^"\\]|\\.)*")/, '$1 done=false'), line)
+  if (!todo) return null
+  todo.completed = /x/i.test(match[1])
+  if (match[1] === "/") todo.partial = true
+  return todo
+}
+
+/** Derived sorting never mutates the authored order; unset/retired tiers follow configured ones. */
+export function sortTodoItems<T extends { difficulty?: number; priority?: string }>(items: T[], sortBy: TodoViewConfig["sortBy"], priorities: string[] = ["P1", "P2", "P3"]): T[] {
+  const rank = (item: T): number => item.priority && priorities.includes(item.priority) ? priorities.indexOf(item.priority) : priorities.length
+  return [...items].sort((a, b) => sortBy === "difficulty" ? (b.difficulty ?? 0) - (a.difficulty ?? 0) : sortBy === "priority" ? rank(a) - rank(b) : 0)
 }

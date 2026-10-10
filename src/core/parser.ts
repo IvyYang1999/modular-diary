@@ -12,7 +12,7 @@
  */
 import { parseLayoutHeader, parseRecoverableLayoutHeader } from "./grid-layout"
 import { parseBlockSize, parseCanvasWidth } from "./block-size"
-import { DEFAULT_TODO_VIEW, parseTodoHeaderValue, parseTodoViewHeaderValue, splitTodoBinding } from "./todos"
+import { DEFAULT_TODO_VIEW, parseTodoHeaderValue, parseTodoSourceLine, parseTodoViewHeaderValue, splitTodoBinding } from "./todos"
 import { t as tr } from "../i18n"
 import {
   Annotation,
@@ -97,6 +97,13 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
   lines.forEach((raw, line) => {
     const text = raw.trim()
     if (text === "" || text.startsWith("#")) return
+
+    if (/^- \[.\] todo:/.test(text)) {
+      const todo = parseTodoSourceLine(text, line)
+      if (todo) doc.todos.push(todo)
+      else doc.errors.push({ line, text: raw, reason: tr("invalidTodo") })
+      return
+    }
 
     if (inHeader && text === "---") {
       inHeader = false

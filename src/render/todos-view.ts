@@ -1,5 +1,6 @@
 import { setIcon } from "obsidian"
 import { durationInputMinutes, durationInputValue, formatHours, preferredDurationUnit, type DurationInputUnit } from "../core/duration"
+import { sortTodoItems } from "../core/todos"
 import type { TodoViewConfig } from "../core/types"
 import { t } from "../i18n"
 import { attachPointerRowSort } from "../edit/row-sort"
@@ -11,12 +12,19 @@ export interface TodoViewItem {
   group: string
   type?: string
   completed: boolean
+  partial?: boolean
+  note?: string
+  difficulty?: number
+  priority?: string
   weekly: boolean
   estimateMinutes: number
   actualMinutes: number
 }
 
 export interface NewTodoInput {
+  note?: string
+  difficulty?: number
+  priority?: string
   title: string
   type?: string
   estimateMinutes: number
@@ -28,6 +36,7 @@ export interface TodoEditDraft { id: string; input: NewTodoInput }
 
 export interface TodoViewDeps {
   categories: string[]
+  priorities?: string[]
   typeColors: Record<string, string>
   view: TodoViewConfig
   onAdd: (input: NewTodoInput) => void
@@ -56,6 +65,7 @@ function createTodoForm(
   onSubmit: (input: NewTodoInput) => void,
   onClose?: () => void,
   onDraftChange?: (draft: NewTodoInput | null) => void,
+  priorities: string[] = ["P1", "P2", "P3"],
 ): TodoFormController {
   const form = parent.createEl("form", { cls: `modular-diary-todo-form ${className}` })
   // Chromium validates before `submit`, which would replace our interaction
@@ -63,7 +73,7 @@ function createTodoForm(
   // against Modular Diary's real Markdown contract in the handler below.
   form.noValidate = true
   form.hidden = true
-  const title = form.createEl("input", { cls: "modular-diary-todo-title-input", attr: { type: "text", placeholder: t("todoTitle") } })
+  const title = form.createEl("input", { cls: "modular-diary-todo-title-input", attr: { type: "text", placeholder: t("todoTitle"), "aria-label": t("todoTitle") } })
   const category = form.createEl("select", { cls: "modular-diary-todo-category-select", attr: { "aria-label": t("category") } })
   const fillCategories = (selected?: string): void => {
     category.replaceChildren()
@@ -88,6 +98,23 @@ function createTodoForm(
   }
   const save = form.createEl("button", { cls: "modular-diary-todo-save", attr: { type: "submit", "aria-label": t("save") } })
   setIcon(save, "check")
+  const difficulty = form.createEl("select", { cls: "modular-diary-todo-difficulty", attr: { "aria-label": t("todoDifficulty") } })
+  difficulty.createEl("option", { text: t("todoDifficultyUnset"), attr: { value: "" } })
+  for (let stars = 1; stars <= 5; stars++) difficulty.createEl("option", { text: "★".repeat(stars), attr: { value: String(stars) } })
+  const priority = form.createEl("select", { cls: "modular-diary-todo-priority", attr: { "aria-label": t("todoPriority") } })
+  const fillPriorities = (selected?: string): void => {
+    priority.replaceChildren()
+    priority.createEl("option", { text: t("todoPriorityUnset"), attr: { value: "" } })
+    for (const value of [...new Set([...priorities, ...(selected ? [selected] : [])])]) priority.createEl("option", { text: value, attr: { value } })
+    priority.value = selected ?? ""
+  }
+  const note = form.createEl("textarea", { cls: "modular-diary-todo-note-input", attr: { "aria-label": t("note"), placeholder: t("note"), rows: "2" } })
+  const extraValues = (): Pick<NewTodoInput, "note" | "difficulty" | "priority"> => ({
+    note: note.value, difficulty: difficulty.value ? Number(difficulty.value) : undefined, priority: priority.value || undefined,
+  })
+  note.addEventListener("input", () => emitDraft())
+  difficulty.addEventListener("change", () => emitDraft())
+  priority.addEventListener("change", () => emitDraft())
   const error = form.createDiv({ cls: "modular-diary-todo-form-error", attr: { role: "status", "aria-live": "polite" } })
   error.hidden = true
   const clearError = (): void => {
@@ -109,6 +136,7 @@ function createTodoForm(
     onClose?.()
   }
   const emitDraft = (): void => onDraftChange?.({
+    ...extraValues(),
     title: title.value,
     type: category.value || undefined,
     estimateMinutes: readEstimateMinutes(),
@@ -140,7 +168,7 @@ function createTodoForm(
       showError(t("invalidDuration"), estimate)
       return
     }
-    const input = { title: title.value.trim(), type: category.value || undefined, estimateMinutes: readEstimateMinutes(), estimateUnit: currentUnit }
+    const input = { ...extraValues(), title: title.value.trim(), type: category.value || undefined, estimateMinutes: readEstimateMinutes(), estimateUnit: currentUnit }
     close()
     onSubmit(input)
   })
@@ -148,6 +176,9 @@ function createTodoForm(
     form,
     open: (value, options) => {
       clearError()
+      note.value = value.note ?? ""
+      difficulty.value = value.difficulty === undefined ? "" : String(value.difficulty)
+      fillPriorities(value.priority)
       title.value = value.title
       fillCategories(value.type)
       currentUnit = value.estimateUnit ?? preferredDurationUnit(value.estimateMinutes)
@@ -185,7 +216,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   const add = actions.createEl("button", { attr: { type: "button", "aria-label": t("addTodo") } })
   setIcon(add, "plus")
 
-  const addForm = createTodoForm(root, deps.categories, "modular-diary-todo-add-form", deps.onAdd, undefined, deps.onDraftChange)
+  const addForm = createTodoForm(root, deps.categories, "modular-diary-todo-add-form", deps.onAdd, undefined, deps.onDraftChange, deps.priorities)
   add.addEventListener("click", () => addForm.form.hidden
     ? addForm.open({ title: "", estimateMinutes: 30, estimateUnit: "minutes" })
     : addForm.close())
@@ -202,16 +233,16 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
 
   const list = root.createDiv({ cls: "modular-diary-todo-list" })
   let lastGroup = "\0"
-  const displayed = items.map((item, sourceIndex) => ({ item, sourceIndex }))
+  const displayed = sortTodoItems(items, deps.view.sortBy, deps.priorities).map((item) => ({ item, sourceIndex: items.indexOf(item) }))
   if (deps.view.sortBy === "estimate") displayed.sort((a, b) => b.item.estimateMinutes - a.item.estimateMinutes || a.sourceIndex - b.sourceIndex)
   if (deps.view.sortBy === "actual") displayed.sort((a, b) => b.item.actualMinutes - a.item.actualMinutes || a.sourceIndex - b.sourceIndex)
   const groupFor = (item: TodoViewItem): string => {
     if (deps.view.groupBy === "category") return item.type || t("noCategory")
-    if (deps.view.groupBy === "status") return item.completed ? t("complete") : t("incomplete")
+    if (deps.view.groupBy === "status") return item.completed ? t("complete") : item.partial ? t("todoPartial") : t("incomplete")
     return ""
   }
   if (deps.view.groupBy === "category") displayed.sort((a, b) => groupFor(a.item).localeCompare(groupFor(b.item)))
-  if (deps.view.groupBy === "status") displayed.sort((a, b) => Number(a.item.completed) - Number(b.item.completed))
+  if (deps.view.groupBy === "status") displayed.sort((a, b) => (a.item.completed ? 2 : a.item.partial ? 1 : 0) - (b.item.completed ? 2 : b.item.partial ? 1 : 0))
   displayed.forEach(({ item, sourceIndex }) => {
     const groupName = groupFor(item)
     if (deps.view.groupBy !== "none" && groupName !== lastGroup) {
@@ -219,6 +250,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       lastGroup = groupName
     }
     const row = list.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : ""}${canDrag ? " is-manual" : ""}` })
+    row.dataset.todoId = item.id
     row.tabIndex = 0
     const drag = canDrag ? row.createEl("button", { cls: "modular-diary-item-drag modular-diary-todo-drag", attr: { type: "button", "aria-label": t("dragTodo", { name: item.title }) } }) : null
     if (drag) {
@@ -238,10 +270,11 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       (input) => deps.onEdit(item.id, input),
       () => row.classList.remove("is-editing"),
       (draft) => deps.onEditDraftChange?.(draft ? { id: item.id, input: draft } : null),
+      deps.priorities,
     )
     const edit = (): void => {
       row.classList.add("is-editing")
-      editForm.open({ title: item.title, type: item.type, estimateMinutes: item.estimateMinutes })
+      editForm.open({ title: item.title, type: item.type, estimateMinutes: item.estimateMinutes, note: item.note, difficulty: item.difficulty, priority: item.priority })
     }
     if (deps.editDraft?.id === item.id) {
       row.classList.add("is-editing")
@@ -261,11 +294,13 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     })
     const check = row.createEl("button", { cls: "modular-diary-todo-check", attr: { type: "button", "aria-pressed": String(item.completed), "aria-label": item.completed ? t("markIncomplete") : t("markComplete") } })
     let completed = item.completed
+    let partial = Boolean(item.partial)
     let toggleGeneration = 0
     const paintCompletion = (): void => {
       row.classList.toggle("is-complete", completed)
-      check.setAttribute("aria-pressed", String(completed))
-      check.setAttribute("aria-label", completed ? t("markIncomplete") : t("markComplete"))
+      row.classList.toggle("is-partial", partial && !completed)
+      check.setAttribute("aria-pressed", partial && !completed ? "mixed" : String(completed))
+      check.setAttribute("aria-label", partial && !completed ? `${t("todoPartial")} · ${t("markComplete")}` : completed ? t("markIncomplete") : t("markComplete"))
       check.replaceChildren()
       setIcon(check, completed ? "check" : "circle")
       count.textContent = `${completedAtRender - Number(item.completed) + Number(completed)}/${items.length}`
@@ -274,6 +309,8 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     check.disabled = item.weekly
     check.addEventListener("click", () => {
       const previous = completed
+      const previousPartial = partial
+      partial = false
       completed = !completed
       const generation = ++toggleGeneration
       // Paint before the Markdown write. The user sees an in-place state
@@ -282,6 +319,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       void Promise.resolve(deps.onToggle(item.id, completed)).catch((error: unknown) => {
         if (generation !== toggleGeneration) return
         completed = previous
+        partial = previousPartial
         paintCompletion()
         console.error("Modular Diary: failed to update todo completion", error)
       })
@@ -296,7 +334,8 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       body.dataset.scheduleDuration = String(item.estimateMinutes)
     }
     body.createEl("span", { cls: "modular-diary-item-title", text: item.title })
-    const metaParts = [item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) })].filter(Boolean)
+    if (item.note) body.createEl("span", { cls: "modular-diary-todo-note", text: item.note })
+    const metaParts = [item.difficulty ? `${t("todoDifficulty")} ${item.difficulty}` : "", item.priority ?? "", item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(item.actualMinutes), estimate: formatHours(item.estimateMinutes) })].filter(Boolean)
     body.createEl("span", { cls: "modular-diary-item-meta", text: metaParts.join(" · ") })
     // A zero-progress track is just a full-width grey underline that reads
     // as a row divider; quiet flat rows only paint the track once there is

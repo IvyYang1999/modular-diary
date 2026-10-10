@@ -50,7 +50,7 @@ export function buildTodoGroupMenuOptions(
   }))
 }
 
-export type TodoSortValue = "manual" | "estimate" | "actual"
+export type TodoSortValue = "manual" | "estimate" | "actual" | "difficulty" | "priority"
 
 export interface TodoSortMenuOption {
   title: string
@@ -63,7 +63,7 @@ export function buildTodoSortMenuOptions(
   current: TodoSortValue,
   titles: Record<TodoSortValue, string>
 ): TodoSortMenuOption[] {
-  return (["manual", "estimate", "actual"] as const).map((value) => ({
+  return (["manual", "estimate", "actual", "difficulty", "priority"] as const).map((value) => ({
     title: titles[value],
     value,
     checked: current === value,

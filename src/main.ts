@@ -936,6 +936,7 @@ export default class ModularDiaryPlugin extends Plugin {
           categories: spanPaletteTypes,
           typeColors: spanPaletteForRender,
           view: doc.todoView,
+          priorities: this.settings.todoPriorities,
           draft: ownerDrafts.get(draftId) ?? null,
           onDraftChange: (draft) => {
             if (draft) ownerDrafts?.set(draftId, { ...draft })
@@ -974,6 +975,8 @@ export default class ModularDiaryPlugin extends Plugin {
               manual: tr("todoSortManual"),
               estimate: tr("todoSortEstimate"),
               actual: tr("todoSortActual"),
+              difficulty: tr("todoDifficulty"),
+              priority: tr("todoPriority"),
             }).forEach(({ value, title, checked }) => menu.addItem((item) => item
               .setTitle(title)
               .setChecked(checked)
@@ -985,6 +988,7 @@ export default class ModularDiaryPlugin extends Plugin {
               id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
               title: input.title, group: "", type: input.type,
               estimateMin: input.estimateMinutes, completed: false,
+              note: input.note, difficulty: input.difficulty, priority: input.priority,
             }
             void this.applyBlockTransform(el, ctx, source, (current) => insertTodo(
               this.addComponentSlot(current, doc, container, "todos"), value
@@ -993,6 +997,9 @@ export default class ModularDiaryPlugin extends Plugin {
           onEdit: (id, input) => {
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
             if (weekly) {
+              weekly.note = input.note
+              weekly.difficulty = input.difficulty
+              weekly.priority = input.priority
               weekly.title = input.title
               weekly.type = input.type
               weekly.targetMinutes = input.estimateMinutes
@@ -1003,10 +1010,11 @@ export default class ModularDiaryPlugin extends Plugin {
               title: input.title,
               type: input.type,
               estimateMin: input.estimateMinutes,
+              note: input.note, difficulty: input.difficulty, priority: input.priority,
             }))
           },
           onToggle: (id, completed) => {
-            return this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, id, { completed }))
+            return this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, id, { completed, partial: false }))
           },
           onMove: (id, targetIndex) => {
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
@@ -1023,6 +1031,17 @@ export default class ModularDiaryPlugin extends Plugin {
           onMenu: (todo, x, y, edit) => {
             const menu = new Menu()
             menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
+            if (!todo.weekly) {
+              menu.addItem((item) => item.setTitle(tr("markPartial")).setIcon("circle-slash").setChecked(Boolean(todo.partial)).onClick(() => {
+                void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: false, partial: true }))
+              }))
+              menu.addItem((item) => item.setTitle(tr("markIncomplete")).setIcon("circle").onClick(() => {
+                void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: false, partial: false }))
+              }))
+              menu.addItem((item) => item.setTitle(tr("markComplete")).setIcon("check").onClick(() => {
+                void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: true, partial: false }))
+              }))
+            }
             if (todo.weekly && dateStr) {
               menu.addItem((item) => item.setTitle(tr("endFutureTodo")).setIcon("calendar-off").onClick(() => {
                 const stored = this.settings.weeklyTodos.find((item) => item.id === todo.id)
@@ -2177,6 +2196,7 @@ export default class ModularDiaryPlugin extends Plugin {
         order: Number.isFinite(todo.order) ? todo.order : order,
       })),
       dailyQuotes: (data?.dailyQuotes ?? []).map((quote, order) => normalizeDailyQuoteDefinition(quote, order)),
+      todoPriorities: Array.isArray(data?.todoPriorities) ? [...new Set(data.todoPriorities.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map((value) => value.trim()))] : [...DEFAULT_SETTINGS.todoPriorities],
       dailyQuoteInk: typeof data?.dailyQuoteInk === "string" ? data.dailyQuoteInk : "",
       timelineOnboardingSeen: resolveTimelineOnboardingSeen(
         data?.timelineOnboardingSeen,

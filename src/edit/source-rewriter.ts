@@ -6,7 +6,7 @@
 import { parseTimeline } from "../core/parser"
 import { formatEntryLine } from "../core/format"
 import { MIN_TIMELINE_SPAN_MINUTES } from "../core/duration"
-import { formatTodoHeaderValue } from "../core/todos"
+import { formatTodoSourceLine } from "../core/todos"
 import { parseRecoverableLayoutHeader } from "../core/grid-layout"
 import type { TodoItem } from "../core/types"
 
@@ -96,15 +96,28 @@ export function insertTodo(source: string, todo: Omit<TodoItem, "line">): string
   const todos = parseTimeline(source).todos
   const separator = lines.findIndex((line) => line.trim() === "---")
   const at = todos.length > 0 ? todos[todos.length - 1].line + 1 : (separator >= 0 ? separator : 0)
-  lines.splice(at, 0, `todo: ${formatTodoHeaderValue(todo)}`)
+  lines.splice(at, 0, formatTodoSourceLine(todo))
   return lines.join("\n")
 }
 
 export function updateTodo(source: string, id: string, patch: Partial<Omit<TodoItem, "id" | "line">>): string {
   const current = parseTimeline(source).todos.find((todo) => todo.id === id)
   if (!current) return source
+  const unchanged = Object.entries(patch).every(([key, value]) => {
+    const previous = current[key as keyof TodoItem]
+    if (key === "note") return (value ?? "") === (previous ?? "")
+    if (key === "partial") return Boolean(value) === Boolean(previous)
+    return value === previous
+  })
+  if (unchanged) return source
   const lines = source.split("\n")
-  lines[current.line] = `todo: ${formatTodoHeaderValue({ ...current, ...patch })}`
+  let updated = formatTodoSourceLine({ ...current, ...patch })
+  // Preserve authored JSON escaping/spacing inside the note unless its value changed.
+  if (patch.note === undefined || patch.note === current.note) {
+    const rawNote = /(?:^|\s)note=("(?:[^"\\]|\\.)*")/.exec(lines[current.line])
+    if (rawNote) updated = updated.replace(/note="(?:[^"\\]|\\.)*"/, () => `note=${rawNote[1]}`)
+  }
+  lines[current.line] = updated
   return lines.join("\n")
 }
 
@@ -126,7 +139,7 @@ export function moveTodo(source: string, id: string, targetIndex: number): strin
   ordered.splice(Math.max(0, Math.min(targetIndex, ordered.length)), 0, moved)
   const lines = source.split("\n")
   const todoLines = doc.todos.map((todo) => todo.line).sort((a, b) => a - b)
-  const values = ordered.map((todo) => `todo: ${formatTodoHeaderValue(todo)}`)
+  const values = ordered.map((todo) => lines[todo.line])
   todoLines.forEach((line, index) => { lines[line] = values[index] })
   return lines.join("\n")
 }
