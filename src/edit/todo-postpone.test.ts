@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { appendPostponedTodo, nextTodoDate, transferPostponedTodo, removePostponedTodo } from './todo-postpone'
+import moment from 'moment'
+import { dailyNotesTodoPath } from './todo-postpone'
 import { parseTimeline } from '../core/parser'
 import { timelineFences } from './block-identity'
 const todo = { id: 'transfer', title: '有尾巴', note: '不能丢', estimateMin: 30, group: '工作', difficulty: 3, priority: '马上', completed: false, partial: true, line: 1 }
@@ -47,4 +49,15 @@ it('reveals copied Todos and refuses same ID on another date', () => {
  const copied = appendPostponedTodo(hidden, '2026-10-11', todo)
  expect(parseTimeline([...timelineFences(copied)][0].source).hiddenSlots).toEqual(['stats'])
  expect(() => appendPostponedTodo(copied.replace('2026-10-11','2026-10-09'),'2026-10-11',todo)).toThrow('id-conflict')
+})
+
+
+it('uses Daily Notes folder and Moment naming, independent of the source directory', () => {
+ const format = (date: string, pattern: string) => moment(date, 'YYYY-MM-DD', true).format(pattern)
+ expect(dailyNotesTodoPath('2026-12-31', {folder: 'Journal', format: 'YYYY/MM/[日记] DD'}, format)).toBe('Journal/2027/01/日记 01.md')
+ expect(dailyNotesTodoPath('2026-10-10', {}, format)).toBe('2026-10-11.md')
+ expect(dailyNotesTodoPath('2026-10-10', {folder: 'Daily/', format: 'YYYY-MM-DD[.md]'}, format)).toBe('Daily/2026-10-11.md')
+ for (const options of [null, {folder: '../wrong'}, {folder: '/outside'}, {folder: '.obsidian'}, {format: '[../wrong]'}, {folder: 123}, {format: 123}]) {
+  expect(() => dailyNotesTodoPath('2026-10-10', options, format)).toThrow()
+ }
 })
