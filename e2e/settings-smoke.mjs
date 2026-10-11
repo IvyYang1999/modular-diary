@@ -36,6 +36,33 @@ export class Modal {
   onClose(): void {}
 }
 export class App {}
+export class TFile { path = ""; basename = ""; extension = "md"; constructor(path = "") { this.path = path; this.basename = path.split("/").pop()!.replace(/\\.md$/, "") } }
+export class TFolder { path = ""; children: unknown[] = []; constructor(path = "") { this.path = path } }
+export class Notice { constructor(public message: string) {} }
+export class FuzzySuggestModal<T> { constructor(_app: unknown) {} setPlaceholder(_value: string): void {} open(): void {} }
+export const moment = () => ({ isValid: () => false })
+export function normalizePath(value: string): string { return value.replace(/\\/+/g, "/").replace(/^\\/|\\/$/g, "") }
+class ToggleControl {
+  toggleEl: HTMLElement
+  value = false
+  knob: HTMLElement
+  constructor(parent: HTMLElement) {
+    // Approximates Obsidian's switch so the harness can click and screenshot it.
+    this.toggleEl = document.createElement("div"); this.toggleEl.className = "checkbox-container"
+    this.toggleEl.style.cssText = "position:relative;display:inline-block;width:36px;height:20px;border-radius:10px;cursor:pointer;transition:background .15s"
+    this.knob = document.createElement("span")
+    this.knob.style.cssText = "position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s"
+    this.toggleEl.appendChild(this.knob); parent.appendChild(this.toggleEl); this.setValue(false)
+  }
+  setValue(value: boolean): this {
+    this.value = value; this.toggleEl.classList.toggle("is-enabled", value)
+    this.toggleEl.style.background = value ? "var(--interactive-accent, #9567e8)" : "var(--background-modifier-border, #d9d9d9)"
+    this.knob.style.left = value ? "18px" : "2px"
+    return this
+  }
+  setTooltip(value: string): this { this.toggleEl.setAttribute("aria-label", value); return this }
+  onChange(callback: (value: boolean) => void): this { this.toggleEl.addEventListener("click", () => { this.setValue(!this.value); callback(this.value) }); return this }
+}
 export class PluginSettingTab {
   containerEl: HTMLElement
   constructor(_app: unknown, _plugin: unknown) {
@@ -89,6 +116,7 @@ export class Setting {
   addDropdown(callback: (control: DropdownControl) => void): this { callback(new DropdownControl(this.controlEl)); return this }
   addButton(callback: (control: ButtonControl) => void): this { callback(new ButtonControl(this.controlEl)); return this }
   addExtraButton(callback: (control: ButtonControl) => void): this { callback(new ButtonControl(this.controlEl)); return this }
+  addToggle(callback: (control: ToggleControl) => void): this { callback(new ToggleControl(this.controlEl)); return this }
 }
 `)
 
@@ -96,7 +124,8 @@ fs.writeFileSync(path.join(out, "entry.ts"), `
 import { renderCategorySettings, renderHabitSettings } from "${path.join(here, "../src/settings-editors")}" 
 import { CategorySettingsModal, HabitSettingsModal } from "${path.join(here, "../src/settings-modals")}" 
 import { ModularDiarySettingTab } from "${path.join(here, "../src/settings")}"
-import { configureI18n } from "${path.join(here, "../src/i18n")}" 
+import { configureI18n } from "${path.join(here, "../src/i18n")}"
+import { TFile, TFolder } from "obsidian"
 
 HTMLElement.prototype.createDiv = function (opts: any = {}) {
   const el = document.createElement("div")
@@ -138,7 +167,27 @@ const settings = {
   dialogBackend: "api", provider: "openai-compatible", apiKey: "", baseUrl: "", model: "",
   timelineOnboardingSeen: true,
 }
-const host = { settings, saveSettings: async () => { window.__saves += 1 } }
+const checklistFolder = new TFolder("Checklists")
+const checklistSources = {
+  "Checklists/睡前.md": "---\\ndaily: true\\n---\\n- 刷牙\\n- 关电脑\\n- 写明天计划\\n",
+  "Checklists/产品体验.md": "- 飞搜\\n- Long2Text\\n- OpenTrends\\n- Swob\\n",
+}
+checklistFolder.children = Object.keys(checklistSources).map((path) => new TFile(path))
+window.__frontmatter = {}
+const app = {
+  vault: {
+    getAbstractFileByPath: (path: string) => path === "Checklists" ? checklistFolder : null,
+    cachedRead: async (file: any) => checklistSources[file.path],
+  },
+  fileManager: {
+    processFrontMatter: async (file: any, edit: (fm: Record<string, unknown>) => void) => {
+      const fm = window.__frontmatter[file.path] ?? {}; edit(fm); window.__frontmatter[file.path] = fm
+    },
+  },
+  workspace: { getLeaf: () => ({ openFile: async () => undefined }) },
+}
+Object.assign(settings, { checklistFolder: "Checklists" })
+const host = { app, settings, saveSettings: async () => { window.__saves += 1 } }
 window.__saves = 0
 window.__settings = settings
 renderCategorySettings(document.querySelector("#categories"), host)
@@ -148,7 +197,7 @@ renderHabitSettings(document.querySelector("#habits-en"), host)
 configureI18n(() => "zh")
 new CategorySettingsModal({} as any, host as any, "marker").open()
 new HabitSettingsModal({} as any, host as any).open()
-const globalTab = new ModularDiarySettingTab({} as any, host as any)
+const globalTab = new ModularDiarySettingTab(app as any, host as any)
 globalTab.containerEl.id = "global-settings"
 globalTab.display()
 `)
@@ -162,7 +211,7 @@ await esbuild.build({
 
 const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
 fs.writeFileSync(path.join(out, "styles.css"), css)
-fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><link rel="stylesheet" href="styles.css"><style>select:hover,select:focus{background:var(--background-modifier-hover)!important}</style></head><body><main class="modular-diary-focused-settings"><section id="categories"></section><section id="habits"></section><section id="habits-en"></section></main><script src="bundle.js"></script></body></html>`)
+fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><link rel="stylesheet" href="styles.css"><style>select:hover,select:focus{background:var(--background-modifier-hover)!important}[data-settings-section='checklists']{font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text-normal)}[data-settings-section='checklists'] .setting-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--background-modifier-border)}[data-settings-section='checklists'] .setting-item-info{flex:1 1 auto}[data-settings-section='checklists'] .setting-item-control{display:flex;align-items:center;justify-content:flex-end}[data-settings-section='checklists'] .setting-item-description{color:var(--text-muted);font-size:13px;padding-top:2px}[data-settings-section='checklists'] .setting-item-control>button{background:none;border:0;color:var(--text-muted);padding:4px}[data-settings-section='checklists'] svg[data-icon]{width:16px;height:16px}[data-settings-section='checklists'] input{background:var(--background-modifier-form-field);color:var(--text-normal);border:1px solid var(--background-modifier-border);border-radius:5px;padding:4px 8px}</style></head><body><main class="modular-diary-focused-settings"><section id="categories"></section><section id="habits"></section><section id="habits-en"></section></main><script src="bundle.js"></script></body></html>`)
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 820, height: 900 }, deviceScaleFactor: 1 })
@@ -181,6 +230,26 @@ await page.evaluate(() => {
   root.setProperty("--text-faint", "#999999")
   root.setProperty("--button-radius", "7px")
 })
+
+await page.waitForFunction(() => document.querySelectorAll("#global-settings .modular-diary-checklist-setting").length === 2)
+const checklistState = await page.evaluate(() => {
+  const section = document.querySelector("#global-settings [data-settings-section='checklists']")
+  const rows = [...section.querySelectorAll(".modular-diary-checklist-setting")].map((row) => ({
+    name: row.querySelector(".setting-item-name")?.textContent,
+    desc: row.querySelector(".setting-item-description")?.textContent,
+    daily: row.querySelector(".checkbox-container")?.classList.contains("is-enabled"),
+    label: row.querySelector(".modular-diary-checklist-daily-label")?.textContent,
+  }))
+  return {
+    heading: section.querySelector("h3")?.textContent,
+    folder: section.querySelector(".setting-item input")?.value,
+    rows,
+    addLabel: section.querySelector(".modular-diary-settings-add-rule")?.textContent?.trim(),
+  }
+})
+await page.locator("#global-settings [data-settings-section='checklists']").screenshot({ path: path.join(out, "global-settings-checklists.png") })
+await page.locator("#global-settings [data-settings-section='checklists'] .modular-diary-checklist-setting").filter({ hasText: "产品体验" }).locator(".checkbox-container").click()
+const checklistFrontmatter = await page.evaluate(() => structuredClone(window.__frontmatter))
 
 const state = await page.evaluate(() => {
   const rows = [...document.querySelectorAll("#habits .modular-diary-rule-editor")]
@@ -296,6 +365,7 @@ await page.evaluate(() => {
   document.body.style.background = "#202020"
 })
 await page.locator("#habits").screenshot({ path: path.join(out, "habits-dark.png") })
+await page.locator("#global-settings [data-settings-section='checklists']").screenshot({ path: path.join(out, "global-settings-checklists-dark.png") })
 await page.locator("#categories").screenshot({ path: path.join(out, "categories-dark.png") })
 await page.setViewportSize({ width: 460, height: 900 })
 const narrowCategoryColumns = await page.locator("#categories .modular-diary-category-editor-list").evaluate((el) =>
@@ -420,7 +490,12 @@ if (state.globalMarkerRows !== 1) errors.push("global settings did not render th
 if (state.globalCategoryColumns !== 2 || state.globalHabitColumns !== 6) errors.push("typical-width global settings collapsed into the narrow layout too early")
 if (!state.globalHabitWithinRow) errors.push("global habit controls overflow their editor row")
 if (state.globalSectionGap < 20) errors.push("global settings sections have no stable vertical separation")
-if (state.globalSectionKeys.join("|") !== "timeline|span-categories|marker-categories|habits|todo-rules|daily-quotes|natural-language") errors.push("global settings must run timeline → categories → habits → todo rules → daily quotes → natural-language capture")
+if (state.globalSectionKeys.join("|") !== "timeline|span-categories|marker-categories|habits|todo-rules|daily-quotes|checklists|natural-language") errors.push("global settings must run timeline → categories → habits → todo rules → daily quotes → checklists → natural-language capture")
+const checklistRows = Object.fromEntries(checklistState.rows.map((row) => [row.name, row]))
+if (checklistState.heading !== "清单" || checklistState.folder !== "Checklists" || checklistState.addLabel !== "新建清单") errors.push("checklist settings need a heading, the template folder and a New checklist action")
+if (checklistState.rows.length !== 2 || checklistRows["睡前"]?.desc !== "3 项" || checklistRows["产品体验"]?.desc !== "4 项") errors.push("checklist settings must list every template file with its item count")
+if (checklistRows["睡前"]?.daily !== true || checklistRows["产品体验"]?.daily !== false || checklistRows["睡前"]?.label !== "每天自动加入") errors.push("checklist daily switch must reflect each template's frontmatter")
+if (checklistFrontmatter["Checklists/产品体验.md"]?.daily !== true) errors.push("turning on Add every day must write daily: true into the template file")
 if (state.timelineTop > 120) errors.push("timeline defaults must be the first thing on the global settings page")
 if (!state.quoteSection.present || !state.quoteSection.hasLibrary || !state.quoteSection.hasInkDots || state.quoteSection.hasDesigner || state.quoteSection.sectionHeight > 420) errors.push("daily quote settings must be one textarea plus highlighter dots, no designer or disclosure")
 if (state.todoRulesHeading !== "待办规则" || state.timelineHeading !== "时间轴") errors.push("global todo and timeline sections need clear concept-level headings")
