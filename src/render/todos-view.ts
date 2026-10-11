@@ -79,6 +79,9 @@ export interface TodoViewDeps {
   /** Session state: which parent todos are collapsed. */
   collapsed?: (id: string) => boolean
   onToggleCollapse?: (id: string) => void
+  /** Session state: which groups (composite key) are folded; the fold control shows only when the toggle is given. */
+  groupCollapsed?: (key: string) => boolean
+  onToggleGroupCollapse?: (key: string) => void
   /** Drop a todo onto another row to make it that todo's child. */
   onReparent?: (id: string, parentId: string) => void
   /** Move a todo to a cell of the ABC / quadrant layout ("" = no cell), before another todo or at the cell's end. */
@@ -526,7 +529,48 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       })
     }
     header.createEl("span", { cls: "modular-diary-todo-group-name", text: label })
+    if (!sub) section.style.setProperty("--modular-diary-todo-group-color", groupColorOf(key))
+    if (deps.onToggleGroupCollapse) {
+      const collapsed = deps.groupCollapsed?.(key) ?? false
+      section.classList.toggle("is-collapsed", collapsed)
+      const toggle = header.createEl("button", { cls: "modular-diary-todo-group-toggle", attr: { type: "button", "aria-expanded": String(!collapsed), "aria-label": collapsed ? t("expandGroup", { name: label }) : t("collapseGroup", { name: label }) } })
+      // One Tab stop per group: the header itself folds with Enter/Space.
+      toggle.tabIndex = -1
+      setIcon(toggle, "chevron-down")
+      header.tabIndex = 0
+      // Folding is instant in place; the session state keeps it across re-renders.
+      const flip = (): void => {
+        const next = !section.classList.contains("is-collapsed")
+        section.classList.toggle("is-collapsed", next)
+        toggle.setAttribute("aria-expanded", String(!next))
+        toggle.setAttribute("aria-label", next ? t("expandGroup", { name: label }) : t("collapseGroup", { name: label }))
+        deps.onToggleGroupCollapse?.(key)
+      }
+      header.addEventListener("click", (event) => {
+        if ((event.target as HTMLElement | null)?.closest(".modular-diary-todo-group-drag")) return
+        flip()
+      })
+      header.addEventListener("keydown", (event) => {
+        if (event.target !== header || event.altKey || (event.key !== "Enter" && event.key !== " ")) return
+        event.preventDefault()
+        flip()
+      })
+    }
+    header.createEl("span", { cls: "modular-diary-todo-group-count" })
     return section
+  }
+  /** done/total under a group header, counted like the component header (pushed shadows excluded). */
+  const paintGroupCount = (section: HTMLElement): void => {
+    const rows = Array.from(section.querySelectorAll<HTMLElement>(".modular-diary-todo-row")).filter((row) => !row.classList.contains("is-moved"))
+    const done = rows.filter((row) => row.classList.contains("is-complete")).length
+    const count = section.querySelector<HTMLElement>(":scope > .modular-diary-todo-group > .modular-diary-todo-group-count")
+    if (count) count.textContent = rows.length ? `${done}/${rows.length}` : ""
+  }
+  /** Level-1 marker colour: the category's own colour, a tag's badge colour, otherwise a quiet grey. */
+  const groupColorOf = (key: string): string => {
+    if (key.startsWith("c:")) return deps.typeColors[key.slice(2)] ?? "var(--text-faint)"
+    if (key.startsWith("t:") && key.length > 2) return deps.tagStyle?.(key.slice(2))?.color ?? "var(--text-faint)"
+    return "var(--text-faint)"
   }
   const renderRow = (item: TodoViewItem, sourceIndex: number, node: HTMLElement, siblings: HTMLElement, containerIds: string[] | null, depth: number, childCount: number, collapsed: boolean): void => {
     // Bucket cells are chosen per root; children follow their root's cell.
@@ -651,11 +695,16 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       // Paint before the Markdown write. The user sees an in-place state
       // change while Obsidian remounts the updated code block, not a dead gap.
       paintCompletion()
+      const paintGroups = (): void => {
+        for (let section = row.closest<HTMLElement>(".modular-diary-todo-group-section"); section; section = section.parentElement?.closest<HTMLElement>(".modular-diary-todo-group-section") ?? null) paintGroupCount(section)
+      }
+      paintGroups()
       void Promise.resolve(deps.onToggle(item.id, completed)).catch((error: unknown) => {
         if (generation !== toggleGeneration) return
         completed = previous
         partial = previousPartial
         paintCompletion()
+        paintGroups()
         console.error("Modular Diary: failed to update todo completion", error)
       })
     })
@@ -757,6 +806,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     for (const entry of sortSiblings(todoTree.roots)) renderSubtree(entry, 0, list, ids)
   }
   // Same count as the component header: done/total, shadows of pushed todos not counted.
+  if (grouped) list.querySelectorAll<HTMLElement>(".modular-diary-todo-group-section").forEach(paintGroupCount)
   if (buckets) list.querySelectorAll<HTMLElement>(".modular-diary-todo-bucket").forEach((cell) => {
     const rows = Array.from(cell.querySelectorAll<HTMLElement>(".modular-diary-todo-row")).filter((row) => !row.classList.contains("is-moved"))
     const done = rows.filter((row) => row.classList.contains("is-complete")).length

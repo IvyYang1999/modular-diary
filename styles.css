@@ -2259,15 +2259,92 @@ button.modular-diary-item-drag:active {
   opacity: 1;
 }
 
+/* Group headers, quiet outline: level 1 is a colour dot + name + count over
+   a hairline; level 2 is a small grey label one step in. The grip hangs in
+   the left gutter like row grips, so it never pushes the title. */
 .modular-diary-todo-group {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 5px 0 2px;
-  color: var(--text-faint);
-  font-size: var(--modular-diary-font-micro);
+  gap: 6px;
+  padding: 4px 2px 6px;
+  color: var(--text-muted);
+  font-size: var(--modular-diary-font-body);
   font-weight: var(--font-semibold, 600);
-  line-height: 1;
+  line-height: 1.2;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 2px;
+}
+
+.modular-diary-todo-group-section {
+  margin-top: 12px;
+}
+
+.modular-diary-todo-group-section:first-child {
+  margin-top: 4px;
+}
+
+.modular-diary-todo-group-section:not(.is-sub) > .modular-diary-todo-group::before {
+  content: "";
+  order: -2;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--modular-diary-todo-group-color, var(--text-faint));
+}
+
+.modular-diary-todo-group .modular-diary-todo-group-drag {
+  order: -3;
+}
+
+.modular-diary-todo-group-count {
+  margin-left: auto;
+  flex: none;
+  color: var(--text-faint);
+  font-weight: var(--font-normal, 400);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The fold chevron shows on hover/focus, and stays visible while folded. */
+button.modular-diary-todo-group-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+button.modular-diary-todo-group-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+
+.modular-diary-todo-group:has(.modular-diary-todo-group-toggle) {
+  cursor: pointer;
+}
+
+.modular-diary-todo-group:is(:hover, :focus-within, :focus-visible) .modular-diary-todo-group-toggle,
+.modular-diary-todo-group-section.is-collapsed > .modular-diary-todo-group .modular-diary-todo-group-toggle {
+  opacity: 1;
+}
+
+.modular-diary-todo-group-section.is-collapsed > .modular-diary-todo-group .modular-diary-todo-group-toggle {
+  transform: rotate(-90deg);
+}
+
+.modular-diary-todo-group-section.is-collapsed > :is(.modular-diary-todo-group-rows, .modular-diary-todo-subs) {
+  display: none;
 }
 
 .modular-diary-todo-group .modular-diary-todo-group-name {
@@ -2293,16 +2370,24 @@ button.modular-diary-item-drag:active {
   border-radius: 3px;
 }
 
-/* Second-level groups sit one step in, with a quiet rail marking the nesting. */
-.modular-diary-todo-group-section.is-sub {
-  margin-left: 6px;
-  padding-left: 8px;
-  border-left: 1px solid var(--background-modifier-border);
+/* Second-level groups: a small grey label one step in, no rail, no rule. */
+.modular-diary-todo-group-section.is-sub,
+.modular-diary-todo-group-section.is-sub:first-child {
+  margin: 0;
 }
 
 .modular-diary-todo-group-section.is-sub > .modular-diary-todo-group {
-  padding-top: 3px;
+  gap: 4px;
+  padding: 8px 2px 2px 13px;
+  margin-bottom: 0;
+  border-bottom: 0;
+  color: var(--text-faint);
+  font-size: var(--modular-diary-font-caption);
   font-weight: var(--font-medium, 500);
+}
+
+.modular-diary-todo-group-section.is-sub > .modular-diary-todo-group-rows {
+  padding-left: 13px;
 }
 
 /* Small-print note under a todo's title. */

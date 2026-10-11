@@ -228,6 +228,9 @@ renderTodosInto(createSlot("todos-grouped-sortable", 260), [
   onAdd: () => {}, onEdit: () => {}, onGroupMenu: () => {}, onSortMenu: () => {}, onToggle: () => {}, onMenu: () => {},
   onMove: (id, index) => window.__events.push("todo-move:" + id + ":" + index),
   onMoveGroup: (key, index) => window.__events.push("todo-group-move:" + JSON.stringify(key) + ":" + index),
+  // One sub-group arrives folded from session state; folding reports the composite key.
+  groupCollapsed: (key) => key === "c:develop\\nt:紧急",
+  onToggleGroupCollapse: (key) => window.__events.push("todo-group-fold:" + JSON.stringify(key)),
 })
 
 // Sub-todos: parent= builds the tree; a parent rolls up subtree totals; the
@@ -501,7 +504,7 @@ const state = await page.evaluate(() => {
     todoCheckBackground: getComputedStyle(todoCheck).backgroundColor,
     todoCheckSize: [todoCheck.getBoundingClientRect().width, todoCheck.getBoundingClientRect().height],
     todoBorderTopWidths: todoRows.map((todo) => getComputedStyle(todo).borderTopWidth),
-    groupedTodoLabels: [...groupedTodoSlot.querySelectorAll(".modular-diary-todo-group")].map((el) => el.textContent),
+    groupedTodoLabels: [...groupedTodoSlot.querySelectorAll(".modular-diary-todo-group-name")].map((el) => el.textContent),
     groupedTodoTitles: [...groupedTodoSlot.querySelectorAll(".modular-diary-item-title")].map((el) => el.textContent),
     groupedTodoHandleCount: groupedTodoSlot.querySelectorAll(".modular-diary-todo-drag").length,
     groupedTodoSortLabel: groupedTodoSlot.querySelector('.modular-diary-component-actions button[aria-label*="排序"]')?.getAttribute("aria-label") ?? "",
@@ -807,6 +810,17 @@ const groupedSortable = await page.evaluate(() => {
   const note = noteRow?.querySelector(".modular-diary-todo-note")
   const noteRect = note?.getBoundingClientRect()
   const titleRect = noteRow?.querySelector(".modular-diary-item-title")?.getBoundingClientRect()
+  const countOf = (section) => section?.querySelector(":scope > .modular-diary-todo-group > .modular-diary-todo-group-count")?.textContent ?? ""
+  const urgent = subOf(topSections[1]).find((section) => section.dataset.groupKey === "c:develop\nt:紧急")
+  const urgentRow = urgent?.querySelector('.modular-diary-todo-row[data-todo-id="gb"]')
+  const preFolded = Boolean(urgent?.classList.contains("is-collapsed")) && urgentRow?.getClientRects().length === 0
+  const readHeader = topSections[0]?.querySelector(":scope > .modular-diary-todo-group")
+  const readToggle = readHeader?.querySelector(".modular-diary-todo-group-toggle")
+  readHeader?.querySelector(".modular-diary-todo-group-name")?.click()
+  const folded = Boolean(topSections[0]?.classList.contains("is-collapsed")) && readToggle?.getAttribute("aria-expanded") === "false"
+    && slot.querySelector('.modular-diary-todo-row[data-todo-id="gc"]')?.getClientRects().length === 0
+  readHeader?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
+  const unfolded = !topSections[0]?.classList.contains("is-collapsed") && readToggle?.getAttribute("aria-expanded") === "true"
   topSections[0]?.querySelector(":scope > .modular-diary-todo-group")?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", altKey: true, bubbles: true }))
   noteRow?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", altKey: true, bubbles: true }))
   return {
@@ -817,6 +831,9 @@ const groupedSortable = await page.evaluate(() => {
     weeklyGripCount: slot.querySelector('.modular-diary-todo-row[data-todo-id="gd"]')?.querySelectorAll(".modular-diary-todo-drag").length ?? -1,
     noteText: note?.textContent ?? "",
     noteBelowTitle: Boolean(noteRect && titleRect && noteRect.top >= titleRect.bottom - 1),
+    counts: [countOf(topSections[0]), ...subOf(topSections[0]).map(countOf), countOf(topSections[1])],
+    readDot: getComputedStyle(readHeader, "::before").backgroundColor,
+    preFolded, folded, unfolded,
   }
 })
 // Sub-todo tree: preorder rows, per-depth indent, parent rollup, add-child form.
@@ -1049,6 +1066,10 @@ if (state.groupedTodoLabels.join("|") !== "develop|read" || state.groupedTodoTit
 if (!groupedSortable || groupedSortable.topKeys.join("|") !== "c:read|c:develop") errors.push("a persisted todo group order must lead and derived groups follow: " + JSON.stringify(groupedSortable))
 if (groupedSortable.readSubLabels.join("|") !== "#阅读|无标签") errors.push("tag sub-groups must nest under their category with the untagged one last: " + JSON.stringify(groupedSortable))
 if (groupedSortable.groupGripCount !== 6 || groupedSortable.rowGripCount !== 4 || groupedSortable.weeklyGripCount !== 0) errors.push("grouped manual todos need a grip per group and per owned row, never on weekly goals: " + JSON.stringify(groupedSortable))
+if (groupedSortable.counts.join("|") !== "1/2|1/1|0/1|0/3") errors.push("each todo group header must show done/total for its rows: " + JSON.stringify(groupedSortable.counts))
+if (!groupedSortable.readDot || groupedSortable.readDot === "rgba(0, 0, 0, 0)") errors.push("a level-1 category group needs its category colour dot: " + groupedSortable.readDot)
+if (!groupedSortable.preFolded || !groupedSortable.folded || !groupedSortable.unfolded) errors.push("todo groups must fold from session state, by click and by Enter: " + JSON.stringify(groupedSortable))
+if (events.filter((event) => event === 'todo-group-fold:"c:read"').length !== 2) errors.push("folding a todo group must report its key to the session state")
 if (groupedSortable.noteText !== "先列大纲" || !groupedSortable.noteBelowTitle) errors.push("a todo note must render as small print below its title: " + JSON.stringify(groupedSortable))
 if (!todoTree || todoTree.order.join("|") !== "tp|tc1|tg1|tc2|tz") errors.push("sub-todos must render in preorder under their parent: " + JSON.stringify(todoTree))
 if (todoTree && !(parseFloat(todoTree.indents[2]) > parseFloat(todoTree.indents[1]) && parseFloat(todoTree.indents[1]) > parseFloat(todoTree.indents[0]))) errors.push("sub-todos must indent one step per depth: " + JSON.stringify(todoTree))
