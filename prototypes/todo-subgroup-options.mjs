@@ -5,7 +5,10 @@
  * Group counts and collapse chevrons are injected by this script only: they
  * preview what the chosen option would add to the renderer.
  *
- *   node prototypes/todo-subgroup-options.mjs <output-dir>
+ *   node prototypes/todo-subgroup-options.mjs <output-dir> [--shipped]
+ *
+ * Option A was chosen and now lives in styles.css + the renderer; `--shipped`
+ * renders only that production result (light + dark), no preview layers.
  */
 import esbuild from "esbuild"
 import { chromium } from "playwright"
@@ -15,7 +18,9 @@ import fs from "node:fs"
 import os from "node:os"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const shots = path.resolve(process.argv[2] ?? path.join(os.tmpdir(), "todo-subgroup-options"))
+const shipped = process.argv.includes("--shipped")
+const outArg = process.argv.slice(2).find((arg) => !arg.startsWith("--"))
+const shots = path.resolve(outArg ?? path.join(os.tmpdir(), "todo-subgroup-options"))
 const out = fs.mkdtempSync(path.join(os.tmpdir(), "todo-subgroup-build-"))
 fs.mkdirSync(shots, { recursive: true })
 
@@ -84,6 +89,7 @@ renderTodosInto(slot, [
   view: { groupBy: "category", sortBy: "manual", group2: "tag" },
   onAdd: () => {}, onEdit: () => {}, onGroupMenu: () => {}, onSortMenu: () => {}, onToggle: () => {}, onMenu: () => {}, onMove: () => {},
   onMoveGroup: () => {},
+  groupCollapsed: (key: string) => key.endsWith("t:视频号"), onToggleGroupCollapse: () => {},
 })
 ;(window as any).__colors = colors
 `)
@@ -211,17 +217,17 @@ const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 520, height: 900 }, deviceScaleFactor: 2 })
 page.on("pageerror", (error) => { console.error("pageerror:", error.message); process.exit(1) })
 const written = []
-for (const [name, optionCss] of Object.entries(options)) {
+for (const [name, optionCss] of Object.entries(shipped ? { shipped: "" } : options)) {
   for (const [theme, vars] of Object.entries(themes)) {
     if (name === "current" && theme === "dark") continue
     await page.goto("file://" + path.join(out, "index.html"))
-    if (name !== "current") await page.evaluate(decorate)
+    if (name !== "current" && name !== "shipped") await page.evaluate(decorate)
     await page.evaluate(({ vars, cssText }) => {
       for (const [k, v] of Object.entries(vars)) document.documentElement.style.setProperty(k, v)
       document.body.style.background = vars["--background-primary"]
       document.body.style.color = vars["--text-normal"]
       document.querySelector("#option").textContent = cssText
-    }, { vars, cssText: shared + (name === "current" ? "" : gutterGrip) + optionCss })
+    }, { vars, cssText: name === "shipped" ? "" : shared + (name === "current" ? "" : gutterGrip) + optionCss })
     await page.waitForTimeout(80)
     const file = path.join(shots, `${name}-${theme}.png`)
     await page.locator(".modular-diary-slot-todos").screenshot({ path: file })
