@@ -45,8 +45,21 @@ export function normalizePath(value: string): string { return value.replace(/\\/
 class ToggleControl {
   toggleEl: HTMLElement
   value = false
-  constructor(parent: HTMLElement) { this.toggleEl = document.createElement("div"); this.toggleEl.className = "checkbox-container"; parent.appendChild(this.toggleEl) }
-  setValue(value: boolean): this { this.value = value; this.toggleEl.classList.toggle("is-enabled", value); return this }
+  knob: HTMLElement
+  constructor(parent: HTMLElement) {
+    // Approximates Obsidian's switch so the harness can click and screenshot it.
+    this.toggleEl = document.createElement("div"); this.toggleEl.className = "checkbox-container"
+    this.toggleEl.style.cssText = "position:relative;display:inline-block;width:36px;height:20px;border-radius:10px;cursor:pointer;transition:background .15s"
+    this.knob = document.createElement("span")
+    this.knob.style.cssText = "position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s"
+    this.toggleEl.appendChild(this.knob); parent.appendChild(this.toggleEl); this.setValue(false)
+  }
+  setValue(value: boolean): this {
+    this.value = value; this.toggleEl.classList.toggle("is-enabled", value)
+    this.toggleEl.style.background = value ? "var(--interactive-accent, #9567e8)" : "var(--background-modifier-border, #d9d9d9)"
+    this.knob.style.left = value ? "18px" : "2px"
+    return this
+  }
   setTooltip(value: string): this { this.toggleEl.setAttribute("aria-label", value); return this }
   onChange(callback: (value: boolean) => void): this { this.toggleEl.addEventListener("click", () => { this.setValue(!this.value); callback(this.value) }); return this }
 }
@@ -198,7 +211,7 @@ await esbuild.build({
 
 const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
 fs.writeFileSync(path.join(out, "styles.css"), css)
-fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><link rel="stylesheet" href="styles.css"><style>select:hover,select:focus{background:var(--background-modifier-hover)!important}</style></head><body><main class="modular-diary-focused-settings"><section id="categories"></section><section id="habits"></section><section id="habits-en"></section></main><script src="bundle.js"></script></body></html>`)
+fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><link rel="stylesheet" href="styles.css"><style>select:hover,select:focus{background:var(--background-modifier-hover)!important}[data-settings-section='checklists']{font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text-normal)}[data-settings-section='checklists'] .setting-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--background-modifier-border)}[data-settings-section='checklists'] .setting-item-info{flex:1 1 auto}[data-settings-section='checklists'] .setting-item-control{display:flex;align-items:center;justify-content:flex-end}[data-settings-section='checklists'] .setting-item-description{color:var(--text-muted);font-size:13px;padding-top:2px}[data-settings-section='checklists'] .setting-item-control>button{background:none;border:0;color:var(--text-muted);padding:4px}[data-settings-section='checklists'] svg[data-icon]{width:16px;height:16px}[data-settings-section='checklists'] input{background:var(--background-modifier-form-field);color:var(--text-normal);border:1px solid var(--background-modifier-border);border-radius:5px;padding:4px 8px}</style></head><body><main class="modular-diary-focused-settings"><section id="categories"></section><section id="habits"></section><section id="habits-en"></section></main><script src="bundle.js"></script></body></html>`)
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 820, height: 900 }, deviceScaleFactor: 1 })
