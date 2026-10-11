@@ -12,6 +12,7 @@ import type { WeeklyTodoDefinition } from "./core/todos"
 import { renderCategorySettings, renderHabitSettings } from "./settings-editors"
 import type { DailyQuoteDefinition } from "./core/daily-quotes"
 import { renderDailyQuoteSettings } from "./daily-quote-settings"
+import { DEFAULT_CHECKLIST_FOLDER, renderChecklistSettings } from "./checklists"
 
 export type DialogBackend = "api" | "claude-cli"
 
@@ -49,6 +50,8 @@ export interface ModularDiarySettings {
   dailyQuotes: DailyQuoteDefinition[]
   /** Span category whose colour tints quote slots by default ("" = untinted). */
   dailyQuoteInk: string
+  /** Vault folder of checklist templates (one note per checklist). */
+  checklistFolder: string
 }
 
 export const DEFAULT_SETTINGS: ModularDiarySettings = {
@@ -72,6 +75,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   todoPriorities: ["P1", "P2", "P3"],
   dailyQuotes: [],
   dailyQuoteInk: "",
+  checklistFolder: DEFAULT_CHECKLIST_FOLDER,
 }
 
 const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -205,6 +209,12 @@ export class ModularDiarySettingTab extends PluginSettingTab {
     quoteSection.createEl("h3", { text: tr("dailyQuoteSettings") })
     quoteSection.createEl("p", { text: tr("dailyQuoteSettingsDescription"), cls: "setting-item-description" })
     renderDailyQuoteSettings(quoteSection.createDiv({ cls: "modular-diary-settings-section-editor" }), this.plugin)
+
+    const checklistSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
+    checklistSection.dataset.settingsSection = "checklists"
+    checklistSection.createEl("h3", { text: tr("checklistsHeading") })
+    checklistSection.createEl("p", { text: tr("checklistsDescription"), cls: "setting-item-description" })
+    renderChecklistSettings(checklistSection.createDiv({ cls: "modular-diary-settings-section-editor" }), this.plugin)
 
     const captureSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     captureSection.dataset.settingsSection = "natural-language"

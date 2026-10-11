@@ -59,6 +59,7 @@ import {
 import { habitProgress, isHabitDue, moveHabitInVisibleOrder, normalizeHabitDefinition, orderedHabits, type HabitDefinition } from "./core/habits"
 import { extractDatedTimelineEntries, filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledger"
 import { appendPostponedTodo, dailyNotesTodoPath, nextTodoDate, removePostponedTodo, transferPostponedTodo } from "./edit/todo-postpone"
+import { addDailyChecklists, chooseChecklistForEditor, watchNewDailyNotes } from "./checklists"
 import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
@@ -223,6 +224,26 @@ export default class ModularDiaryPlugin extends Plugin {
         insertTimelineBlock(editor, this.app.workspace.getActiveFile()?.basename ?? null, this.insertTemplate())
       },
     })
+    this.addCommand({
+      id: "add-checklist",
+      name: tr("addChecklist"),
+      editorCallback: (editor) => { void chooseChecklistForEditor(this, editor) },
+    })
+    this.addCommand({
+      id: "add-daily-checklists",
+      name: tr("addDailyChecklists"),
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile()
+        if (!file || file.extension !== "md") return false
+        if (!checking) {
+          addDailyChecklists(this, file).then((added) => {
+            new Notice(added.length ? tr("dailyChecklistsAdded", { names: added.join("、") }) : tr("noDailyChecklistsToAdd"))
+          }).catch((error) => console.error("Modular Diary: failed to add daily checklists", error))
+        }
+        return true
+      },
+    })
+    watchNewDailyNotes(this)
     // 撤销/重做兜底按窗口注册：弹出窗口拥有独立 Document。
     const undoDocs = new WeakSet<Document>()
     const registerUndo = (dom: Document): void => {
@@ -309,6 +330,12 @@ export default class ModularDiaryPlugin extends Plugin {
             .onClick(() => {
               insertTimelineBlock(editor, this.app.workspace.getActiveFile()?.basename ?? null, this.insertTemplate())
             })
+        )
+        menu.addItem((item) =>
+          item
+            .setTitle(tr("addChecklist"))
+            .setIcon("list-checks")
+            .onClick(() => { void chooseChecklistForEditor(this, editor) })
         )
       })
     )
@@ -2296,6 +2323,7 @@ export default class ModularDiaryPlugin extends Plugin {
       dailyQuotes: (data?.dailyQuotes ?? []).map((quote, order) => normalizeDailyQuoteDefinition(quote, order)),
       todoPriorities: Array.isArray(data?.todoPriorities) ? [...new Set(data.todoPriorities.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map((value) => value.trim()))] : [...DEFAULT_SETTINGS.todoPriorities],
       dailyQuoteInk: typeof data?.dailyQuoteInk === "string" ? data.dailyQuoteInk : "",
+      checklistFolder: typeof data?.checklistFolder === "string" ? data.checklistFolder : DEFAULT_SETTINGS.checklistFolder,
       timelineOnboardingSeen: resolveTimelineOnboardingSeen(
         data?.timelineOnboardingSeen,
         hasPersistedSettings

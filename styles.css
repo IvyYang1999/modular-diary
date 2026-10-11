@@ -2370,6 +2370,19 @@ button.modular-diary-item-drag:active {
   min-width: 92px;
 }
 
+.modular-diary-checklist-settings {
+  margin-bottom: var(--modular-diary-settings-gap-md);
+}
+
+.modular-diary-checklist-setting .setting-item-control {
+  gap: var(--size-4-2, 8px);
+}
+
+.modular-diary-checklist-daily-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
 .modular-diary-weekday-control {
   display: inline-flex;
   gap: 2px;
