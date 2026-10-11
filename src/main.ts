@@ -174,6 +174,7 @@ export default class ModularDiaryPlugin extends Plugin {
   private readonly periodBrowse = new Map<string, import("./core/types").PeriodSpec>()
   /** Session state: parent todos whose sub-todos are collapsed (view-only). */
   private readonly todoCollapsed = new Set<string>()
+  private readonly todoGroupCollapsed = new Set<string>()
   private dayIndexSeeded = false
   private dayIndexRefresh: Promise<void> | null = null
   private ledgerRefreshTimer = 0
@@ -1110,6 +1111,13 @@ export default class ModularDiaryPlugin extends Plugin {
             if (this.todoCollapsed.has(id)) this.todoCollapsed.delete(id)
             else this.todoCollapsed.add(id)
             this.rerenderMountedTimelines()
+          },
+          // Group keys repeat across notes, so the fold state is scoped to this block.
+          groupCollapsed: (key) => this.todoGroupCollapsed.has(`${draftId}\u0000${key}`),
+          onToggleGroupCollapse: (key) => {
+            const scoped = `${draftId}\u0000${key}`
+            if (this.todoGroupCollapsed.has(scoped)) this.todoGroupCollapsed.delete(scoped)
+            else this.todoGroupCollapsed.add(scoped)
           },
           onReparent: (id, parentId) => {
             void this.applyBlockTransform(el, ctx, source, (value) => setTodoParent(value, id, parentId))
