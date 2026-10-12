@@ -111,7 +111,7 @@ const html = `<!doctype html><html><head><style>${css}
 </style></head><body><div id="base" class="modular-diary-container"><div id="body"></div></div><div id="scroll" class="modular-diary-container"><div id="wide" class="modular-diary-body"></div></div><div id="relocate-shell" class="modular-diary-container"><div id="relocate" class="modular-diary-body"></div></div><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`
 fs.writeFileSync(path.join(out, "index.html"), html)
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 800, height: 500 } })
 page.on("pageerror", (e) => { console.error("pageerror:", e.message); process.exit(1) })
 await page.goto("file://" + path.join(out, "index.html"))

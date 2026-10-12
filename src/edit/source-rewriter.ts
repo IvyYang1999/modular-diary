@@ -4,14 +4,21 @@
  * the code block in the note via MarkdownPostProcessorContext.
  */
 import { parseTimeline } from "../core/parser"
-import { formatEntryLine } from "../core/format"
+import { bodyExtent, escapeSectionLine, headerInsertIndex, headerZone, TEXT_SEPARATOR_RE } from "../core/body-extent"
+import { formatBodyLines, formatEntryLine, formatSpanLine } from "../core/format"
 import { MIN_TIMELINE_SPAN_MINUTES } from "../core/duration"
-import { formatTodoSourceLine, todoNoteSourceValue } from "../core/todos"
+import { formatTodoSourceLine, todoNoteSourceValue, formatTodoHeaderValue, indexTodoTree } from "../core/todos"
 import { parseRecoverableLayoutHeader } from "../core/grid-layout"
 import type { TodoItem } from "../core/types"
 
+
 /** Insert sourceLine into source. Returns the new block source. */
 export function insertEntryLine(source: string, sourceLine: string, newStartMin: number): string {
+  return insertEntryLineAt(source, sourceLine, newStartMin).source
+}
+
+/** Same as insertEntryLine, and says which line the new one landed on. */
+export function insertEntryLineAt(source: string, sourceLine: string, newStartMin: number): { source: string; line: number } {
   const lines = source.split("\n")
   // Drop trailing blank lines so we insert before the fence, not after them.
   let tail = lines.length
@@ -22,39 +29,42 @@ export function insertEntryLine(source: string, sourceLine: string, newStartMin:
   const doc = parseTimeline(source)
   // `===` 文字区边界：条目必须插在文字区之前（yyt 2026-08-17 踩坑：无条目时
   // 追加到末尾，落进文字区变成普通文本，色块不出现）
-  const sepIdx = body.findIndex((l) => l.trim() === "===")
+  const sepIdx = body.findIndex((l) => TEXT_SEPARATOR_RE.test(l))
   const boundary = sepIdx >= 0 ? sepIdx : body.length
 
-  // Entry lines sorted in source; find the last entry starting <= newStartMin.
-  const entryLines = doc.entries.map((e) => e.line).sort((a, b) => a - b)
+  // Entries and diary spans share one time order; find the last one starting <= newStartMin.
+  const timed = [...doc.entries, ...doc.spans]
+  const entryLines = timed.map((e) => e.line).sort((a, b) => a - b)
   let insertAt = -1
-  for (const e of doc.entries) {
+  for (const e of timed) {
     if (e.startMin <= newStartMin && (insertAt === -1 || e.line > insertAt)) {
       insertAt = e.line
     }
   }
+  let at: number
   if (insertAt >= 0) {
-    body.splice(insertAt + 1, 0, sourceLine)
+    at = insertAt + 1 + bodyExtent(body, insertAt)
   } else {
     // Before the first entry; after header/separator if present; never past ===.
     const firstEntry = entryLines[0]
-    body.splice(firstEntry !== undefined ? firstEntry : boundary, 0, sourceLine)
+    at = firstEntry !== undefined ? firstEntry : boundary
   }
-  return [...body, ...trailing].join("\n")
+  body.splice(at, 0, sourceLine)
+  return { source: [...body, ...trailing].join("\n"), line: at }
 }
 
 /** Insert a categorized point marker in stable timestamp/source order. */
 export function insertMarkerLine(source: string, sourceLine: string, timeMin: number): string {
   const lines = source.split("\n")
   const doc = parseTimeline(source)
-  const boundary = lines.findIndex((line) => line.trim() === "===")
+  const boundary = lines.findIndex((line) => TEXT_SEPARATOR_RE.test(line))
   const end = boundary >= 0 ? boundary : lines.length
   let insertAt = -1
   for (const marker of doc.annotations) {
     if (marker.timeMin <= timeMin && marker.line < end) insertAt = Math.max(insertAt, marker.line)
   }
   if (insertAt >= 0) {
-    lines.splice(insertAt + 1, 0, sourceLine)
+    lines.splice(insertAt + 1 + bodyExtent(lines, insertAt), 0, sourceLine)
   } else {
     const firstMarker = doc.annotations.find((marker) => marker.line < end)?.line
     lines.splice(firstMarker ?? end, 0, sourceLine)
@@ -83,20 +93,57 @@ export function convertMarkerToEntry(source: string, line: number): string {
   }))
 }
 
-/** Delete the 0-based line from the block source. */
+/** Delete the 0-based line from the block source, together with its diary body. */
 export function deleteEntryLine(source: string, line: number): string {
   const lines = source.split("\n")
   if (line < 0 || line >= lines.length) throw new Error(`行号越界：${line}`)
-  lines.splice(line, 1)
+  lines.splice(line, 1 + bodyExtent(lines, line))
   return lines.join("\n")
+}
+
+/** Replace the diary body under an entry, marker or span line (undefined removes it). */
+export function setItemBody(source: string, line: number, body: string | undefined): string {
+  const lines = source.split("\n")
+  if (line < 0 || line >= lines.length) throw new Error(`行号越界：${line}`)
+  lines.splice(line + 1, bodyExtent(lines, line), ...formatBodyLines(body))
+  return lines.join("\n")
+}
+
+/** Add a header line after the last line with the same key, else before `---`, else at the top. */
+export function insertHeaderLine(source: string, key: string, line: string): string {
+  const lines = source.split("\n")
+  const re = new RegExp(`^${key}\\s*:`)
+  const zone = headerZone(lines)
+  let last = -1
+  for (let i = 0; i < zone.end; i += 1) if (re.test(lines[i].trim())) last = i
+  lines.splice(last >= 0 ? last + 1 : headerInsertIndex(lines), 0, line)
+  return lines.join("\n")
+}
+
+/** Insert a categoryless diary span in time order, with an optional body. */
+export function insertSpanLine(source: string, span: { startMin: number; endMin: number; text?: string; body?: string }): string {
+  // Body goes right under the line just inserted: never "the first span with these times".
+  const inserted = insertEntryLineAt(source, formatSpanLine(span), span.startMin)
+  return span.body === undefined ? inserted.source : setItemBody(inserted.source, inserted.line, span.body)
 }
 
 export function insertTodo(source: string, todo: Omit<TodoItem, "line">): string {
   const lines = source.split("\n")
   const todos = parseTimeline(source).todos
-  const separator = lines.findIndex((line) => line.trim() === "---")
-  const at = todos.length > 0 ? todos[todos.length - 1].line + 1 : (separator >= 0 ? separator : 0)
+  const at = todos.length > 0 ? todos[todos.length - 1].line + 1 : headerInsertIndex(lines)
   lines.splice(at, 0, formatTodoSourceLine(todo))
+  return lines.join("\n")
+}
+
+/** Insert a sub-todo right after its parent's subtree, keeping the source in preorder. */
+export function insertChildTodo(source: string, parentId: string, todo: Omit<TodoItem, "line">): string {
+  const doc = parseTimeline(source)
+  const parent = doc.todos.find((item) => item.id === parentId)
+  if (!parent) return insertTodo(source, todo)
+  const subtree = new Set([parentId, ...indexTodoTree(doc.todos).descendantIds(parentId)])
+  const lastLine = Math.max(...doc.todos.filter((item) => subtree.has(item.id)).map((item) => item.line))
+  const lines = source.split("\n")
+  lines.splice(lastLine + 1, 0, formatTodoSourceLine({ ...todo, parent: parentId }))
   return lines.join("\n")
 }
 
@@ -116,6 +163,47 @@ export function updateTodo(source: string, id: string, patch: Partial<Omit<TodoI
   const noteSourceValue = next.note === current.note ? todoNoteSourceValue(lines[current.line]) : undefined
   lines[current.line] = formatTodoSourceLine(next, noteSourceValue)
   return lines.join("\n")
+}
+
+/**
+ * Toggle a todo. Descendants follow the toggle; afterwards each ancestor is
+ * done exactly when all of its children are. All of it is written back line
+ * by line, so the markdown stays the truth.
+ */
+export function setTodoCompleted(source: string, id: string, completed: boolean): string {
+  const doc = parseTimeline(source)
+  if (!doc.todos.some((todo) => todo.id === id)) return source
+  const tree = indexTodoTree(doc.todos)
+  const done = new Map(doc.todos.map((todo) => [todo.id, todo.completed]))
+  const changed = new Set<string>([id, ...tree.descendantIds(id)])
+  const toggled = new Set(changed)
+  for (const sub of changed) done.set(sub, completed)
+  let cursor = tree.parentOf(id)
+  while (cursor) {
+    const children = tree.childrenOf(cursor)
+    const next = children.length > 0 && children.every((child) => done.get(child.id))
+    if (done.get(cursor) !== next) { done.set(cursor, next); changed.add(cursor) }
+    cursor = tree.parentOf(cursor)
+  }
+  let out = source
+  for (const todo of doc.todos) {
+    if (changed.has(todo.id)) out = updateTodo(out, todo.id, {
+      completed: done.get(todo.id)!,
+      partial: toggled.has(todo.id) || done.get(todo.id) ? false : todo.partial,
+    })
+  }
+  return out
+}
+
+/** Delete a todo together with its whole subtree (and entry bindings of each). */
+export function deleteTodoSubtree(source: string, id: string): string {
+  const doc = parseTimeline(source)
+  const ids = new Set([id, ...indexTodoTree(doc.todos).descendantIds(id)])
+  // Descending line order keeps the remaining line numbers valid mid-surgery.
+  const doomed = doc.todos.filter((todo) => ids.has(todo.id)).sort((a, b) => b.line - a.line)
+  let out = source
+  for (const todo of doomed) out = deleteTodo(out, todo.id)
+  return out
 }
 
 export function deleteTodo(source: string, id: string): string {
@@ -139,6 +227,89 @@ export function moveTodo(source: string, id: string, targetIndex: number): strin
   const values = ordered.map((todo) => lines[todo.line])
   todoLines.forEach((line, index) => { lines[line] = values[index] })
   return lines.join("\n")
+}
+
+/** The whole subtree as one block, in source order. */
+function subtreeOf(doc: { todos: TodoItem[] }, id: string): TodoItem[] {
+  const ids = new Set([id, ...indexTodoTree(doc.todos).descendantIds(id)])
+  return doc.todos.filter((todo) => ids.has(todo.id))
+}
+
+/** Move a todo and its subtree as one block; `targetIndex` counts the todos left after the move. */
+export function moveTodoSubtree(source: string, id: string, targetIndex: number): string {
+  const doc = parseTimeline(source)
+  if (!doc.todos.some((todo) => todo.id === id)) return source
+  const subtree = subtreeOf(doc, id)
+  const subtreeIds = new Set(subtree.map((todo) => todo.id))
+  const ordered = doc.todos.filter((todo) => !subtreeIds.has(todo.id))
+  ordered.splice(Math.max(0, Math.min(targetIndex, ordered.length)), 0, ...subtree)
+  const lines = source.split("\n")
+  const todoLines = doc.todos.map((todo) => todo.line).sort((a, b) => a - b)
+  const values = ordered.map((todo) => `todo: ${formatTodoHeaderValue(todo)}`)
+  todoLines.forEach((line, index) => { lines[line] = values[index] })
+  return lines.join("\n")
+}
+
+/** Move a subtree so it lands right after `anchorId`'s subtree (parent's last child slot). */
+export function moveTodoSubtreeAfter(source: string, id: string, anchorId: string): string {
+  const doc = parseTimeline(source)
+  const subtreeIds = new Set(subtreeOf(doc, id).map((todo) => todo.id))
+  // An anchor that is missing or inside the moved subtree degrades to "append at the end".
+  if (!doc.todos.some((todo) => todo.id === anchorId) || subtreeIds.has(anchorId)) return moveTodoSubtree(source, id, doc.todos.length)
+  const anchorTree = indexTodoTree(doc.todos)
+  // The parent link is already updated, so the anchor's subtree would swallow the moved
+  // item itself; measure the anchor's subtree without it.
+  const anchorIds = new Set([anchorId, ...anchorTree.descendantIds(anchorId)].filter((id) => !subtreeIds.has(id)))
+  // Last subtree member in source order, robust to a non-preorder hand-edited source.
+  const last = doc.todos.filter((todo) => anchorIds.has(todo.id)).reduce((acc, todo) => (todo.line > acc.line ? todo : acc))
+  const rest = doc.todos.filter((todo) => !subtreeIds.has(todo.id))
+  return moveTodoSubtree(source, id, rest.findIndex((todo) => todo.id === last.id) + 1)
+}
+
+/**
+ * Re-parent a todo (undefined = back to a root) and park it in preorder:
+ * as the new parent's last child, or after the last root when freed.
+ */
+export function setTodoParent(source: string, id: string, parent: string | undefined): string {
+  const doc = parseTimeline(source)
+  const tree = indexTodoTree(doc.todos)
+  if (!doc.todos.some((todo) => todo.id === id)) return source
+  if (parent && (parent === id || new Set(tree.descendantIds(id)).has(parent))) return source
+  const out = updateTodo(source, id, { parent })
+  if (!parent) {
+    const anchor = lastRootId(parseTimeline(out).todos, id)
+    return anchor === null ? out : moveTodoSubtreeAfter(out, id, anchor)
+  }
+  // Park as the parent's last child; when it already is the only child, the anchor is the parent itself.
+  const siblings = indexTodoTree(parseTimeline(out).todos).childrenOf(parent).filter((child) => child.id !== id)
+  if (siblings.length === 0) return moveTodoSubtreeAfter(out, id, parent)
+  return moveTodoSubtreeAfter(out, id, siblings[siblings.length - 1].id)
+}
+
+/** The last root that is not the moved subtree itself; null when it is the only root. */
+function lastRootId(todos: TodoItem[], id: string): string | null {
+  const tree = indexTodoTree(todos)
+  const roots = tree.roots.filter((root) => root.id !== id)
+  return roots.length > 0 ? roots[roots.length - 1].id : null
+}
+
+/**
+ * Put a todo into a cell and at a position there, in one change: before
+ * `beforeId`, or after the last todo already in that cell (its place in the
+ * source is otherwise kept).
+ */
+export function placeTodoInBucket(source: string, id: string, bucket: string, beforeId: string | null): string {
+  let out = updateTodo(source, id, { bucket: bucket || undefined })
+  const todos = parseTimeline(out).todos
+  const rest = todos.filter((todo) => todo.id !== id)
+  let target = -1
+  if (beforeId) target = rest.findIndex((todo) => todo.id === beforeId)
+  else {
+    const lastInCell = rest.map((todo) => (todo.bucket ?? "") === bucket).lastIndexOf(true)
+    if (lastInCell >= 0) target = lastInCell + 1
+  }
+  if (target >= 0) out = moveTodoSubtree(out, id, target)
+  return out
 }
 
 export function setEntryTodoBinding(source: string, line: number, todoId: string | null): string {
@@ -196,11 +367,13 @@ export function removeHiddenType(source: string, type: string, tool: "span" | "m
 export function setHeaderValue(source: string, key: string, value: string): string {
   const lines = source.split("\n")
   const re = new RegExp(`^${key}\\s*:`)
-  let idx = lines.findIndex((l) => re.test(l.trim()))
+  // Only the header zone holds headers: a "layout: x" line in a text section is text.
+  const zoneEnd = headerZone(lines).end
+  let idx = lines.findIndex((l, i) => i < zoneEnd && re.test(l.trim()))
   if (idx < 0 && key.toLowerCase() === "layout") {
     const candidates = lines.flatMap((line, index) => {
       const match = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line.trim())
-      return match && match[1].toLowerCase() !== "layout"
+      return index < zoneEnd && match && match[1].toLowerCase() !== "layout"
         && parseRecoverableLayoutHeader(match[1], match[2].trim())
         ? [index]
         : []
@@ -213,9 +386,7 @@ export function setHeaderValue(source: string, key: string, value: string): stri
     lines[idx] = `${key}: ${value}`
     return lines.join("\n")
   }
-  // Insert before the --- separator if present, else at the top.
-  const sep = lines.findIndex((l) => l.trim() === "---")
-  lines.splice(sep >= 0 ? sep : 0, 0, `${key}: ${value}`)
+  lines.splice(headerInsertIndex(lines), 0, `${key}: ${value}`)
   return lines.join("\n")
 }
 
@@ -223,7 +394,8 @@ export function setHeaderValue(source: string, key: string, value: string): stri
 export function removeHeaderValue(source: string, key: string): string {
   const lines = source.split("\n")
   const re = new RegExp(`^${key}\\s*:`)
-  const idx = lines.findIndex((l) => re.test(l.trim()))
+  const zoneEnd = headerZone(lines).end
+  const idx = lines.findIndex((l, i) => i < zoneEnd && re.test(l.trim()))
   if (idx < 0) return source
   lines.splice(idx, 1)
   return lines.join("\n")
@@ -304,28 +476,43 @@ export function removeTimelineBlockFromContent(
   return lines.join("\n")
 }
 
-/** Set/replace the Nth free-text section (`===` 分隔，可多个). Empty text keeps a placeholder. */
-export function setTextSection(source: string, text: string, index = 0): string {
+/** Set/replace the Nth free-text section (`===` 分隔，可多个). Empty text keeps a placeholder; a new section may carry a title. */
+export function setTextSection(source: string, text: string, index = 0, title?: string): string {
   const lines = source.split("\n")
-  const sepIdxs = lines.map((l, i) => (l.trim() === "===" ? i : -1)).filter((i) => i >= 0)
+  const sepIdxs = lines.map((l, i) => (TEXT_SEPARATOR_RE.test(l) ? i : -1)).filter((i) => i >= 0)
   const trimmed = text.trim()
   if (sepIdxs.length === 0 || index >= sepIdxs.length) {
     // 目标不存在 -> 追加新区（index 0 等价于创建）
     const head = [...lines]
     while (head.length > 0 && head[head.length - 1].trim() === "") head.pop()
-    return [...head, "===", ...(trimmed === "" ? [] : trimmed.split("\n"))].join("\n")
+    return [...head, separatorLine(title), ...(trimmed === "" ? [] : trimmed.split("\n").map(escapeSectionLine))].join("\n")
   }
   const start = sepIdxs[index]
   const end = index + 1 < sepIdxs.length ? sepIdxs[index + 1] : lines.length
-  const replacement = trimmed === "" ? ["==="] : ["===", ...trimmed.split("\n")]
+  // The separator line (and its title) stays as written.
+  const replacement = trimmed === "" ? [lines[start]] : [lines[start], ...trimmed.split("\n").map(escapeSectionLine)]
   lines.splice(start, end - start, ...replacement)
+  return lines.join("\n")
+}
+
+function separatorLine(title: string | undefined): string {
+  const clean = (title ?? "").replace(/\s+/g, " ").trim()
+  return clean ? `=== ${clean}` : "==="
+}
+
+/** Rename (or untitle) the Nth text section. */
+export function setTextTitle(source: string, index: number, title: string | undefined): string {
+  const lines = source.split("\n")
+  const sepIdxs = lines.map((l, i) => (TEXT_SEPARATOR_RE.test(l) ? i : -1)).filter((i) => i >= 0)
+  if (index >= sepIdxs.length) return source
+  lines[sepIdxs[index]] = separatorLine(title)
   return lines.join("\n")
 }
 
 /** Remove the Nth text section entirely（删除文本框）。 */
 export function removeTextSection(source: string, index: number): string {
   const lines = source.split("\n")
-  const sepIdxs = lines.map((l, i) => (l.trim() === "===" ? i : -1)).filter((i) => i >= 0)
+  const sepIdxs = lines.map((l, i) => (TEXT_SEPARATOR_RE.test(l) ? i : -1)).filter((i) => i >= 0)
   if (index >= sepIdxs.length) return source
   const start = sepIdxs[index]
   const end = index + 1 < sepIdxs.length ? sepIdxs[index + 1] : lines.length
@@ -336,22 +523,23 @@ export function removeTextSection(source: string, index: number): string {
 /** Add a component to the block's `off:` header (hide a slot). */
 export function addOffSlot(source: string, id: string): string {
   const lines = source.split("\n")
-  const idx = lines.findIndex((l) => /^off\s*:/.test(l.trim()))
+  const zoneEnd = headerZone(lines).end
+  const idx = lines.findIndex((l, i) => i < zoneEnd && /^off\s*:/.test(l.trim()))
   if (idx >= 0) {
     const existing = lines[idx].split(":")[1].split(/[\s,，]+/).filter(Boolean)
     if (existing.includes(id)) return source
     lines[idx] = `off: ${[...existing, id].join(" ")}`
     return lines.join("\n")
   }
-  const sep = lines.findIndex((l) => l.trim() === "---")
-  lines.splice(sep >= 0 ? sep : 0, 0, `off: ${id}`)
+  lines.splice(headerInsertIndex(lines), 0, `off: ${id}`)
   return lines.join("\n")
 }
 
 /** Remove a component from the `off:` header (re-show a hidden slot). */
 export function removeOffSlot(source: string, id: string): string {
   const lines = source.split("\n")
-  const idx = lines.findIndex((l) => /^off\s*:/.test(l.trim()))
+  const zoneEnd = headerZone(lines).end
+  const idx = lines.findIndex((l, i) => i < zoneEnd && /^off\s*:/.test(l.trim()))
   if (idx < 0) return source
   const remaining = lines[idx].split(":")[1].split(/[\s,，]+/).filter((t) => t && t !== id)
   if (remaining.length === 0) {

@@ -1,3 +1,4 @@
+import { BodyFenceError, FENCE_LINE_RE } from "./body-extent"
 /** Canonical entry line formatting — the single writer of timeline syntax. */
 
 export interface EntryParts {
@@ -30,6 +31,29 @@ export function formatEntryLine(p: EntryParts): string {
 }
 
 /** `@10:00 [起床] 正式起床` — categorized point-in-time marker. */
+/**
+ * Diary body -> indented source lines (two spaces). Blank lines stay as
+ * paragraph breaks; runs of blanks collapse to one. Empty body -> no lines.
+ * Throws on a fence line, which would end the timeline block early.
+ */
+export function formatBodyLines(body: string | undefined): string[] {
+  if (body === undefined) return []
+  const text = body.replace(/^\s*\n/, "").replace(/\s+$/, "")
+  if (text === "") return []
+  if (FENCE_LINE_RE.test(text)) throw new BodyFenceError()
+  const out: string[] = []
+  for (const line of text.split("\n")) {
+    if (line.trim() === "") { if (out.length && out[out.length - 1] !== "") out.push(""); continue }
+    out.push(`  ${line.replace(/\s+$/, "")}`)
+  }
+  return out
+}
+
+/** `@HH:MM-HH:MM [text]` — a diary span with no category. */
+export function formatSpanLine(p: { startMin: number; endMin: number; text?: string }): string {
+  return `@${formatClockPlain(p.startMin)}-${formatClockPlain(p.endMin)}${p.text ? " " + p.text : ""}`
+}
+
 export function formatMarkerLine(p: MarkerParts): string {
   const note = p.text?.trim() ? ` ${p.text.trim()}` : ""
   return `${p.plan ? "plan " : ""}@${formatClockPlain(p.timeMin)} [${p.type}]${note}`

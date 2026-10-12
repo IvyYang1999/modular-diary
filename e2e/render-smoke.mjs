@@ -52,7 +52,7 @@ await esbuild.build({
 const html = `<!doctype html><html><body style="margin:24px;background:#fafafa;font-family:-apple-system,sans-serif"><div id="app"></div><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`
 fs.writeFileSync(path.join(out, "index.html"), html)
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 480, height: 1100 } })
 await page.goto("file://" + path.join(out, "index.html"))
 await page.waitForSelector("svg.modular-diary-svg")

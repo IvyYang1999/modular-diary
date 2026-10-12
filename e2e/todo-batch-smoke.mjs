@@ -157,6 +157,32 @@ try {
  assert.ok(!fs.readFileSync(sourceFile,'utf8').includes('id="low"'))
  assert.ok(tomorrowContent.includes('- [/] todo: id="low"'))
  assert.ok(tomorrowContent.includes('date: 2026-10-11'))
+ // Exercise both branches together through the renderer and durable file adapter.
+ const combined='date: 2026-10-10\n'
+   +'- [/] todo: id="low" estimate=30 category="work" group="" title="#alpha First" note="Retained note" difficulty=2 priority="P2"\n'
+   +'- [ ] todo: id="high" estimate=30 category="work" group="" title="#alpha Second" difficulty=5 priority="P0"\n'
+   +'- [ ] todo: id="beta" estimate=20 category="work" group="" title="#beta Third"\ntodo-view: group=category sort=manual group2=tag\n---'
+ await page.evaluate(value=>window.loadSource(value),combined)
+ assert.equal(await page.locator('.modular-diary-todo-group-section.is-sub').count(),2)
+ assert.equal(await page.locator('.modular-diary-item-title .modular-diary-tag').count(),3)
+ assert.deepEqual(await order(),['low','high','beta'])
+ await page.evaluate(()=>window.sortTodos('difficulty'))
+ assert.deepEqual(await order(),['high','low','beta'],'ranked sorting must work inside tag groups')
+ assert.ok(fs.readFileSync(sourceFile,'utf8').includes('group2=tag'),'sorting must retain the secondary grouping rule')
+ await row('low').click({button:'right'});await page.getByRole('button',{name:'编辑',exact:true}).click()
+ assert.equal(await row('low').locator('textarea').inputValue(),'Retained note')
+ assert.equal(await row('low').getByRole('combobox',{name:'优先级',exact:true}).inputValue(),'P2')
+ await row('low').getByRole('textbox',{name:'待办内容'}).fill('#alpha Renamed')
+ await row('low').getByRole('button',{name:'保存',exact:true}).click();await page.evaluate(()=>window.whenSaved())
+ const combinedSaved=fs.readFileSync(sourceFile,'utf8')
+ assert.ok(combinedSaved.includes('title="#alpha Renamed"'),'save must change the title')
+ for(const field of ['note="Retained note"','difficulty=2','priority="P2"'])assert.ok(combinedSaved.includes(field),'editing a grouped row must retain '+field)
+ assert.ok(combinedSaved.includes('- [/] todo: id="low"'))
+ assert.equal(await row('low').locator('.modular-diary-tag').textContent(),'#alpha')
+ await row('low').hover();await page.screenshot({path:path.join(out,'combined-groups-narrow-dark.png')})
+ await page.setViewportSize({width:650,height:600})
+ await page.evaluate(()=>{document.querySelector('#host').style.width='500px';const s=document.documentElement.style;s.setProperty('--background-primary','#fff');s.setProperty('--background-modifier-form-field','#fff');s.setProperty('--text-normal','#222');s.setProperty('--text-muted','#666');s.setProperty('--text-faint','#777');document.body.style.background='#fff';document.body.style.color='#222'})
+ await page.screenshot({path:path.join(out,'combined-groups-light.png')})
  assert.deepEqual(errors,[])
  console.log('OK Todo file-backed UI contracts; synthetic screenshots:',out)
 } finally {await browser.close()}

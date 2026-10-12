@@ -12,7 +12,7 @@ const html = `<!doctype html><html><head><style>${css}</style></head><body style
   <button class="modular-diary-slot-grip" style="opacity:1"><span></span><span></span><span></span><span></span><span></span><span></span></button>
 </div></body></html>`
 fs.writeFileSync(path.join(out, "i.html"), html)
-const browser = await chromium.launch()
+const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 400, height: 200 }, deviceScaleFactor: 2 })
 await page.goto("file://" + path.join(out, "i.html"))
 const m = await page.evaluate(() => {

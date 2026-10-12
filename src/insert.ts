@@ -1,5 +1,6 @@
 /** Insert a new Modular Diary timeline block at the cursor (editor menu / command). */
 import { Editor } from "obsidian"
+import { blockFromSkeleton } from "./core/template"
 
 /** Daily-note filename -> YYYY-MM-DD (supports 2026-08-18 / 2026.8.18sun 等); else today. */
 export function inferDate(fileBasename: string | null, now = new Date()): string {
@@ -14,12 +15,15 @@ export function inferDate(fileBasename: string | null, now = new Date()): string
 }
 
 export interface InsertTemplate {
+  /** A saved skeleton (phase 4) wins over the legacy layout fields. */
+  source?: string
   layout?: string
   width?: number
   hasText?: boolean
 }
 
 export function timelineTemplate(date: string, tpl: InsertTemplate = {}): string {
+  if (tpl.source && tpl.source.trim()) return `\`\`\`timeline\n${blockFromSkeleton(date, tpl.source)}\n\`\`\``
   const head = [`date: ${date}`]
   if (tpl.width) head.push(`width: ${tpl.width}`)
   if (tpl.layout) head.push(`layout: ${tpl.layout}`)
@@ -33,8 +37,16 @@ export function insertTimelineBlock(editor: Editor, fileBasename: string | null,
   const line = editor.getLine(cursor.line)
   // 当前行非空 -> 换行另起；空行直接插入
   const prefix = line.trim() === "" ? "" : "\n"
-  editor.replaceRange(`${prefix}${timelineTemplate(date, tpl)}\n`, cursor)
-  // 光标落到条目区空行（--- 的下一行）
-  const entryLine = cursor.line + (prefix === "" ? 4 : 5)
-  editor.setCursor({ line: entryLine, ch: 0 })
+  const text = `${prefix}${timelineTemplate(date, tpl)}\n`
+  editor.replaceRange(text, cursor)
+  // 光标落到条目区（--- 的下一行），模板头有多少行都一样
+  const separator = text.split("\n").findIndex((line) => line.trim() === "---")
+  editor.setCursor({ line: cursor.line + (separator >= 0 ? separator + 1 : 1), ch: 0 })
+}
+
+/** Insert a period (week-plan) block at the cursor: `days: this-week`. */
+export function insertPeriodBlock(editor: Editor): void {
+  const cursor = editor.getCursor()
+  const prefix = editor.getLine(cursor.line).trim() === "" ? "" : "\n"
+  editor.replaceRange(`${prefix}\`\`\`timeline\ndays: this-week\n---\n\`\`\`\n`, cursor)
 }

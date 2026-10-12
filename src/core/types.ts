@@ -12,6 +12,8 @@ export interface TimelineDoc {
   rangeEnd: number
   entries: Entry[]
   annotations: Annotation[]
+  /** Diary spans without a category: `@HH:MM-HH:MM [#tags] [text]` plus an indented body. */
+  spans: SpanNote[]
   errors: ParseError[]
   /** Per-block hidden highlighters (`hide:` header); global palette minus these is shown. */
   hiddenTypes: string[]
@@ -29,6 +31,8 @@ export interface TimelineDoc {
   texts: string[]
   /** 兼容读取：第一个文本区 */
   text?: string
+  /** Title of each text section (`=== 感恩日记`), parallel to texts; undefined for an untitled one. */
+  textTitles?: Array<string | undefined>
   /** 时间轴栏在左还是右（`side: left`，默认右）。 */
   side?: "left" | "right"
   /** 组件网格布局（`layout:` 头，id\@x,y,w,h）；缺省按 side/text 推导。 */
@@ -41,6 +45,14 @@ export interface TimelineDoc {
   todos: TodoItem[]
   /** Block-local presentation rule for the Todo component. */
   todoView: TodoViewConfig
+  /** Dragged group order for the todo list (`todo-groups:` header, flat composite keys). */
+  todoGroupOrder: string[]
+  /** Present when the block is a period view (`days:`). */
+  period?: PeriodSpec
+  /** Period block: width of the goals/todos rail in px (`rail:` header). */
+  railWidth?: number
+  /** Period goals (`goal:` headers). */
+  goals: PeriodGoal[]
 }
 
 export interface Entry {
@@ -52,9 +64,27 @@ export interface Entry {
   /** Task type key; color comes from settings mapping (D2). */
   type: string
   note?: string
+  /** `#tags` found in the note and the body (derived, never stored apart). */
+  tags: string[]
+  /** Diary body: the indented source lines right after the entry line. */
+  body?: string
+  /** How many source lines the body occupies (0 when absent). */
+  bodyLines?: number
   /** Stable binding to a Todo item in this Modular Diary block. */
   todoId?: string
   /** 0-based source line inside the code block, for write-back. */
+  line: number
+}
+
+/** A stretch of time that carries diary text but no highlighter category. */
+export interface SpanNote {
+  startMin: number
+  endMin: number
+  /** Text after the range on the same line (usually just tags). */
+  text: string
+  tags: string[]
+  body?: string
+  bodyLines?: number
   line: number
 }
 
@@ -66,19 +96,62 @@ export interface TodoItem {
   estimateMin: number
   completed: boolean
   partial?: boolean
-  note?: string
   difficulty?: number
   priority?: string
+  /** `#tags` inside the title (derived at parse time). */
+  tags?: string[]
+  /** Deadline (YYYY-MM-DD); a period block flags it on that day. */
+  due?: string
+  /** Free-text note shown in small type under the title. */
+  note?: string
+  /** Parent todo id: this line is a sub-todo. Line order is the tree's preorder. */
+  parent?: string
+  /**
+   * The day this todo was pushed to. The line stays where it was as a
+   * durable shadow: it shows "moved" here, and it refills the destination if
+   * that day's note is ever recreated empty.
+   */
+  moved?: string
+  /** Period-block todo assigned to a day as an all-day item (stays in the period block). */
+  day?: string
+  /** Cell in the ABC / four-quadrant layouts (A B C, or q1–q4); one field for whichever layout is on. */
+  bucket?: string
   line: number
 }
 
-export type TodoGroupBy = "none" | "category" | "status"
+/** `days:` header — the block is a period view, not a day. */
+export interface PeriodSpec {
+  /** The header value as written, for round-tripping. */
+  spec: string
+  kind: "this-week" | "range"
+  /** Explicit range bounds (kind "range"). */
+  start?: string
+  end?: string
+}
+
+/** `goal:` header — a duration target for the period, by category or by tag. */
+export interface PeriodGoal {
+  kind: "type" | "tag"
+  key: string
+  targetMinutes: number
+  line: number
+}
+
+export type TodoGroupBy = "none" | "category" | "status" | "tag"
+/** Second grouping level inside a primary group; never "none" when present, never equal to groupBy. */
+export type TodoSubGroupBy = "category" | "status" | "tag"
 export type TodoSortBy = "manual" | "estimate" | "actual" | "difficulty" | "priority"
 export type TimelineDrawTool = "span" | "marker"
+
+export type TodoLayout = "list" | "abc" | "matrix"
 
 export interface TodoViewConfig {
   groupBy: TodoGroupBy
   sortBy: TodoSortBy
+  /** Secondary grouping inside each primary group (`group2=` in the todo-view header). */
+  group2?: TodoSubGroupBy
+  /** How the list is laid out: a plain list, ABC columns or the four quadrants. */
+  layout?: TodoLayout
 }
 
 export interface Annotation {
@@ -89,6 +162,8 @@ export interface Annotation {
   type?: string
   /** Uses the same actual/plan layer semantics as duration blocks. */
   plan?: boolean
+  body?: string
+  bodyLines?: number
 }
 
 export interface ParseError {

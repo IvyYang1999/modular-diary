@@ -70,6 +70,12 @@ assert.equal(configured.exists('daily/2026-10-11.md'),false,'must not use the so
 assert.ok(configured.readTarget().includes('- [/] todo:'));assert.ok(!configured.readSource().includes('- [/] todo:'))
 const configuredExisting=createPostponeHost({dailyNotes:{folder:'Journal',format:'YYYY/MM/[日记] DD'},targetContent:'# Existing custom daily note'})
 await configuredExisting.run();assert.ok(configuredExisting.readTarget().startsWith('# Existing custom daily note'))
+const treeSource=source+'\n- [x] todo: id="child" estimate=20 category="work" group="" parent="a" title="#sample Child" note="child note" difficulty=5 priority="P0"'
+const tree=createPostponeHost({sourceValue:treeSource})
+await tree.run()
+assert.ok(!tree.readSource().includes('id="a"')&&!tree.readSource().includes('id="child"'),'postpone must move the complete subtree')
+for(const field of ['id="child"','parent="a"','difficulty=5','priority="P0"','title="#sample Child"'])assert.ok(tree.readTarget().includes(field),'subtree metadata must survive: '+field)
+assert.ok(tree.readTarget().includes('- [x] todo: id="child"'),'completed descendants keep their status')
 const changedSettings=createPostponeHost({dailyNotes:{folder:'Journal',format:'YYYY-MM-DD'}})
 await assert.rejects(changedSettings.run('previous-folder/2026-10-11.md'));assert.equal(changedSettings.copies,0);assert.equal(changedSettings.readSource(),fence(source))
 const rootDefault=createPostponeHost({dailyNotes:{}});await rootDefault.run();assert.equal(rootDefault.destination(),'2026-10-11.md')

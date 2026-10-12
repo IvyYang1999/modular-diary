@@ -1,6 +1,13 @@
 import { registerExternalEditor } from "./pointer-interaction"
 import { trackAnchor } from "./popover-anchor"
 import { t } from "../i18n"
+import { attachTagSuggest, type TagSuggestDeps } from "./tag-suggest"
+
+let noteTagSuggest: TagSuggestDeps | null = null
+/** Installed once by the plugin so every note popover offers `#` completion. */
+export function setNotePopoverTagSuggest(deps: TagSuggestDeps | null): void {
+  noteTagSuggest = deps
+}
 /**
  * Lightweight note editor: a small floating input docked at the block's
  * right edge (yyt: 大弹窗遮挡时间轴、输入区还小). Enter/blur saves, Esc cancels.
@@ -32,6 +39,7 @@ export function openNotePopover(
   input.setAttribute("aria-label", t("note"))
   input.value = initial
   input.placeholder = t(options.kind === "marker" ? "markerNotePlaceholder" : "notePlaceholder")
+  if (noteTagSuggest) attachTagSuggest(input, noteTagSuggest)
   pop.appendChild(input)
 
   // fixed + body 挂载：脱离槽位裁剪；跟随锚点滚动（yyt 2026-08-19）

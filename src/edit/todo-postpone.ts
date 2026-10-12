@@ -31,8 +31,8 @@ const equalTodo = (a: Omit<TodoItem, "line">, b: Omit<TodoItem, "line">): boolea
   formatTodoSourceLine(a) === formatTodoSourceLine(b)
 
 /** Idempotent copy. Preserve unrelated prose/fences and fail on a conflicting ID. */
-export function appendPostponedTodo(content: string, date: string, todo: TodoItem): string {
-  if (todo.completed) throw new Error("completed-todo-cannot-postpone")
+export function appendPostponedTodo(content: string, date: string, todo: TodoItem, allowCompletedDescendant = false): string {
+  if (todo.completed && !allowCompletedDescendant) throw new Error("completed-todo-cannot-postpone")
   const fences = [...timelineFences(content)]
   const targets = fences.filter((fence) => parseTimeline(fence.source).date === date)
   if (targets.length > 1) throw new Error("ambiguous-tomorrow-timeline")
