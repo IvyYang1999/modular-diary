@@ -104,7 +104,7 @@ body{margin:0;background:var(--background-primary);color:var(--text-normal);font
 <section id="settings" class="modular-diary-settings-modal modular-diary-focused-settings"></section>
 <script src="bundle.js"></script></body></html>`)
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1000, height: 900 }, deviceScaleFactor: 1 })
 page.on("pageerror", (error) => console.error("DAILY QUOTE PAGE ERROR", error))
 const theme = (dark) => page.evaluate((dark) => {

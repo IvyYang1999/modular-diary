@@ -20,6 +20,10 @@ export interface BlockMenuActions {
   /** 精确起止时间（HH:MM 输入） */
   editTimes: (line: number) => void
   setTodo: (line: number, todoId: string | null) => void
+  /** Open (or start) this block's hour diary. */
+  openDiary?: (line: number) => void
+  /** Open the note editor with a `#` ready for a tag. */
+  addTag?: (line: number) => void
 }
 
 export function showBlockMenu(
@@ -58,6 +62,10 @@ export function showBlockMenu(
       .setIcon("notebook-pen")
       .onClick(() => actions.editNote(entry.line))
   )
+  if (actions.addTag) menu.addItem((item) =>
+    item.setTitle(t("addTag")).setIcon("hash").onClick(() => actions.addTag?.(entry.line)))
+  if (actions.openDiary && !entry.plan) menu.addItem((item) =>
+    item.setTitle(entry.body !== undefined ? t("openDiary") : t("writeDiaryHere")).setIcon("book-open-text").onClick(() => actions.openDiary?.(entry.line)))
 
   menu.addSeparator()
   if (todos.length > 0 || entry.todoId) {

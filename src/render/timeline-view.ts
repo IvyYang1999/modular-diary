@@ -7,11 +7,16 @@ export interface TextPaneDeps {
   /** Drafts live above the disposable MarkdownPostProcessor DOM tree. */
   getDraft?: (index: number) => TextDraftState | null
   onDraftChange?: (index: number, draft: TextDraftState | null, savedValue?: string) => void
+  /** Rename a titled section. */
+  onRenameTitle?: (index: number, title: string) => void | Promise<void>
+  /** Open this section's title editor right away (a section just added as "custom"). */
+  autoRenameIndex?: number
 }
 
 /** DOM mount: svg string + stats row + error list, into a code-block container. */
 import { TimelineDoc } from "../core/types"
 import { statsByType } from "../core/stats"
+import { tagMinutes } from "../core/tags"
 import { formatHours } from "../core/duration"
 import { fitSideLaneWidth, renderTimelineSvg, RenderOptions, SIDE_LANE_W } from "./svg-builder"
 import type { TextMeasurer } from "../core/text-wrap"
@@ -24,6 +29,8 @@ import type { TextDraftState } from "../edit/text-draft"
 import { captureViewportAnchor, stabilizeViewportAnchor } from "../edit/viewport-anchor"
 
 interface InlineEditorDeps {
+  /** What an empty section invites you to write; defaults to the generic prompt. */
+  placeholder?: string
   renderMarkdown: (host: HTMLElement, text: string) => void
   onSave: (text: string) => void | Promise<void>
   initialDraft?: TextDraftState | null
@@ -31,6 +38,8 @@ interface InlineEditorDeps {
 }
 
 export interface TimelineViewOptions extends RenderOptions {
+  /** Badge colours for `#tags` in the stats module (null = independent tag). */
+  tagStyle?: (tag: string) => { background: string; color: string } | null
   /** 仅给真正的新用户展示一次的时间轴拖拽引导。 */
   showTimelineOnboarding?: boolean
   /**
@@ -101,7 +110,7 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
     pane.closest(".modular-diary-slot")?.classList.remove("is-editing")
     pane.empty()
     if (text.trim() === "") {
-      pane.createDiv({ cls: "modular-diary-text-placeholder", text: t("clickToWrite") })
+      pane.createDiv({ cls: "modular-diary-text-placeholder", text: deps.placeholder ?? t("clickToWrite") })
     } else {
       // MarkdownRenderer only supplies the rendered children. Obsidian's own
       // typography (notably <hr>) is scoped by the markdown-rendered host
@@ -387,6 +396,16 @@ function createNoteMeasurer(container: HTMLElement): TextMeasurer | undefined {
   return (text) => context.measureText(text).width
 }
 
+/** A preset section asks its own question; any other title keeps the generic prompt. */
+function sectionPrompt(title: string): string | undefined {
+  const prompts: Array<[string[], string]> = [
+    [[t("sectionGratitude"), "感恩日记", "Gratitude"], t("promptGratitude")],
+    [[t("sectionReading"), "阅读笔记", "Reading notes"], t("promptReading")],
+    [[t("sectionReview"), "今日复盘", "Daily review"], t("promptReview")],
+  ]
+  return prompts.find(([names]) => names.includes(title))?.[1]
+}
+
 export function renderTimelineInto(
   el: HTMLElement,
   doc: TimelineDoc,
@@ -502,8 +521,41 @@ export function renderTimelineInto(
       }
     } else if (isTextSlot(it.id) && textPane) {
       const idx = it.id === "text" ? 0 : Number(it.id.slice(4)) - 1
+      const title = doc.textTitles?.[idx]
+      if (title) {
+        // A titled section (感恩日记, 阅读笔记…) reads like the other components: a header line, then the text.
+        slot.classList.add("has-title")
+        const header = slot.createDiv({ cls: "modular-diary-component-header modular-diary-text-header" })
+        const heading = header.createEl("button", { cls: "modular-diary-component-title modular-diary-text-title", text: title, attr: { type: "button", "aria-label": t("renameSection", { name: title }) } })
+        const beginRename = (): void => {
+          const input = header.createEl("input", { cls: "modular-diary-text-title-input", attr: { type: "text", "aria-label": t("sectionTitle") } })
+          input.value = title
+          heading.hidden = true
+          input.focus()
+          input.select()
+          let done = false
+          const finish = (commit: boolean): void => {
+            if (done) return
+            done = true
+            const next = input.value.trim()
+            input.remove()
+            heading.hidden = false
+            // An emptied title is a cancel: a section never loses its heading by accident.
+            if (commit && next && next !== title) void textPane.onRenameTitle?.(idx, next)
+          }
+          input.addEventListener("keydown", (event) => {
+            if (event.isComposing) return
+            if (event.key === "Enter") { event.preventDefault(); finish(true) }
+            if (event.key === "Escape") { event.preventDefault(); finish(false) }
+          })
+          input.addEventListener("blur", () => finish(true))
+        }
+        heading.addEventListener("click", beginRename)
+        if (textPane.autoRenameIndex === idx) queueMicrotask(beginRename)
+      }
       const pane = slot.createDiv({ cls: "modular-diary-text-pane" })
       attachInlineTextEditor(pane, texts[idx] ?? "", {
+        placeholder: title ? sectionPrompt(title) : undefined,
         renderMarkdown: (host, text) => textPane.renderMarkdown(host, text),
         onSave: (text) => textPane.onSave(idx, text),
         initialDraft: textPane.getDraft?.(idx) ?? null,
@@ -526,6 +578,23 @@ export function renderTimelineInto(
   el.classList.toggle("modular-diary-host-float", useFloat)
 
   const statsSlot = container.querySelector<HTMLElement>(".modular-diary-slot-stats") // 被 off: 隐藏时不兜底渲染
+  // Time per #tag (block notes, diary bodies and `@` spans; overlaps once; plans never count).
+  const byTag = Object.entries(tagMinutes([...doc.entries, ...(doc.spans ?? [])])).sort((a, b) => b[1] - a[1])
+  const renderTagTotals = (box: HTMLElement): void => {
+    if (byTag.length === 0) return
+    const tags = box.createDiv({ cls: "modular-diary-stats-tags", attr: { "aria-label": t("statsByTag") } })
+    for (const [tag, minutes] of byTag) {
+      const item = tags.createEl("span", { cls: "modular-diary-stats-tag" })
+      const badge = item.createEl("span", { cls: "modular-diary-tag", text: `#${tag}` })
+      const style = opts.tagStyle?.(tag) ?? null
+      if (style) {
+        badge.classList.add("has-category")
+        badge.style.setProperty("--modular-diary-tag-bg", style.background)
+        badge.style.setProperty("--modular-diary-tag-fg", style.color)
+      }
+      item.createEl("span", { cls: "modular-diary-stats-tag-hours", text: formatHours(minutes) })
+    }
+  }
   statsSlot?.classList.toggle("is-empty-state", stats.length === 0 && doc.errors.length === 0)
   if (stats.length > 0 && statsSlot) {
     // 每行一个类型 + 荧光笔色点（yyt 2026-08-17）
@@ -577,6 +646,10 @@ export function renderTimelineInto(
         observer.observe(barWrap)
       }
     }
+    renderTagTotals(box)
+  } else if (statsSlot && doc.errors.length === 0 && byTag.length > 0) {
+    // Only categoryless diary spans today: their tags still add up.
+    renderTagTotals(statsSlot.createDiv({ cls: "modular-diary-stats" }))
   } else if (statsSlot && doc.errors.length === 0) {
     const empty = statsSlot.createDiv({ cls: "modular-diary-stats-empty" })
     empty.setAttribute("role", "note")

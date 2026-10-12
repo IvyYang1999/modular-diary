@@ -21,7 +21,7 @@ body { background: #fff; padding: 20px; }
 感觉拍得很好。</textarea>
 </body></html>`
 fs.writeFileSync(path.join(out, "i.html"), html)
-const browser = await chromium.launch()
+const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage()
 await page.goto("file://" + path.join(out, "i.html"))
 const m = await page.evaluate(() => {

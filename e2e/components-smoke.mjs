@@ -213,6 +213,53 @@ renderTodosInto(createSlot("todos", 150), [
 ], {
   categories: Object.keys(colors), typeColors: colors, view: { groupBy: "category", sortBy: "estimate" }, onAdd: () => {}, onEdit: () => {}, onGroupMenu: () => {}, onSortMenu: () => {}, onToggle: () => {}, onMenu: () => {}, onMove: () => {},
 })
+// Grouped + manual: rows sort inside their (sub)group, groups themselves sort,
+// and a persisted group order wins over the derived one. One row carries a note.
+renderTodosInto(createSlot("todos-grouped-sortable", 260), [
+  { id: "ga", title: "写接口文档 #文档", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 60, actualMinutes: 0, note: "先列大纲" },
+  { id: "gb", title: "修 Bug #紧急", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 45, actualMinutes: 0 },
+  { id: "gc", title: "读完第三章 #阅读", group: "", type: "read", completed: true, weekly: false, estimateMinutes: 30, actualMinutes: 35 },
+  { id: "gd", title: "每周阅读目标", group: "", type: "read", completed: false, weekly: true, estimateMinutes: 120, actualMinutes: 0 },
+  { id: "ge", title: "写测试 #文档", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 20, actualMinutes: 0 },
+], {
+  categories: Object.keys(colors), typeColors: colors,
+  view: { groupBy: "category", sortBy: "manual", group2: "tag" },
+  groupOrder: ["c:read"],
+  onAdd: () => {}, onEdit: () => {}, onGroupMenu: () => {}, onSortMenu: () => {}, onToggle: () => {}, onMenu: () => {},
+  onMove: (id, index) => window.__events.push("todo-move:" + id + ":" + index),
+  onMoveGroup: (key, index) => window.__events.push("todo-group-move:" + JSON.stringify(key) + ":" + index),
+})
+
+// Sub-todos: parent= builds the tree; a parent rolls up subtree totals; the
+// "modular-diary-add-child" row event opens the add form with the parent preset.
+const treeTodoSlot = createSlot("todos-tree", 430)
+// Grips hang into the row's left gutter; padding keeps them inside the slot (and hit-testable).
+treeTodoSlot.style.paddingLeft = "36px"
+window.__treeCollapsed = []
+const renderTreeTodos = (): void => {
+  treeTodoSlot.replaceChildren()
+  renderTodosInto(treeTodoSlot, [
+    { id: "tp", title: "优化 openTrends", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 0, actualMinutes: 0 },
+    { id: "tc1", title: "功能优化", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 60, actualMinutes: 30, parent: "tp" },
+    { id: "tg1", title: "加载速度", group: "", type: "develop", completed: false, weekly: false, estimateMinutes: 15, actualMinutes: 0, parent: "tc1" },
+    { id: "tc2", title: "社媒", group: "", type: "develop", completed: true, weekly: false, estimateMinutes: 30, actualMinutes: 0, parent: "tp" },
+    { id: "tz", title: "独立任务", group: "", type: "read", completed: false, weekly: false, estimateMinutes: 20, actualMinutes: 0 },
+  ], {
+    categories: Object.keys(colors), typeColors: colors, view: { groupBy: "none", sortBy: "manual" },
+    collapsed: (id) => window.__treeCollapsed.includes(id),
+    onToggleCollapse: (id) => {
+      const at = window.__treeCollapsed.indexOf(id)
+      if (at < 0) window.__treeCollapsed.push(id)
+      else window.__treeCollapsed.splice(at, 1)
+      renderTreeTodos()
+    },
+    onAdd: (input) => window.__events.push("todo-add:" + input.title + ":" + input.estimateMinutes + ":" + (input.parent ?? "")),
+    onReparent: (id, parent) => window.__events.push("todo-reparent:" + id + ":" + parent),
+    onEdit: () => {}, onGroupMenu: () => {}, onSortMenu: () => {}, onToggle: () => {}, onMenu: () => {},
+    onMove: (id, index) => window.__events.push("tree-move:" + id + ":" + index),
+  })
+}
+renderTreeTodos()
 
 const persistentTodoSlot = createSlot("todos-edit-session", 150)
 let persistentEditDraft: any = null
@@ -279,7 +326,7 @@ const hostileThemeButtonChrome = `
 `
 fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><style>${css}</style><style>${hostileThemeButtonChrome}</style></head><body style="margin:16px"><main id="host" class="modular-diary-container" style="width:440px"></main><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 960, height: 860 }, deviceScaleFactor: 1 })
 page.on("pageerror", (error) => { console.error("pageerror:", error.message); process.exit(1) })
 await page.goto("file://" + path.join(out, "index.html"))
@@ -527,7 +574,7 @@ const populatedTodoSlot = page.locator(".modular-diary-slot-todos").first()
 await page.locator(".modular-diary-slot-habits").first().locator(".modular-diary-component-actions button").click()
 await populatedTodoSlot.locator(".modular-diary-component-actions button").nth(2).click()
 const explicitAddFocusedTitle = await populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-title-input').evaluate((input) => document.activeElement === input)
-await populatedTodoSlot.locator('.modular-diary-todo-add-form input[type="text"]').fill("整理学习资料")
+await populatedTodoSlot.locator(".modular-diary-todo-add-form .modular-diary-todo-title-input").fill("整理学习资料")
 const estimateInput = populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-estimate-input')
 const estimateUnitSelect = populatedTodoSlot.locator('.modular-diary-todo-add-form .modular-diary-todo-estimate-unit-select')
 const minuteValueBeforeUnitSwitch = await estimateInput.inputValue()
@@ -747,6 +794,93 @@ const emptyTodoForm = page.locator(".modular-diary-slot-todos").nth(1).locator("
 await page.locator(".modular-diary-slot-todos").nth(1).locator(".modular-diary-component-empty").click()
 await emptyTodoForm.locator('.modular-diary-todo-title-input').fill("空状态新任务")
 await emptyTodoForm.dispatchEvent("submit")
+// Grouped manual view: persisted group order leads, sub-groups nest, grips on
+// groups and owned rows (never on weekly goals), note in small print, and the
+// keyboard path mirrors the grips (Alt+ArrowDown = one step among siblings).
+const groupedSortable = await page.evaluate(() => {
+  const slot = document.querySelector('.modular-diary-slot[data-slot="todos-grouped-sortable"]')
+  const list = slot?.querySelector(".modular-diary-todo-list")
+  if (!slot || !list) return null
+  const topSections = [...list.querySelectorAll(":scope > .modular-diary-todo-group-section")]
+  const subOf = (section) => [...section.querySelectorAll(":scope > .modular-diary-todo-subs > .modular-diary-todo-group-section")]
+  const noteRow = slot.querySelector('.modular-diary-todo-row[data-todo-id="ga"]')
+  const note = noteRow?.querySelector(".modular-diary-todo-note")
+  const noteRect = note?.getBoundingClientRect()
+  const titleRect = noteRow?.querySelector(".modular-diary-item-title")?.getBoundingClientRect()
+  topSections[0]?.querySelector(":scope > .modular-diary-todo-group")?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", altKey: true, bubbles: true }))
+  noteRow?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", altKey: true, bubbles: true }))
+  return {
+    topKeys: topSections.map((section) => section.dataset.groupKey),
+    readSubLabels: subOf(topSections[0]).map((section) => section.querySelector(".modular-diary-todo-group-name")?.textContent),
+    groupGripCount: slot.querySelectorAll(".modular-diary-todo-group-drag").length,
+    rowGripCount: slot.querySelectorAll(".modular-diary-todo-drag").length,
+    weeklyGripCount: slot.querySelector('.modular-diary-todo-row[data-todo-id="gd"]')?.querySelectorAll(".modular-diary-todo-drag").length ?? -1,
+    noteText: note?.textContent ?? "",
+    noteBelowTitle: Boolean(noteRect && titleRect && noteRect.top >= titleRect.bottom - 1),
+  }
+})
+// Sub-todo tree: preorder rows, per-depth indent, parent rollup, add-child form.
+const todoTree = await page.evaluate(() => {
+  const slot = document.querySelector('.modular-diary-slot[data-slot="todos-tree"]')
+  if (!slot) return null
+  const rows = [...slot.querySelectorAll(".modular-diary-todo-row")]
+  const parentRow = slot.querySelector('.modular-diary-todo-row[data-todo-id="tp"]')
+  parentRow?.dispatchEvent(new CustomEvent("modular-diary-add-child"))
+  const form = slot.querySelector(".modular-diary-todo-add-form")
+  return {
+    order: rows.map((row) => row.dataset.todoId),
+    indents: rows.map((row) => getComputedStyle(row).marginLeft),
+    parentMeta: parentRow?.querySelector(".modular-diary-item-meta")?.textContent ?? "",
+    addFormVisible: Boolean(form && !form.hidden),
+  }
+})
+await page.locator('.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-add-form .modular-diary-todo-title-input').fill("新子任务")
+await page.locator('.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-add-form').dispatchEvent("submit")
+// Collapse: the chevron hides the whole subtree and re-renders without it.
+const treeToggle = page.locator('.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-row[data-todo-id="tp"] .modular-diary-todo-toggle')
+await treeToggle.click()
+const collapsedTree = await page.evaluate(() => {
+  const slot = document.querySelector('.modular-diary-slot[data-slot="todos-tree"]')
+  return {
+    rows: [...slot.querySelectorAll(".modular-diary-todo-row")].map((row) => row.dataset.todoId),
+    expanded: slot.querySelector('.modular-diary-todo-row[data-todo-id="tp"] .modular-diary-todo-toggle')?.getAttribute("aria-expanded") ?? "",
+    count: slot.querySelector('.modular-diary-todo-row[data-todo-id="tp"] .modular-diary-todo-collapsed-count')?.textContent ?? "",
+  }
+})
+await treeToggle.click()
+// Dragging a parent moves its whole subtree as one block.
+const treeRow = (id) => page.locator(`.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-row[data-todo-id="${id}"]`)
+const tc1Grip = treeRow("tc1").locator(".modular-diary-todo-drag")
+await tc1Grip.scrollIntoViewIfNeeded()
+const tc1GripBox = await tc1Grip.boundingBox()
+const tc2Box = await treeRow("tc2").boundingBox()
+if (!tc1GripBox || !tc2Box) throw new Error("tree drag fixture has no measurable geometry")
+await page.mouse.move(tc1GripBox.x + tc1GripBox.width / 2, tc1GripBox.y + tc1GripBox.height / 2)
+await page.waitForTimeout(20)
+await page.mouse.down()
+await page.mouse.move(tc2Box.x + tc2Box.width / 2, tc2Box.y + tc2Box.height - 2, { steps: 6 })
+const subtreeDrag = await page.evaluate(() => {
+  const node = document.querySelector('.modular-diary-todo-node[data-todo-node="tc1"]')
+  const order = [...(node?.parentElement?.children ?? [])].map((child) => child.dataset.todoNode ?? "?")
+  return {
+    ghost: document.querySelector(".modular-diary-item-sort-ghost")?.textContent ?? "",
+    order,
+    subtreeIntact: Boolean(node?.querySelector('.modular-diary-todo-row[data-todo-id="tg1"]')),
+  }
+})
+await page.mouse.up()
+// Dropping onto the middle of a row re-parents instead of reordering.
+const tzGrip = treeRow("tz").locator(".modular-diary-todo-drag")
+await treeRow("tp").scrollIntoViewIfNeeded({ block: "center" })
+await tzGrip.hover()
+const tpBox = await treeRow("tp").boundingBox()
+if (!tpBox) throw new Error("reparent drag fixture has no measurable geometry")
+await page.mouse.down()
+await page.mouse.move(tpBox.x + tpBox.width / 2, tpBox.y + tpBox.height / 2, { steps: 4 })
+const reparentDrag = await page.evaluate(() => ({
+  highlighted: document.querySelector(".modular-diary-todo-row.modular-diary-item-drop-child")?.dataset.todoId ?? "",
+}))
+await page.mouse.up()
 const events = await page.evaluate(() => window.__events)
 await page.locator("#host").screenshot({ path: path.join(out, "components-light.png") })
 await page.locator(".habit-badge-contract").screenshot({ path: path.join(out, "habit-status-badges-light.png") })
@@ -849,7 +983,7 @@ const [noProgress, halfProgress, noEstimate] = narrowRows.progressRows
 if (!noProgress || noProgress.tracks !== 0 || !halfProgress || halfProgress.tracks !== 1 || !near(halfProgress.barRatio, 0.5) || !noEstimate || noEstimate.tracks !== 0) {
   errors.push("todo progress track must appear only once there is progress: " + JSON.stringify(narrowRows.progressRows))
 }
-if (state.slotCount !== 7) errors.push("expected seven component slots")
+if (state.slotCount !== 9) errors.push("expected nine component slots")
 if (!near(state.weeklyHabitRatio, 0.5)) errors.push("weekly habit progress must carry across days")
 if (!near(state.todoRatios[0], 0.5) || !near(state.todoRatios[1], 0.5)) errors.push("todo actual/estimate progress is wrong")
 if (state.rowBorderRadius !== "7px" || state.rowBackground !== "rgba(0, 0, 0, 0)" || state.rowBorderWidth !== "1px" || state.rowBorderStyle !== "solid") errors.push("habit rows must be compact outlined status rows")
@@ -861,7 +995,7 @@ if (state.todoGroupCount !== 0 || state.todoGroupControls !== 0) errors.push("to
 if (!state.todoEstimateUnitOptions.length || state.todoEstimateUnitOptions.some((options) => options !== "分钟|小时")) errors.push("todo estimate must offer both minute and hour units")
 if (!state.draftVisible || state.draftTitle !== "未保存草稿" || state.draftEstimate !== "0.5" || state.draftEstimateUnit !== "hours") errors.push("todo draft must survive a renderer replacement with its chosen duration unit")
 if (state.draftRestoreFocus !== "draft-restore-focus-owner") errors.push("restoring a todo creation draft stole focus from another active interaction")
-if (state.todoRowsDraggable.some(Boolean) || state.todoHandleDraggable || state.todoHandleCount !== 4) errors.push("todo sorting must use one pointer-owned handle per row rather than native HTML drag")
+if (state.todoRowsDraggable.some(Boolean) || state.todoHandleDraggable || state.todoHandleCount !== 13) errors.push("todo sorting must use one pointer-owned handle per row rather than native HTML drag")
 if (state.todoHandleOpacity !== "0" || todoHandleHoverOpacity !== "1" || todoHandleFocusOpacity !== "1") errors.push("todo drag handles must reveal only on row hover or focus")
 if (todoSequentialHoverOpacities.join("|") !== "0|1|0") errors.push("moving hover to another Todo row must hide the previously focused row grip")
 if (todoOrderingHoverGrip.opacity !== "0" || todoOrderingHoverGrip.pointerEvents !== "none") errors.push("an ordering Todo list must suppress the hovered candidate row grip")
@@ -897,6 +1031,17 @@ if (!remountVisualInvalidation.scrollStarted || remountVisualInvalidation.before
 if (!remountVisualInvalidation.resizeStarted || remountVisualInvalidation.beforeResize !== 1 || remountVisualInvalidation.afterResize !== 0) errors.push("a remount visual must be discarded when viewport geometry changes")
 if (state.todoBorderTopWidths.some((width) => width !== "0px")) errors.push("todo rows must not use divider lines")
 if (state.groupedTodoLabels.join("|") !== "develop|read" || state.groupedTodoTitles.join("|") !== "本周深度开发|整理发布清单|读完一章") errors.push("todo view rules do not group by category and sort by estimate")
+if (!groupedSortable || groupedSortable.topKeys.join("|") !== "c:read|c:develop") errors.push("a persisted todo group order must lead and derived groups follow: " + JSON.stringify(groupedSortable))
+if (groupedSortable.readSubLabels.join("|") !== "#阅读|无标签") errors.push("tag sub-groups must nest under their category with the untagged one last: " + JSON.stringify(groupedSortable))
+if (groupedSortable.groupGripCount !== 6 || groupedSortable.rowGripCount !== 4 || groupedSortable.weeklyGripCount !== 0) errors.push("grouped manual todos need a grip per group and per owned row, never on weekly goals: " + JSON.stringify(groupedSortable))
+if (groupedSortable.noteText !== "先列大纲" || !groupedSortable.noteBelowTitle) errors.push("a todo note must render as small print below its title: " + JSON.stringify(groupedSortable))
+if (!todoTree || todoTree.order.join("|") !== "tp|tc1|tg1|tc2|tz") errors.push("sub-todos must render in preorder under their parent: " + JSON.stringify(todoTree))
+if (todoTree && !(parseFloat(todoTree.indents[2]) > parseFloat(todoTree.indents[1]) && parseFloat(todoTree.indents[1]) > parseFloat(todoTree.indents[0]))) errors.push("sub-todos must indent one step per depth: " + JSON.stringify(todoTree))
+if (todoTree && !todoTree.parentMeta.includes("子项 1/3")) errors.push("a parent todo must report its subtree done/total count: " + JSON.stringify(todoTree))
+if (todoTree && !todoTree.addFormVisible) errors.push("the add-child row event must open the add form")
+if (collapsedTree.rows.join("|") !== "tp|tz" || collapsedTree.expanded !== "false" || collapsedTree.count !== "+3") errors.push("collapsing a parent must hide its subtree and count it: " + JSON.stringify(collapsedTree))
+if (subtreeDrag.order.join("|") !== "tc2|tc1" || !subtreeDrag.subtreeIntact || !subtreeDrag.ghost.includes("功能优化")) errors.push("dragging a parent must move its subtree as one block: " + JSON.stringify(subtreeDrag))
+if (reparentDrag.highlighted !== "tp") errors.push("dropping onto a row's middle must highlight the re-parent target: " + JSON.stringify(reparentDrag))
 if (state.groupedTodoHandleCount !== 0) errors.push("derived todo views must not advertise manual drag sorting")
 if (!state.groupedTodoSortLabel.includes("切换为手动排序后可拖拽")) errors.push("derived todo views must explain how to restore manual drag sorting")
 if (state.groupedScheduleSourceCount !== 3 || state.scheduleSourceCursor !== "grab") errors.push("estimated items must remain directly schedulable even in a derived Todo view")
@@ -923,11 +1068,16 @@ if (state.todoHeaderActionIcons.join("|") !== "list-tree|arrow-up-down|plus") er
 if (state.habitHeaderActionCount !== 1 || state.habitHeaderActionLabel !== "编辑打卡项目" || state.habitHeaderActionIcon !== "pencil") errors.push("habit header must expose one clearly named pencil edit action")
 if (!todoEditWasVisible || todoEditInitial.title !== "整理发布清单" || todoEditInitial.category !== "develop" || todoEditInitial.estimate !== "1" || todoEditInitial.estimateUnit !== "hours") errors.push("todo edit form must open prefilled with an intelligible duration unit")
 if (state.weeklyCheckboxDisabled !== 1) errors.push("weekly todo must remain automatic")
-for (const expected of ["habit-edit", "habit-menu:weekly", "habit-move:weekly:1", "todo-menu:local", "todo-move:local:2", "todo-toggle:local:true", "empty-habit-edit", "empty-todo-add:空状态新任务"]) {
+for (const expected of ["habit-edit", "habit-menu:weekly", "habit-move:weekly:1", "todo-menu:local", "todo-move:local:1", "todo-toggle:local:true", "empty-habit-edit", "empty-todo-add:空状态新任务"]) {
   if (!events.includes(expected)) errors.push("missing interaction " + expected)
 }
 if (!events.includes("todo-edit:local:整理发布清单:45")) errors.push("todo estimate edit did not reach the persistence contract")
 if (!events.includes("todo-add:整理学习资料:30")) errors.push("hour-based todo creation did not convert to canonical minutes")
+if (!events.includes("todo-add:新子任务:30:tp")) errors.push("adding a sub-todo did not carry the parent id through the add form")
+if (!events.includes("tree-move:tc1:1")) errors.push("a subtree drop must map onto the owned todo order: " + JSON.stringify(subtreeDrag))
+if (!events.includes("todo-reparent:tz:tp")) errors.push("a drop onto a row must re-parent instead of reorder")
+if (!events.includes('todo-group-move:"c:read":1')) errors.push("group keyboard reorder did not reach the persistence contract")
+if (!events.includes("todo-move:ga:3")) errors.push("row reorder inside a group must map onto the block-owned todo order")
 if (minuteValueBeforeUnitSwitch !== "30" || hourValueAfterUnitSwitch !== "30" || minuteValueAfterUnitSwitch !== "0.5" || hourValueAfterRoundTrip !== "0.5") errors.push("switching Todo duration units must reinterpret the authored number without rewriting it")
 if (!events.includes("todo-add:精确小时输入:1") || !preciseHourSubmit.hidden || !preciseHourSubmit.noValidate || preciseHourSubmit.errorCount !== 0) errors.push("decimal-hour Todo creation leaked into native browser validation instead of saving one canonical minute")
 if (events.some((event) => event.startsWith("todo-add:非法负数时长:")) || invalidDurationFeedback.hidden || !invalidDurationFeedback.noValidate || !invalidDurationFeedback.error || invalidDurationFeedback.ariaInvalid !== "true") errors.push("invalid Todo duration must stay in the editor with Modular Diary-owned inline feedback")

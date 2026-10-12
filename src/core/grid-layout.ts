@@ -21,7 +21,7 @@ export const COMPONENT_SLOT_COLS = 6
 
 export type SlotId = string // 核心: toolbar|timeline|stats|dialog；文本框: text, text2, text3…
 export const CORE_SLOT_IDS = ["toolbar", "timeline", "stats", "dialog"] as const
-export const OPTIONAL_SLOT_IDS = ["habits", "todos", "quote"] as const
+export const OPTIONAL_SLOT_IDS = ["habits", "todos", "quote", "hourlog"] as const
 export function isTextSlot(id: SlotId): boolean {
   return id === "text" || /^text\d+$/.test(id)
 }

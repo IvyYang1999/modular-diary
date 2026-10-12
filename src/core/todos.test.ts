@@ -4,10 +4,10 @@ import type { Entry, TodoItem } from "./types"
 
 const todo: TodoItem = {
   id: "landing", title: "完成｜落地页", group: "工作 / 产品", type: "开发",
-  estimateMin: 90, completed: false, line: 2,
+  estimateMin: 90, completed: false, tags: [], line: 2,
 }
 const entry = (patch: Partial<Entry>): Entry => ({
-  plan: false, startMin: 600, endMin: 630, type: "开发", line: 5, ...patch,
+  plan: false, startMin: 600, endMin: 630, type: "开发", tags: [], line: 5, ...patch,
 })
 
 describe("todo source model", () => {
@@ -34,6 +34,21 @@ describe("todo source model", () => {
       "landing|0|90|%E5%BC%80%E5%8F%91|%E5%B7%A5%E4%BD%9C%20%2F%20%E4%BA%A7%E5%93%81|%E5%AE%8C%E6%88%90%EF%BD%9C%E8%90%BD%E5%9C%B0%E9%A1%B5",
       todo.line,
     )).toEqual(todo)
+  })
+
+  it("round-trips the small-print note, including quotes and emoji", () => {
+    const noted = { ...todo, note: '先给 "设计" 过目 🎨' }
+    const value = formatTodoHeaderValue(noted)
+    expect(value).toContain('note="先给 \\"设计\\" 过目 🎨"')
+    expect(value.indexOf("note=")).toBeLessThan(value.indexOf("title="))
+    expect(parseTodoHeaderValue(value, noted.line)).toEqual(noted)
+  })
+
+  it("round-trips the parent link of a sub-todo", () => {
+    const child = { ...todo, id: "child", parent: "landing" }
+    const value = formatTodoHeaderValue(child)
+    expect(value).toContain('parent="landing"')
+    expect(parseTodoHeaderValue(value, child.line)).toEqual(child)
   })
 
   it("keeps the manual estimate and sums only actual bound blocks", () => {

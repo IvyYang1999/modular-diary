@@ -38,7 +38,7 @@ await esbuild.build({
 const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
 fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><main class="modular-diary-container"><div class="modular-diary-block-scroll underlay">visual timeline underlay</div></main><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`)
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 920, height: 620 }, deviceScaleFactor: 1 })
 page.on("pageerror", (error) => { console.error("pageerror:", error.message); process.exitCode = 1 })
 await page.goto("file://" + path.join(out, "index.html"))

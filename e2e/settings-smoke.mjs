@@ -70,6 +70,7 @@ export class PluginSettingTab {
     document.body.appendChild(this.containerEl)
   }
 }
+
 class TextControl {
   inputEl: HTMLInputElement
   constructor(parent: HTMLElement) { this.inputEl = document.createElement("input"); this.inputEl.type = "text"; parent.appendChild(this.inputEl) }
@@ -113,6 +114,7 @@ export class Setting {
   setClass(value: string): this { this.settingEl.classList.add(value); return this }
   addText(callback: (control: TextControl) => void): this { callback(new TextControl(this.controlEl)); return this }
   addTextArea(callback: (control: TextareaControl) => void): this { callback(new TextareaControl(this.controlEl)); return this }
+  addToggle(callback: (control: ToggleControl) => void): this { callback(new ToggleControl(this.controlEl)); return this }
   addDropdown(callback: (control: DropdownControl) => void): this { callback(new DropdownControl(this.controlEl)); return this }
   addButton(callback: (control: ButtonControl) => void): this { callback(new ButtonControl(this.controlEl)); return this }
   addExtraButton(callback: (control: ButtonControl) => void): this { callback(new ButtonControl(this.controlEl)); return this }
@@ -187,7 +189,7 @@ const app = {
   workspace: { getLeaf: () => ({ openFile: async () => undefined }) },
 }
 Object.assign(settings, { checklistFolder: "Checklists" })
-const host = { app, settings, saveSettings: async () => { window.__saves += 1 } }
+const host = { app, settings, refreshHourlyNudge: () => undefined, effectiveTemplateSource: () => settings.templateSource ?? "---", saveSettings: async () => { window.__saves += 1 } }
 window.__saves = 0
 window.__settings = settings
 renderCategorySettings(document.querySelector("#categories"), host)
@@ -213,7 +215,7 @@ const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
 fs.writeFileSync(path.join(out, "styles.css"), css)
 fs.writeFileSync(path.join(out, "index.html"), `<!doctype html><html><head><link rel="stylesheet" href="styles.css"><style>select:hover,select:focus{background:var(--background-modifier-hover)!important}[data-settings-section='checklists']{font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text-normal)}[data-settings-section='checklists'] .setting-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--background-modifier-border)}[data-settings-section='checklists'] .setting-item-info{flex:1 1 auto}[data-settings-section='checklists'] .setting-item-control{display:flex;align-items:center;justify-content:flex-end}[data-settings-section='checklists'] .setting-item-description{color:var(--text-muted);font-size:13px;padding-top:2px}[data-settings-section='checklists'] .setting-item-control>button{background:none;border:0;color:var(--text-muted);padding:4px}[data-settings-section='checklists'] svg[data-icon]{width:16px;height:16px}[data-settings-section='checklists'] input{background:var(--background-modifier-form-field);color:var(--text-normal);border:1px solid var(--background-modifier-border);border-radius:5px;padding:4px 8px}</style></head><body><main class="modular-diary-focused-settings"><section id="categories"></section><section id="habits"></section><section id="habits-en"></section></main><script src="bundle.js"></script></body></html>`)
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 820, height: 900 }, deviceScaleFactor: 1 })
 page.on("pageerror", (error) => console.error("SETTINGS PAGE ERROR", error))
 await page.goto("file://" + path.join(out, "index.html"))
@@ -501,7 +503,7 @@ if (!state.quoteSection.present || !state.quoteSection.hasLibrary || !state.quot
 if (state.todoRulesHeading !== "待办规则" || state.timelineHeading !== "时间轴") errors.push("global todo and timeline sections need clear concept-level headings")
 if (state.weeklyLegacyHeadingCount !== 0) errors.push("weekly cumulative todos must not appear as a separate top-level product concept")
 if (state.addWeeklyLabel !== "添加每周目标" || state.addWeeklyHeight > 36 || state.addWeeklyBackground !== "rgba(0, 0, 0, 0)" || state.addWeeklyBorderStyle !== "dashed") errors.push("empty recurring todo rules must use one compact shared dashed add action")
-if (state.timelineSettingNames.join("|") !== "默认时间范围（起–止，小时）|每小时高度（px）") errors.push("timeline defaults escaped their own settings section")
+if (state.timelineSettingNames.join("|") !== "默认时间范围（起–止，小时）|每小时高度（px）|整点提醒写小时日记|提醒时段（起–止，小时）|新日记模板|同时发系统通知") errors.push("timeline defaults escaped their own settings section")
 if (!["Habit name", "Tracked category", "Completion condition", "Target duration", "Repeat rule"].every((label) => state.englishLabels.includes(label))) errors.push("English habit fields are not locale-parity with Chinese")
 if (!state.englishGoalOptions.includes("Daily total below") || !state.englishGoalOptions.includes("Weekly completion count") || !state.englishRepeatOptions.includes("Every N days") || !state.englishRepeatOptions.includes("Specific calendar dates")) errors.push("English recurrence and completion-condition options are incomplete")
 if (globalNarrowState.categoryColumns !== 1 || globalNarrowState.habitColumns !== 3) errors.push("truly narrow global settings do not collapse into the compact two-field layout")

@@ -13,7 +13,11 @@
 import { parseLayoutHeader, parseRecoverableLayoutHeader } from "./grid-layout"
 import { parseBlockSize, parseCanvasWidth } from "./block-size"
 import { DEFAULT_TODO_VIEW, parseTodoHeaderValue, parseTodoSourceLine, parseTodoViewHeaderValue, splitTodoBinding } from "./todos"
+import { parseReadableFields } from "./todos"
+import { parsePeriodSpec } from "./period"
 import { t as tr } from "../i18n"
+import { extractTags } from "./tags"
+import { bodyExtent, readBody, separatorTitle, TEXT_SEPARATOR_RE, unescapeSectionLine } from "./body-extent"
 import {
   Annotation,
   DAY_MINUTES,
@@ -21,12 +25,15 @@ import {
   DEFAULT_RANGE_START,
   Entry,
   ParseError,
+  SpanNote,
   TimelineDoc,
 } from "./types"
 
 const ENTRY_RE = /^(plan\s+)?(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})\s+([^\s]+)(?:\s+(.*))?$/
 const MARKER_RE = /^(plan\s+)?@(\d{1,2}):(\d{2})\s+\[([^\]]+)\](?:\s+(.*))?$/
 const ANNOTATION_RE = /^@(\d{1,2}):(\d{2})\s+(.*)$/
+/** Diary span: a range with no category. Never matched ANNOTATION_RE before, so no legacy conflict. */
+const SPAN_RE = /^@(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})(?:\s+(.*))?$/
 const HEADER_RE = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/
 const RANGE_RE = /^(\d{1,2})(?:-(\d{1,2}))?$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -67,6 +74,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     rangeEnd: opts.rangeEnd ?? DEFAULT_RANGE_END,
     entries: [],
     annotations: [],
+    spans: [],
     errors: [],
     hiddenTypes: [],
     hiddenMarkerTypes: [],
@@ -74,6 +82,8 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     habitSkips: [],
     todos: [],
     todoView: { ...DEFAULT_TODO_VIEW },
+    todoGroupOrder: [],
+    goals: [],
     texts: [],
   }
 
@@ -81,22 +91,36 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
   // `===` splits the block: entry syntax above, free markdown text below (块内图文混排)。
   // 多个 ===  -> 多个文本框（text, text2, …，yyt 2026-08-17）
   const allLines = [...lines]
-  const sepIdxs = allLines.map((l, i) => (l.trim() === "===" ? i : -1)).filter((i) => i >= 0)
+  // Only an unindented === separates; an indented one is diary text.
+  const sepIdxs = allLines.map((l, i) => (TEXT_SEPARATOR_RE.test(l) ? i : -1)).filter((i) => i >= 0)
   if (sepIdxs.length > 0) {
     const first = sepIdxs[0]
     const bounds = [...sepIdxs, allLines.length]
+    doc.textTitles = []
     for (let i = 0; i < bounds.length - 1; i++) {
-      doc.texts.push(allLines.slice(bounds[i] + 1, bounds[i + 1]).join("\n").trim())
+      doc.texts.push(allLines.slice(bounds[i] + 1, bounds[i + 1]).map(unescapeSectionLine).join("\n").trim())
+      doc.textTitles.push(separatorTitle(allLines[bounds[i]]))
     }
     lines.splice(first) // 条目区只保留 === 之前
     doc.text = doc.texts[0]
   }
   let inHeader = true
   let sawSeparator = false
+  /** Lines already consumed as the body of the item above them. */
+  let skipThrough = -1
+  const attachBody = (item: { body?: string; bodyLines?: number }, line: number): void => {
+    const extent = bodyExtent(lines, line)
+    if (extent === 0) return
+    item.body = readBody(lines, line, extent)
+    item.bodyLines = extent
+    skipThrough = line + extent
+  }
 
   lines.forEach((raw, line) => {
+    if (line <= skipThrough) return
     const text = raw.trim()
-    if (text === "" || text.startsWith("#")) return
+    if (text === "") return
+    if (text.startsWith("#")) return
 
     if (/^- \[.\] todo:/.test(text)) {
       const todo = parseTodoSourceLine(text, line)
@@ -114,7 +138,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     if (inHeader) {
       const header = HEADER_RE.exec(text)
       // A line that parses as an entry/annotation ends the header section.
-      if (!header || ENTRY_RE.test(text) || MARKER_RE.test(text) || ANNOTATION_RE.test(text)) {
+      if (!header || ENTRY_RE.test(text) || MARKER_RE.test(text) || SPAN_RE.test(text) || ANNOTATION_RE.test(text)) {
         inHeader = false
       } else {
         applyHeader(doc, header[1].toLowerCase(), header[2].trim(), line, raw)
@@ -132,13 +156,30 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
       }
       let value = timeMin
       if (value < doc.rangeStart) value += DAY_MINUTES
-      doc.annotations.push({
+      const markerItem: Annotation = {
         timeMin: value,
         text: marker[5]?.trim() ?? "",
         line,
         type,
         plan: Boolean(marker[1]),
-      })
+      }
+      doc.annotations.push(markerItem)
+      attachBody(markerItem, line)
+      return
+    }
+
+    const span = SPAN_RE.exec(text)
+    if (span) {
+      const rawStart = toMinutes(span[1], span[2])
+      const rawEnd = toMinutes(span[3], span[4])
+      if (rawStart === null || rawEnd === null) {
+        doc.errors.push({ line, text: raw, reason: tr("invalidTime") })
+        return
+      }
+      const [startMin, endMin] = normalizeSpan(rawStart, rawEnd, doc.rangeStart)
+      const spanItem: SpanNote = { startMin, endMin, text: span[5]?.trim() ?? "", tags: [], line }
+      doc.spans.push(spanItem)
+      attachBody(spanItem, line)
       return
     }
 
@@ -153,6 +194,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
       if (t < doc.rangeStart) t += DAY_MINUTES // D10, same rule as entries
       const item: Annotation = { timeMin: t, text: annotation[3].trim(), line }
       doc.annotations.push(item)
+      attachBody(item, line)
       return
     }
 
@@ -172,19 +214,29 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
         endMin,
         type: entry[6],
         note: binding.note,
+        tags: [],
         todoId: binding.todoId,
         line,
       }
       doc.entries.push(item)
+      attachBody(item, line)
       return
     }
 
     doc.errors.push({ line, text: raw, reason: tr("unrecognizedLine") })
   })
 
+  // Tags come from the note/text and the body together, so resolve them once
+  // every continuation line has been attached.
+  for (const e of doc.entries) e.tags = extractTags(`${e.note ?? ""}\n${e.body ?? ""}`)
+  for (const s of doc.spans) s.tags = extractTags(`${s.text}\n${s.body ?? ""}`)
+
   // Axis extends past rangeEnd to cover after-midnight entries (D10 自然延伸).
   for (const e of doc.entries) {
     if (e.endMin > doc.rangeEnd) doc.rangeEnd = e.endMin
+  }
+  for (const s of doc.spans) {
+    if (s.endMin > doc.rangeEnd) doc.rangeEnd = s.endMin
   }
   for (const a of doc.annotations) {
     if (a.timeMin > doc.rangeEnd) doc.rangeEnd = a.timeMin
@@ -277,7 +329,7 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
     }
     case "off": {
       const ids = value.split(/[\s,，]+/).filter((t): t is import("./grid-layout").SlotId =>
-        ["toolbar", "stats", "dialog", "habits", "todos", "quote"].includes(t) // text/timeline 不允许隐藏
+        ["toolbar", "stats", "dialog", "habits", "todos", "quote", "hourlog"].includes(t) // text/timeline 不允许隐藏
       )
       doc.hiddenSlots.push(...ids)
       return
@@ -314,6 +366,40 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       const view = parseTodoViewHeaderValue(value)
       if (view) doc.todoView = view
       else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
+      return
+    }
+    case "todo-groups": {
+      // Dragged group order (view state): a JSON array of composite group keys.
+      try {
+        const parsed: unknown = JSON.parse(value)
+        if (Array.isArray(parsed)) doc.todoGroupOrder = parsed.filter((key): key is string => typeof key === "string")
+      } catch { /* malformed view state is simply ignored */ }
+      return
+    }
+    case "rail": {
+      const n = Number(value)
+      if (!Number.isFinite(n) || n < 160 || n > 480) {
+        doc.errors.push({ line, text: raw, reason: tr("invalidRail") })
+        return
+      }
+      doc.railWidth = Math.round(n)
+      return
+    }
+    case "days": {
+      const period = parsePeriodSpec(value)
+      if (period) doc.period = period
+      else doc.errors.push({ line, text: raw, reason: tr("invalidDays") })
+      return
+    }
+    case "goal": {
+      const fields = parseReadableFields(value)
+      const key = fields?.get("type") ?? fields?.get("tag")
+      const target = Number(fields?.get("target"))
+      if (!fields || !key || (fields.has("type") && fields.has("tag")) || !Number.isInteger(target) || target <= 0) {
+        doc.errors.push({ line, text: raw, reason: tr("invalidGoal") })
+        return
+      }
+      doc.goals.push({ kind: fields.has("type") ? "type" : "tag", key, targetMinutes: target, line })
       return
     }
     // Legacy quote headers (card designer, retired 2026-09-10): the sentence

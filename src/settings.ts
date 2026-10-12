@@ -6,6 +6,7 @@ import { App, PluginSettingTab, Setting, setIcon } from "obsidian"
 import type ModularDiaryPlugin from "./main"
 import { ApiProvider } from "./agent/api-client"
 import { DEFAULT_TYPE_COLORS } from "./core/type-colors"
+import { templateProblems, templateSummary } from "./core/template"
 import { t as tr } from "./i18n"
 import type { HabitDefinition } from "./core/habits"
 import type { WeeklyTodoDefinition } from "./core/todos"
@@ -36,6 +37,8 @@ export interface ModularDiarySettings {
   templateLayout?: string
   templateWidth?: number
   templateHasText?: boolean
+  /** New-day template as block source: shape headers and titled sections (phase 4). */
+  templateSource?: string
   /** 新用户时间轴拖拽引导是否已经展示过（全局一次） */
   timelineOnboardingSeen: boolean
   /** Toolbar category list folded to two rows (opt-in, yyt 2026-09-09). */
@@ -52,6 +55,15 @@ export interface ModularDiarySettings {
   dailyQuoteInk: string
   /** Vault folder of checklist templates (one note per checklist). */
   checklistFolder: string
+  /** Tag -> category membership; a tag missing here is independent (neutral badge). */
+  tagCategories: Record<string, string>
+  /** On the hour, ask in the status bar what the last hour went into. */
+  hourlyNudge: boolean
+  /** Hours the nudge may ask about: an hour starting at or after start, ending at or before end. */
+  nudgeStartHour: number
+  nudgeEndHour: number
+  /** Also raise a quiet system notification (reaches you while another app is in front). */
+  hourlyNudgeNotify: boolean
 }
 
 export const DEFAULT_SETTINGS: ModularDiarySettings = {
@@ -76,13 +88,26 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   dailyQuotes: [],
   dailyQuoteInk: "",
   checklistFolder: DEFAULT_CHECKLIST_FOLDER,
+  tagCategories: {},
+  hourlyNudge: true,
+  nudgeStartHour: 9,
+  nudgeEndHour: 24,
+  hourlyNudgeNotify: false,
 }
 
 const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 
 export class ModularDiarySettingTab extends PluginSettingTab {
+  /** Saves a template edit still waiting for its debounce when the tab closes. */
+  private flushTemplate: (() => void) | null = null
+
   constructor(app: App, private plugin: ModularDiaryPlugin) {
     super(app, plugin)
+  }
+
+  hide(): void {
+    this.flushTemplate?.()
+    this.flushTemplate = null
   }
 
   display(): void {
@@ -131,6 +156,96 @@ export class ModularDiarySettingTab extends PluginSettingTab {
           }
         })
       )
+
+    new Setting(timelineSettingsEl)
+      .setName(tr("hourlyNudgeSetting"))
+      .setDesc(tr("hourlyNudgeSettingDescription"))
+      .addToggle((toggle) => toggle.setValue(this.plugin.settings.hourlyNudge).onChange(async (value) => {
+        this.plugin.settings.hourlyNudge = value
+        await this.plugin.saveSettings()
+        this.plugin.refreshHourlyNudge()
+      }))
+
+    new Setting(timelineSettingsEl)
+      .setName(tr("nudgeHoursSetting"))
+      .setDesc(tr("nudgeHoursSettingDescription"))
+      .addText((text) => text.setValue(String(this.plugin.settings.nudgeStartHour)).onChange(async (value) => {
+        const n = Number(value)
+        if (Number.isInteger(n) && n >= 0 && n < this.plugin.settings.nudgeEndHour) {
+          this.plugin.settings.nudgeStartHour = n
+          await this.plugin.saveSettings()
+          this.plugin.refreshHourlyNudge()
+        }
+      }))
+      .addText((text) => text.setValue(String(this.plugin.settings.nudgeEndHour)).onChange(async (value) => {
+        const n = Number(value)
+        if (Number.isInteger(n) && n <= 24 && n > this.plugin.settings.nudgeStartHour) {
+          this.plugin.settings.nudgeEndHour = n
+          await this.plugin.saveSettings()
+          this.plugin.refreshHourlyNudge()
+        }
+      }))
+
+    const templateSetting = new Setting(timelineSettingsEl)
+      .setName(tr("templateSetting"))
+      .setDesc(tr("templateSettingDescription"))
+    templateSetting.settingEl.classList.add("modular-diary-template-setting")
+    const templateArea = templateSetting.controlEl.createEl("textarea", { cls: "modular-diary-template-source", attr: { rows: "6", spellcheck: "false", placeholder: tr("templatePlaceholder"), "aria-label": tr("templateSetting") } })
+    const templateInfo = templateSetting.controlEl.createDiv({ cls: "modular-diary-template-info" })
+    // Always show what is in effect: a saved skeleton, or the one the legacy layout fields imply.
+    templateArea.value = this.plugin.effectiveTemplateSource()
+    const paintTemplateInfo = (value: string): boolean => {
+      templateInfo.replaceChildren()
+      const problems = value.trim() ? templateProblems(value) : []
+      if (problems.length) {
+        templateInfo.classList.add("is-error")
+        for (const problem of problems) {
+          templateInfo.createDiv({ text: problem === "fence" ? tr("templateFence") : problem === "days" ? tr("templateDays") : tr("templateLine", { detail: problem.slice(5) }) })
+        }
+        return false
+      }
+      templateInfo.classList.remove("is-error")
+      const summary = templateSummary(value)
+      const parts = [
+        summary.sections.length ? tr("templateSections", { names: summary.sections.map((name) => name || tr("untitledSection")).join(" · ") }) : "",
+        summary.todoLayout !== "list" ? tr("templateTodoLayout", { layout: summary.todoLayout === "abc" ? tr("todoLayoutAbc") : tr("todoLayoutMatrix") }) : "",
+        summary.hidden.length ? tr("templateHidden", { count: String(summary.hidden.length) }) : "",
+      ].filter(Boolean)
+      templateInfo.textContent = (parts.length ? tr("templatePreview", { parts: parts.join("；") }) : tr("templatePreviewPlain"))
+      return true
+    }
+    paintTemplateInfo(templateArea.value)
+    let templateTimer = 0
+    const saveTemplate = async (): Promise<void> => {
+      activeWindow.clearTimeout(templateTimer)
+      const value = templateArea.value.trim()
+      if (!paintTemplateInfo(value)) return
+      this.plugin.settings.templateSource = value || undefined
+      await this.plugin.saveSettings()
+    }
+    templateArea.addEventListener("input", () => {
+      activeWindow.clearTimeout(templateTimer)
+      templateTimer = activeWindow.setTimeout(() => void saveTemplate(), 300)
+    })
+    templateArea.addEventListener("blur", () => void saveTemplate())
+    this.flushTemplate = () => void saveTemplate()
+    templateSetting.addExtraButton((button) => button.setIcon("rotate-ccw").setTooltip(tr("templateReset")).onClick(async () => {
+      this.plugin.settings.templateSource = undefined
+      this.plugin.settings.templateLayout = undefined
+      this.plugin.settings.templateWidth = undefined
+      this.plugin.settings.templateHasText = undefined
+      await this.plugin.saveSettings()
+      templateArea.value = this.plugin.effectiveTemplateSource()
+      paintTemplateInfo(templateArea.value)
+    }))
+
+    new Setting(timelineSettingsEl)
+      .setName(tr("nudgeNotifySetting"))
+      .setDesc(tr("nudgeNotifySettingDescription"))
+      .addToggle((toggle) => toggle.setValue(this.plugin.settings.hourlyNudgeNotify).onChange(async (value) => {
+        this.plugin.settings.hourlyNudgeNotify = value
+        await this.plugin.saveSettings()
+      }))
 
     for (const [scope, heading, description] of [
       ["span", tr("spanCategoriesHeading"), tr("spanCategoriesDescription")],

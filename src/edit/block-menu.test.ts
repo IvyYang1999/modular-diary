@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildTodoGroupMenuOptions, buildTodoMenuOptions, buildTodoSortMenuOptions, buildTypeMenuOptions } from "./block-menu-model"
+import { buildTodoGroupMenuOptions, buildTodoMenuOptions, buildTodoSortMenuOptions, buildTodoSubGroupMenuOptions, buildTypeMenuOptions } from "./block-menu-model"
 
 describe("block type submenu model", () => {
   it("keeps every type in one secondary menu and marks the current type", () => {
@@ -34,10 +34,25 @@ describe("todo grouping menu copy", () => {
       none: "不分组",
       category: "按分类",
       status: "按完成状态",
+      tag: "按标签",
     })).toEqual([
       { title: "不分组", value: "none", checked: true },
       { title: "按分类", value: "category", checked: false },
       { title: "按完成状态", value: "status", checked: false },
+      { title: "按标签", value: "tag", checked: false },
+    ])
+  })
+
+  it("secondary grouping offers everything but the primary choice", () => {
+    expect(buildTodoSubGroupMenuOptions("category", "tag", {
+      none: "不分组",
+      category: "按分类",
+      status: "按完成状态",
+      tag: "按标签",
+    })).toEqual([
+      { title: "不分组", value: "none", checked: false },
+      { title: "按完成状态", value: "status", checked: false },
+      { title: "按标签", value: "tag", checked: true },
     ])
   })
 })

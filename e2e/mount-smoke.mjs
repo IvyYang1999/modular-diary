@@ -513,7 +513,7 @@ const css = fs.readFileSync(path.join(here, "../styles.css"), "utf8")
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>.cm-embed-block{border:1px solid rgb(90,90,90);box-shadow:0 0 0 1px rgb(90,90,90)}</style><style>${css}</style></head><body><div class="cm-embed-block"><div id="host" style="width:700px"></div></div><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`
 fs.writeFileSync(path.join(out, "index.html"), html)
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage()
 page.on("pageerror", (e) => console.error("[pageerror]", e.message))
 page.on("console", (m) => { if (m.type() === "error") console.error("[console]", m.text()) })

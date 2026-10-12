@@ -8,7 +8,7 @@ import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } 
 import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
 import { CategorySettingsModal, DailyQuoteSettingsModal, HabitSettingsModal } from "./settings-modals"
 import { attachDialog } from "./agent/dialog"
-import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, extractBlockSourceFromContent, insertEntryLine, insertMarkerLine, insertTodo, moveTodo, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setTextSection, updateTodo } from "./edit/source-rewriter"
+import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, deleteTodoSubtree, extractBlockSourceFromContent, insertChildTodo, insertEntryLine, insertHeaderLine, insertMarkerLine, insertSpanLine, insertTodo, moveTodo, moveTodoSubtree, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setItemBody, setTextSection, setTextTitle, setTodoCompleted, setTodoParent, updateTodo, placeTodoInBucket } from "./edit/source-rewriter"
 import { buildLayerToggles, buildToolbar, LayerView } from "./edit/toolbar"
 import { attachDrawInteraction, requestTimelineEntryDelete } from "./edit/draw-interaction"
 import { attachMarkerInteraction } from "./edit/marker-interaction"
@@ -16,7 +16,7 @@ import { showBlockMenu, showMarkerMenu } from "./edit/block-menu"
 import { attachHoverInfo, toggleBlockFocus } from "./edit/hover-info"
 import { applyGridToBody, attachGridInteract } from "./edit/grid-interact"
 import { compactGrid, defaultComponentSlot, GRID_COLS, GRID_ROW_H, gridRows, GridItem, HABITS_EMPTY_ROWS, MAX_GRID_COLS, serializeLayoutHeader } from "./core/grid-layout"
-import { inferDate, insertTimelineBlock } from "./insert"
+import { inferDate, insertPeriodBlock, insertTimelineBlock, timelineTemplate } from "./insert"
 import { attachWidthHandle } from "./edit/width-handle"
 import { openNotePopover } from "./edit/note-popover"
 import { openPointTimePopover, openTimePopover } from "./edit/time-popover"
@@ -60,16 +60,35 @@ import { habitProgress, isHabitDue, moveHabitInVisibleOrder, normalizeHabitDefin
 import { extractDatedTimelineEntries, filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledger"
 import { appendPostponedTodo, dailyNotesTodoPath, nextTodoDate, removePostponedTodo, transferPostponedTodo } from "./edit/todo-postpone"
 import { addDailyChecklists, chooseChecklistForEditor, watchNewDailyNotes } from "./checklists"
-import { formatTodoViewHeaderValue, isWeeklyTodoDue, todoMetrics } from "./core/todos"
+import { DayIndex } from "./core/day-index"
+import { dailyNotePath, fillDailyTemplate, parseDailyNotesConfig, shiftDate, type DailyNotesConfig } from "./core/daily-notes"
+import { ensureBlockForDate } from "./core/day-content"
+import { learnTagCategories, tagCategory, unionMinutes } from "./core/tags"
+import { skeletonFromSource } from "./core/template"
+import { formatGoalLine, formatPeriodSpec, goalProgress, periodTotals, resolvePeriod, shiftPeriod } from "./core/period"
+import { POOL_ZONE, renderPeriodInto, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewModel } from "./render/period-view"
+import { buildScheduledPlan } from "./edit/timeline-schedule-drag"
+import { setNotePopoverTagSuggest } from "./edit/note-popover"
+import { composerDefaults, findLinkable, hourlogItems, linkableEntries, linkOf, locateHourlogItem, type HourlogItem } from "./core/hourlog"
+import { renderHourlogInto, type HourlogComposerDraft } from "./render/hourlog-view"
+import type { TagSuggestDeps } from "./edit/tag-suggest"
+
+/** Obsidian ships moment on window; the typed `moment` export is not callable without esModuleInterop. */
+type MomentLike = (input: string, format: string) => { format: (momentFormat: string) => string }
+const momentFormat = (momentFormat: string, date: string): string =>
+  ((window as unknown as { moment?: MomentLike }).moment?.(date, "YYYY-MM-DD").format(momentFormat)) ?? date
+import { formatTodoViewHeaderValue, groupTodoTree, indexTodoTree, isWeeklyTodoDue, moveTodoGroupKey, todoMetrics, TODO_BUCKETS } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
 import { renderDailyQuoteInto } from "./render/daily-quote-view"
 import { dailyQuoteForDate, normalizeDailyQuoteDefinition, resolveQuoteInk } from "./core/daily-quotes"
 /** Quote slot default height: header + two lines of sentence + source, on the 20px grid. */
 const QUOTE_ROWS = 6
+/** Hour diary default height: header, two short pieces and the composer. */
+const HOURLOG_ROWS = 10
 import { createPointerRedrawGate } from "./edit/pointer-interaction"
 import { attachTimelineScheduleDrag } from "./edit/timeline-schedule-drag"
-import { buildTodoGroupMenuOptions, buildTodoSortMenuOptions } from "./edit/block-menu-model"
+import { buildTodoGroupMenuOptions, buildTodoSortMenuOptions, buildTodoSubGroupMenuOptions } from "./edit/block-menu-model"
 import { migrateCategoryPalettes, type LegacyCategoryPaletteSettings } from "./core/category-palettes"
 import { mountSourceMode, sourceDraftCanApply, sourceDraftMatchesLive, type SourceModeSession } from "./edit/source-mode"
 import { TimelineVisualCoordinator } from "./edit/timeline-visual-coordinator"
@@ -89,7 +108,7 @@ import {
   type MarkerEditState,
   type SpanEditState,
 } from "./edit/block-edit-state"
-import type { Annotation, Entry } from "./core/types"
+import type { Annotation, Entry, TimelineDoc } from "./core/types"
 
 class MountedTimelineChild extends MarkdownRenderChild {
   constructor(
@@ -147,10 +166,24 @@ export default class ModularDiaryPlugin extends Plugin {
   private readonly textSaveNotices = new Map<string, { notice: Notice; expires: number }>()
   private sourceDrafts = new WeakMap<HTMLElement, SourceModeSession>()
   private readonly ledgerModifiedPaths = new Set<string>()
-  private weeklyLedger: DatedTimelineEntries[] | null = null
-  private weeklyLedgerLoading: Promise<void> | null = null
+  /** Cross-day reads (weekly goals, push to tomorrow) go through this incremental index. */
+  private readonly dayIndex = new DayIndex()
+  private readonly backfilling = new WeakSet<HTMLElement>()
+  /** Unsaved "write a piece" drafts per block (note path + block ordinal). */
+  private readonly hourlogDrafts = new Map<string, HourlogComposerDraft>()
+  /** A composer to open focused the next time this day's block renders (nudge, block menu). */
+  private pendingHourlog: { date: string; draft: HourlogComposerDraft } | null = null
+  private nudgeEl: HTMLElement | null = null
+  /** A section just added as "custom": open its title editor on the next render. */
+  private pendingSectionRename: { path: string; index: number } | null = null
+  private nudgeDismissedHour = -1
+  /** Period blocks being browsed away from their written `days:` (per note + block ordinal). */
+  private readonly periodBrowse = new Map<string, import("./core/types").PeriodSpec>()
+  /** Session state: parent todos whose sub-todos are collapsed (view-only). */
+  private readonly todoCollapsed = new Set<string>()
+  private dayIndexSeeded = false
+  private dayIndexRefresh: Promise<void> | null = null
   private ledgerRefreshTimer = 0
-  private ledgerGeneration = 0
 
   private readonly blockSources = new WeakMap<HTMLElement, string>()
 
@@ -199,9 +232,14 @@ export default class ModularDiaryPlugin extends Plugin {
     configureI18n(getLanguage)
     await this.loadSettings()
     this.addSettingTab(new ModularDiarySettingTab(this.app, this))
-    const invalidateLedger = (file: TAbstractFile): void => {
-      this.ledgerGeneration += 1
-      this.weeklyLedger = null
+    // Only the touched note is re-read; other days keep their indexed data.
+    const invalidateLedger = (file: TAbstractFile, oldPath?: string): void => {
+      if (!(file instanceof TFile) || file.extension !== "md") {
+        if (oldPath) this.dayIndex.remove(oldPath)
+        return
+      }
+      if (oldPath) this.dayIndex.rename(oldPath, file.path)
+      else this.dayIndex.markDirty(file.path)
       this.ledgerModifiedPaths.add(file.path)
       if (this.ledgerRefreshTimer) activeWindow.clearTimeout(this.ledgerRefreshTimer)
       this.ledgerRefreshTimer = activeWindow.setTimeout(() => {
@@ -211,10 +249,10 @@ export default class ModularDiaryPlugin extends Plugin {
         this.rerenderMountedTimelines(modifiedPaths)
       }, 120)
     }
-    this.registerEvent(this.app.vault.on("modify", invalidateLedger))
-    this.registerEvent(this.app.vault.on("create", invalidateLedger))
-    this.registerEvent(this.app.vault.on("delete", invalidateLedger))
-    this.registerEvent(this.app.vault.on("rename", invalidateLedger))
+    this.registerEvent(this.app.vault.on("modify", (file) => invalidateLedger(file)))
+    this.registerEvent(this.app.vault.on("create", (file) => invalidateLedger(file)))
+    this.registerEvent(this.app.vault.on("delete", (file) => { this.dayIndex.remove(file.path); invalidateLedger(file) }))
+    this.registerEvent(this.app.vault.on("rename", (file, oldPath) => invalidateLedger(file, oldPath)))
 
     // 插入入口：命令面板 + 编辑器右键菜单
     this.addCommand({
@@ -244,6 +282,15 @@ export default class ModularDiaryPlugin extends Plugin {
       },
     })
     watchNewDailyNotes(this)
+    setNotePopoverTagSuggest(this.tagSuggestDeps())
+    this.setupHourlyNudge()
+    this.addCommand({
+      id: "insert-period-block",
+      name: tr("insertPeriodBlock"),
+      editorCallback: (editor) => {
+        insertPeriodBlock(editor)
+      },
+    })
     // 撤销/重做兜底按窗口注册：弹出窗口拥有独立 Document。
     const undoDocs = new WeakSet<Document>()
     const registerUndo = (dom: Document): void => {
@@ -336,6 +383,13 @@ export default class ModularDiaryPlugin extends Plugin {
             .setTitle(tr("addChecklist"))
             .setIcon("list-checks")
             .onClick(() => { void chooseChecklistForEditor(this, editor) })
+        )
+        menu.addItem((item) => item
+            .setTitle(tr("insertPeriodBlock"))
+            .setIcon("calendar-range")
+            .onClick(() => {
+              insertPeriodBlock(editor)
+            })
         )
       })
     )
@@ -489,6 +543,12 @@ export default class ModularDiaryPlugin extends Plugin {
       const dom = el.ownerDocument
       const domWindow = dom.defaultView
       this.blockSources.set(el, source)
+      const maybePeriod = this.parse(source)
+      if (maybePeriod.period) {
+        el.empty()
+        this.renderPeriodBlock(source, el, ctx, maybePeriod)
+        return
+      }
       const doc = this.parse(source)
       // 渲染色号：全局优先，退休板兜底（删除/改名的类型在旧块里保色）
       const spanPaletteForRender = { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors }
@@ -509,6 +569,27 @@ export default class ModularDiaryPlugin extends Plugin {
       }
       const showTimelineOnboarding = onboardingDecision === "show"
       const dateStr = this.blockDate(doc, ctx.sourcePath)
+      // A tag first seen on a categorized block adopts that category (yyt 2026-09-28).
+      // A day whose block is still empty is refilled from todos pushed to it
+      // from other days or period blocks; a day with content is left alone,
+      // so a deliberate delete on that day stays deleted.
+      if (dateStr && doc.todos.length === 0 && doc.entries.length === 0 && doc.spans.length === 0 && this.dayIndexReady() && !this.backfilling.has(el)) {
+        const arrivals = this.dayIndex.arrivalsFor(dateStr)
+        if (arrivals.length > 0) {
+          this.backfilling.add(el)
+          void this.applyBlockTransform(el, ctx, source, (current) => arrivals.reduce((out, todo) =>
+            this.parse(out).todos.some((own) => own.id === todo.id) ? out : insertTodo(out, {
+              ...todo, moved: undefined, day: undefined,
+            }), current)).catch((error: unknown) => console.error("Modular Diary: failed to refill a recreated day", error))
+            .finally(() => this.backfilling.delete(el))
+        }
+      }
+      const learnedTags = learnTagCategories(doc, this.settings.tagCategories)
+      if (Object.keys(learnedTags).length > 0) {
+        this.settings.tagCategories = { ...this.settings.tagCategories, ...learnedTags }
+        void this.saveSettings()
+      }
+      const tagStyle = (tag: string): { background: string; color: string } | null => this.tagStyle(tag)
       const selectedQuote = dailyQuoteForDate(this.settings.dailyQuotes, dateStr ?? "")
       const dueHabits = dateStr ? orderedHabits(this.settings.habits
         .filter((habit) => isHabitDue(habit, dateStr) && !doc.habitSkips.includes(habit.id))) : []
@@ -529,6 +610,11 @@ export default class ModularDiaryPlugin extends Plugin {
         extraSlots.push(defaultComponentSlot("todos", Math.max(5, (doc.todos.length + dueWeeklyTodos.length) * 2 + 3), doc.side))
       }
       if (layoutHas("quote")) extraSlots.push(defaultComponentSlot("quote", QUOTE_ROWS, doc.side))
+      const diaryItems = hourlogItems(doc)
+      const pendingDiary = this.pendingHourlog && this.pendingHourlog.date === dateStr ? this.pendingHourlog : null
+      if ((diaryItems.length > 0 || layoutHas("hourlog") || pendingDiary) && !doc.hiddenSlots.includes("hourlog")) {
+        extraSlots.push(defaultComponentSlot("hourlog", Math.max(HOURLOG_ROWS, diaryItems.length * 4 + 6), doc.side))
+      }
       const textBlockKey = {
         ...this.mutationBlockKey(el, ctx), source,
         section: () => el.isConnected ? ctx.getSectionInfo(el) : null,
@@ -557,6 +643,7 @@ export default class ModularDiaryPlugin extends Plugin {
           width: this.settings.width,
           showTimelineOnboarding,
           extraSlots,
+          tagStyle,
           onAddFirstCategory: () => this.openCategorySettings(this.drawTool),
         },
         {
@@ -567,6 +654,13 @@ export default class ModularDiaryPlugin extends Plugin {
             void MarkdownRenderer.render(this.app, normalized, host, ctx.sourcePath, this)
           },
           onSave: saveText,
+          onRenameTitle: (index, title) => this.applyBlockTransform(el, ctx, source, (s) => setTextTitle(s, index, title || undefined)),
+          autoRenameIndex: (() => {
+            const pending = this.pendingSectionRename
+            if (!pending || pending.path !== ctx.sourcePath || pending.index >= doc.texts.length) return undefined
+            this.pendingSectionRename = null
+            return pending.index
+          })(),
           getDraft: (index) => this.textDrafts.get(textDraftKey(index)),
           onDraftChange: (index, draft, savedValue) => {
             const key = textDraftKey(index)
@@ -645,6 +739,7 @@ export default class ModularDiaryPlugin extends Plugin {
         habits: tr("habits"),
         todos: tr("todos"),
         quote: tr("dailyQuote"),
+        hourlog: tr("hourlog"),
       }
 
       const showMoreMenu = (x: number, y: number): void => {
@@ -656,12 +751,11 @@ export default class ModularDiaryPlugin extends Plugin {
         }))
         menu.addSeparator()
         menu.addItem((item) => item.setTitle(tr("components")).setIsLabel(true).setSection("components"))
-        // 添加文本框（常驻，可多个；落在点击的格子附近）
-        menu.addItem((item) =>
-          item.setTitle(tr("addTextBox")).setIcon("file-plus-2").setSection("components").onClick(() => {
+        // 添加文本框（常驻，可多个；落在点击的格子附近）。带标题的栏目（感恩日记、阅读笔记…）走同一条路。
+        const addTextSection = (title?: string): void => {
             void this.applyBlockTransform(el, ctx, source, (s) => {
               const newId = doc.texts.length === 0 ? "text" : `text${doc.texts.length + 1}`
-              let out = setTextSection(s, "", doc.texts.length) // 追加空文本区
+              let out = setTextSection(s, "", doc.texts.length, title) // 追加空文本区
               if (body) {
                 const bodyRect = body.getBoundingClientRect()
                 if (bodyRect.width > 100) {
@@ -679,12 +773,26 @@ export default class ModularDiaryPlugin extends Plugin {
               }
               return out
             })
-          })
-        )
+        }
+        menu.addItem((item) => item.setTitle(tr("addTextBox")).setIcon("file-plus-2").setSection("components").onClick(() => addTextSection()))
+        menu.addItem((item) => {
+          item.setTitle(tr("addTitledSection")).setIcon("heading").setSection("components")
+          const sub = (item as unknown as { setSubmenu?: () => Menu }).setSubmenu?.()
+          const target = sub ?? menu
+          for (const preset of [tr("sectionGratitude"), tr("sectionReading"), tr("sectionReview")]) {
+            target.addItem((presetItem) => presetItem.setTitle(preset).onClick(() => addTextSection(preset)))
+          }
+          target.addItem((presetItem) => presetItem.setTitle(tr("sectionCustom")).onClick(() => {
+            // A custom section opens with its title ready to type.
+            this.pendingSectionRename = { path: ctx.sourcePath, index: doc.texts.length }
+            addTextSection(tr("sectionNew"))
+          }))
+        })
         for (const [slotId, label, icon] of [
           ["habits", tr("addHabitComponent"), "list-checks"],
           ["todos", tr("addTodoComponent"), "list-todo"],
           ["quote", tr("addDailyQuoteComponent"), "quote"],
+          ["hourlog", tr("addHourlogComponent"), "book-open-text"],
         ] as const) {
           if (container.querySelector(`.modular-diary-slot-${slotId}`) || doc.hiddenSlots.includes(slotId)) continue
           menu.addItem((item) => item.setTitle(label).setIcon(icon).setSection("components").onClick(() => {
@@ -703,6 +811,9 @@ export default class ModularDiaryPlugin extends Plugin {
         menu.addItem((item) => item.setTitle(tr("layout")).setIsLabel(true).setSection("layout"))
         menu.addItem((item) =>
           item.setTitle(tr("setDefaultLayout")).setIcon("bookmark").setSection("layout").onClick(() => {
+            const previousLayout = this.settings.templateLayout
+            const previousWidth = this.settings.templateWidth
+            const previousHasText = this.settings.templateHasText
             if (body) {
               const items = Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot")).map((sl) => ({
                 id: sl.dataset.slot as GridItem["id"],
@@ -712,6 +823,21 @@ export default class ModularDiaryPlugin extends Plugin {
             }
             this.settings.templateWidth = doc.width
             this.settings.templateHasText = doc.texts.length > 0
+            // The template is now this block's shape: layout as it sits on screen, hidden
+            // components, todo layout and every text section with its title. The old one
+            // can come back from the notice.
+            const previous = { source: this.settings.templateSource, layout: previousLayout, width: previousWidth, hasText: previousHasText }
+            this.settings.templateSource = skeletonFromSource(this.settings.templateLayout ? setHeaderValue(source, "layout", this.settings.templateLayout) : source)
+            const notice = new Notice(tr("templateSaved"), 8000)
+            const undo = notice.noticeEl.createEl("button", { cls: "modular-diary-notice-undo", text: tr("undo") })
+            undo.addEventListener("click", () => {
+              this.settings.templateSource = previous.source
+              this.settings.templateLayout = previous.layout
+              this.settings.templateWidth = previous.width
+              this.settings.templateHasText = previous.hasText
+              void this.saveSettings()
+              notice.hide()
+            })
             void this.saveSettings()
           })
         )
@@ -796,7 +922,25 @@ export default class ModularDiaryPlugin extends Plugin {
         if (sameBlock(this.markerEditing, blockIdentity)) this.markerEditing = null
       }
 
-      const editNote = (ln: number): void => {
+      const hourlogKey = `${ctx.sourcePath}#${this.scrollTransactionKey(el, ctx).blockOrdinal}`
+      const flashTimeline = (line: number): void => {
+        const live = liveContainer()
+        const target = live?.querySelector<Element>(`rect.modular-diary-block[data-line="${line}"], .modular-diary-diary-mark[data-line="${line}"]`)
+        if (!target) return
+        target.scrollIntoView({ block: "nearest", inline: "nearest" })
+        target.classList.add("is-flash")
+        dom.defaultView?.setTimeout(() => target.classList.remove("is-flash"), 1400)
+      }
+      const focusDiaryCard = (line: number): void => {
+        const card = liveContainer()?.querySelector<HTMLElement>(`.modular-diary-hourlog-item[data-line="${line}"]`)
+        if (!card) return
+        card.scrollIntoView({ block: "nearest" })
+        card.classList.add("is-flash")
+        dom.defaultView?.setTimeout(() => card.classList.remove("is-flash"), 1400)
+        const area = card.querySelector<HTMLTextAreaElement>("textarea")
+        if (area) { area.focus({ preventScroll: true }); area.setSelectionRange(area.value.length, area.value.length) }
+      }
+      const editNote = (ln: number, suffix = ""): void => {
         const target = targetForEntryLine(ln)
         // 写回触发的重渲染可能已替换 container；只允许回到同一个块，
         // 绝不能用 document.querySelector 命中同页/同文件的另一个块。
@@ -805,7 +949,9 @@ export default class ModularDiaryPlugin extends Plugin {
         const rect = live.querySelector(`rect.modular-diary-block[data-line="${ln}"]`)
         const e0 = doc.entries.find((it) => it.line === ln)
         if (!rect || !e0 || !target) return
-        openNotePopover(live, rect, rect.getBoundingClientRect(), e0.note ?? "", async (note) => {
+        openNotePopover(live, rect, rect.getBoundingClientRect(), `${e0.note ?? ""}${suffix}`, async (typed) => {
+          const note = suffix ? typed.replace(/\s*#\s*$/, "") : typed
+          if (suffix && note === (e0.note ?? "")) return
           try {
             await this.applyBlockTransform(el, ctx, source, (s) => {
               const entries = this.parse(s).entries
@@ -823,6 +969,11 @@ export default class ModularDiaryPlugin extends Plugin {
             throw error
           }
         })
+        if (suffix) {
+          // Put the caret after the "#" and let the tag picker open straight away.
+          const input = dom.querySelector<HTMLInputElement>(".modular-diary-note-popover input")
+          if (input) { input.setSelectionRange(input.value.length, input.value.length); input.dispatchEvent(new Event("input", { bubbles: true })) }
+        }
       }
 
       const toolbar = buildToolbar({
@@ -935,7 +1086,7 @@ export default class ModularDiaryPlugin extends Plugin {
       const todoViewItems: TodoViewItem[] = [
         ...doc.todos.map((todo) => {
           const metrics = todoMetrics(todo, doc.entries)
-          return { ...todo, weekly: false, estimateMinutes: metrics.estimateMinutes, actualMinutes: metrics.actualMinutes }
+          return { ...todo, weekly: false, estimateMinutes: metrics.estimateMinutes, actualMinutes: metrics.actualMinutes, movedTo: todo.moved, bucket: todo.bucket }
         }),
         ...dueWeeklyTodos.map((todo) => {
           const actualMinutes = weeklyEntries
@@ -964,6 +1115,8 @@ export default class ModularDiaryPlugin extends Plugin {
         if (editDraft && !todoViewItems.some((item) => item.id === editDraft.id)) ownerEditDrafts.delete(draftId)
         renderTodosInto(todosSlot, todoViewItems, {
           categories: spanPaletteTypes,
+          tagStyle,
+          tagSuggest: this.tagSuggestDeps(),
           typeColors: spanPaletteForRender,
           view: doc.todoView,
           priorities: this.settings.todoPriorities,
@@ -977,22 +1130,39 @@ export default class ModularDiaryPlugin extends Plugin {
             if (draft) ownerEditDrafts?.set(draftId, { id: draft.id, input: { ...draft.input } })
             else ownerEditDrafts?.delete(draftId)
           },
-          onGroupMenu: (x, y) => {
+          onSetBucket: (id, bucket, beforeId) => void this.applyBlockTransform(el, ctx, source, (value) => placeTodoInBucket(value, id, bucket, beforeId ?? null)),
+          groupOrder: doc.todoGroupOrder,
+          collapsed: (id) => this.todoCollapsed.has(id),
+          onToggleCollapse: (id) => {
+            if (this.todoCollapsed.has(id)) this.todoCollapsed.delete(id)
+            else this.todoCollapsed.add(id)
+            this.rerenderMountedTimelines()
+          },
+          onReparent: (id, parentId) => {
+            void this.applyBlockTransform(el, ctx, source, (value) => setTodoParent(value, id, parentId))
+          },
+          onMoveGroup: (key, targetIndex) => {
+            const tree = groupTodoTree(todoViewItems, doc.todoView, doc.todoGroupOrder)
+            void this.applyBlockTransform(el, ctx, source, (value) =>
+              setHeaderValue(value, "todo-groups", JSON.stringify(moveTodoGroupKey(tree, key, targetIndex))))
+          },
+          onLayoutMenu: (x, y) => {
             const menu = new Menu()
+            const current = doc.todoView.layout ?? "list"
+            for (const [value, label, icon] of [["list", tr("todoLayoutList"), "list"], ["abc", tr("todoLayoutAbc"), "columns-3"], ["matrix", tr("todoLayoutMatrix"), "grid-2x2"]] as const) {
+              menu.addItem((item) => item.setTitle(label).setIcon(icon).setChecked(current === value).onClick(() =>
+                void this.applyBlockTransform(el, ctx, source, (text) =>
+                  setHeaderValue(text, "todo-view", formatTodoViewHeaderValue({ ...doc.todoView, layout: value })))))
+            }
+            menu.showAtPosition({ x, y }, dom)
+          },
+          onGroupMenu: (x, y) => {
             const setView = (patch: Partial<typeof doc.todoView>): void => {
               const next = { ...doc.todoView, ...patch }
               void this.applyBlockTransform(el, ctx, source, (value) =>
                 setHeaderValue(value, "todo-view", formatTodoViewHeaderValue(next)))
             }
-            buildTodoGroupMenuOptions(doc.todoView.groupBy, {
-              none: tr("todoGroupNone"),
-              category: tr("todoGroupCategory"),
-              status: tr("todoGroupStatus"),
-            }).forEach(({ value, title, checked }) => menu.addItem((item) => item
-              .setTitle(title)
-              .setChecked(checked)
-              .onClick(() => setView({ groupBy: value }))))
-            menu.showAtPosition({ x, y }, dom)
+            this.showTodoGroupMenu(dom, x, y, doc.todoView, setView)
           },
           onSortMenu: (x, y) => {
             const menu = new Menu()
@@ -1019,10 +1189,12 @@ export default class ModularDiaryPlugin extends Plugin {
               title: input.title, group: "", type: input.type,
               estimateMin: input.estimateMinutes, completed: false,
               note: input.note, difficulty: input.difficulty, priority: input.priority,
+              ...(input.bucket ? { bucket: input.bucket } : {}),
             }
-            void this.applyBlockTransform(el, ctx, source, (current) => insertTodo(
-              this.addComponentSlot(current, doc, container, "todos"), value
-            ))
+            void this.applyBlockTransform(el, ctx, source, (current) =>
+              input.parent
+                ? insertChildTodo(this.addComponentSlot(current, doc, container, "todos"), input.parent, value)
+                : insertTodo(this.addComponentSlot(current, doc, container, "todos"), value))
           },
           onEdit: (id, input) => {
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
@@ -1044,43 +1216,54 @@ export default class ModularDiaryPlugin extends Plugin {
             }))
           },
           onToggle: (id, completed) => {
-            return this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, id, { completed, partial: false }))
+            return this.applyBlockTransform(el, ctx, source, (value) => setTodoCompleted(value, id, completed))
           },
           onMove: (id, targetIndex) => {
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
             if (weekly) {
+              // The view maps weekly drops onto the weekly list itself.
               const ordered = [...this.settings.weeklyTodos].sort((a, b) => a.order - b.order)
               const from = ordered.findIndex((item) => item.id === id)
               const [moved] = ordered.splice(from, 1)
-              ordered.splice(Math.max(0, Math.min(targetIndex - doc.todos.length, ordered.length)), 0, moved)
+              ordered.splice(Math.max(0, Math.min(targetIndex, ordered.length)), 0, moved)
               ordered.forEach((item, index) => { item.order = index })
               this.settings.weeklyTodos = ordered
               void this.saveSettings({ rerender: true })
-            } else void this.applyBlockTransform(el, ctx, source, (value) => moveTodo(value, id, targetIndex))
+            } else void this.applyBlockTransform(el, ctx, source, (value) => moveTodoSubtree(value, id, targetIndex))
           },
-          onMenu: (todo, x, y, edit) => {
+          onMenu: (todo, x, y, edit, addChild) => {
             const menu = new Menu()
             menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
-            if (!todo.weekly) {
-              if (!todo.completed && dateStr) {
-                let targetPath: string | null = null
-                try { targetPath = this.tomorrowTodoPath(dateStr) } catch { /* Unavailable Daily Notes must not break other menu actions. */ }
-                menu.addItem((item) => item
-                  .setTitle(targetPath ? tr("postponeTodo", { path: targetPath }) : tr("postponeTodoUnavailable"))
-                  .setIcon("calendar-arrow-right")
-                  .setDisabled(!targetPath)
-                  .onClick(() => { void this.postponeTodoToTomorrow(el, ctx, source, todo.id, dateStr, targetPath ?? undefined).catch(() => new Notice(tr("postponeTodoFailed"))) }))
-              }
+            if (!todo.weekly && !todo.movedTo) {
               menu.addItem((item) => item.setTitle(tr("markPartial")).setIcon("circle-slash").setChecked(Boolean(todo.partial)).onClick(() => {
                 void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: false, partial: true }))
               }))
               menu.addItem((item) => item.setTitle(tr("markIncomplete")).setIcon("circle").onClick(() => {
-                void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: false, partial: false }))
+                void this.applyBlockTransform(el, ctx, source, (value) => setTodoCompleted(value, todo.id, false))
               }))
               menu.addItem((item) => item.setTitle(tr("markComplete")).setIcon("check").onClick(() => {
-                void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: true, partial: false }))
+                void this.applyBlockTransform(el, ctx, source, (value) => setTodoCompleted(value, todo.id, true))
               }))
             }
+            if (addChild) menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("list-plus").onClick(addChild))
+            if (!todo.weekly && todo.parent) menu.addItem((item) => item.setTitle(tr("unparentTodo")).setIcon("corner-left-up").onClick(() => {
+              void this.applyBlockTransform(el, ctx, source, (value) => setTodoParent(value, todo.id, undefined))
+            }))
+            const childCount = indexTodoTree(doc.todos).descendantIds(todo.id).length
+            const deleteLabel = childCount > 0 ? tr("deleteTodoWithChildren", { count: childCount }) : tr("deleteTodo")
+            const remove = (): void => {
+              void this.applyBlockTransform(el, ctx, source, (value) => deleteTodoSubtree(value, todo.id))
+            }
+            const layoutNow = doc.todoView.layout ?? "list"
+            if (layoutNow !== "list" && !todo.weekly) menu.addItem((item) => {
+              // Keyboard path into a cell, mirroring the grip drag.
+              item.setTitle(tr("moveToBucket")).setIcon("move-right")
+              const sub = (item as unknown as { setSubmenu?: () => Menu }).setSubmenu?.() ?? menu
+              for (const [key, labelKey] of [...TODO_BUCKETS[layoutNow], ["", "bucketNone"] as const]) {
+                sub.addItem((cell) => cell.setTitle(tr(labelKey)).setChecked((todo.bucket ?? "") === key).onClick(() =>
+                  void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { bucket: key || undefined }))))
+              }
+            })
             if (todo.weekly && dateStr) {
               menu.addItem((item) => item.setTitle(tr("endFutureTodo")).setIcon("calendar-off").onClick(() => {
                 const stored = this.settings.weeklyTodos.find((item) => item.id === todo.id)
@@ -1088,13 +1271,113 @@ export default class ModularDiaryPlugin extends Plugin {
                 stored.endDate = this.previousDate(dateStr)
                 void this.saveSettings({ rerender: true })
               }))
-            } else menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => {
-              void this.applyBlockTransform(el, ctx, source, (value) => deleteTodo(value, todo.id))
-            }))
+            } else if (todo.movedTo) {
+              const movedTo = todo.movedTo
+              const subtreeIds = [todo.id, ...indexTodoTree(doc.todos).descendantIds(todo.id)]
+              menu.addItem((item) => item.setTitle(tr("recallTodo")).setIcon("undo-2").onClick(() => {
+                void (async () => {
+                  try {
+                    // The whole pushed subtree comes back; shadows clear with it.
+                    await this.writeToDay(movedTo, (blockSource) => deleteTodoSubtree(blockSource, todo.id))
+                    await this.applyBlockTransform(el, ctx, source, (current) => {
+                      let out = current
+                      for (const id of subtreeIds) out = updateTodo(out, id, { moved: undefined })
+                      return out
+                    })
+                  } catch (error) {
+                    console.error("Modular Diary: failed to recall a pushed todo", error)
+                    if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("periodWriteFailed", { date: movedTo }))
+                  }
+                })()
+              }))
+              menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => {
+                void this.applyBlockTransform(el, ctx, source, (value) => deleteTodo(value, todo.id))
+              }))
+            } else {
+              if (!todo.completed && dateStr) {
+                let targetPath: string | null = null
+                try { targetPath = this.tomorrowTodoPath(dateStr) } catch { /* Other menu actions remain available. */ }
+                menu.addItem((item) => item
+                  .setTitle(targetPath ? tr("postponeTodo", { path: targetPath }) : tr("postponeTodoUnavailable"))
+                  .setIcon("calendar-arrow-right")
+                  .setDisabled(!targetPath)
+                  .onClick(() => { void this.postponeTodoToTomorrow(el, ctx, source, todo.id, dateStr, targetPath ?? undefined).catch(() => new Notice(tr("postponeTodoFailed"))) }))
+              }
+              menu.addItem((item) => item.setTitle(deleteLabel).setIcon("trash").onClick(remove))
+            }
             menu.showAtPosition({ x, y }, dom)
           },
         })
       }
+
+      const hourlogSlot = container.querySelector<HTMLElement>(".modular-diary-slot-hourlog")
+      if (hourlogSlot) {
+        const isToday = dateStr === inferDate(null)
+        const now = new Date()
+        const lastEnd = diaryItems.reduce((max, item) => Math.max(max, item.endMin), doc.rangeStart)
+        const nowMin = isToday ? now.getHours() * 60 + now.getMinutes() : Math.min(doc.rangeEnd, lastEnd + 60)
+        const fallback = composerDefaults(diaryItems, nowMin)
+        const draft: HourlogComposerDraft = pendingDiary?.draft
+          ?? this.hourlogDrafts.get(hourlogKey)
+          ?? { startMin: fallback.startMin, endMin: fallback.endMin, link: null, body: "" }
+        if (pendingDiary) this.pendingHourlog = null
+        // Every write finds its piece by identity + ordinal + the text it showed; a mismatch refuses.
+        const writeBody = (item: HourlogItem, body: string | undefined): Promise<void> => this.applyBlockTransform(el, ctx, source, (s) => {
+          const line = locateHourlogItem(this.parse(s), item)
+          if (line === null) throw new Error(tr("sourceChanged"))
+          // Clearing removes the piece: a block keeps its line without a body; a span goes entirely.
+          if (body === undefined && item.kind === "span") return deleteEntryLine(s, line)
+          return setItemBody(s, line, body)
+        })
+        const removePiece = (item: HourlogItem): void => {
+          void writeBody(item, undefined).then(() => {
+            new Notice(tr("diaryDeleted", { time: formatClockPlain(item.startMin) }))
+          }, (error: unknown) => {
+            if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(error instanceof Error ? error.message : tr("sourceChanged"))
+          })
+        }
+        renderHourlogInto(hourlogSlot, diaryItems, {
+          typeColors: spanPaletteForRender,
+          tagStyle,
+          tagSuggest: this.tagSuggestDeps(),
+          linkable: linkableEntries(doc),
+          range: { startMin: doc.rangeStart, endMin: doc.rangeEnd },
+          composer: draft,
+          onComposerChange: (next) => { if (next) this.hourlogDrafts.set(hourlogKey, next); else this.hourlogDrafts.delete(hourlogKey) },
+          onCreate: async (next) => {
+            await this.applyBlockTransform(el, ctx, source, (s) => {
+              if (next.link) {
+                // Only a block that still has no diary; an existing body is never replaced.
+                const target = findLinkable(this.parse(s), next.link)
+                if (!target) throw new Error(tr("sourceChanged"))
+                return setItemBody(s, target.line, next.body)
+              }
+              return insertSpanLine(s, { startMin: next.startMin, endMin: next.endMin, body: next.body })
+            })
+            this.hourlogDrafts.delete(hourlogKey)
+          },
+          onSaveBody: (item, body) => writeBody(item, body.trim() ? body : undefined),
+          onExtendRange: (startMin) => void this.applyBlockTransform(el, ctx, source, (s) =>
+            setHeaderValue(s, "range", `${Math.floor(startMin / 60)}-${Math.ceil(doc.rangeEnd / 60)}`)),
+          onMenu: (item, x, y) => {
+            const menu = new Menu()
+            menu.addItem((mi) => mi.setTitle(tr("showOnTimeline")).setIcon("crosshair").onClick(() => flashTimeline(item.line)))
+            menu.addItem((mi) => mi.setTitle(tr("deleteDiary")).setIcon("trash").onClick(() => removePiece(item)))
+            menu.showAtPosition({ x, y }, dom)
+          },
+          onLocate: (item) => flashTimeline(item.line),
+        })
+      }
+      // Brackets on the timeline lead to their piece of diary.
+      container.querySelectorAll<SVGGElement>(".modular-diary-diary-mark").forEach((mark) => {
+        mark.addEventListener("click", (event) => { event.stopPropagation(); focusDiaryCard(Number(mark.dataset.line)) })
+        mark.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return
+          event.preventDefault()
+          focusDiaryCard(Number(mark.dataset.line))
+        })
+        mark.addEventListener("pointerdown", (event) => event.stopPropagation())
+      })
 
       const quoteSlot = container.querySelector<HTMLElement>(".modular-diary-slot-quote")
       if (quoteSlot) {
@@ -1267,6 +1550,20 @@ export default class ModularDiaryPlugin extends Plugin {
           if (!entry || !menuTarget) return
           showBlockMenu(this.app, entry, spanPaletteTypes, todoViewItems.map((todo) => ({ id: todo.id, title: todo.title })), x, y, {
             editNote,
+            addTag: (ln) => editNote(ln, `${entry.note ? " " : ""}#`),
+            openDiary: (ln) => {
+              const existing = container.querySelector<HTMLElement>(`.modular-diary-hourlog-item[data-line="${ln}"]`)
+              if (existing) { focusDiaryCard(ln); return }
+              // Start a piece on this block: the composer opens linked to it.
+              const draft: HourlogComposerDraft = { startMin: entry.startMin, endMin: entry.endMin, link: linkOf(entry), body: "", focus: true }
+              if (container.querySelector(".modular-diary-slot-hourlog")) {
+                this.hourlogDrafts.set(hourlogKey, draft)
+                this.rerenderMountedTimelines()
+              } else if (dateStr) {
+                this.pendingHourlog = { date: dateStr, draft }
+                void this.applyBlockTransform(el, ctx, source, (value) => this.addComponentSlot(value, doc, container, "hourlog"))
+              }
+            },
             editTimes: (ln) => {
               const live = liveContainer()
               if (!live) return
@@ -1541,7 +1838,7 @@ export default class ModularDiaryPlugin extends Plugin {
         // The timeline owns all context-menu gestures inside its SVG. A
         // WebView may retarget a marker label/line to the SVG root, so checking
         // only `rect` lets the enclosing Block menu steal time-point clicks.
-        if (t?.closest("button, input, textarea, a, .modular-diary-svg, .modular-diary-text-host, .modular-diary-add-menu")) return
+        if (t?.closest("button, input, textarea, a, .modular-diary-svg, .modular-diary-text-host, .modular-diary-text-header, .modular-diary-add-menu")) return
         e.preventDefault()
         // 点在组件空白上 -> 提供统一的自制「隐藏」菜单（off: 头，可从更多菜单重新显示）
         const slotEl = t?.closest(".modular-diary-slot") as HTMLElement | null
@@ -1566,7 +1863,7 @@ export default class ModularDiaryPlugin extends Plugin {
           menu.showAtPosition({ x: e.clientX, y: e.clientY }, dom)
           return
         }
-        if (slotId && ["toolbar", "stats", "dialog", "habits", "todos", "quote"].includes(slotId)) {
+        if (slotId && ["toolbar", "stats", "dialog", "habits", "todos", "quote", "hourlog"].includes(slotId)) {
           showActionMenuAtPoint(
             dom,
             e.clientX,
@@ -1642,8 +1939,17 @@ export default class ModularDiaryPlugin extends Plugin {
     return setHeaderValue(source, "layout", serializeLayoutHeader(items))
   }
 
-  private insertTemplate(): { layout?: string; width?: number; hasText?: boolean } {
+  /** The template in effect, as source: the saved skeleton, or the one the legacy layout fields imply. */
+  effectiveTemplateSource(): string {
+    if (this.settings.templateSource) return this.settings.templateSource
+    const legacy = timelineTemplate("2000-01-01", { layout: this.settings.templateLayout, width: this.settings.templateWidth, hasText: this.settings.templateHasText })
+    const inner = legacy.split("\n").slice(1, -1).join("\n")
+    return skeletonFromSource(inner)
+  }
+
+  private insertTemplate(): { source?: string; layout?: string; width?: number; hasText?: boolean } {
     return {
+      source: this.settings.templateSource,
       layout: this.settings.templateLayout,
       width: this.settings.templateWidth,
       hasText: this.settings.templateHasText,
@@ -1657,32 +1963,396 @@ export default class ModularDiaryPlugin extends Plugin {
   }
 
   private datedEntriesForWeek(date: string, fallback: import("./core/types").Entry[]): DatedTimelineEntries[] {
-    if (this.weeklyLedger) return filterWeekEntries(this.weeklyLedger, date)
-    if (!this.weeklyLedgerLoading) {
-      const generation = this.ledgerGeneration
-      this.weeklyLedgerLoading = Promise.all(this.app.vault.getMarkdownFiles().map(async (file) =>
-        extractDatedTimelineEntries(await this.app.vault.cachedRead(file), file.basename)
-      )).then((groups) => {
-        if (generation === this.ledgerGeneration) this.weeklyLedger = groups.flat()
-      }).catch((error: unknown) => {
-        console.error("Modular Diary: failed to build weekly ledger", error)
-        if (generation === this.ledgerGeneration) this.weeklyLedger = []
-      }).finally(() => {
-        this.weeklyLedgerLoading = null
-        this.rerenderMountedTimelines()
-      })
-    }
+    if (this.dayIndexReady()) return filterWeekEntries(this.dayIndex.datedEntries(), date)
+    // Render with what this block knows now; the refresh redraws every mounted block.
+    void this.refreshDayIndex().then(() => this.rerenderMountedTimelines())
     return [{ date, entries: fallback }]
   }
 
-  private previousDate(date: string): string {
-    const [year, month, day] = date.split("-").map(Number)
-    const value = new Date(year, month - 1, day - 1)
-    const part = (input: number): string => String(input).padStart(2, "0")
-    return `${value.getFullYear()}-${part(value.getMonth() + 1)}-${part(value.getDate())}`
+  private dayIndexReady(): boolean {
+    return this.dayIndexSeeded && this.dayIndex.pending.length === 0
   }
 
-  private addComponentSlot(source: string, doc: { layout?: unknown }, container: HTMLElement, id: "habits" | "todos" | "quote"): string {
+  /** Read every dirty note (all of them on first use) into the day index. */
+  private refreshDayIndex(): Promise<void> {
+    if (this.dayIndexRefresh) return this.dayIndexRefresh
+    if (!this.dayIndexSeeded) {
+      this.dayIndexSeeded = true
+      for (const file of this.app.vault.getMarkdownFiles()) this.dayIndex.markDirty(file.path)
+    }
+    const pending = this.dayIndex.pending
+    if (pending.length === 0) return Promise.resolve()
+    const refresh: Promise<void> = Promise.all(pending.map(async (path) => {
+      const file = this.app.vault.getAbstractFileByPath(path)
+      if (!(file instanceof TFile)) { this.dayIndex.remove(path); return }
+      this.dayIndex.update(path, file.basename, await this.app.vault.cachedRead(file))
+    })).then(() => undefined, (error: unknown) => {
+      console.error("Modular Diary: failed to refresh the day index", error)
+    }).finally(() => {
+      this.dayIndexRefresh = null
+    })
+    this.dayIndexRefresh = refresh
+    return refresh
+  }
+
+  private async dailyNotesConfig(): Promise<DailyNotesConfig> {
+    const path = normalizePath(`${this.app.vault.configDir}/daily-notes.json`)
+    try {
+      if (!(await this.app.vault.adapter.exists(path))) return parseDailyNotesConfig(null)
+      return parseDailyNotesConfig(JSON.parse(await this.app.vault.adapter.read(path)))
+    } catch (error) {
+      console.error("Modular Diary: could not read daily-notes.json", error)
+      return parseDailyNotesConfig(null)
+    }
+  }
+
+  /**
+   * Write one change into the timeline block of another day. The note is the
+   * one the day index knows for that date, else the Daily Notes path; a
+   * missing note is created from the Daily Notes template, and a missing
+   * block is appended. This is the primitive behind "push to tomorrow" and,
+   * later, cross-day drops in a period block.
+   */
+  private async writeToDay(date: string, transform: (blockSource: string) => string): Promise<string> {
+    await this.refreshDayIndex()
+    const config = await this.dailyNotesConfig()
+    const format = momentFormat
+    const path = this.dayIndex.notePathForDate(date) ?? normalizePath(dailyNotePath(config, date, format))
+    let file = this.app.vault.getAbstractFileByPath(path)
+    if (!file) {
+      const folder = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : ""
+      if (folder && !this.app.vault.getAbstractFileByPath(folder)) await this.app.vault.createFolder(folder)
+      let template = ""
+      if (config.template) {
+        const templateFile = this.app.vault.getAbstractFileByPath(normalizePath(`${config.template}.md`))
+        if (templateFile instanceof TFile) {
+          const noteName = path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "")
+          template = fillDailyTemplate(await this.app.vault.cachedRead(templateFile), date, noteName, format)
+        }
+      }
+      file = await this.app.vault.create(path, template)
+    }
+    if (!(file instanceof TFile)) throw new Error(tr("fileNotFound"))
+    const target = file
+    await this.app.vault.process(target, (content) => {
+      const ensured = ensureBlockForDate(content, date, target.basename, this.insertTemplate())
+      return replaceBlockInContent(ensured.content, ensured.section, transform(ensured.section.source))
+    })
+    return path
+  }
+
+  private previousDate(date: string): string {
+    return shiftDate(date, -1)
+  }
+
+  /**
+   * On the hour, a quiet status-bar line asks what the last hour went into.
+   * Clicking it opens today's note with the composer set to that hour.
+   */
+  private setupHourlyNudge(): void {
+    const item = this.addStatusBarItem()
+    item.addClass("modular-diary-nudge")
+    item.hide()
+    this.nudgeEl = item
+    this.registerInterval(activeWindow.setInterval(() => this.refreshHourlyNudge(), 30_000))
+    this.refreshHourlyNudge()
+  }
+
+  refreshHourlyNudge(): void {
+    const item = this.nudgeEl
+    if (!item) return
+    const now = new Date()
+    // At 00:xx the question is about yesterday 23:00–24:00.
+    const endHour = now.getHours() === 0 ? 24 : now.getHours()
+    const date = now.getHours() === 0 ? shiftDate(inferDate(null), -1) : inferDate(null)
+    const askedStart = (endHour - 1) * 60, askedEnd = endHour * 60
+    const inWindow = endHour - 1 >= this.settings.nudgeStartHour && endHour <= this.settings.nudgeEndHour
+    // An hour already half written is not asked about again.
+    const written = this.dayIndex.blocksForDate(date).flatMap((block) => hourlogItems({ entries: block.entries, spans: block.spans }))
+    const covered = unionMinutes(written
+      .map((piece) => [Math.max(piece.startMin, askedStart), Math.min(piece.endMin, askedEnd)] as [number, number])
+      .filter(([s, e]) => e > s))
+    const show = this.settings.hourlyNudge && inWindow && now.getMinutes() < 20 && endHour !== this.nudgeDismissedHour && covered < 30
+    if (!show) { item.hide(); return }
+    if (item.dataset.hour === String(endHour) && item.isShown()) return
+    item.dataset.hour = String(endHour)
+    item.empty()
+    const clock = (h: number): string => `${String(h).padStart(2, "0")}:00`
+    const question = tr("hourlyNudge", { start: clock(endHour - 1), end: clock(endHour) })
+    const open = item.createEl("button", { cls: "modular-diary-nudge-open", attr: { type: "button" } })
+    setIcon(open.createEl("span", { cls: "modular-diary-nudge-icon" }), "clock")
+    open.appendText(question)
+    const close = item.createEl("button", { cls: "modular-diary-nudge-close", attr: { type: "button", "aria-label": tr("dismiss") } })
+    setIcon(close, "x")
+    const answer = (): void => {
+      const nowMin = endHour === 24 && now.getHours() === 0 ? 24 * 60 : now.getHours() * 60 + now.getMinutes()
+      const range = composerDefaults(written, nowMin)
+      this.pendingHourlog = { date, draft: { startMin: range.startMin, endMin: range.endMin, link: null, body: "", focus: true } }
+      this.nudgeDismissedHour = endHour
+      item.hide()
+      void this.openDay(date).then(() => this.rerenderMountedTimelines())
+    }
+    open.addEventListener("click", answer)
+    close.addEventListener("click", () => { this.nudgeDismissedHour = endHour; item.hide() })
+    item.show()
+    if (this.settings.hourlyNudgeNotify && typeof Notification !== "undefined") {
+      try {
+        const notification = new Notification("Modular Diary", { body: question, silent: true })
+        notification.onclick = () => { activeWindow.focus(); answer() }
+      } catch (error) {
+        console.error("Modular Diary: could not raise the hourly notification", error)
+      }
+    }
+  }
+
+  /** Every tag the vault has used, settings first, for `#` completion. */
+  private knownTags(): string[] {
+    const seen = new Set<string>(Object.keys(this.settings.tagCategories))
+    for (const block of this.dayIndex.allBlocks()) {
+      for (const entry of block.entries) for (const tag of entry.tags) seen.add(tag)
+      for (const span of block.spans) for (const tag of span.tags) seen.add(tag)
+      for (const todo of block.todos) for (const tag of todo.tags ?? []) seen.add(tag)
+    }
+    if (!this.dayIndexReady()) void this.refreshDayIndex()
+    return [...seen]
+  }
+
+  private tagSuggestDeps(): TagSuggestDeps {
+    return { tags: () => this.knownTags(), tagStyle: (tag) => this.tagStyle(tag) }
+  }
+
+  private tagStyle(tag: string): { background: string; color: string } | null {
+    const category = tagCategory(tag, this.settings.tagCategories)
+    const color = category ? (this.settings.spanTypeColors[category] ?? this.settings.spanRetiredTypeColors[category]) : undefined
+    if (!color) return null
+    return {
+      background: `color-mix(in srgb, ${color} 22%, var(--background-primary))`,
+      color: `color-mix(in srgb, ${color} 70%, var(--text-normal))`,
+    }
+  }
+
+  /** The todo grouping menu: primary grouping, and a second level once the first is on. */
+  private showTodoGroupMenu(dom: Document, x: number, y: number, view: TimelineDoc["todoView"], setView: (patch: Partial<TimelineDoc["todoView"]>) => void): void {
+    const menu = new Menu()
+    const titles = { none: tr("todoGroupNone"), category: tr("todoGroupCategory"), status: tr("todoGroupStatus"), tag: tr("todoGroupTag") }
+    buildTodoGroupMenuOptions(view.groupBy, titles).forEach(({ value, title, checked }) => menu.addItem((item) => item
+      .setTitle(title)
+      .setChecked(checked)
+      .onClick(() => setView({ groupBy: value }))))
+    if (view.groupBy !== "none") {
+      menu.addSeparator()
+      menu.addItem((item) => item.setTitle(tr("todoSubGroupRule")).setIsLabel(true))
+      buildTodoSubGroupMenuOptions(view.groupBy, view.group2 ?? "none", titles).forEach(({ value, title, checked }) => menu.addItem((item) => item
+        .setTitle(title)
+        .setChecked(checked)
+        .onClick(() => setView({ group2: value === "none" ? undefined : value }))))
+    }
+    menu.showAtPosition({ x, y }, dom)
+  }
+
+  /** A `days:` block: the period's goals and todos live here; each column is that day's note. */
+  private renderPeriodBlock(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext, doc: TimelineDoc): void {
+    if (!doc.period) return
+    const browseKey = `${ctx.sourcePath}#${this.scrollTransactionKey(el, ctx).blockOrdinal}`
+    const browsed = this.periodBrowse.get(browseKey)
+    const period = browsed ?? doc.period
+    const dom = el.ownerDocument
+    const today = inferDate(null)
+    const resolved = resolvePeriod(period, today)
+    const ready = this.dayIndexReady()
+    if (!ready) void this.refreshDayIndex().then(() => this.rerenderMountedTimelines())
+    const dayData = resolved.days.map((date) => {
+      const blocks = this.dayIndex.blocksForDate(date)
+      return { date, entries: blocks.flatMap((block) => block.entries), spans: blocks.flatMap((block) => block.spans), hasNote: blocks.length > 0 }
+    })
+    // Where each period todo landed: a plan block bound to it in a day's note wins over `day=`.
+    const plannedAt = new Map<string, { date: string; startMin: number }>()
+    const actual = new Map<string, number>()
+    for (const day of dayData) for (const entry of day.entries) {
+      if (!entry.todoId) continue
+      if (entry.plan) { if (!plannedAt.has(entry.todoId)) plannedAt.set(entry.todoId, { date: day.date, startMin: entry.startMin }) }
+      else actual.set(entry.todoId, (actual.get(entry.todoId) ?? 0) + entry.endMin - entry.startMin)
+    }
+    const todos: PeriodTodoView[] = doc.todos.map((todo) => ({
+      ...todo,
+      actualMinutes: actual.get(todo.id) ?? 0,
+      placement: plannedAt.get(todo.id) ?? (todo.day ? { date: todo.day } : undefined),
+    }))
+    const days: PeriodDayView[] = dayData.map((day) => ({
+      ...day,
+      allDay: todos.filter((todo) => todo.placement && todo.placement.startMin === undefined && todo.placement.date === day.date),
+    }))
+    // The grid grows to fit the week's records, so early mornings, late nights and
+    // after-midnight blocks are never counted in the totals but missing from the grid.
+    let rangeStartMin = this.settings.rangeStartHour * 60
+    let rangeEndMin = this.settings.rangeEndHour * 60
+    for (const day of dayData) {
+      for (const item of [...day.entries, ...day.spans]) {
+        rangeStartMin = Math.min(rangeStartMin, Math.floor(item.startMin / 60) * 60)
+        rangeEndMin = Math.max(rangeEndMin, Math.ceil(item.endMin / 60) * 60)
+      }
+    }
+    rangeStartMin = Math.max(0, rangeStartMin)
+    rangeEndMin = Math.min(30 * 60, rangeEndMin)
+    const model: PeriodViewModel = {
+      spec: period, browsing: Boolean(browsed), period: resolved, today,
+      goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView: doc.todoView, days,
+      todoGroupOrder: doc.todoGroupOrder,
+      rangeStartMin, rangeEndMin,
+      indexReady: ready, railWidth: doc.railWidth ?? 248,
+    }
+    const container = el.createDiv({ cls: "modular-diary-container modular-diary-period-container" })
+    const fail = (date: string, error: unknown): void => {
+      console.error("Modular Diary: period block write failed", error)
+      if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("periodWriteFailed", { date }))
+    }
+    const rewrite = (transform: (current: string) => string): Promise<void> => this.applyBlockTransform(el, ctx, source, transform)
+    /** Remove the plan block bound to a period todo from the day it was planned on. */
+    const unplan = async (id: string, except?: string): Promise<void> => {
+      const planned = plannedAt.get(id)
+      if (!planned || planned.date === except) return
+      await this.writeToDay(planned.date, (blockSource) => {
+        let out = blockSource
+        for (const entry of this.parse(out).entries.filter((item) => item.plan && item.todoId === id).sort((a, b) => b.line - a.line)) out = deleteEntryLine(out, entry.line)
+        return out
+      })
+    }
+    const setView = (patch: Partial<typeof doc.todoView>): void => {
+      void rewrite((value) => setHeaderValue(value, "todo-view", formatTodoViewHeaderValue({ ...doc.todoView, ...patch })))
+    }
+    renderPeriodInto(container, model, {
+      typeColors: { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors },
+      categories: Object.keys(this.settings.spanTypeColors),
+      priorities: this.settings.todoPriorities,
+      tagStyle: (tag) => this.tagStyle(tag),
+      tagSuggest: this.tagSuggestDeps(),
+      onShift: (direction) => {
+        const next = shiftPeriod(period, today, direction)
+        if (formatPeriodSpec(next) === formatPeriodSpec(doc.period!)) this.periodBrowse.delete(browseKey)
+        else this.periodBrowse.set(browseKey, next)
+        this.rerenderMountedTimelines()
+      },
+      onToday: () => {
+        if (doc.period!.kind === "this-week") this.periodBrowse.delete(browseKey)
+        else this.periodBrowse.set(browseKey, { spec: "this-week", kind: "this-week" })
+        this.rerenderMountedTimelines()
+      },
+      onPin: () => void rewrite((current) => setHeaderValue(current, "days", formatPeriodSpec(period)))
+        .then(() => { this.periodBrowse.delete(browseKey); this.rerenderMountedTimelines() }),
+      onOpenDay: (date) => void this.openDay(date),
+      onAssign: (id, to) => void (async () => {
+        try {
+          await unplan(id)
+          // Scheduling a parent all-day carries the subtree: planned children keep their own time slots.
+          const ids = [id, ...indexTodoTree(doc.todos).descendantIds(id)]
+          await rewrite((current) => {
+            let out = current
+            for (const sub of ids) {
+              if (sub !== id && plannedAt.has(sub)) continue
+              out = updateTodo(out, sub, { day: to === POOL_ZONE ? undefined : to })
+            }
+            return out
+          })
+        } catch (error) { fail(to, error) }
+      })(),
+      onPlan: (id, date, startMin) => void (async () => {
+        const todo = doc.todos.find((item) => item.id === id)
+        if (!todo) return
+        if (!todo.type) { new Notice(tr("periodTodoNeedsCategory")); return }
+        const plan = buildScheduledPlan({ source: "todo", id, title: todo.title, type: todo.type, durationMin: todo.estimateMin }, startMin).line
+        try {
+          await this.writeToDay(date, (blockSource) => {
+            let out = blockSource
+            for (const entry of this.parse(out).entries.filter((item) => item.plan && item.todoId === id).sort((a, b) => b.line - a.line)) out = deleteEntryLine(out, entry.line)
+            return insertEntryLine(out, plan, startMin)
+          })
+          await unplan(id, date)
+          if (todo.day) await rewrite((current) => updateTodo(current, id, { day: undefined }))
+        } catch (error) { fail(date, error) }
+      })(),
+      onAdd: (input) => void rewrite((current) => {
+        const value = {
+          id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+          title: input.title, group: "", type: input.type, estimateMin: input.estimateMinutes, completed: false,
+          note: input.note, difficulty: input.difficulty, priority: input.priority,
+        }
+        return input.parent ? insertChildTodo(current, input.parent, value) : insertTodo(current, value)
+      }),
+      onEdit: (id, input) => void rewrite((current) => updateTodo(current, id, { title: input.title, type: input.type, estimateMin: input.estimateMinutes, note: input.note, difficulty: input.difficulty, priority: input.priority })),
+      onToggle: (id, completed) => rewrite((current) => setTodoCompleted(current, id, completed)),
+      onDelete: (id) => void rewrite((current) => deleteTodoSubtree(current, id)),
+      onMove: (id, targetIndex) => void rewrite((current) => moveTodoSubtree(current, id, targetIndex)),
+      collapsed: (id) => this.todoCollapsed.has(id),
+      onToggleCollapse: (id) => {
+        if (this.todoCollapsed.has(id)) this.todoCollapsed.delete(id)
+        else this.todoCollapsed.add(id)
+        this.rerenderMountedTimelines()
+      },
+      onReparent: (id, parentId) => void rewrite((current) => setTodoParent(current, id, parentId)),
+      onMoveGroup: (key, targetIndex) => void rewrite((current) =>
+        setHeaderValue(current, "todo-groups", JSON.stringify(moveTodoGroupKey(groupTodoTree(todos, doc.todoView, doc.todoGroupOrder), key, targetIndex)))),
+      onGroupMenu: (x, y) => this.showTodoGroupMenu(dom, x, y, doc.todoView, setView),
+      onSortMenu: (x, y) => {
+        const menu = new Menu()
+        buildTodoSortMenuOptions(doc.todoView.sortBy, { manual: tr("todoSortManual"), estimate: tr("todoSortEstimate"), actual: tr("todoSortActual"), difficulty: tr("todoDifficulty"), priority: tr("todoPriority") })
+          .forEach(({ value, title, checked }) => menu.addItem((item) => item.setTitle(title).setChecked(checked).onClick(() => setView({ sortBy: value }))))
+        menu.showAtPosition({ x, y }, dom)
+      },
+      onTodoMenu: (id, x, y, edit, addChild) => {
+        const todo = todos.find((item) => item.id === id)
+        if (!todo) return
+        const menu = new Menu()
+        menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
+        if (addChild) menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("list-plus").onClick(addChild))
+        if (todo.parent) menu.addItem((item) => item.setTitle(tr("unparentTodo")).setIcon("corner-left-up").onClick(() =>
+          void rewrite((current) => setTodoParent(current, id, undefined))))
+        menu.addItem((item) => {
+          item.setTitle(tr("scheduleOn")).setIcon("calendar-plus")
+          const withSub = item as unknown as { setSubmenu?: () => Menu }
+          const sub = withSub.setSubmenu?.()
+          const target = sub ?? menu
+          // Assigning a parent carries its unplanned descendants along.
+          const subtree = [id, ...indexTodoTree(doc.todos).descendantIds(id)]
+          for (const date of resolved.days) target.addItem((dayItem) => dayItem
+            .setTitle(`${weekday(date)} ${Number(date.slice(5, 7))}.${Number(date.slice(8))}`)
+            .setChecked(todo.placement?.date === date && todo.placement.startMin === undefined)
+            .onClick(() => void (async () => {
+              try {
+                await unplan(id)
+                await rewrite((current) => {
+                  let out = current
+                  for (const member of subtree) {
+                    if (member !== id && plannedAt.has(member)) continue
+                    out = updateTodo(out, member, { day: date })
+                  }
+                  return out
+                })
+              } catch (error) { fail(date, error) }
+            })()))
+        })
+        menu.addItem((item) => item.setTitle(todo.completed ? tr("markIncomplete") : tr("markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() =>
+          void rewrite((current) => setTodoCompleted(current, id, !todo.completed))))
+        if (todo.placement) menu.addItem((item) => item.setTitle(tr("unassignTodo")).setIcon("undo-2").onClick(() => void (async () => {
+          try { await unplan(id); await rewrite((current) => updateTodo(current, id, { day: undefined })) } catch (error) { fail(todo.placement?.date ?? "", error) }
+        })()))
+        const childCount = indexTodoTree(doc.todos).descendantIds(id).length
+        menu.addItem((item) => item.setTitle(childCount > 0 ? tr("deleteTodoWithChildren", { count: childCount }) : tr("deleteTodo")).setIcon("trash").onClick(() => void rewrite((current) => deleteTodoSubtree(current, id))))
+        menu.showAtPosition({ x, y }, dom)
+      },
+      onSaveGoal: (line, goal) => void rewrite((current) => line === null
+        ? insertHeaderLine(current, "goal", formatGoalLine(goal))
+        : replaceEntryLine(current, line, formatGoalLine(goal))),
+      onDeleteGoal: (line) => void rewrite((current) => deleteEntryLine(current, line)),
+      onRailWidth: (px) => void rewrite((current) => setHeaderValue(current, "rail", String(px))),
+    })
+  }
+
+  private async openDay(date: string): Promise<void> {
+    const path = await this.writeToDay(date, (blockSource) => blockSource)
+    await this.app.workspace.openLinkText(path, "", false)
+  }
+
+  private addComponentSlot(source: string, doc: { layout?: unknown }, container: HTMLElement, id: "habits" | "todos" | "quote" | "hourlog"): string {
     let out = removeOffSlot(this.persistLayoutOnce(source, doc, container), id)
     const parsed = this.parse(out)
     const items = parsed.layout ? [...parsed.layout] : []
@@ -1692,7 +2362,7 @@ export default class ModularDiaryPlugin extends Plugin {
     // the first free space of its column instead of pinning it under the
     // timeline. Rendering re-runs the same compaction, so this is what the
     // user would see anyway.
-    items.push({ ...defaultComponentSlot(id, id === "habits" ? HABITS_EMPTY_ROWS : id === "quote" ? QUOTE_ROWS : 8, parsed.side), y: maxY })
+    items.push({ ...defaultComponentSlot(id, id === "habits" ? HABITS_EMPTY_ROWS : id === "quote" ? QUOTE_ROWS : id === "hourlog" ? HOURLOG_ROWS : 8, parsed.side), y: maxY })
     return setHeaderValue(out, "layout", serializeLayoutHeader(compactGrid(items)))
   }
 
@@ -2263,7 +2933,13 @@ export default class ModularDiaryPlugin extends Plugin {
   private async performTodoPostponement(el: HTMLElement, ctx: MarkdownPostProcessorContext, source: string, id: string, date: string, targetPath: string): Promise<void> {
     const matches = parseTimeline(source).todos.filter((todo) => todo.id === id)
     if (matches.length !== 1 || matches[0].completed) throw new Error("invalid-postponement-source")
-    const todo = matches[0], tomorrow = nextTodoDate(date)
+    const captured = parseTimeline(source)
+    const ids = [id, ...indexTodoTree(captured.todos).descendantIds(id)]
+    const todos = ids.map((itemId) => captured.todos.find((todo) => todo.id === itemId)!)
+    const copies = todos.map((todo) => ({ ...todo, parent: todo.parent && ids.includes(todo.parent) ? todo.parent : undefined }))
+    const tomorrow = nextTodoDate(date)
+    const appendCopies = (content: string): string => copies.reduce((out, todo) =>
+      appendPostponedTodo(out, tomorrow, todo, todo.id !== id), content)
     let target: TFile | null = null
     const assertNoUnsavedTarget = (content: string): void => {
       this.app.workspace.iterateAllLeaves((leaf) => {
@@ -2282,22 +2958,25 @@ export default class ModularDiaryPlugin extends Plugin {
           assertNoUnsavedTarget(await this.app.vault.read(target))
           await this.app.vault.process(target, (content) => {
             assertNoUnsavedTarget(content)
-            return appendPostponedTodo(content, tomorrow, todo)
+            return appendCopies(content)
           })
         } else {
           await this.ensureTodoDestinationFolder(targetPath)
-          target = await this.app.vault.create(targetPath, appendPostponedTodo("", tomorrow, todo))
+          target = await this.app.vault.create(targetPath, appendCopies(""))
         }
       },
       verifyCopy: async () => {
         if (!target || this.app.vault.getAbstractFileByPath(targetPath) !== target) return false
         const content = await this.app.vault.read(target)
-        return appendPostponedTodo(content, tomorrow, todo) === content
+        return appendCopies(content) === content
       },
       removeOriginal: async () => {
         await this.applyBlockTransform(el, ctx, source, (current) => {
           if (parseTimeline(current).date !== parseTimeline(source).date) throw new Error("postponement-date-changed")
-          return removePostponedTodo(current, todo)
+          const live = parseTimeline(current)
+          const currentIds = [id, ...indexTodoTree(live.todos).descendantIds(id)]
+          if (JSON.stringify(currentIds) !== JSON.stringify(ids)) throw new Error("postponement-subtree-changed")
+          return todos.reduce((out, todo) => removePostponedTodo(out, todo), current)
         })
       },
     })
