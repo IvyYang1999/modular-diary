@@ -1,3 +1,5 @@
+import { parseTodoSourceLine } from "./todos"
+
 /**
  * One definition of "the diary body under a line", shared by the parser and
  * every rewriter (hour diary review A1). A body is the run of indented lines
@@ -43,6 +45,9 @@ export function headerZone(lines: readonly string[]): { end: number; separator: 
     const text = lines[i].trim()
     if (text === "---") return { end: i, separator: i, lastHeader }
     if (text === "" || text.startsWith("#")) continue
+    // Checkbox todos are header records too. Main supports this syntax;
+    // stopping here would insert duplicate rules ahead of later headers.
+    if (parseTodoSourceLine(text, i)) { lastHeader = i; continue }
     if (/^[A-Za-z][\w-]*\s*:/.test(text) && !TEXT_SEPARATOR_RE.test(lines[i])) { lastHeader = i; continue }
     return { end: i, separator: -1, lastHeader }
   }

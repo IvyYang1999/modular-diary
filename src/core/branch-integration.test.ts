@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest"
 import { parseTimeline } from "./parser"
 import { formatTodoSourceLine, formatTodoViewHeaderValue, groupTodoTree, parseTodoViewHeaderValue } from "./todos"
-import { insertChildTodo, setTodoCompleted, updateTodo } from "../edit/source-rewriter"
+import { insertChildTodo, setHeaderValue, setTodoCompleted, updateTodo } from "../edit/source-rewriter"
 
 describe("main and phase2 feature compatibility", () => {
+  it("updates a view rule after checkbox todos instead of inserting a duplicate", () => {
+    const todo = '- [/] todo: id="task" estimate=30 category="Work" group="" title="#sample Task" note="retained" difficulty=4 priority="P0"'
+    const source = `date: 2026-10-12\n${todo}\ntodo-view: group=category sort=priority\noff: stats\n---`
+    const next = setHeaderValue(source, "todo-view", "group=category sort=priority group2=tag")
+    expect(next).toBe(source.replace("sort=priority", "sort=priority group2=tag"))
+    expect(parseTimeline(next).todoView.group2).toBe("tag")
+    expect(next.split("\n").filter(line => line.startsWith("todo-view:"))).toHaveLength(1)
+  })
   it("retains secondary tag grouping alongside priority and difficulty sorting", () => {
     for (const sortBy of ["priority", "difficulty"] as const) {
       const view = { groupBy: "category", group2: "tag", sortBy } as const

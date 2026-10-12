@@ -158,10 +158,10 @@ try {
  assert.ok(tomorrowContent.includes('- [/] todo: id="low"'))
  assert.ok(tomorrowContent.includes('date: 2026-10-11'))
  // Exercise both branches together through the renderer and durable file adapter.
- const combined='date: 2026-10-10\ntodo-view: group=category sort=manual group2=tag\n'
+ const combined='date: 2026-10-10\n'
    +'- [/] todo: id="low" estimate=30 category="work" group="" title="#alpha First" note="Retained note" difficulty=2 priority="P2"\n'
    +'- [ ] todo: id="high" estimate=30 category="work" group="" title="#alpha Second" difficulty=5 priority="P0"\n'
-   +'- [ ] todo: id="beta" estimate=20 category="work" group="" title="#beta Third"\n---'
+   +'- [ ] todo: id="beta" estimate=20 category="work" group="" title="#beta Third"\ntodo-view: group=category sort=manual group2=tag\n---'
  await page.evaluate(value=>window.loadSource(value),combined)
  assert.equal(await page.locator('.modular-diary-todo-group-section.is-sub').count(),2)
  assert.equal(await page.locator('.modular-diary-item-title .modular-diary-tag').count(),3)
