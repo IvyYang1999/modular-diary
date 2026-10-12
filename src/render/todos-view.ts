@@ -1,6 +1,6 @@
 import { setIcon } from "obsidian"
 import { durationInputMinutes, durationInputValue, formatHours, preferredDurationUnit, type DurationInputUnit } from "../core/duration"
-import { sortTodoItems } from "../core/todos"
+import { DEFAULT_TODO_PRIORITIES, normalizeTodoPriorities, sortTodoItems } from "../core/todos"
 import type { TodoViewConfig } from "../core/types"
 import { t } from "../i18n"
 import { attachPointerRowSort } from "../edit/row-sort"
@@ -108,7 +108,7 @@ export function createTodoForm(
   onSubmit: (input: NewTodoInput) => void,
   onClose?: () => void,
   onDraftChange?: (draft: NewTodoInput | null) => void,
-  priorities: string[] = ["P1", "P2", "P3"],
+  priorities: string[] = DEFAULT_TODO_PRIORITIES,
   tagSuggest?: TagSuggestDeps,
 ): TodoFormController {
   const form = parent.createEl("form", { cls: `modular-diary-todo-form ${className}` })
@@ -143,15 +143,47 @@ export function createTodoForm(
   }
   const save = form.createEl("button", { cls: "modular-diary-todo-save", attr: { type: "submit", "aria-label": t("save") } })
   setIcon(save, "check")
-  const difficulty = form.createEl("select", { cls: "modular-diary-todo-difficulty", attr: { "aria-label": t("todoDifficulty") } })
-  difficulty.createEl("option", { text: t("todoDifficultyUnset"), attr: { value: "" } })
-  for (let stars = 1; stars <= 5; stars++) difficulty.createEl("option", { text: "★".repeat(stars), attr: { value: String(stars) } })
-  const priority = form.createEl("select", { cls: "modular-diary-todo-priority", attr: { "aria-label": t("todoPriority") } })
+  const difficulty = form.createDiv({ cls: "modular-diary-todo-rank-field modular-diary-todo-difficulty", attr: { role: "group", "aria-label": t("todoDifficulty") } })
+  difficulty.createEl("span", { cls: "modular-diary-todo-rank-label", text: t("todoDifficulty") })
+  const stars = difficulty.createDiv({ cls: "modular-diary-todo-stars" })
+  let selectedDifficulty: number | undefined
+  const starButtons: HTMLButtonElement[] = []
+  const syncStars = (preview = selectedDifficulty ?? 0): void => {
+    starButtons.forEach((button, index) => {
+      const filled = index < preview
+      button.textContent = filled ? "★" : "☆"
+      button.classList.toggle("is-filled", filled)
+      button.setAttribute("aria-pressed", String(selectedDifficulty === index + 1))
+    })
+    clearDifficulty.setAttribute("aria-pressed", String(selectedDifficulty === undefined))
+  }
+  for (let count = 1; count <= 5; count++) {
+    const button = stars.createEl("button", { cls: "modular-diary-todo-star", text: "☆", attr: { type: "button", "aria-label": t("todoDifficultyStars", { count }), "aria-pressed": "false" } })
+    starButtons.push(button)
+    button.addEventListener("pointerenter", () => syncStars(count))
+    button.addEventListener("click", () => { selectedDifficulty = count; syncStars(); emitDraft() })
+  }
+  stars.addEventListener("pointerleave", () => syncStars())
+  const clearDifficulty = difficulty.createEl("button", { cls: "modular-diary-todo-rank-clear", text: "×", attr: { type: "button", "aria-label": t("todoDifficultyUnset"), title: t("todoDifficultyUnset") } })
+  clearDifficulty.addEventListener("click", () => { selectedDifficulty = undefined; syncStars(); emitDraft() })
+  const priority = form.createDiv({ cls: "modular-diary-todo-rank-field modular-diary-todo-priority", attr: { role: "group", "aria-label": t("todoPriority") } })
+  priority.createEl("span", { cls: "modular-diary-todo-rank-label", text: t("todoPriority") })
+  const priorityChoices = priority.createDiv({ cls: "modular-diary-todo-priority-choices" })
+  let selectedPriority: string | undefined
+  const syncPriority = (): void => {
+    priorityChoices.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.priority === (selectedPriority ?? "")))
+    })
+  }
   const fillPriorities = (selected?: string): void => {
-    priority.replaceChildren()
-    priority.createEl("option", { text: t("todoPriorityUnset"), attr: { value: "" } })
-    for (const value of [...new Set([...priorities, ...(selected ? [selected] : [])])]) priority.createEl("option", { text: value, attr: { value } })
-    priority.value = selected ?? ""
+    selectedPriority = selected
+    priorityChoices.replaceChildren()
+    for (const value of [...new Set([...normalizeTodoPriorities(priorities), ...(selected ? [selected] : [])]), ""]) {
+      const button = priorityChoices.createEl("button", { cls: value ? "modular-diary-todo-priority-choice" : "modular-diary-todo-rank-clear", text: value || "×", attr: { type: "button", "aria-label": value || t("todoPriorityUnset"), title: value || t("todoPriorityUnset") } })
+      button.dataset.priority = value
+      button.addEventListener("click", () => { selectedPriority = value || undefined; syncPriority(); emitDraft() })
+    }
+    syncPriority()
   }
   const note = form.createEl("textarea", { cls: "modular-diary-todo-note-input", attr: { "aria-label": t("note"), placeholder: t("note"), rows: "2" } })
   let originalNote = ""
@@ -159,11 +191,9 @@ export function createTodoForm(
   const extraValues = (): Pick<NewTodoInput, "note" | "difficulty" | "priority"> => ({
     // Textareas normalize CR/CRLF. Keep the authored value while its display is unchanged.
     note: note.value === displayedNote ? originalNote : note.value,
-    difficulty: difficulty.value ? Number(difficulty.value) : undefined, priority: priority.value || undefined,
+    difficulty: selectedDifficulty, priority: selectedPriority,
   })
   note.addEventListener("input", () => emitDraft())
-  difficulty.addEventListener("change", () => emitDraft())
-  priority.addEventListener("change", () => emitDraft())
   const error = form.createDiv({ cls: "modular-diary-todo-form-error", attr: { role: "status", "aria-live": "polite" } })
   error.hidden = true
   const clearError = (): void => {
@@ -228,7 +258,8 @@ export function createTodoForm(
       originalNote = value.note ?? ""
       note.value = originalNote
       displayedNote = note.value
-      difficulty.value = value.difficulty === undefined ? "" : String(value.difficulty)
+      selectedDifficulty = value.difficulty
+      syncStars()
       fillPriorities(value.priority)
       title.value = value.title
       fillCategories(value.type)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatTodoHeaderValue, parseTodoHeaderValue, todoMetrics } from "./todos"
+import { formatTodoHeaderValue, parseTodoHeaderValue, todoMetrics, normalizeTodoPriorities, sortTodoItems } from "./todos"
 import type { Entry, TodoItem } from "./types"
 
 const todo: TodoItem = {
@@ -60,5 +60,17 @@ describe("todo source model", () => {
       entry({ startMin: 800, endMin: 860, todoId: "other" }),
     ]
     expect(todoMetrics(estimated, entries)).toEqual({ estimateMinutes: 45, actualMinutes: 75 })
+  })
+})
+
+
+describe("Todo priority choices", () => {
+  it("adds P0 to existing defaults and keeps custom tiers in their authored order", () => {
+    expect(normalizeTodoPriorities(["P1", "P2", "P3"])).toEqual(["P0", "P1", "P2", "P3"])
+    expect(normalizeTodoPriorities([" 随时 ", "P0", "马上", "随时"])).toEqual(["P0", "随时", "马上"])
+  })
+  it("sorts P0 first even when persisted settings predate that tier", () => {
+    expect(sortTodoItems([{ priority: "P1" }, { priority: "P0" }, { priority: "retired" }], "priority", ["P1", "P2", "P3"]))
+      .toEqual([{ priority: "P0" }, { priority: "P1" }, { priority: "retired" }])
   })
 })

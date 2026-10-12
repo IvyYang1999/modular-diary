@@ -10,6 +10,7 @@ import { templateProblems, templateSummary } from "./core/template"
 import { t as tr } from "./i18n"
 import type { HabitDefinition } from "./core/habits"
 import type { WeeklyTodoDefinition } from "./core/todos"
+import { DEFAULT_TODO_PRIORITIES, normalizeTodoPriorities } from "./core/todos"
 import { renderCategorySettings, renderHabitSettings } from "./settings-editors"
 import type { DailyQuoteDefinition } from "./core/daily-quotes"
 import { renderDailyQuoteSettings } from "./daily-quote-settings"
@@ -84,7 +85,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   categoriesCollapsed: false,
   habits: [],
   weeklyTodos: [],
-  todoPriorities: ["P1", "P2", "P3"],
+  todoPriorities: [...DEFAULT_TODO_PRIORITIES],
   dailyQuotes: [],
   dailyQuoteInk: "",
   checklistFolder: DEFAULT_CHECKLIST_FOLDER,
@@ -314,7 +315,7 @@ export class ModularDiarySettingTab extends PluginSettingTab {
       .addTextArea((control) => {
         control.inputEl.setAttribute("aria-label", tr("todoPrioritySettings"))
         control.setValue(this.plugin.settings.todoPriorities.join("\n")).onChange(async (value) => {
-        this.plugin.settings.todoPriorities = [...new Set(value.split("\n").map((line) => line.trim()).filter(Boolean))]
+        this.plugin.settings.todoPriorities = normalizeTodoPriorities(value.split("\n"))
         await this.plugin.saveSettings({ rerender: true })
         })
       })

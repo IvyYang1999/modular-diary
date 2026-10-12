@@ -413,8 +413,16 @@ export function parseTodoSourceLine(text: string, line: number): TodoItem | null
   return todo
 }
 
+export const DEFAULT_TODO_PRIORITIES = ["P0", "P1", "P2", "P3"]
+
+/** P0 is always the highest tier; keep the remaining custom tiers in their authored order. */
+export function normalizeTodoPriorities(priorities: readonly string[] = DEFAULT_TODO_PRIORITIES): string[] {
+  return [...new Set(["P0", ...priorities.map((value) => value.trim()).filter(Boolean)])]
+}
+
 /** Derived sorting never mutates the authored order; unset/retired tiers follow configured ones. */
-export function sortTodoItems<T extends { difficulty?: number; priority?: string }>(items: T[], sortBy: TodoViewConfig["sortBy"], priorities: string[] = ["P1", "P2", "P3"]): T[] {
-  const rank = (item: T): number => item.priority && priorities.includes(item.priority) ? priorities.indexOf(item.priority) : priorities.length
+export function sortTodoItems<T extends { difficulty?: number; priority?: string }>(items: T[], sortBy: TodoViewConfig["sortBy"], priorities: string[] = DEFAULT_TODO_PRIORITIES): T[] {
+  const tiers = normalizeTodoPriorities(priorities)
+  const rank = (item: T): number => item.priority && tiers.includes(item.priority) ? tiers.indexOf(item.priority) : tiers.length
   return [...items].sort((a, b) => sortBy === "difficulty" ? (b.difficulty ?? 0) - (a.difficulty ?? 0) : sortBy === "priority" ? rank(a) - rank(b) : 0)
 }

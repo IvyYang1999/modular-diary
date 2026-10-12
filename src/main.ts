@@ -77,7 +77,7 @@ import type { TagSuggestDeps } from "./edit/tag-suggest"
 type MomentLike = (input: string, format: string) => { format: (momentFormat: string) => string }
 const momentFormat = (momentFormat: string, date: string): string =>
   ((window as unknown as { moment?: MomentLike }).moment?.(date, "YYYY-MM-DD").format(momentFormat)) ?? date
-import { formatTodoViewHeaderValue, groupTodoTree, indexTodoTree, isWeeklyTodoDue, moveTodoGroupKey, todoMetrics, TODO_BUCKETS } from "./core/todos"
+import { formatTodoViewHeaderValue, groupTodoTree, indexTodoTree, isWeeklyTodoDue, moveTodoGroupKey, normalizeTodoPriorities, todoMetrics, TODO_BUCKETS } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
 import { renderDailyQuoteInto } from "./render/daily-quote-view"
@@ -3000,7 +3000,7 @@ export default class ModularDiaryPlugin extends Plugin {
         order: Number.isFinite(todo.order) ? todo.order : order,
       })),
       dailyQuotes: (data?.dailyQuotes ?? []).map((quote, order) => normalizeDailyQuoteDefinition(quote, order)),
-      todoPriorities: Array.isArray(data?.todoPriorities) ? [...new Set(data.todoPriorities.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map((value) => value.trim()))] : [...DEFAULT_SETTINGS.todoPriorities],
+      todoPriorities: normalizeTodoPriorities(Array.isArray(data?.todoPriorities) ? data.todoPriorities.filter((value): value is string => typeof value === "string") : DEFAULT_SETTINGS.todoPriorities),
       dailyQuoteInk: typeof data?.dailyQuoteInk === "string" ? data.dailyQuoteInk : "",
       checklistFolder: typeof data?.checklistFolder === "string" ? data.checklistFolder : DEFAULT_SETTINGS.checklistFolder,
       timelineOnboardingSeen: resolveTimelineOnboardingSeen(
