@@ -340,6 +340,14 @@ export function removeHabitSkip(source: string, id: string): string {
     : removeHeaderValue(source, "habit-skip")
 }
 
+/** Check a habit off by hand for this day, or take the hand check back. */
+export function setHabitDone(source: string, id: string, done: boolean): string {
+  const current = parseTimeline(source).habitDone
+  if (current.includes(id) === done) return source
+  const next = done ? [...current, id] : current.filter((value) => value !== id)
+  return next.length > 0 ? setHeaderValue(source, "habit-done", next.join(" ")) : removeHeaderValue(source, "habit-done")
+}
+
 /** Add a type to the block's `hide:` header (per-day highlighter hiding). */
 export function addHiddenType(source: string, type: string, tool: "span" | "marker" = "span"): string {
   const header = tool === "marker" ? "hide-marker" : "hide"

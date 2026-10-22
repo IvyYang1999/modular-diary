@@ -8,7 +8,7 @@ import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } 
 import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
 import { CategorySettingsModal, DailyQuoteSettingsModal, HabitSettingsModal } from "./settings-modals"
 import { attachDialog } from "./agent/dialog"
-import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, deleteTodoSubtree, extractBlockSourceFromContent, insertChildTodo, insertEntryLine, insertHeaderLine, insertMarkerLine, insertSpanLine, insertTodo, moveTodo, moveTodoSubtree, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setItemBody, setTextSection, setTextTitle, setTodoCompleted, setTodoParent, updateTodo, placeTodoInBucket } from "./edit/source-rewriter"
+import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, deleteTodoSubtree, extractBlockSourceFromContent, insertChildTodo, insertEntryLine, insertHeaderLine, insertMarkerLine, insertSpanLine, insertTodo, moveTodo, moveTodoSubtree, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setItemBody, setTextSection, setTextTitle, setTodoCompleted, setTodoParent, updateTodo, placeTodoInBucket, setHabitDone } from "./edit/source-rewriter"
 import { buildLayerToggles, buildToolbar, LayerView } from "./edit/toolbar"
 import { attachDrawInteraction, requestTimelineEntryDelete } from "./edit/draw-interaction"
 import { attachMarkerInteraction } from "./edit/marker-interaction"
@@ -604,9 +604,11 @@ export default class ModularDiaryPlugin extends Plugin {
         .filter((todo) => isWeeklyTodoDue(todo, dateStr))
         .sort((a, b) => a.order - b.order) : []
       const needsWeeklyLedger = dueHabits.some((habit) => habit.targetPeriod === "week") || dueWeeklyTodos.length > 0
-      const weeklyDatedEntries = dateStr && needsWeeklyLedger
+      // This block is the truth for its own day's hand checks, even before the index catches up.
+      const weeklyDatedEntries = (dateStr && needsWeeklyLedger
         ? this.datedEntriesForWeek(dateStr, doc.entries)
-        : (dateStr ? [{ date: dateStr, entries: doc.entries }] : [])
+        : (dateStr ? [{ date: dateStr, entries: doc.entries }] : []))
+        .map((item) => item.date === dateStr ? { ...item, habitDone: doc.habitDone } : item)
       const weeklyEntries = weeklyDatedEntries.flatMap((item) => item.entries)
       const layoutHas = (id: string): boolean => Boolean(doc.layout?.some((item) => item.id === id))
       const extraSlots: GridItem[] = []
@@ -1085,11 +1087,15 @@ export default class ModularDiaryPlugin extends Plugin {
           progress: habitProgress(
             habit,
             habit.targetPeriod === "week" ? weeklyEntries : doc.entries,
-            habit.targetPeriod === "week" ? weeklyDatedEntries : []
+            habit.targetPeriod === "week" ? weeklyDatedEntries : [],
+            doc.habitDone.includes(habit.id),
           ),
         })), {
           typeColors: spanPaletteForRender,
           onEdit: () => this.openHabitSettings(),
+          ...(dateStr ? { onToggleManual: (habit: HabitDefinition, done: boolean) => {
+            void this.applyBlockTransform(el, ctx, source, (value) => setHabitDone(value, habit.id, done))
+          } } : {}),
           onMove: (id, targetIndex) => {
             this.settings.habits = moveHabitInVisibleOrder(
               this.settings.habits, dueHabits.map((habit) => habit.id), id, targetIndex,
@@ -1098,6 +1104,10 @@ export default class ModularDiaryPlugin extends Plugin {
           },
           onMenu: (habit, x, y) => {
             const menu = new Menu()
+            const byHand = doc.habitDone.includes(habit.id)
+            if (dateStr) menu.addItem((item) => item.setTitle(tr(byHand ? "habitUncheckByHand" : "habitCheckByHand")).setIcon(byHand ? "undo-2" : "check").onClick(() => {
+              void this.applyBlockTransform(el, ctx, source, (value) => setHabitDone(value, habit.id, !byHand))
+            }))
             if (dateStr) menu.addItem((item) => item.setTitle(tr("skipToday")).setIcon("calendar-x-2").onClick(() => {
               void this.applyBlockTransform(el, ctx, source, (value) => addHabitSkip(value, habit.id))
             }))

@@ -12,6 +12,8 @@ export interface HabitViewItem {
 
 export interface HabitViewDeps {
   typeColors: Record<string, string>
+  /** Check off by hand / take the hand check back; omitted where there is no day to write to. */
+  onToggleManual?: (habit: HabitDefinition, done: boolean) => void
   onEdit: () => void
   onMenu: (habit: HabitDefinition, x: number, y: number) => void
   onMove: (id: string, targetIndex: number) => void
@@ -91,15 +93,27 @@ export function renderHabitsInto(slot: HTMLElement, items: HabitViewItem[], deps
       bar.style.width = `${progress.ratio * 100}%`
       bar.style.background = deps.typeColors[habit.type] ?? "var(--interactive-accent)"
     }
-    const status = row.createEl("span", {
-      cls: "modular-diary-item-status",
-      attr: { role: "status", "aria-label": progress.complete ? t("complete") : t("incomplete") },
-    })
-    if (progress.complete) setIcon(status, "check")
-    status.createEl("span", {
-      text: habit.targetPeriod === "week"
+    const statusText = progress.manual
+      ? t("habitCheckedByHand")
+      : habit.targetPeriod === "week"
         ? (progress.complete ? t("weeklyComplete") : t("weeklyInProgress"))
-        : (progress.complete ? t("checkedToday") : t("notChecked")),
+        : (progress.complete ? t("checkedToday") : t("notChecked"))
+    // Not done yet, or done by hand: the status is a button that checks off / takes back by hand.
+    const toggle = deps.onToggleManual && (!progress.complete || progress.manual)
+    const status = toggle
+      ? row.createEl("button", {
+        cls: `modular-diary-item-status is-toggle${progress.manual ? " is-manual" : ""}`,
+        attr: { type: "button", "aria-pressed": String(Boolean(progress.manual)), title: progress.manual ? t("habitUncheckByHand") : t("habitCheckByHand") },
+      })
+      : row.createEl("span", {
+        cls: "modular-diary-item-status",
+        attr: { role: "status", "aria-label": progress.complete ? t("complete") : t("incomplete") },
+      })
+    if (progress.complete) setIcon(status, "check")
+    status.createEl("span", { text: statusText })
+    if (toggle) status.addEventListener("click", (event) => {
+      event.stopPropagation()
+      deps.onToggleManual?.(habit, !progress.manual)
     })
   })
 }

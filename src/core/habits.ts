@@ -31,6 +31,8 @@ export interface HabitDefinition {
 }
 
 export interface HabitProgress {
+  /** Checked off by hand (today, or on a day of this week for a weekly goal). */
+  manual?: boolean
   minutes: number
   targetMinutes: number
   count?: number
@@ -42,6 +44,7 @@ export interface HabitProgress {
 export interface HabitDatedEntries {
   date: string
   entries: Entry[]
+  habitDone?: string[]
 }
 
 function normalizedSchedule(schedule: HabitSchedule | undefined): HabitSchedule {
@@ -158,20 +161,31 @@ export function isHabitDue(habit: HabitDefinition, date: string): boolean {
   }
 }
 
+/**
+ * A hand check (`habit-done:`) completes a daily goal and counts as one day of
+ * a weekly count goal; for a weekly duration goal any hand check in the week
+ * completes it. `manualToday` is the rendered day's own check when no dated
+ * week is given; with a week, each day's `habitDone` is used instead.
+ */
 export function habitProgress(
   habit: HabitDefinition,
   entries: Entry[],
-  datedEntries: HabitDatedEntries[] = []
+  datedEntries: HabitDatedEntries[] = [],
+  manualToday = false,
 ): HabitProgress {
   const matching = (values: Entry[]): Entry[] => values.filter((entry) => !entry.plan && entry.type === habit.type)
   const minutes = matching(entries)
     .reduce((sum, entry) => sum + Math.max(0, entry.endMin - entry.startMin), 0)
+  const handDays = datedEntries.filter((item) => item.habitDone?.includes(habit.id)).map((item) => item.date)
+  const manual = datedEntries.length > 0 ? handDays.length > 0 : manualToday
   if (habit.targetMetric === "count") {
-    const count = datedEntries.length > 0
-      ? new Set(datedEntries.filter((item) => matching(item.entries).length > 0).map((item) => item.date)).size
-      : (matching(entries).length > 0 ? 1 : 0)
+    const days = datedEntries.length > 0
+      ? new Set([...datedEntries.filter((item) => matching(item.entries).length > 0).map((item) => item.date), ...handDays])
+      : new Set(matching(entries).length > 0 || manualToday ? ["today"] : [])
+    const count = days.size
     const targetCount = Math.max(1, Math.round(Number(habit.targetCount) || 1))
     return {
+      ...(manual ? { manual } : {}),
       minutes,
       targetMinutes: 0,
       count,
@@ -180,6 +194,7 @@ export function habitProgress(
       ratio: Math.min(1, count / targetCount),
     }
   }
+  if (manual) return { manual, minutes, targetMinutes: Math.max(0, habit.targetMinutes), complete: true, ratio: 1 }
   const targetMinutes = Math.max(0, habit.targetMinutes)
   const upperBound = habit.durationComparison === "below" && habit.targetPeriod === "day"
   const complete = upperBound

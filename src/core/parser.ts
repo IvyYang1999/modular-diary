@@ -81,6 +81,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     hiddenMarkerTypes: [],
     hiddenSlots: [],
     habitSkips: [],
+    habitDone: [],
     todos: [],
     todoView: { ...DEFAULT_TODO_VIEW },
     todoGroupOrder: [],
@@ -356,6 +357,10 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
     }
     case "habit-skip": {
       doc.habitSkips.push(...value.split(/[\s,，]+/).filter((id) => /^[a-z0-9_-]+$/i.test(id)))
+      return
+    }
+    case "habit-done": {
+      doc.habitDone.push(...value.split(/[\s,，]+/).filter((id) => /^[a-z0-9_-]+$/i.test(id)))
       return
     }
     case "checklist": {

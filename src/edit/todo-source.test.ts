@@ -4,7 +4,7 @@ import { todoMetrics } from "../core/todos"
 import type { TodoItem } from "../core/types"
 import {
   addHabitSkip, deleteEntryLine, deleteTodo, deleteTodoSubtree, insertChildTodo, insertTodo, moveTodo, moveTodoSubtree, removeHabitSkip, setEntryTodoBinding,
-  setHeaderValue, setTodoCompleted, setTodoParent, updateTodo,
+  setHabitDone, setHeaderValue, setTodoCompleted, setTodoParent, updateTodo,
 } from "./source-rewriter"
 
 const item = (id: string, title = id): Omit<TodoItem, "line"> => ({
@@ -177,6 +177,17 @@ describe("todo and habit source rewrites", () => {
     source = updateTodo(source, "c", { type: "运动" })
     source = setTodoParent(source, "c", undefined)
     expect(parseTimeline(source).todos.find((todo) => todo.id === "c")?.type).toBe("运动")
+  })
+
+  it("writes and removes hand habit checks in a habit-done header", () => {
+    let source = "date: 2026-10-22\n---\n09:00-10:00 开发"
+    source = setHabitDone(source, "run", true)
+    source = setHabitDone(source, "read", true)
+    expect(parseTimeline(source).habitDone).toEqual(["run", "read"])
+    expect(setHabitDone(source, "run", true)).toBe(source)
+    source = setHabitDone(setHabitDone(source, "run", false), "read", false)
+    expect(source).not.toContain("habit-done")
+    expect(parseTimeline(source).entries).toHaveLength(1)
   })
 
   it("refuses to re-parent into its own subtree", () => {

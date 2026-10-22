@@ -4,6 +4,8 @@ import type { Entry } from "./types"
 export interface DatedTimelineEntries {
   date: string
   entries: Entry[]
+  /** Habits checked off by hand that day. */
+  habitDone?: string[]
 }
 
 const iso = (date: Date): string => {

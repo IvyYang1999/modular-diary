@@ -43,6 +43,20 @@ describe("habit recurrence and progress", () => {
     })
   })
 
+  it("lets a hand check complete a day, count a weekly day, and finish a weekly duration goal", () => {
+    expect(habitProgress(habit({ targetMinutes: 30 }), [], [], true)).toEqual({ manual: true, minutes: 0, targetMinutes: 30, complete: true, ratio: 1 })
+    const twice = habit({ id: "run", targetPeriod: "week", targetMetric: "count", targetCount: 2 })
+    const week = [
+      { date: "2026-10-19", entries: [entry()] },
+      { date: "2026-10-20", entries: [], habitDone: ["run"] },
+      // A hand check on a day that also has a record still counts that day once.
+      { date: "2026-10-21", entries: [entry()], habitDone: ["run"] },
+    ]
+    expect(habitProgress(twice, [], week)).toMatchObject({ manual: true, count: 3, complete: true })
+    expect(habitProgress(twice, [], week.slice(0, 1))).toMatchObject({ count: 1, complete: false })
+    expect(habitProgress(habit({ id: "run", targetPeriod: "week", targetMinutes: 600 }), [], week)).toMatchObject({ manual: true, complete: true, ratio: 1 })
+  })
+
   it("completes a daily upper-bound goal only while matching recorded minutes stay strictly below the limit", () => {
     const belowThirty = habit({ targetMinutes: 30, durationComparison: "below" })
     expect(habitProgress(belowThirty, [])).toEqual({

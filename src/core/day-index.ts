@@ -19,6 +19,7 @@ export interface IndexedBlock {
   entries: Entry[]
   spans: SpanNote[]
   todos: TodoItem[]
+  habitDone: string[]
 }
 
 export function extractIndexedBlocks(path: string, basename: string, content: string): IndexedBlock[] {
@@ -27,7 +28,7 @@ export function extractIndexedBlocks(path: string, basename: string, content: st
   for (const fence of timelineFences(content)) {
     const doc = parseTimeline(fence.source)
     const date = doc.period ? "" : (doc.date ?? dateFromBasename(basename))
-    if (date !== null) out.push({ path, basename, date, ordinal, entries: doc.period ? [] : doc.entries, spans: doc.period ? [] : doc.spans, todos: doc.todos })
+    if (date !== null) out.push({ path, basename, date, ordinal, entries: doc.period ? [] : doc.entries, spans: doc.period ? [] : doc.spans, todos: doc.todos, habitDone: doc.period ? [] : doc.habitDone })
     ordinal += 1
   }
   return out
@@ -100,7 +101,7 @@ export class DayIndex {
   /** Compatibility shape for the weekly habit ledger. */
   datedEntries(): DatedTimelineEntries[] {
     const out: DatedTimelineEntries[] = []
-    for (const blocks of this.files.values()) for (const block of blocks) if (block.date) out.push({ date: block.date, entries: block.entries })
+    for (const blocks of this.files.values()) for (const block of blocks) if (block.date) out.push({ date: block.date, entries: block.entries, habitDone: block.habitDone })
     return out
   }
 }

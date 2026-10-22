@@ -41,6 +41,8 @@ export interface TimelineDoc {
   hiddenSlots: import("./grid-layout").SlotId[]
   /** Per-day exceptions for global recurring habits. */
   habitSkips: string[]
+  /** Habits checked off by hand on this day (`habit-done:`), with or without a timeline record. */
+  habitDone: string[]
   /** Todo items stored in repeated `todo:` headers. */
   todos: TodoItem[]
   /** Block-local presentation rule for the Todo component. */

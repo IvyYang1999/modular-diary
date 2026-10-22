@@ -5624,3 +5624,16 @@ textarea.modular-diary-template-source {
 }
 .modular-diary-todo-form.is-child .modular-diary-todo-category-select { display: none; }
 .modular-diary-todo-form.is-child .modular-diary-todo-title-input { grid-column: 1 / 3; }
+
+/* Habit status as a hand-check button: same pill, clickable, with a hover cue. */
+.modular-diary-container button.modular-diary-item-status.is-toggle {
+  appearance: none;
+  border: 1px dashed var(--background-modifier-border);
+  box-shadow: none;
+  font: inherit;
+  font-size: var(--modular-diary-font-caption);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.modular-diary-container button.modular-diary-item-status.is-toggle:hover { border-color: var(--interactive-accent); color: var(--text-normal); }
+.modular-diary-container button.modular-diary-item-status.is-manual { border-style: solid; }

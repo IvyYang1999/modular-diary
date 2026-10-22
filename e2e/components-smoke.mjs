@@ -151,6 +151,7 @@ renderHabitsInto(createSlot("habits", 190), [
   onEdit: () => window.__events.push("habit-edit"),
   onMenu: (habit) => window.__events.push("habit-menu:" + habit.id),
   onMove: (id, index) => window.__events.push("habit-move:" + id + ":" + index),
+  onToggleManual: (habit, done) => window.__events.push("habit-manual:" + habit.id + ":" + done),
 })
 const badgeFixture = document.body.createDiv({ cls: "habit-badge-contract" })
 badgeFixture.style.cssText = "position:absolute;left:480px;top:16px;width:360px"
@@ -418,7 +419,8 @@ const state = await page.evaluate(() => {
   const slot = row.closest(".modular-diary-slot")
   const emptyButtons = [...document.querySelectorAll(".modular-diary-component-empty")]
   const headerButtons = [...document.querySelectorAll(".modular-diary-component-actions button")]
-  const habitStatuses = [...slot.querySelectorAll(".modular-diary-habit-row .modular-diary-item-status")]
+  // Completed by its record: read-only. Unchecked rows become hand-check buttons (checked below).
+  const habitStatuses = [...slot.querySelectorAll(".modular-diary-habit-row.is-complete .modular-diary-item-status")]
   const dailyBadgeStatuses = [...document.querySelectorAll(".habit-badge-contract .modular-diary-item-status")]
   const incompleteStatus = document.querySelector(".modular-diary-habit-row:not(.is-complete) .modular-diary-item-status")
   const completeStatus = document.querySelector(".modular-diary-habit-row.is-complete .modular-diary-item-status")
@@ -836,6 +838,16 @@ const groupedSortable = await page.evaluate(() => {
     preFolded, folded, unfolded,
   }
 })
+// Hand check: an unchecked habit's status is a button; a habit completed by its record is not.
+const manualHabit = await page.evaluate(() => {
+  const slot = document.querySelector('.modular-diary-slot[data-slot="habits"]')
+  const status = slot.querySelector('[data-habit-id="publish"] .modular-diary-item-status')
+  status?.click()
+  return {
+    isButton: status?.tagName === "BUTTON",
+    completeIsButton: slot.querySelector('[data-habit-id="daily"] .modular-diary-item-status')?.tagName === "BUTTON",
+  }
+})
 // Sub-todo tree: preorder rows, per-depth indent, parent rollup, add-child form.
 const todoTree = await page.evaluate(() => {
   const slot = document.querySelector('.modular-diary-slot[data-slot="todos-tree"]')
@@ -1074,6 +1086,7 @@ if (groupedSortable.noteText !== "先列大纲" || !groupedSortable.noteBelowTit
 if (!todoTree || todoTree.order.join("|") !== "tp|tc1|tg1|tc2|tz") errors.push("sub-todos must render in preorder under their parent: " + JSON.stringify(todoTree))
 if (todoTree && !(parseFloat(todoTree.indents[2]) > parseFloat(todoTree.indents[1]) && parseFloat(todoTree.indents[1]) > parseFloat(todoTree.indents[0]))) errors.push("sub-todos must indent one step per depth: " + JSON.stringify(todoTree))
 if (todoTree && !todoTree.parentMeta.includes("子项 1/3")) errors.push("a parent todo must report its subtree done/total count: " + JSON.stringify(todoTree))
+if (!manualHabit.isButton || manualHabit.completeIsButton || !events.includes("habit-manual:publish:true")) errors.push("an unchecked habit's status must be a hand-check button (and a recorded one must not): " + JSON.stringify(manualHabit))
 if (todoTree && !todoTree.addFormVisible) errors.push("the add-child row event must open the add form")
 if (collapsedTree.rows.join("|") !== "tp|tz" || collapsedTree.expanded !== "false" || collapsedTree.count !== "+3") errors.push("collapsing a parent must hide its subtree and count it: " + JSON.stringify(collapsedTree))
 if (subtreeDrag.order.join("|") !== "tc2|tc1" || !subtreeDrag.subtreeIntact || !subtreeDrag.ghost.includes("功能优化")) errors.push("dragging a parent must move its subtree as one block: " + JSON.stringify(subtreeDrag))
@@ -1087,7 +1100,7 @@ if (plansAfterAnyRecordDrop.length !== 2 || plansAfterAnyRecordDrop[1].line !== 
 if (scheduleCleanup.preview !== 0 || scheduleCleanup.ghost !== 0 || scheduleCleanup.pointerActive) errors.push("timeline scheduling left transient UI or pointer ownership behind")
 if (plansAfterOutsideDrop !== 2 || sortEventsAfterOutsideDrop !== sortEventsBeforeOutsideDrop) errors.push("an outside schedule drop wrote data or leaked into row sorting")
 if (state.statusRightInset > 5) errors.push("habit status badge is not aligned to the row end")
-if (state.habitStatusTags.some((tag) => tag !== "SPAN") || state.habitStatusPointerEvents.some((value) => value !== "none")) errors.push("automatic habit status must remain visibly non-interactive")
+if (state.habitStatusTags.some((tag) => tag !== "SPAN") || state.habitStatusPointerEvents.some((value) => value !== "none")) errors.push("a habit status completed by its record must remain visibly non-interactive")
 if (state.incompleteStatusText !== "本周进行中" || state.incompleteStatusIcons !== 0) errors.push("incomplete weekly habit status must use weekly text, not a checkbox-like circle")
 if (!state.completeStatusText.includes("已打卡") || state.completeStatusText.includes("今日") || state.completeStatusIcon !== "check") errors.push("complete habit status must use the compact checked badge")
 if (state.dailyBadgeTexts.join("|") !== "已打卡|尚未打卡") errors.push("daily habit status copy lost its compact paired labels")
