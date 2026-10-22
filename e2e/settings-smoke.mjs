@@ -464,7 +464,7 @@ const customPriorityTiers = await page.evaluate(() => window.__settings.todoPrio
 await browser.close()
 
 const errors = []
-if (customPriorityTiers.join("|") !== "马上|随时") errors.push("custom priority tiers must persist highest-first and deduplicate without editing Todos")
+if (customPriorityTiers.join("|") !== "P0|马上|随时") errors.push("custom priority tiers must persist highest-first and deduplicate without editing Todos")
 if (state.rows !== 4) errors.push("expected four habit editors covering duration, no-target, and count layouts")
 for (const column of ["name", "category", "goal", "repeat", "actions"]) {
   const positions = state.rowColumns.map((row) => row[column]).filter((value) => value !== null)
