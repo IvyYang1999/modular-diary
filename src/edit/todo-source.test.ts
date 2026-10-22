@@ -148,6 +148,37 @@ describe("todo and habit source rewrites", () => {
     expect(parseTimeline(source).todos.map((todo) => [todo.id, todo.parent ?? ""])).toEqual([["r1", ""], ["c1", "r1"], ["r2", ""]])
   })
 
+  it("takes the parent's category and gives the old one back when freed", () => {
+    let source = "---"
+    source = insertTodo(source, { ...item("p"), type: "开发" })
+    source = insertTodo(source, { ...item("c"), type: "学习" })
+    source = insertTodo(source, { ...item("bare"), type: undefined })
+    source = setTodoParent(source, "c", "p")
+    const child = parseTimeline(source).todos.find((todo) => todo.id === "c")!
+    expect([child.type, child.ownCategory]).toEqual(["开发", "学习"])
+    expect(source).toContain('own-category="学习"')
+    // A todo with no category gets one, and goes back to none.
+    source = setTodoParent(source, "bare", "p")
+    expect(parseTimeline(source).todos.find((todo) => todo.id === "bare")?.ownCategory).toBe("")
+    source = setTodoParent(source, "bare", undefined)
+    const bare = parseTimeline(source).todos.find((todo) => todo.id === "bare")!
+    expect([bare.type, bare.ownCategory]).toEqual([undefined, undefined])
+    source = setTodoParent(source, "c", undefined)
+    const freed = parseTimeline(source).todos.find((todo) => todo.id === "c")!
+    expect([freed.type, freed.ownCategory]).toEqual(["学习", undefined])
+    expect(source).not.toContain("own-category")
+  })
+
+  it("forgets the saved category once the category is chosen by hand", () => {
+    let source = "---"
+    source = insertTodo(source, { ...item("p"), type: "开发" })
+    source = insertTodo(source, { ...item("c"), type: "学习" })
+    source = setTodoParent(source, "c", "p")
+    source = updateTodo(source, "c", { type: "运动" })
+    source = setTodoParent(source, "c", undefined)
+    expect(parseTimeline(source).todos.find((todo) => todo.id === "c")?.type).toBe("运动")
+  })
+
   it("refuses to re-parent into its own subtree", () => {
     let source = "---"
     source = insertTodo(source, item("a"))

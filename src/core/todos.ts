@@ -255,6 +255,7 @@ export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem, n
     ...(todo.day ? [`day=${todo.day}`] : []),
     ...(todo.bucket ? [`bucket=${JSON.stringify(todo.bucket)}`] : []),
     ...(todo.parent ? [`parent=${JSON.stringify(todo.parent)}`] : []),
+    ...(todo.ownCategory !== undefined ? [`own-category=${JSON.stringify(todo.ownCategory)}`] : []),
     ...(noteSourceValue === undefined && todo.note ? [`note=${JSON.stringify(todo.note)}`] : []),
     ...(todo.difficulty !== undefined ? [`difficulty=${todo.difficulty}`] : []),
     ...(todo.priority ? [`priority=${JSON.stringify(todo.priority)}`] : []),
@@ -338,7 +339,7 @@ export function todoNoteSourceValue(text: string): string | undefined {
 function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | null {
   const fields = parseReadableFields(value)
   const keys = ["id", "done", "estimate", "category", "group", "title"]
-  const optional = ["due", "moved", "day", "bucket", "note", "parent", "difficulty", "priority"]
+  const optional = ["due", "moved", "day", "bucket", "note", "parent", "own-category", "difficulty", "priority"]
   if (!fields || keys.some((key) => !fields.has(key)) || [...fields.keys()].some((key) => !keys.includes(key) && !optional.includes(key))) return null
   const due = fields.get("due")
   const moved = fields.get("moved")
@@ -373,6 +374,7 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
     ...(day ? { day } : {}),
     ...(fields.get("bucket") ? { bucket: fields.get("bucket") } : {}),
     ...(parent && parent !== id ? { parent } : {}),
+    ...(fields.has("own-category") ? { ownCategory: fields.get("own-category") } : {}),
     line,
   }
 }

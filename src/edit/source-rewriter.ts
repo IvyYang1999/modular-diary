@@ -159,6 +159,8 @@ export function updateTodo(source: string, id: string, patch: Partial<Omit<TodoI
   if (unchanged) return source
   const lines = source.split("\n")
   const next = { ...current, ...patch }
+  // Choosing a category by hand forgets the one saved for un-parenting.
+  if ("type" in patch && !("ownCategory" in patch) && (patch.type ?? "") !== (current.type ?? "")) delete next.ownCategory
   // Preserve the actual field token, including empty/unquoted values and escapes.
   const noteSourceValue = next.note === current.note ? todoNoteSourceValue(lines[current.line]) : undefined
   lines[current.line] = formatTodoSourceLine(next, noteSourceValue)
@@ -275,7 +277,14 @@ export function setTodoParent(source: string, id: string, parent: string | undef
   const tree = indexTodoTree(doc.todos)
   if (!doc.todos.some((todo) => todo.id === id)) return source
   if (parent && (parent === id || new Set(tree.descendantIds(id)).has(parent))) return source
-  const out = updateTodo(source, id, { parent })
+  // A sub-todo takes its parent's category; the one it had is kept for un-parenting.
+  const todo = doc.todos.find((item) => item.id === id)!
+  const host = parent ? doc.todos.find((item) => item.id === parent) : undefined
+  const own = todo.ownCategory ?? todo.type ?? ""
+  const category = parent
+    ? (host && (host.type ?? "") !== (todo.type ?? "") ? { type: host.type, ownCategory: own } : {})
+    : (todo.ownCategory !== undefined ? { type: todo.ownCategory || undefined, ownCategory: undefined } : {})
+  const out = updateTodo(source, id, { parent, ...category })
   if (!parent) {
     const anchor = lastRootId(parseTimeline(out).todos, id)
     return anchor === null ? out : moveTodoSubtreeAfter(out, id, anchor)

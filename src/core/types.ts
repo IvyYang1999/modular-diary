@@ -109,6 +109,11 @@ export interface TodoItem {
   /** Parent todo id: this line is a sub-todo. Line order is the tree's preorder. */
   parent?: string
   /**
+   * The category this todo had before it was dragged under a parent and took
+   * the parent's category; un-parenting restores it ("" = it had none).
+   */
+  ownCategory?: string
+  /**
    * The day this todo was pushed to. The line stays where it was as a
    * durable shadow: it shows "moved" here, and it refills the destination if
    * that day's note is ever recreated empty.
