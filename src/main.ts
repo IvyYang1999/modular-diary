@@ -1,3 +1,7 @@
+import { isDailyNote } from "./checklists"
+import { AddUpcomingModal, createUpcomingSchedule, watchUpcoming, type UpcomingVaultOptions } from "./upcoming"
+import { pendingForDate, upcomingFrom } from "./core/upcoming"
+import { renderUpcomingInto } from "./render/upcoming-view"
 import { runEntryAgent } from "./agent/runner"
 import { runEntryAgentApi } from "./agent/direct-runner"
 import { obsidianTransport } from "./agent/obsidian-transport"
@@ -96,6 +100,7 @@ import { dailyQuoteForDate, normalizeDailyQuoteDefinition, resolveQuoteInk } fro
 const QUOTE_ROWS = 6
 /** Hour diary default height: header, two short pieces and the composer. */
 const HOURLOG_ROWS = 10
+const UPCOMING_ROWS = 9
 import { createPointerRedrawGate } from "./edit/pointer-interaction"
 import { attachTimelineScheduleDrag } from "./edit/timeline-schedule-drag"
 import { buildTodoGroupMenuOptions, buildTodoSortMenuOptions, buildTodoSubGroupMenuOptions } from "./edit/block-menu-model"
@@ -175,6 +180,15 @@ export default class ModularDiaryPlugin extends Plugin {
   private readonly textDrafts = new TextDraftRegistry<object>()
   private readonly sourceRevisions = new SourceRevisions()
   private readonly textSaveNotices = new Map<string, { notice: Notice; expires: number }>()
+  /** Future schedule note: loaded on layout ready, copied into diaries as their days arrive. */
+  private readonly upcomingOptions: UpcomingVaultOptions = {
+    app: () => this.app,
+    notePath: () => this.settings.upcomingFile || "Upcoming.md",
+    pathForDate: async (date) => this.dayIndex.notePathForDate(date) ?? normalizePath(dailyNotePath(await this.dailyNotesConfig(), date, momentFormat)),
+    writeToDay: (date, transform) => this.writeToDay(date, transform),
+    onChange: () => this.rerenderMountedTimelines(),
+  }
+  readonly upcoming = createUpcomingSchedule(this.upcomingOptions)
   private sourceDrafts = new WeakMap<HTMLElement, SourceModeSession>()
   private readonly ledgerModifiedPaths = new Set<string>()
   /** Cross-day reads (weekly goals, push to tomorrow) go through this incremental index. */
@@ -295,6 +309,16 @@ export default class ModularDiaryPlugin extends Plugin {
       },
     })
     watchNewDailyNotes(this)
+    // Future schedule: an item goes into its day's diary once that diary exists.
+    this.app.workspace.onLayoutReady(() => {
+      void this.upcoming.load().then(() => this.rerenderMountedTimelines())
+      watchUpcoming(this.upcoming, this.upcomingOptions, (ref) => this.registerEvent(ref), (path) => isDailyNote(this.app, path))
+    })
+    this.addCommand({
+      id: "add-upcoming",
+      name: tr("addUpcoming"),
+      callback: () => this.openAddUpcoming(),
+    })
     setNotePopoverTagSuggest(this.tagSuggestDeps())
     this.setupHourlyNudge()
     this.addCommand({
@@ -626,6 +650,7 @@ export default class ModularDiaryPlugin extends Plugin {
         extraSlots.push(defaultComponentSlot("todos", Math.max(5, (doc.todos.length + dueWeeklyTodos.length) * 2 + 3), doc.side))
       }
       if (layoutHas("quote")) extraSlots.push(defaultComponentSlot("quote", QUOTE_ROWS, doc.side))
+      if (layoutHas("upcoming")) extraSlots.push(defaultComponentSlot("upcoming", UPCOMING_ROWS, doc.side))
       const diaryItems = hourlogItems(doc)
       const pendingDiary = this.pendingHourlog && this.pendingHourlog.date === dateStr ? this.pendingHourlog : null
       if ((diaryItems.length > 0 || layoutHas("hourlog") || pendingDiary) && !doc.hiddenSlots.includes("hourlog")) {
@@ -769,6 +794,7 @@ export default class ModularDiaryPlugin extends Plugin {
         todos: tr("todos"),
         quote: tr("dailyQuote"),
         hourlog: tr("hourlog"),
+        upcoming: tr("upcomingTitle"),
       }
 
       const showMoreMenu = (x: number, y: number, componentsOnly = false): void => {
@@ -834,6 +860,7 @@ export default class ModularDiaryPlugin extends Plugin {
           ["todos", tr("addTodoComponent"), "list-todo"],
           ["quote", tr("addDailyQuoteComponent"), "quote"],
           ["hourlog", tr("addHourlogComponent"), "book-open-text"],
+          ["upcoming", tr("addUpcomingComponent"), "calendar-clock"],
         ] as const) {
           if (container.querySelector(`.modular-diary-slot-${slotId}`) || doc.hiddenSlots.includes(slotId)) continue
           menu.addItem((item) => item.setTitle(label).setIcon(icon).setSection("components").onClick(() => {
@@ -1456,6 +1483,19 @@ export default class ModularDiaryPlugin extends Plugin {
         mark.addEventListener("pointerdown", (event) => event.stopPropagation())
       })
 
+      const upcomingSlot = container.querySelector<HTMLElement>(".modular-diary-slot-upcoming")
+      const todayStr = inferDate(null)
+      if (upcomingSlot) {
+        renderUpcomingInto(upcomingSlot, upcomingFrom(this.upcoming.items, todayStr).slice(0, 30), {
+          today: todayStr,
+          typeColors: spanPaletteForRender,
+          onAdd: () => this.openAddUpcoming(dateStr ? shiftDate(dateStr, 1) : undefined),
+          onOpenNote: () => void this.app.workspace.openLinkText(this.settings.upcomingFile, ctx.sourcePath, true),
+        })
+      }
+      // A diary that already exists for a day with pending items takes them now
+      // (covers notes created elsewhere, e.g. on the other Mac).
+      if (dateStr && pendingForDate(this.upcoming.items, dateStr).length) void this.upcoming.copyInto(dateStr)
       const quoteSlot = container.querySelector<HTMLElement>(".modular-diary-slot-quote")
       if (quoteSlot) {
         // The sentence of the day and its tint come from settings only; the
@@ -1952,7 +1992,7 @@ export default class ModularDiaryPlugin extends Plugin {
           menu.showAtPosition({ x: e.clientX, y: e.clientY }, dom)
           return
         }
-        if (slotId && (["toolbar", "stats", "dialog", "habits", "todos", "quote", "hourlog"].includes(slotId) || isChecklistSlot(slotId))) {
+        if (slotId && (["toolbar", "stats", "dialog", "habits", "todos", "quote", "hourlog", "upcoming"].includes(slotId) || isChecklistSlot(slotId))) {
           showActionMenuAtPoint(
             dom,
             e.clientX,
@@ -2206,6 +2246,12 @@ export default class ModularDiaryPlugin extends Plugin {
     return [...seen]
   }
 
+  /** The future schedule form; defaults to tomorrow. */
+  openAddUpcoming(date?: string): void {
+    const categories = Object.keys(this.settings.spanTypeColors)
+    new AddUpcomingModal(this.app, categories, date ?? shiftDate(inferDate(null), 1), (item) => this.upcoming.add(item)).open()
+  }
+
   /** Run an AI review of the day's todos (or one of them) with the dialog's backend; read-only. */
   private async reviewTodos(todos: ReviewTodo[], sourcePath: string, focusId?: string): Promise<void> {
     const focus = focusId ? todos.find((todo) => todo.id === focusId) : undefined
@@ -2313,6 +2359,7 @@ export default class ModularDiaryPlugin extends Plugin {
     const days: PeriodDayView[] = dayData.map((day) => ({
       ...day,
       allDay: todos.filter((todo) => todo.placement && todo.placement.startMin === undefined && todo.placement.date === day.date),
+      upcoming: pendingForDate(this.upcoming.items, day.date),
     }))
     // The grid grows to fit the week's records, so early mornings, late nights and
     // after-midnight blocks are never counted in the totals but missing from the grid.
@@ -2526,7 +2573,7 @@ export default class ModularDiaryPlugin extends Plugin {
     // the first free space of its column instead of pinning it under the
     // timeline. Rendering re-runs the same compaction, so this is what the
     // user would see anyway.
-    items.push({ ...defaultComponentSlot(id, id === "habits" ? HABITS_EMPTY_ROWS : id === "quote" ? QUOTE_ROWS : id === "hourlog" ? HOURLOG_ROWS : 8, parsed.side), y: maxY })
+    items.push({ ...defaultComponentSlot(id, id === "habits" ? HABITS_EMPTY_ROWS : id === "quote" ? QUOTE_ROWS : id === "hourlog" ? HOURLOG_ROWS : id === "upcoming" ? UPCOMING_ROWS : 8, parsed.side), y: maxY })
     return setHeaderValue(out, "layout", serializeLayoutHeader(compactGrid(items)))
   }
 
@@ -3167,6 +3214,7 @@ export default class ModularDiaryPlugin extends Plugin {
       todoPriorities: normalizeTodoPriorities(Array.isArray(data?.todoPriorities) ? data.todoPriorities.filter((value): value is string => typeof value === "string") : DEFAULT_SETTINGS.todoPriorities),
       dailyQuoteInk: typeof data?.dailyQuoteInk === "string" ? data.dailyQuoteInk : "",
       checklistFolder: typeof data?.checklistFolder === "string" ? data.checklistFolder : DEFAULT_SETTINGS.checklistFolder,
+      upcomingFile: typeof data?.upcomingFile === "string" && data.upcomingFile.trim() ? data.upcomingFile.trim() : DEFAULT_SETTINGS.upcomingFile,
       todoReviewChecklist: typeof data?.todoReviewChecklist === "string" && data.todoReviewChecklist.trim() ? data.todoReviewChecklist : DEFAULT_TODO_REVIEW_CHECKLIST,
       pinnedSections: Array.isArray(data?.pinnedSections) ? [...new Set(data.pinnedSections.filter((value): value is string => typeof value === "string" && value.trim() !== ""))] : [],
       timelineOnboardingSeen: resolveTimelineOnboardingSeen(

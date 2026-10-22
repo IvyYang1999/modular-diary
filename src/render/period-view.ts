@@ -1,3 +1,4 @@
+import type { UpcomingItem } from "../core/upcoming"
 import { laneLayout } from "../core/period-lanes"
 import { parsePeriodStatsWidget, shareSlices, type PeriodStatsWidget } from "../core/period-stats"
 /**
@@ -34,6 +35,8 @@ export interface PeriodDayView {
   spans: SpanNote[]
   /** Period todos placed all-day on this date. */
   allDay: PeriodTodoView[]
+  /** Future schedule items (Upcoming.md) not yet copied into this day's diary. */
+  upcoming?: UpcomingItem[]
   hasNote: boolean
 }
 
@@ -657,6 +660,10 @@ function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewM
       attachDrag(root, pill, { todo, from: day.date }, model, deps)
       menuFor(pill, todo.id)
     }
+    for (const item of day.upcoming ?? []) {
+      if (item.startMin !== undefined) continue
+      cell.createDiv({ cls: "modular-diary-period-pill is-upcoming", text: item.text, attr: { title: `${t("upcomingTitle")} · ${item.text}` } })
+    }
     for (const todo of model.todos) {
       if (todo.due !== day.date || todo.completed) continue
       cell.createDiv({ cls: "modular-diary-period-due", text: `⚑ ${plainTitle(todo.title)}`, attr: { title: t("dueOn", { date: monthDay(todo.due) }) } })
@@ -722,6 +729,22 @@ function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewM
         attachDrag(root, block, { todo: owned, from: `plan:${day.date}` }, model, deps)
         menuFor(block, owned.id)
       }
+    }
+    // Scheduled ahead in Upcoming.md: a dashed outline until that day's diary takes it.
+    for (const item of day.upcoming ?? []) {
+      if (item.startMin === undefined || item.endMin === undefined) continue
+      if (item.endMin <= model.rangeStartMin || item.startMin >= model.rangeEndMin) continue
+      anything = true
+      const start = Math.max(item.startMin, model.rangeStartMin)
+      const end = Math.min(item.endMin, model.rangeEndMin)
+      const block = col.createDiv({ cls: "modular-diary-period-block is-upcoming" })
+      block.style.top = `calc(${pct(start)} + 1px)`
+      block.style.height = `calc(${pctLen(end - start)} - 2px)`
+      block.style.setProperty("--modular-diary-block-color", (item.type && deps.typeColors[item.type]) || "var(--text-faint)")
+      block.title = `${t("upcomingTitle")} · ${clock(item.startMin)}–${clock(item.endMin)} ${item.type ?? ""}${item.text ? " · " + item.text : ""}`
+      const inner = block.createDiv({ cls: "modular-diary-period-block-inner" })
+      inner.createEl("span", { cls: "modular-diary-period-block-name", text: item.text || item.type || "" })
+      inner.createEl("span", { cls: "modular-diary-period-block-time", text: formatSpan(item.endMin - item.startMin) })
     }
     for (const item of day.spans) {
       const mark = col.createDiv({ cls: "modular-diary-period-span" })

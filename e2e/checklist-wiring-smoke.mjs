@@ -79,6 +79,21 @@ try{
  await page.getByRole('button',{name:'重命名栏目 阅读笔记',exact:true}).first().click({button:'right'})
  await page.getByRole('button',{name:'从添加菜单取消固定「阅读笔记」',exact:true}).click()
  assert.deepEqual(await page.evaluate(()=>window.plugin.settings.pinnedSections),[])
+ // The Upcoming component lists the schedule from today on, grouped by day.
+ await page.evaluate(()=>{window.plugin.upcoming.items=[
+   {line:3,date:'2099-01-03',text:'Untimed item',done:false},
+   {line:2,date:'2099-01-02',startMin:600,endMin:660,type:'work',text:'Future item',done:false},
+   {line:1,date:'2000-01-01',text:'Past item',done:false},
+   {line:0,date:'2099-01-02',text:'Copied item',done:true}]})
+ await page.getByRole('button',{name:'添加模块',exact:true}).click()
+ await page.getByRole('button',{name:'添加 Upcoming 组件',exact:true}).click()
+ await page.locator('[data-slot="upcoming"] .modular-diary-upcoming-row').first().waitFor()
+ const upcoming=await page.locator('[data-slot="upcoming"]').evaluate(slot=>({
+   days:[...slot.querySelectorAll('.modular-diary-upcoming-day')].map(e=>e.textContent),
+   rows:[...slot.querySelectorAll('.modular-diary-upcoming-row')].map(r=>r.querySelector('.modular-diary-upcoming-time').textContent+' '+r.querySelector('.modular-diary-upcoming-text').textContent)}))
+ assert.deepEqual(upcoming.rows,['10:00–11:00 work · Future item','全天 Untimed item'],JSON.stringify(upcoming))
+ assert.equal(upcoming.days.length,2)
+ assert.ok(fs.readFileSync(file,'utf8').includes('upcoming@'),'the component is placed in the layout')
  await page.evaluate(()=>{window.notices.length=0})
  assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.notices),[])
  console.log('PASS actual plugin menu → independent modules → disk checkbox → remount. Screenshot:',out)

@@ -63,6 +63,8 @@ export interface ModularDiarySettings {
   pinnedSections: string[]
   /** The checklist a todo AI review is held against, one rule per line. */
   todoReviewChecklist: string
+  /** Vault path of the future schedule note (see core/upcoming). */
+  upcomingFile: string
   /** On the hour, ask in the status bar what the last hour went into. */
   hourlyNudge: boolean
   /** Hours the nudge may ask about: an hour starting at or after start, ending at or before end. */
@@ -97,6 +99,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   tagCategories: {},
   pinnedSections: [],
   todoReviewChecklist: DEFAULT_TODO_REVIEW_CHECKLIST,
+  upcomingFile: "Upcoming.md",
   hourlyNudge: true,
   nudgeStartHour: 9,
   nudgeEndHour: 24,
@@ -318,6 +321,17 @@ export class ModularDiarySettingTab extends PluginSettingTab {
       })
     }
     renderWeeklyTodos()
+    new Setting(weeklyTodoSection).setName(tr("upcomingFile")).setDesc(tr("upcomingFileHint"))
+      .addText((control) => {
+        control.setPlaceholder("Upcoming.md").setValue(this.plugin.settings.upcomingFile)
+        control.inputEl.addEventListener("blur", async () => {
+          const value = control.inputEl.value.trim() || "Upcoming.md"
+          if (value === this.plugin.settings.upcomingFile) return
+          this.plugin.settings.upcomingFile = value.endsWith(".md") ? value : `${value}.md`
+          await this.plugin.saveSettings({ rerender: true })
+          await this.plugin.upcoming.load()
+        })
+      })
     new Setting(weeklyTodoSection).setName(tr("todoReviewSettings")).setDesc(tr("todoReviewSettingsHint"))
       .addTextArea((control) => {
         control.inputEl.setAttribute("aria-label", tr("todoReviewSettings"))

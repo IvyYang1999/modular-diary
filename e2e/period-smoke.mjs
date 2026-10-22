@@ -69,7 +69,8 @@ window.__events = []
 const host = document.querySelector<HTMLElement>("#host")!
 renderPeriodInto(host, {
   spec: block.period!, browsing: true, period, today, goals: goalProgress(block.goals, days), totals: periodTotals(days), todos, todoView: block.todoView,
-  days: days.map((d) => ({ ...d, allDay: todos.filter((t) => t.placement && t.placement.startMin === undefined && t.placement.date === d.date) })),
+  days: days.map((d) => ({ ...d, allDay: todos.filter((t) => t.placement && t.placement.startMin === undefined && t.placement.date === d.date),
+    upcoming: d.date === "2026-10-03" ? [{ line: 0, date: d.date, startMin: 840, endMin: 900, type: "运动", text: "爬山", done: false }, { line: 1, date: d.date, text: "交房租", done: false }] : [] })),
   rangeStartMin: 7 * 60, rangeEndMin: 23 * 60, indexReady: true, railWidth: block.railWidth ?? 248,
   statsWidgets: ["share", "days:运动"],
 }, {
@@ -130,7 +131,7 @@ for (const [name, vars] of Object.entries(themes)) {
     const iconChrome = getComputedStyle(document.querySelector(".modular-diary-period-icon")).backgroundColor
     const todoRows = q(".modular-diary-period-rail .modular-diary-todo-row").map((r) => r.textContent)
     const flags = q(".modular-diary-todo-flag").map((f) => f.textContent)
-    const pills = q(".modular-diary-period-pill").map((p) => [p.textContent, Math.round(p.getBoundingClientRect().height), getComputedStyle(p).fontSize])
+    const pills = q(".modular-diary-period-pill:not(.is-upcoming)").map((p) => [p.textContent, Math.round(p.getBoundingClientRect().height), getComputedStyle(p).fontSize])
     const heads = q(".modular-diary-period-head").map((h) => h.textContent)
     const goals = q(".modular-diary-period-goal").map((g) => g.textContent.replace(/\s+/g, " ").trim())
     const bars = q(".modular-diary-period-totals .modular-diary-period-meter-bar").map((b) => b.style.width)
@@ -162,6 +163,11 @@ for (const [name, vars] of Object.entries(themes)) {
       count: days?.querySelector(".modular-diary-component-count")?.textContent ?? "",
     }
   })
+  const upcomingShown = await page.evaluate(() => ({
+    blocks: [...document.querySelectorAll(".modular-diary-period-block.is-upcoming")].map((b) => b.textContent),
+    pills: [...document.querySelectorAll(".modular-diary-period-pill.is-upcoming")].map((p) => p.textContent),
+  }))
+  if (upcomingShown.blocks.join("|") !== "爬山1h" || upcomingShown.pills.join("|") !== "交房租") errors.push("future schedule items must show in their day as a dashed block and an all-day pill: " + JSON.stringify(upcomingShown))
   if (stats.slices < 2 || stats.slices !== stats.legend.length || stats.legend[0] !== "开发") errors.push("the share widget must draw one slice per legend row, largest first: " + JSON.stringify(stats))
   if (stats.cells !== 7 || stats.done !== 1 || stats.count !== "1/7 天") errors.push("the days widget must mark the days with an actual record of its category: " + JSON.stringify(stats))
   if (Math.round(state.railWidth) !== 256) errors.push("rail: header must set the rail width, got " + state.railWidth)

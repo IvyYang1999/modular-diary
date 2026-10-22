@@ -1769,6 +1769,7 @@
 /* 打卡 / Todo：保持紧凑；打卡状态行使用无阴影描边以承载只读状态徽标。 */
 .modular-diary-habits,
 .modular-diary-checklist,
+.modular-diary-upcoming,
 .modular-diary-todos {
   display: flex;
   flex-direction: column;
@@ -2633,12 +2634,12 @@ button.modular-diary-todo-group-toggle svg {
  * 常规内容槽共享同一条左右内容起始线。时间轴不在此列：它的小时标签、
  * 轨道和右侧标注车道使用独立坐标系，改变 slot padding 会移动几何基准。
  */
-.modular-diary-slot:is(.modular-diary-slot-dialog, .modular-diary-slot-toolbar, .modular-diary-slot-stats, .modular-diary-slot-habits, .modular-diary-slot-todos, .modular-diary-slot-quote, .modular-diary-slot-hourlog, [data-slot^="checklist"], [data-slot^="text"]) {
+.modular-diary-slot:is(.modular-diary-slot-dialog, .modular-diary-slot-toolbar, .modular-diary-slot-stats, .modular-diary-slot-habits, .modular-diary-slot-todos, .modular-diary-slot-quote, .modular-diary-slot-hourlog, .modular-diary-slot-upcoming, [data-slot^="checklist"], [data-slot^="text"]) {
   padding-inline: var(--modular-diary-content-inset);
 }
 
 /* slot padding 变宽不应把固定在左上角的拖拽手柄一起推向内侧。 */
-.modular-diary-slot:is(.modular-diary-slot-dialog, .modular-diary-slot-toolbar, .modular-diary-slot-stats, .modular-diary-slot-habits, .modular-diary-slot-todos, .modular-diary-slot-quote, .modular-diary-slot-hourlog, [data-slot^="checklist"], [data-slot^="text"])
+.modular-diary-slot:is(.modular-diary-slot-dialog, .modular-diary-slot-toolbar, .modular-diary-slot-stats, .modular-diary-slot-habits, .modular-diary-slot-todos, .modular-diary-slot-quote, .modular-diary-slot-hourlog, .modular-diary-slot-upcoming, [data-slot^="checklist"], [data-slot^="text"])
   > .modular-diary-slot-grip-anchor {
   transform: translate(
     calc(var(--size-4-1, 4px) - var(--modular-diary-content-inset)),
@@ -5733,3 +5734,38 @@ textarea.modular-diary-template-source {
 .modular-diary-review-modal .modal-content { max-height: 70vh; overflow: auto; }
 .modular-diary-review-loading, .modular-diary-review-error { color: var(--text-muted); }
 .modular-diary-review-error { color: var(--text-error); }
+
+/* Upcoming: the component list, and not-yet-copied items in the week view. */
+.modular-diary-upcoming { display: flex; flex-direction: column; min-width: 0; }
+.modular-diary-upcoming-list { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.modular-diary-upcoming-day { margin-top: 6px; color: var(--text-muted); font-size: var(--modular-diary-font-caption); font-weight: var(--font-semibold, 600); }
+.modular-diary-upcoming-day:first-child { margin-top: 0; }
+.modular-diary-upcoming-row { display: grid; grid-template-columns: 8px 78px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 24px; }
+.modular-diary-upcoming-time { color: var(--text-muted); font-size: var(--modular-diary-font-caption); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.modular-diary-upcoming-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modular-diary-period-block.is-upcoming {
+  background: color-mix(in srgb, var(--modular-diary-block-color) 12%, var(--background-primary));
+  outline: 1.5px dashed var(--modular-diary-block-color);
+  outline-offset: -1.5px;
+  box-shadow: none;
+  color: var(--text-normal);
+}
+.modular-diary-period-pill.is-upcoming { outline: 1px dashed var(--background-modifier-border-hover, var(--text-faint)); outline-offset: -1px; background: transparent; color: var(--text-muted); }
+.modular-diary-upcoming-modal .modular-diary-upcoming-form { display: grid; gap: 10px; }
+.modular-diary-upcoming-field { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); align-items: center; gap: 10px; }
+.modular-diary-upcoming-field:nth-child(2) { grid-template-columns: 6.5em auto auto auto 1fr; }
+.modular-diary-upcoming-field > span:first-child { color: var(--text-muted); }
+.modular-diary-upcoming-form input[type="time"] {
+  height: var(--input-height, 30px);
+  padding: 0 8px;
+  border: var(--input-border-width, 1px) solid var(--background-modifier-border);
+  border-radius: var(--input-radius, 5px);
+  background: var(--background-modifier-form-field);
+  color: var(--text-normal);
+  font: inherit;
+}
+.modular-diary-upcoming-form input[type="time"]:focus { border-color: var(--background-modifier-border-focus, var(--interactive-accent)); outline: none; }
+.modular-diary-upcoming-hint { margin: 0; color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.modular-diary-upcoming-error { margin: 0; color: var(--text-error); font-size: var(--font-ui-smaller); }
+.modular-diary-upcoming-error:empty { display: none; }
+.modular-diary-upcoming-form button.mod-cta { justify-self: end; }
