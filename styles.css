@@ -5728,3 +5728,8 @@ textarea.modular-diary-template-source {
 }
 .modular-diary-period-day-dot.is-done { background: var(--modular-diary-day-color); color: #fff; font-weight: 600; }
 .modular-diary-period-day-dot.is-today { box-shadow: inset 0 0 0 1.5px var(--text-muted); }
+
+/* AI todo review result. */
+.modular-diary-review-modal .modal-content { max-height: 70vh; overflow: auto; }
+.modular-diary-review-loading, .modular-diary-review-error { color: var(--text-muted); }
+.modular-diary-review-error { color: var(--text-error); }

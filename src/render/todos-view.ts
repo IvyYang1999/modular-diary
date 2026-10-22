@@ -107,6 +107,8 @@ export interface TodoViewDeps {
   tagSuggest?: TagSuggestDeps
   /** Attachment services; without them attachments still render as plain chips. */
   attachments?: TodoAttachmentDeps
+  /** AI review of the whole list; the header shows a button only when given. */
+  onReview?: () => void
   draft?: NewTodoInput | null
   onDraftChange?: (draft: NewTodoInput | null) => void
   editDraft?: TodoEditDraft | null
@@ -413,6 +415,11 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     const rect = sort.getBoundingClientRect()
     deps.onSortMenu(rect.left, rect.bottom)
   })
+  if (deps.onReview && items.some((item) => !item.weekly)) {
+    const review = actions.createEl("button", { cls: "modular-diary-todo-review", attr: { type: "button", "aria-label": t("todoReview"), title: t("todoReview") } })
+    setIcon(review, "sparkles")
+    review.addEventListener("click", () => deps.onReview?.())
+  }
   const add = actions.createEl("button", { attr: { type: "button", "aria-label": t("addTodo") } })
   setIcon(add, "plus")
 

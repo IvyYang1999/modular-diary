@@ -1,3 +1,4 @@
+import { DEFAULT_TODO_REVIEW_CHECKLIST } from "./agent/todo-review"
 /**
  * Plugin settings: type -> color mapping (荧光笔色号, D2) + 对话模型配置
  * （2026-08-16 拍板：设置页填 API key 直调模型）+ layout knobs.
@@ -60,6 +61,8 @@ export interface ModularDiarySettings {
   tagCategories: Record<string, string>
   /** Section titles pinned to the add-component menu. */
   pinnedSections: string[]
+  /** The checklist a todo AI review is held against, one rule per line. */
+  todoReviewChecklist: string
   /** On the hour, ask in the status bar what the last hour went into. */
   hourlyNudge: boolean
   /** Hours the nudge may ask about: an hour starting at or after start, ending at or before end. */
@@ -93,6 +96,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   checklistFolder: DEFAULT_CHECKLIST_FOLDER,
   tagCategories: {},
   pinnedSections: [],
+  todoReviewChecklist: DEFAULT_TODO_REVIEW_CHECKLIST,
   hourlyNudge: true,
   nudgeStartHour: 9,
   nudgeEndHour: 24,
@@ -314,6 +318,15 @@ export class ModularDiarySettingTab extends PluginSettingTab {
       })
     }
     renderWeeklyTodos()
+    new Setting(weeklyTodoSection).setName(tr("todoReviewSettings")).setDesc(tr("todoReviewSettingsHint"))
+      .addTextArea((control) => {
+        control.inputEl.setAttribute("aria-label", tr("todoReviewSettings"))
+        control.inputEl.rows = 6
+        control.setValue(this.plugin.settings.todoReviewChecklist).onChange(async (value) => {
+          this.plugin.settings.todoReviewChecklist = value
+          await this.plugin.saveSettings()
+        })
+      })
     new Setting(weeklyTodoSection).setName(tr("todoPrioritySettings")).setDesc(tr("todoPrioritySettingsHint"))
       .addTextArea((control) => {
         control.inputEl.setAttribute("aria-label", tr("todoPrioritySettings"))

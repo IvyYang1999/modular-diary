@@ -1,3 +1,8 @@
+import { runEntryAgent } from "./agent/runner"
+import { runEntryAgentApi } from "./agent/direct-runner"
+import { obsidianTransport } from "./agent/obsidian-transport"
+import { buildTodoReviewPrompt, DEFAULT_TODO_REVIEW_CHECKLIST, type ReviewTodo } from "./agent/todo-review"
+import { TodoReviewModal } from "./agent/todo-review-modal"
 import { canTrackDays, periodStatsToken } from "./core/period-stats"
 import { getLanguage, MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownRenderer, MarkdownView, Menu, moment, normalizePath, Notice, Platform, Plugin, setIcon, TAbstractFile, TFile, TFolder } from "obsidian"
 import type momentFactory from "moment"
@@ -1176,6 +1181,7 @@ export default class ModularDiaryPlugin extends Plugin {
           tagStyle,
           tagSuggest: this.tagSuggestDeps(),
           attachments: this.todoAttachmentDeps(ctx.sourcePath),
+          onReview: () => this.reviewTodos(doc.todos.map((todo) => ({ ...todo, estimateMinutes: todo.estimateMin })), ctx.sourcePath),
           typeColors: spanPaletteForRender,
           view: doc.todoView,
           priorities: this.settings.todoPriorities,
@@ -1314,6 +1320,9 @@ export default class ModularDiaryPlugin extends Plugin {
               }))
             }
             if (addChild) menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("list-plus").onClick(addChild))
+            if (!todo.weekly) menu.addItem((item) => item.setTitle(tr("todoReviewOne")).setIcon("sparkles").onClick(() => {
+              void this.reviewTodos(doc.todos.map((value) => ({ ...value, estimateMinutes: value.estimateMin })), ctx.sourcePath, todo.id)
+            }))
             if (!todo.weekly && todo.parent) menu.addItem((item) => item.setTitle(tr("unparentTodo")).setIcon("corner-left-up").onClick(() => {
               void this.applyBlockTransform(el, ctx, source, (value) => setTodoParent(value, todo.id, undefined))
             }))
@@ -2195,6 +2204,21 @@ export default class ModularDiaryPlugin extends Plugin {
     }
     if (!this.dayIndexReady()) void this.refreshDayIndex()
     return [...seen]
+  }
+
+  /** Run an AI review of the day's todos (or one of them) with the dialog's backend; read-only. */
+  private async reviewTodos(todos: ReviewTodo[], sourcePath: string, focusId?: string): Promise<void> {
+    const focus = focusId ? todos.find((todo) => todo.id === focusId) : undefined
+    const modal = new TodoReviewModal(this.app, focus ? tr("todoReviewOneTitle", { title: focus.title }) : tr("todoReviewAllTitle"), sourcePath)
+    modal.open()
+    const prompt = buildTodoReviewPrompt(todos, this.settings.todoReviewChecklist || DEFAULT_TODO_REVIEW_CHECKLIST, focusId)
+    const run = this.settings.dialogBackend === "claude-cli"
+      ? await runEntryAgent(prompt.user, prompt.system)
+      : await runEntryAgentApi(prompt.user, prompt.system, {
+        provider: this.settings.provider, apiKey: this.settings.apiKey, baseUrl: this.settings.baseUrl, model: this.settings.model,
+      }, obsidianTransport)
+    if (run.ok) modal.show(run.text)
+    else modal.fail(run.reason)
   }
 
   /** Todo attachments: vault image thumbnails, opening, and saving pasted images next to the note. */
@@ -3143,6 +3167,7 @@ export default class ModularDiaryPlugin extends Plugin {
       todoPriorities: normalizeTodoPriorities(Array.isArray(data?.todoPriorities) ? data.todoPriorities.filter((value): value is string => typeof value === "string") : DEFAULT_SETTINGS.todoPriorities),
       dailyQuoteInk: typeof data?.dailyQuoteInk === "string" ? data.dailyQuoteInk : "",
       checklistFolder: typeof data?.checklistFolder === "string" ? data.checklistFolder : DEFAULT_SETTINGS.checklistFolder,
+      todoReviewChecklist: typeof data?.todoReviewChecklist === "string" && data.todoReviewChecklist.trim() ? data.todoReviewChecklist : DEFAULT_TODO_REVIEW_CHECKLIST,
       pinnedSections: Array.isArray(data?.pinnedSections) ? [...new Set(data.pinnedSections.filter((value): value is string => typeof value === "string" && value.trim() !== ""))] : [],
       timelineOnboardingSeen: resolveTimelineOnboardingSeen(
         data?.timelineOnboardingSeen,

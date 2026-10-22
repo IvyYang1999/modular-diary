@@ -457,7 +457,7 @@ const changedState = await page.evaluate(() => ({
   storedName: window.__settings?.habits?.[0]?.name ?? null,
   dailyRepeatCount: document.querySelectorAll('#habits .modular-diary-rule-editor[data-habit-id="daily"] [data-field="repeat"]').length,
 }))
-const priorityTiers = page.locator("#global-settings [data-settings-section='todo-rules'] textarea")
+const priorityTiers = page.locator("#global-settings [data-settings-section='todo-rules'] textarea[aria-label='优先级档位']")
 await priorityTiers.fill("马上\n 随时 \n马上")
 await priorityTiers.dispatchEvent("change")
 const customPriorityTiers = await page.evaluate(() => window.__settings.todoPriorities)
