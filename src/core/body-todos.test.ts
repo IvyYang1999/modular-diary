@@ -123,6 +123,16 @@ describe("writing back", () => {
     expect(removeBodyTodo(changed, target)).toBeNull()
   })
 
+  it("rejects fallback into a second section with the same heading", () => {
+    const original = "# Work\n- [ ] Target\n# Other\n# Work\n- [ ] Target\n"
+    const target = parseBodyTodos(original, "Work")[0]
+    expect(setBodyTodoCompleted(original.replace("# Work\n- [ ] Target\n", ""), target, true)).toBeNull()
+  })
+
+  it("does not expose two body rows with the same explicit identity", () => {
+    expect(parseBodyTodos("# Work\n- [ ] One ^body-123\n- [ ] Two ^body-123\n", "Work")).toEqual([])
+  })
+
   it("preserves CRLF and rejects multiline title injection", () => {
     const original = "# Work\r\n- [ ] Target\r\n"
     const target = parseBodyTodos(original, "Work")[0]

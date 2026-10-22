@@ -337,7 +337,7 @@ export function createTodoForm(
     onDraftChange?.(null)
     try {
       const result = onSubmit(input)
-      if (result) void result.then(() => { restore(); close() }, () => { restore(); onDraftChange?.(input); showError(t("saveFailed"), title) })
+      if (result && typeof result.then === "function") void result.then(() => { restore(); close() }, () => { restore(); onDraftChange?.(input); showError(t("saveFailed"), title) })
       else { restore(); close() }
     } catch {
       restore()

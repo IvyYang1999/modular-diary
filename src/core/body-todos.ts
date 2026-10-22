@@ -124,7 +124,9 @@ export function parseBodyTodos(source: string, section: string): BodyTodoItem[] 
       section: wanted,
     })
   }
-  return items
+  const counts = new Map<string, number>()
+  for (const item of items) counts.set(item.id, (counts.get(item.id) ?? 0) + 1)
+  return items.filter(item => counts.get(item.id) === 1)
 }
 
 /**
@@ -134,6 +136,10 @@ export function parseBodyTodos(source: string, section: string): BodyTodoItem[] 
 type BodyTodoTarget = Pick<BodyTodoItem, "line" | "raw"> & Partial<Pick<BodyTodoItem, "snapshot" | "section" | "group" | "id">>
 function locate(source: string, item: BodyTodoTarget): number {
   if (item.snapshot === source && source.split("\n")[item.line] === item.raw) return item.line
+  if (item.section && item.snapshot) {
+    const sections = (text: string): number => [...noteLines(text)].filter(line => headingText(line.text)?.text === item.section).length
+    if (sections(item.snapshot) !== 1 || sections(source) !== 1) return -1
+  }
   const matches = (text: string): BodyTodoItem[] => parseBodyTodos(text, item.section ?? "")
     .filter(candidate => candidate.raw === item.raw && (item.group === undefined || candidate.group === item.group))
   if (item.snapshot && matches(item.snapshot).length > 1) return -1
