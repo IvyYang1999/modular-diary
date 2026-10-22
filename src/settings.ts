@@ -72,6 +72,12 @@ export interface ModularDiarySettings {
   nudgeEndHour: number
   /** Also raise a quiet system notification (reaches you while another app is in front). */
   hourlyNudgeNotify: boolean
+  /**
+   * Heading in the note body whose `- [ ]` list the Todo component adopts
+   * ("" = off). The lines stay in the note; the component reads and writes
+   * them in place, so a template's todo list is not a second copy.
+   */
+  bodyTodoSection: string
 }
 
 export const DEFAULT_SETTINGS: ModularDiarySettings = {
@@ -104,6 +110,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   nudgeStartHour: 9,
   nudgeEndHour: 24,
   hourlyNudgeNotify: false,
+  bodyTodoSection: "",
 }
 
 const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -279,6 +286,18 @@ export class ModularDiarySettingTab extends PluginSettingTab {
     weeklyTodoSection.dataset.settingsSection = "todo-rules"
     weeklyTodoSection.createEl("h3", { text: tr("todoRulesHeading") })
     weeklyTodoSection.createEl("p", { text: tr("todoRulesDescription"), cls: "setting-item-description" })
+    new Setting(weeklyTodoSection)
+      .setName(tr("bodyTodoSection"))
+      .setDesc(tr("bodyTodoSectionDescription"))
+      .addText((control) => {
+        control
+          .setPlaceholder(tr("todayTodoHeadingPlaceholder"))
+          .setValue(this.plugin.settings.bodyTodoSection)
+          .onChange(async (value) => {
+            this.plugin.settings.bodyTodoSection = value.trim()
+            await this.plugin.saveSettings({ rerender: true })
+          })
+      })
     const weeklyTodosEl = weeklyTodoSection.createDiv({ cls: "modular-diary-rules-settings modular-diary-settings-section-editor" })
     const renderWeeklyTodos = (): void => {
       weeklyTodosEl.empty()
