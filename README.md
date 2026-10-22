@@ -29,3 +29,11 @@ The Markdown `timeline` blocks and their contents do not need migration. See [re
 Open **Add module (+) → Add Checklist** in a diary block to create a standalone list. Each Checklist has its own name, items, completion count and layout slot. Use its six-dot grip to move it, drag its edges to resize, or right-click its blank area to hide it. Hidden lists keep their data and can be restored from Add module.
 
 **Add Checklist from template** copies a template into a new module. Later template edits do not change that copy. Items and checkbox states are stored in the diary block's `checklist:` headers; placement is stored in `layout:`. Saving the block as a new-day layout keeps the list items and resets their checks. Existing Markdown checklists and the legacy daily-copy commands keep their current behavior; historical notes are not converted automatically.
+
+### Note-body Todos and the current time
+
+In **Settings → Todo rules**, set the note-body section heading to adopt the Markdown checkboxes under that heading. The default is empty (off). The Todo component reads, checks, renames and deletes those original lines; deeper headings supply their groups. A plain new Todo with no category, duration or other attributes joins that section. Rich Todos keep using the timeline block, preserving notes, difficulty, priority, attachments and subtodos.
+
+Drag an adopted Todo's content onto the timeline to plan one hour using the currently selected category; resize the plan afterwards. Its source order stays in the note, and its edit form changes only the title. Source-mode writes are undoable editor transactions; reading-mode writes use the Vault and refuse while another source view of the same file is open. Equal or moved lines that cannot be identified safely are left untouched.
+
+Today's timeline also shows a current-time line inside its configured range. It moves every 30 seconds without remounting the block or interrupting drafts; other days have no current-time marker.

@@ -20,6 +20,8 @@ export interface TodoViewItem {
   difficulty?: number
   priority?: string
   weekly: boolean
+  /** Backed by a `- [ ]` line in the note body rather than the code block. */
+  body?: boolean
   estimateMinutes: number
   actualMinutes: number
   /** `#tags` from the title; grouping by tag reads the first one. */
@@ -78,8 +80,8 @@ export interface TodoViewDeps {
   priorities?: string[]
   typeColors: Record<string, string>
   view: TodoViewConfig
-  onAdd: (input: NewTodoInput) => void
-  onEdit: (id: string, input: NewTodoInput) => void
+  onAdd: (input: NewTodoInput) => void | Promise<void>
+  onEdit: (id: string, input: NewTodoInput) => void | Promise<void>
   onGroupMenu: (x: number, y: number) => void
   onSortMenu: (x: number, y: number) => void
   onToggle: (id: string, completed: boolean) => void | Promise<void>
@@ -109,6 +111,8 @@ export interface TodoViewDeps {
   attachments?: TodoAttachmentDeps
   /** AI review of the whole list; the header shows a button only when given. */
   onReview?: () => void
+  /** Block length a note-body todo gets when dragged onto the timeline. */
+  defaultScheduleMinutes?: number
   draft?: NewTodoInput | null
   onDraftChange?: (draft: NewTodoInput | null) => void
   editDraft?: TodoEditDraft | null
@@ -125,7 +129,7 @@ export function createTodoForm(
   parent: HTMLElement,
   categories: string[],
   className: string,
-  onSubmit: (input: NewTodoInput) => void,
+  onSubmit: (input: NewTodoInput) => void | Promise<void>,
   onClose?: () => void,
   onDraftChange?: (draft: NewTodoInput | null) => void,
   priorities: string[] = DEFAULT_TODO_PRIORITIES,
@@ -312,6 +316,7 @@ export function createTodoForm(
   })
   form.addEventListener("submit", (event) => {
     event.preventDefault()
+    if (save.disabled) return
     clearError()
     if (!title.value.trim()) {
       showError(t("todoTitleRequired"), title)
@@ -323,8 +328,22 @@ export function createTodoForm(
       return
     }
     const input = { ...extraValues(), title: title.value.trim(), type: category.value || undefined, estimateMinutes: readEstimateMinutes(), estimateUnit: currentUnit }
-    close()
-    onSubmit(input)
+    const controls = Array.from(form.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement | HTMLSelectElement>("input, button, textarea, select"))
+    const disabled = controls.map(control => control.disabled)
+    controls.forEach(control => { control.disabled = true })
+    const restore = (): void => controls.forEach((control, index) => { control.disabled = disabled[index] })
+    // A successful write may remount before its Promise resolves. Do not reopen
+    // the submitted draft in that new row; a failed write restores it below.
+    onDraftChange?.(null)
+    try {
+      const result = onSubmit(input)
+      if (result) void result.then(() => { restore(); close() }, () => { restore(); onDraftChange?.(input); showError(t("saveFailed"), title) })
+      else { restore(); close() }
+    } catch {
+      restore()
+      onDraftChange?.(input)
+      showError(t("saveFailed"), title)
+    }
   })
   return {
     form,
@@ -454,7 +473,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
    */
   const addChildFor = (id: string, draft?: NewTodoInput): void => {
     const parent = items.find((item) => item.id === id)
-    if (!parent) return
+    if (!parent || parent.body) return
     addIntoBucket = undefined
     addIntoParent = id
     addForm.open(draft ?? { title: "", type: parent.type, estimateMinutes: 30, estimateUnit: "minutes" }, { focus: !draft })
@@ -549,7 +568,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   }
   // Drag targets are indexes into the block-owned rows in source order;
   // weekly goals live in settings and keep their own ordering there.
-  const ownedIds = items.filter((item) => !item.weekly).map((item) => item.id)
+  const ownedIds = items.filter((item) => !item.weekly && !item.body).map((item) => item.id)
   const weeklyIds = new Set(items.filter((item) => item.weekly).map((item) => item.id))
   const subtreeIdsOf = (id: string): Set<string> => new Set([id, ...todoTree.descendantIds(id)])
   /** A drop at node position `targetIndex` within one sibling list, mapped onto the owned todos (subtree blocks move whole). */
@@ -662,7 +681,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   }
   const renderRow = (item: TodoViewItem, sourceIndex: number, node: HTMLElement, siblings: HTMLElement, containerIds: string[] | null, depth: number, childCount: number, collapsed: boolean): void => {
     // Bucket cells are chosen per root; children follow their root's cell.
-    const rowDraggable = buckets ? !item.weekly && Boolean(deps.onSetBucket) && todoTree.parentOf(item.id) === null : manualSort && (!grouped || !item.weekly)
+    const rowDraggable = !item.body && (buckets ? !item.weekly && Boolean(deps.onSetBucket) && todoTree.parentOf(item.id) === null : manualSort && (!grouped || !item.weekly))
     const row = node.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : item.partial ? " is-partial" : ""}${rowDraggable ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
     if (depth > 0) row.style.setProperty("--modular-diary-todo-depth", String(depth))
     row.tabIndex = 0
@@ -686,7 +705,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
             ? () => Array.from(root.querySelectorAll<HTMLElement>(".modular-diary-todo-row[data-todo-id]"))
               .filter((candidate) => {
                 const id = candidate.dataset.todoId ?? ""
-                return id !== "" && id !== item.id && !forbidden.has(id) && !weeklyIds.has(id)
+                return id !== "" && id !== item.id && !forbidden.has(id) && !weeklyIds.has(id) && !byId.get(id)?.body
               })
               .map((candidate) => ({ row: candidate, onChild: () => deps.onReparent?.(item.id, candidate.dataset.todoId ?? "") }))
             : undefined,
@@ -705,6 +724,13 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       deps.tagSuggest,
       deps.attachments,
     )
+    if (item.body) for (const field of Array.from(editForm.form.querySelectorAll<HTMLElement>(".modular-diary-todo-category-select, .modular-diary-todo-estimate-field, .modular-diary-todo-rank-row, .modular-diary-todo-note-input, .modular-diary-todo-attach-field"))) {
+      editForm.form.classList.add("is-body-todo")
+      field.hidden = true
+      field.style.display = "none"
+      if (field.matches("input, select, textarea, button")) (field as HTMLInputElement).disabled = true
+      field.querySelectorAll<HTMLInputElement | HTMLButtonElement>("input, select, textarea, button").forEach(control => { control.disabled = true })
+    }
     const edit = (): void => {
       row.classList.add("is-editing")
       editForm.open({ title: item.title, type: item.type, estimateMinutes: item.estimateMinutes, note: item.note, difficulty: item.difficulty, priority: item.priority, attach: item.attach })
@@ -712,7 +738,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     // Lets a sibling surface (a period block's calendar pill) open this row's editor.
     row.addEventListener("modular-diary-edit", edit)
     row.addEventListener("modular-diary-add-child", () => {
-      if (!item.weekly && !item.movedTo) addChildFor(item.id)
+      if (!item.weekly && !item.body && !item.movedTo) addChildFor(item.id)
     })
     if (buckets && rowDraggable) row.addEventListener("keydown", (event) => {
       if (!event.altKey || event.target !== row) return
@@ -751,13 +777,13 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     row.addEventListener("contextmenu", (event) => {
       event.preventDefault()
       event.stopPropagation()
-      deps.onMenu(item, event.clientX, event.clientY, edit, !item.weekly && !item.movedTo ? () => addChildFor(item.id) : null)
+      deps.onMenu(item, event.clientX, event.clientY, edit, !item.weekly && !item.body && !item.movedTo ? () => addChildFor(item.id) : null)
     })
     row.addEventListener("keydown", (event) => {
       if ((event.shiftKey && event.key === "F10") || event.key === "ContextMenu") {
         event.preventDefault()
         const rect = row.getBoundingClientRect()
-        deps.onMenu(item, rect.left, rect.bottom, edit, !item.weekly && !item.movedTo ? () => addChildFor(item.id) : null)
+        deps.onMenu(item, rect.left, rect.bottom, edit, !item.weekly && !item.body && !item.movedTo ? () => addChildFor(item.id) : null)
       }
     })
     const check = row.createEl("button", { cls: "modular-diary-todo-check", attr: { type: "button", "aria-pressed": String(item.completed), "aria-label": item.completed ? t("markIncomplete") : t("markComplete") } })
@@ -798,13 +824,20 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       })
     })
     const body = row.createDiv({ cls: "modular-diary-todo-body" })
-    if (item.estimateMinutes > 0 && item.type && !item.movedTo) {
+    // A note-body todo has nowhere to store a category or an estimate, so it
+    // is still draggable: the host resolves the category from the toolbar and
+    // the block gets a default length the reader can then resize.
+    const scheduleMinutes = item.estimateMinutes > 0
+      ? item.estimateMinutes
+      : (item.body === true ? deps.defaultScheduleMinutes ?? 0 : 0)
+    if (scheduleMinutes > 0 && (Boolean(item.type) || item.body === true) && !item.movedTo) {
       body.classList.add("modular-diary-schedule-source")
       body.dataset.scheduleSource = "todo"
       body.dataset.scheduleId = item.id
       body.dataset.scheduleTitle = item.title
-      body.dataset.scheduleType = item.type
-      body.dataset.scheduleDuration = String(item.estimateMinutes)
+      // Left empty on purpose for a body todo: the drag resolves it live.
+      body.dataset.scheduleType = item.type ?? ""
+      body.dataset.scheduleDuration = String(scheduleMinutes)
     }
     const titleEl = body.createEl("span", { cls: "modular-diary-item-title" })
     if (childCount > 0) {
@@ -837,7 +870,8 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     const subtree = item.weekly || item.movedTo ? null : (todoTree.childrenOf(item.id).length > 0 ? rollupOf(item.id) : null)
     const estimateShown = subtree ? subtree.estimate : item.estimateMinutes
     const actualShown = subtree ? subtree.actual : item.actualMinutes
-    const metaParts = [item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(actualShown), estimate: formatHours(estimateShown) }), ...(subtree ? [t("todoSubtreeProgress", { done: subtree.done, total: subtree.total })] : [])].filter(Boolean)
+    const untimedBodyTodo = item.body === true && estimateShown === 0 && actualShown === 0
+    const metaParts = [item.weekly ? t("weeklyGoal") : "", item.type ?? "", untimedBodyTodo ? "" : t("actualVsEstimate", { actual: formatHours(actualShown), estimate: formatHours(estimateShown) }), ...(subtree ? [t("todoSubtreeProgress", { done: subtree.done, total: subtree.total })] : [])].filter(Boolean)
     if (deps.compactMeta) {
       const meta = body.createEl("span", { cls: "modular-diary-item-meta is-compact" })
       for (const flag of item.flags ?? []) meta.createEl("span", { cls: `modular-diary-todo-flag is-${flag.tone ?? "placed"}`, text: flag.text })

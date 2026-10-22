@@ -2462,6 +2462,20 @@ button.modular-diary-todo-group-toggle svg {
   border-bottom: 0;
 }
 
+.modular-diary-todo-form.is-body-todo {
+  grid-template-columns: minmax(0, 1fr) 26px;
+}
+
+.modular-diary-todo-form.is-body-todo > .modular-diary-todo-title-input {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.modular-diary-todo-form.is-body-todo > .modular-diary-todo-save {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 .modular-diary-todo-row.is-editing > :not(.modular-diary-todo-edit-form) {
   display: none;
 }

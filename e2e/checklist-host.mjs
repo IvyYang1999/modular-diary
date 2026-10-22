@@ -32,7 +32,7 @@ export function createChecklistHost(initial,mode='preview'){
  const context={sourcePath:file.path,docId:'checklist-test',getSectionInfo:()=>null}
  const commit=async(displayed,change)=>{await plugin.applyBlockTransform(host,context,displayed,change);return source()}
  const slotsContainer=items=>({querySelector:()=>({querySelectorAll:()=>items.map(it=>({dataset:{slot:it.id,x:it.x,y:it.y,w:it.w,h:it.h}}))})})
- return {filename,read,source,plugin,host,context,view,setFail:value=>{fail=value},
+ return {filename,read,source,plugin,host,context,view,setFail:value=>{fail=value},setContent:value=>{memory=value;fs.writeFileSync(filename,value)},
   add:async(displayed,items=[],template)=>commit(displayed,s=>plugin.addChecklistComponent(s,plugin.parse(s),slotsContainer(items),template)),
   save:async(displayed,id,next)=>{await plugin.saveChecklistModule(host,context,displayed,id,()=>next);return source()},
   layout:(displayed,items)=>commit(displayed,s=>{

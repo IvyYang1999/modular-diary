@@ -92,6 +92,13 @@ type MomentLike = (input: string, format: string) => { format: (momentFormat: st
 const momentFormat = (momentFormat: string, date: string): string =>
   ((window as unknown as { moment?: MomentLike }).moment?.(date, "YYYY-MM-DD").format(momentFormat)) ?? date
 import { formatTodoViewHeaderValue, groupTodoTree, indexTodoTree, isWeeklyTodoDue, moveTodoGroupKey, normalizeTodoPriorities, todoMetrics, TODO_BUCKETS } from "./core/todos"
+import {
+  appendBodyTodo,
+  parseBodyTodos,
+  removeBodyTodo,
+  setBodyTodoCompleted,
+  setBodyTodoTitle,
+} from "./core/body-todos"
 import { renderHabitsInto } from "./render/habits-view"
 import { renderTodosInto, type NewTodoInput, type TodoAttachmentDeps, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
 import { renderDailyQuoteInto } from "./render/daily-quote-view"
@@ -101,6 +108,8 @@ const QUOTE_ROWS = 6
 /** Hour diary default height: header, two short pieces and the composer. */
 const HOURLOG_ROWS = 10
 const UPCOMING_ROWS = 9
+/** Length a note-body todo gets when dragged onto the axis; resize from there. */
+const DEFAULT_BODY_TODO_SCHEDULE_MINUTES = 60
 import { createPointerRedrawGate } from "./edit/pointer-interaction"
 import { attachTimelineScheduleDrag } from "./edit/timeline-schedule-drag"
 import { buildTodoGroupMenuOptions, buildTodoSortMenuOptions, buildTodoSubGroupMenuOptions } from "./edit/block-menu-model"
@@ -174,6 +183,9 @@ export default class ModularDiaryPlugin extends Plugin {
   private readonly remountVisual = new RemountVisualRegistry<object>()
   private readonly timelineVisuals = new TimelineVisualCoordinator<HTMLElement, object>()
   private readonly documentOwnerTokens = new Map<string, object>()
+  /** Note source for body todos, invalidated by the vault listeners below. */
+  private noteTextCache = new Map<string, string>()
+  private noteTextLoading = new Set<string>()
   private todoDrafts = new WeakMap<object, Map<string, NewTodoInput>>()
   private todoEditDrafts = new WeakMap<object, Map<string, TodoEditDraft>>()
   private checklistDrafts = new WeakMap<object, Map<string, ChecklistDraft>>()
@@ -237,6 +249,8 @@ export default class ModularDiaryPlugin extends Plugin {
     this.remountVisual.clear()
     this.timelineVisuals.clear()
     this.documentOwnerTokens.clear()
+    this.noteTextCache.clear()
+    this.noteTextLoading.clear()
     this.todoDrafts = new WeakMap()
     this.todoEditDrafts = new WeakMap()
     this.checklistDrafts = new WeakMap()
@@ -270,6 +284,7 @@ export default class ModularDiaryPlugin extends Plugin {
       }
       if (oldPath) this.dayIndex.rename(oldPath, file.path)
       else this.dayIndex.markDirty(file.path)
+      this.refreshBodyTodos(file)
       this.ledgerModifiedPaths.add(file.path)
       if (this.ledgerRefreshTimer) activeWindow.clearTimeout(this.ledgerRefreshTimer)
       this.ledgerRefreshTimer = activeWindow.setTimeout(() => {
@@ -643,14 +658,23 @@ export default class ModularDiaryPlugin extends Plugin {
         : (dateStr ? [{ date: dateStr, entries: doc.entries }] : []))
         .map((item) => item.date === dateStr ? { ...item, habitDone: doc.habitDone } : item)
       const weeklyEntries = weeklyDatedEntries.flatMap((item) => item.entries)
+      // The note's own `- [ ]` list, read straight from the rendered section
+      // so the component shows one list instead of a second copy.
+      const bodyTodos = this.settings.bodyTodoSection
+        ? parseBodyTodos(
+            this.noteTextFor(ctx.sourcePath, ctx.getSectionInfo(el)?.text),
+            this.settings.bodyTodoSection
+          ).filter(todo => !doc.todos.some(owned => owned.id === todo.id) && !dueWeeklyTodos.some(weekly => weekly.id === todo.id))
+        : []
       const layoutHas = (id: string): boolean => Boolean(doc.layout?.some((item) => item.id === id))
       const extraSlots: GridItem[] = []
       for (const checklist of doc.checklists ?? []) extraSlots.push(defaultComponentSlot(checklist.id, 8, doc.side))
       if (dueHabits.length > 0 || layoutHas("habits")) {
         extraSlots.push(defaultComponentSlot("habits", Math.max(HABITS_EMPTY_ROWS, dueHabits.length * 2 + 2), doc.side))
       }
-      if (doc.todos.length > 0 || dueWeeklyTodos.length > 0 || layoutHas("todos")) {
-        extraSlots.push(defaultComponentSlot("todos", Math.max(5, (doc.todos.length + dueWeeklyTodos.length) * 2 + 3), doc.side))
+      if (doc.todos.length > 0 || dueWeeklyTodos.length > 0 || bodyTodos.length > 0 || layoutHas("todos")) {
+        const todoCount = doc.todos.length + dueWeeklyTodos.length + bodyTodos.length
+        extraSlots.push(defaultComponentSlot("todos", Math.max(5, todoCount * 2 + 3), doc.side))
       }
       if (layoutHas("quote")) extraSlots.push(defaultComponentSlot("quote", QUOTE_ROWS, doc.side))
       if (layoutHas("upcoming")) extraSlots.push(defaultComponentSlot("upcoming", UPCOMING_ROWS, doc.side))
@@ -1191,7 +1215,24 @@ export default class ModularDiaryPlugin extends Plugin {
             completed: actualMinutes >= todo.targetMinutes,
           }
         }),
+        ...bodyTodos.map((todo) => ({
+          id: todo.id,
+          title: todo.title,
+          group: todo.group,
+          completed: todo.completed,
+          weekly: false,
+          body: true,
+          // A `- [ ]` line stores neither category nor estimate. Blocks
+          // dragged out of the row bind back to it, so both can be read off
+          // them once the todo has been planned.
+          type: doc.entries.find((entry) => entry.todoId === todo.id && entry.type)?.type,
+          estimateMinutes: 0,
+          actualMinutes: doc.entries
+            .filter((entry) => !entry.plan && entry.todoId === todo.id)
+            .reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0),
+        })),
       ]
+      const bodyTodoById = new Map(bodyTodos.map((todo) => [todo.id, todo]))
       if (todosSlot) {
         const draftKey = this.scrollTransactionKey(el, ctx)
         let ownerDrafts = this.todoDrafts.get(draftKey.owner)
@@ -1216,6 +1257,7 @@ export default class ModularDiaryPlugin extends Plugin {
           typeColors: spanPaletteForRender,
           view: doc.todoView,
           priorities: this.settings.todoPriorities,
+          defaultScheduleMinutes: DEFAULT_BODY_TODO_SCHEDULE_MINUTES,
           draft: ownerDrafts.get(draftId) ?? null,
           onDraftChange: (draft) => {
             if (draft) ownerDrafts?.set(draftId, { ...draft })
@@ -1242,6 +1284,7 @@ export default class ModularDiaryPlugin extends Plugin {
             else this.todoGroupCollapsed.add(scoped)
           },
           onReparent: (id, parentId) => {
+            if (bodyTodoById.has(id) || bodyTodoById.has(parentId)) return
             void this.applyBlockTransform(el, ctx, source, (value) => setTodoParent(value, id, parentId))
           },
           onMoveGroup: (key, targetIndex) => {
@@ -1287,6 +1330,19 @@ export default class ModularDiaryPlugin extends Plugin {
             menu.showAtPosition({ x, y }, dom)
           },
           onAdd: (input) => {
+            // With a note section configured, a plain todo belongs in the
+            // note's own list. One with an estimate or a category still needs
+            // the block, which is the only place those can be stored.
+            const section = this.settings.bodyTodoSection
+            if (section && input.estimateMinutes <= 0 && !input.type && !input.note && !input.priority && !input.difficulty && !input.parent && !input.bucket && !input.attach?.length) {
+              return this.applyBodyTodoEdit(ctx.sourcePath, (content) =>
+                appendBodyTodo(content, section, input.title), el).catch(error => {
+                  ownerDrafts?.set(draftId, { ...input })
+                  this.rerenderMountedTimelines()
+                  throw error
+                })
+              return
+            }
             const value = {
               id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
               title: input.title, group: "", type: input.type,
@@ -1301,6 +1357,18 @@ export default class ModularDiaryPlugin extends Plugin {
                 : insertTodo(this.addComponentSlot(current, doc, container, "todos"), value))
           },
           onEdit: (id, input) => {
+            const inNote = bodyTodoById.get(id)
+            if (inNote) {
+              // A body todo has no estimate or category to store; the title
+              // is the whole line, so that is all an edit can change.
+              return this.applyBodyTodoEdit(ctx.sourcePath, (content) =>
+                setBodyTodoTitle(content, inNote, input.title), el).catch(error => {
+                  ownerEditDrafts?.set(draftId, { id, input: { ...input } })
+                  this.rerenderMountedTimelines()
+                  throw error
+                })
+              return
+            }
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
             if (weekly) {
               weekly.note = input.note
@@ -1321,9 +1389,17 @@ export default class ModularDiaryPlugin extends Plugin {
             }))
           },
           onToggle: (id, completed) => {
+            const inNote = bodyTodoById.get(id)
+            if (inNote) {
+              return this.applyBodyTodoEdit(ctx.sourcePath, (content) =>
+                setBodyTodoCompleted(content, inNote, completed), el)
+            }
             return this.applyBlockTransform(el, ctx, source, (value) => setTodoCompleted(value, id, completed))
           },
           onMove: (id, targetIndex) => {
+            // Body todos keep the note's own order; dragging one would have to
+            // move a line the user owns, so it stays put.
+            if (bodyTodoById.has(id)) return
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
             if (weekly) {
               // The view maps weekly drops onto the weekly list itself.
@@ -1339,6 +1415,14 @@ export default class ModularDiaryPlugin extends Plugin {
           onMenu: (todo, x, y, edit, addChild) => {
             const menu = new Menu()
             menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
+            const inNote = bodyTodoById.get(todo.id)
+            if (inNote) {
+              menu.addItem(item => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => {
+                void this.applyBodyTodoEdit(ctx.sourcePath, content => removeBodyTodo(content, inNote), el).catch(() => undefined)
+              }))
+              menu.showAtPosition({ x, y }, dom)
+              return
+            }
             if (!todo.weekly && !todo.movedTo) {
               menu.addItem((item) => item.setTitle(tr("markPartial")).setIcon("circle-slash").setChecked(Boolean(todo.partial)).onClick(() => {
                 void this.applyBlockTransform(el, ctx, source, (value) => updateTodo(value, todo.id, { completed: false, partial: true }))
@@ -1743,6 +1827,9 @@ export default class ModularDiaryPlugin extends Plugin {
         attachTimelineScheduleDrag(container, doc, {
           hourHeight: this.settings.hourHeight,
           typeColor: (type) => spanPaletteForRender[type] ?? hashTypeColor(type),
+          // A note-body todo stores no category; it follows the highlighter
+          // selected in the toolbar at the moment of the drag.
+          defaultType: () => blockActiveSpanType || spanPaletteTypes[0] || "",
           onCreate: (plan) => {
             clearBlockEditState()
             void this.applyBlockTransform(el, ctx, source, (value) => insertEntryLine(
@@ -2669,6 +2756,112 @@ export default class ModularDiaryPlugin extends Plugin {
         if (target > 0 && scroller.scrollTop <= 1) scroller.scrollTop = target
       })
     })
+  }
+
+  /**
+   * A note changed: drop its cached source, and repaint when that actually
+   * moved the body todo list.
+   *
+   * The ledger refresh deliberately skips the path Obsidian just modified,
+   * because Obsidian remounts the blocks in it. That holds for edits inside
+   * the fence; ticking a box further down the note leaves the block mounted
+   * and stale, so this repaints on a real list change and stays quiet
+   * otherwise.
+   */
+  private refreshBodyTodos(file: TAbstractFile): void {
+    const before = this.noteTextCache.get(file.path)
+    this.noteTextCache.delete(file.path)
+    const section = this.settings.bodyTodoSection
+    if (!section || before === undefined || !(file instanceof TFile) || file.extension !== "md") return
+    void this.app.vault.cachedRead(file).then((text) => {
+      this.noteTextCache.set(file.path, text)
+      const signature = (source: string): string =>
+        parseBodyTodos(source, section)
+          .map((todo) => `${todo.completed ? "x" : " "} ${todo.group} ${todo.title}`)
+          .join("\n")
+      if (before !== undefined && signature(before) === signature(text)) return
+      this.rerenderMountedTimelines()
+    }, () => undefined)
+  }
+
+  /**
+   * The whole note source, for reading body todos.
+   *
+   * `ctx.getSectionInfo` is the accurate answer but returns null while the
+   * block is still detached, which is exactly the first paint. Fall back to a
+   * cached read and repaint once it lands; later renders take the live text
+   * and refresh the cache for free.
+   */
+  private noteTextFor(path: string, live: string | undefined): string {
+    if (live !== undefined) {
+      this.noteTextCache.set(path, live)
+      return live
+    }
+    const cached = this.noteTextCache.get(path)
+    if (cached !== undefined) return cached
+    const file = this.app.vault.getAbstractFileByPath(path)
+    if (file instanceof TFile && !this.noteTextLoading.has(path)) {
+      this.noteTextLoading.add(path)
+      void this.app.vault.cachedRead(file).then((text) => {
+        this.noteTextLoading.delete(path)
+        if (this.noteTextCache.get(path) === text) return
+        this.noteTextCache.set(path, text)
+        this.rerenderMountedTimelines()
+      }, () => this.noteTextLoading.delete(path))
+    }
+    return ""
+  }
+
+  /**
+   * Rewrite one `- [ ]` line in the note body.
+   *
+   * `rewrite` returns null when the line no longer matches, which means the
+   * note changed since it was rendered: the write is dropped and the blocks
+   * are refreshed rather than a stale line being overwritten.
+   */
+  private async applyBodyTodoEdit(
+    sourcePath: string,
+    rewrite: (content: string) => string | null,
+    target: HTMLElement,
+  ): Promise<void> {
+    const file = this.app.vault.getAbstractFileByPath(sourcePath)
+    if (!(file instanceof TFile)) throw new Error(tr("fileNotFound"))
+    const transform = (content: string): string => {
+      const next = rewrite(content)
+      if (next === null) throw new Error(tr("bodyTodoLineGone"))
+      return next
+    }
+    const views = this.markdownViews(sourcePath)
+    const view = chooseMutationView(sourcePath, target, views, this.app.workspace.getActiveViewOfType(MarkdownView))
+    try {
+      if (view?.getMode() === "source") {
+        const editor = view.editor
+        const before = editor.getValue()
+        const next = transform(before)
+        if (next === before) return
+        const lines = before.split("\n")
+        const from = { line: 0, ch: 0 }
+        const to = { line: lines.length - 1, ch: lines[lines.length - 1].length }
+        const transaction = prepareCodeMirrorReplacement(view, next, from, to)
+        await applyDurableWrite({
+          apply: () => transaction ? transaction.apply() : editor.replaceRange(next, from, to),
+          memoryMatches: () => editor.getValue() === next,
+          save: () => view.save(),
+          persistedMatches: async () => {
+            const persisted = await this.app.vault.read(file)
+            return persisted === next || persisted === editor.getValue()
+          },
+        })
+      } else {
+        if (views.length && (!view || views.some(candidate => candidate.getMode() !== "preview"))) throw new Error(tr("sourceChanged"))
+        await this.app.vault.process(file, transform)
+      }
+      this.noteTextCache.delete(sourcePath)
+      this.rerenderMountedTimelines()
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : tr("saveFailed"), 5000)
+      throw error
+    }
   }
 
   private markdownViews(path: string): MarkdownView[] {
