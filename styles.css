@@ -4866,10 +4866,18 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
 }
 .modular-diary-period-block-name { min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .modular-diary-period-block-time { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; opacity: 0.85; white-space: nowrap; }
-@container (max-height: 33px) {
+@container (max-height: 31px) {
   .modular-diary-period-block-inner { flex-direction: row; align-items: center; gap: 4px; padding-block: 0; }
 }
-@container (max-height: 15px) {
+@container (max-height: 13px) {
+  .modular-diary-period-block-inner { display: none; }
+}
+/* Narrow side-by-side lanes: keep the name, drop the duration, then all text. */
+@container (max-width: 52px) {
+  .modular-diary-period-block-inner { padding-inline: 3px; }
+  .modular-diary-period-block-time { display: none; }
+}
+@container (max-width: 18px) {
   .modular-diary-period-block-inner { display: none; }
 }
 .modular-diary-period-block.is-owned { cursor: grab; touch-action: none; }

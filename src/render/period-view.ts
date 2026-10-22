@@ -19,6 +19,7 @@ import type { Entry, PeriodGoal, PeriodSpec, SpanNote, TodoItem, TodoViewConfig 
 import { attachTagSuggest, type TagSuggestDeps } from "../edit/tag-suggest"
 import { t } from "../i18n"
 import { renderTodosInto, type NewTodoInput, type TodoViewItem } from "./todos-view"
+import { laneLayout } from "../core/period-lanes"
 
 export interface PeriodTodoView extends TodoItem {
   actualMinutes: number
@@ -501,25 +502,6 @@ function attachRailResize(root: HTMLElement, handle: HTMLElement, deps: PeriodVi
 /* ── calendar ── */
 
 /** Side-by-side lanes for overlapping actual records (plans stay full width underneath). */
-function laneLayout(entries: Entry[]): Map<Entry, { lane: number; lanes: number }> {
-  const out = new Map<Entry, { lane: number; lanes: number }>()
-  const actual = entries.filter((entry) => !entry.plan).sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin)
-  let cluster: Entry[] = []
-  let clusterEnd = -1
-  let laneEnds: number[] = []
-  const flush = (): void => { for (const entry of cluster) out.get(entry)!.lanes = laneEnds.length; cluster = []; laneEnds = [] }
-  for (const entry of actual) {
-    if (entry.startMin >= clusterEnd) { flush(); clusterEnd = -1 }
-    let lane = laneEnds.findIndex((end) => end <= entry.startMin)
-    if (lane < 0) { lane = laneEnds.length; laneEnds.push(entry.endMin) } else laneEnds[lane] = entry.endMin
-    out.set(entry, { lane, lanes: 1 })
-    cluster.push(entry)
-    clusterEnd = Math.max(clusterEnd, entry.endMin)
-  }
-  flush()
-  return out
-}
-
 function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): void {
   const scroll = host.createDiv({ cls: "modular-diary-period-cal-scroll" })
   const cal = scroll.createDiv({ cls: "modular-diary-period-cal" })
@@ -628,12 +610,14 @@ function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewM
       const end = Math.min(entry.endMin, model.rangeEndMin)
       const color = deps.typeColors[entry.type] ?? "var(--text-faint)"
       const block = col.createDiv({ cls: `modular-diary-period-block${entry.plan ? " is-plan" : ""}` })
-      block.style.top = pct(start)
-      block.style.height = pctLen(end - start)
+      // A 1px inset at both ends keeps back-to-back blocks visibly separate.
+      block.style.top = `calc(${pct(start)} + 1px)`
+      block.style.height = `calc(${pctLen(end - start)} - 2px)`
       const lane = lanes.get(entry)
       if (lane && lane.lanes > 1) {
-        block.style.left = `calc(3px + (100% - 7px) * ${lane.lane / lane.lanes})`
-        block.style.right = `calc(4px + (100% - 7px) * ${(lane.lanes - lane.lane - 1) / lane.lanes})`
+        // Lanes share the column with a 2px gutter between neighbours.
+        block.style.left = `calc(3px + (100% - 7px) * ${lane.lane / lane.lanes}${lane.lane ? " + 1px" : ""})`
+        block.style.right = `calc(4px + (100% - 7px) * ${(lane.lanes - lane.lane - lane.span) / lane.lanes}${lane.lane + lane.span < lane.lanes ? " + 1px" : ""})`
       }
       block.style.setProperty("--modular-diary-block-color", color)
       if (!entry.plan && color.startsWith("#")) block.style.color = blockTextColor(color)
