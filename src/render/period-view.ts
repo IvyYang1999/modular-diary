@@ -1,3 +1,5 @@
+import { laneLayout } from "../core/period-lanes"
+import { parsePeriodStatsWidget, shareSlices, type PeriodStatsWidget } from "../core/period-stats"
 /**
  * Period block (`days:`), redesigned 2026-09-29 after yyt's review.
  *
@@ -19,7 +21,6 @@ import type { Entry, PeriodGoal, PeriodSpec, SpanNote, TodoItem, TodoViewConfig 
 import { attachTagSuggest, type TagSuggestDeps } from "../edit/tag-suggest"
 import { t } from "../i18n"
 import { renderTodosInto, type NewTodoInput, type TodoViewItem } from "./todos-view"
-import { laneLayout } from "../core/period-lanes"
 
 export interface PeriodTodoView extends TodoItem {
   actualMinutes: number
@@ -44,6 +45,8 @@ export interface PeriodViewModel {
   today: string
   goals: GoalProgress[]
   totals: Array<{ type: string; minutes: number }>
+  /** Extra statistics widgets under the bar totals (`period-stats:` tokens). */
+  statsWidgets?: string[]
   todos: PeriodTodoView[]
   todoView: TodoViewConfig
   /** Dragged todo group order (`todo-groups:` header). */
@@ -88,6 +91,10 @@ export interface PeriodViewDeps {
   onSaveGoal: (line: number | null, goal: GoalDraft) => void
   onDeleteGoal: (line: number) => void
   onRailWidth: (px: number) => void
+  /** Offer the statistics widgets that can be added (menu at x, y). */
+  onAddStatsWidget?: (x: number, y: number) => void
+  /** Remove one statistics widget by its header token. */
+  onRemoveStatsWidget?: (token: string) => void
 }
 
 /** Starting hour height; the rendered block adapts it to the rail's height (22–40px). */
@@ -451,6 +458,85 @@ function renderTotals(rail: HTMLElement, model: PeriodViewModel, deps: PeriodVie
     if (target) hours.createEl("span", { cls: "modular-diary-period-total-target", text: ` / ${formatTotal(target)}` })
   }
   if (model.totals.length === 0) section.createEl("p", { cls: "modular-diary-period-muted", text: t("periodNoRecords") })
+  if (deps.onAddStatsWidget) {
+    const add = header.createEl("button", { cls: "modular-diary-period-stats-add", attr: { type: "button", "aria-label": t("addStatsWidget"), title: t("addStatsWidget") } })
+    setIcon(add, "plus")
+    add.addEventListener("click", () => {
+      const rect = add.getBoundingClientRect()
+      deps.onAddStatsWidget?.(rect.left, rect.bottom)
+    })
+  }
+  for (const token of model.statsWidgets ?? []) {
+    const widget = parsePeriodStatsWidget(token)
+    if (widget) renderStatsWidget(rail, token, widget, model, deps)
+  }
+}
+
+/** One optional statistics widget: a donut of category shares, or a row of days for one category. */
+function renderStatsWidget(rail: HTMLElement, token: string, widget: PeriodStatsWidget, model: PeriodViewModel, deps: PeriodViewDeps): void {
+  const section = rail.createEl("section", { cls: `modular-diary-period-section modular-diary-period-stats is-${widget.kind}` })
+  section.dataset.statsWidget = token
+  const header = section.createDiv({ cls: "modular-diary-component-header" })
+  const title = widget.kind === "share" ? t("statsShare") : t("statsDays", { type: widget.type })
+  header.createEl("span", { cls: "modular-diary-component-title", text: title })
+  if (widget.kind === "days") {
+    const done = model.days.filter((day) => day.entries.some((entry) => !entry.plan && entry.type === widget.type)).length
+    header.createEl("span", { cls: "modular-diary-component-count", text: t("statsDaysCount", { done, total: model.days.length }) })
+  }
+  if (deps.onRemoveStatsWidget) {
+    const remove = header.createEl("button", { cls: "modular-diary-period-stats-remove", attr: { type: "button", "aria-label": t("removeStatsWidget", { name: title }), title: t("removeStatsWidget", { name: title }) } })
+    setIcon(remove, "x")
+    remove.addEventListener("click", () => deps.onRemoveStatsWidget?.(token))
+  }
+  if (widget.kind === "share") {
+    const slices = shareSlices(model.totals)
+    if (!slices.length) { section.createEl("p", { cls: "modular-diary-period-muted", text: t("periodNoRecords") }); return }
+    const body = section.createDiv({ cls: "modular-diary-period-share" })
+    // A donut from stroked circles: circumference 100, so dash lengths are percentages.
+    const ns = "http://www.w3.org/2000/svg"
+    const svg = body.ownerDocument.createElementNS(ns, "svg")
+    svg.setAttribute("viewBox", "0 0 42 42")
+    svg.setAttribute("class", "modular-diary-period-donut")
+    svg.setAttribute("role", "img")
+    svg.setAttribute("aria-label", slices.map((s) => `${s.type ?? t("statsOther")} ${Math.round(s.ratio * 100)}%`).join(", "))
+    let offset = 25
+    for (const slice of slices) {
+      const circle = body.ownerDocument.createElementNS(ns, "circle")
+      circle.setAttribute("cx", "21"); circle.setAttribute("cy", "21"); circle.setAttribute("r", "15.9155")
+      circle.setAttribute("fill", "none"); circle.setAttribute("stroke-width", "6")
+      circle.setAttribute("stroke", slice.type ? deps.typeColors[slice.type] ?? "var(--text-muted)" : "var(--background-modifier-border)")
+      const length = slice.ratio * 100
+      // A hairline gap keeps neighbouring slices apart.
+      circle.setAttribute("stroke-dasharray", `${Math.max(0, length - (slices.length > 1 ? 0.6 : 0))} ${100 - Math.max(0, length - (slices.length > 1 ? 0.6 : 0))}`)
+      circle.setAttribute("stroke-dashoffset", String(offset))
+      svg.appendChild(circle)
+      offset -= length
+    }
+    body.appendChild(svg)
+    const legend = body.createDiv({ cls: "modular-diary-period-share-legend" })
+    for (const slice of slices) {
+      const row = legend.createDiv({ cls: "modular-diary-period-share-row" })
+      const dot = row.createEl("span", { cls: "modular-diary-period-share-dot" })
+      dot.style.background = slice.type ? deps.typeColors[slice.type] ?? "var(--text-muted)" : "var(--background-modifier-border)"
+      row.createEl("span", { cls: "modular-diary-period-share-name", text: slice.type ?? t("statsOther") })
+      row.createEl("span", { cls: "modular-diary-period-share-pct", text: `${Math.round(slice.ratio * 100)}%` })
+    }
+    return
+  }
+  const color = deps.typeColors[widget.type] ?? "var(--interactive-accent)"
+  const row = section.createDiv({ cls: "modular-diary-period-days-row" })
+  for (const day of model.days) {
+    const hit = day.entries.some((entry) => !entry.plan && entry.type === widget.type)
+    const cell = row.createDiv({ cls: `modular-diary-period-day-dot${hit ? " is-done" : ""}${day.date === model.today ? " is-today" : ""}`, attr: { title: `${day.date} · ${hit ? t("checkedToday") : t("notChecked")}` } })
+    cell.style.setProperty("--modular-diary-day-color", color)
+    cell.createEl("span", { cls: "modular-diary-period-day-label", text: weekdayShort(day.date) })
+  }
+}
+
+/** One-letter weekday from the Monday-first `weekdayShort` string. */
+function weekdayShort(date: string): string {
+  const day = new Date(`${date}T00:00:00`).getDay()
+  return [...t("weekdayShort")][(day + 6) % 7] ?? ""
 }
 
 function attachRailResize(root: HTMLElement, handle: HTMLElement, deps: PeriodViewDeps): void {

@@ -5693,3 +5693,38 @@ textarea.modular-diary-template-source {
 .modular-diary-item-title.has-attachments { display: flex; align-items: center; min-width: 0; }
 .modular-diary-item-title.has-attachments > .modular-diary-todo-title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .modular-diary-item-title.has-attachments > :not(.modular-diary-todo-title-text) { flex: none; }
+
+/* Period statistics widgets: a donut of category shares, a row of days for one category. */
+.modular-diary-container button.modular-diary-period-stats-add,
+.modular-diary-container button.modular-diary-period-stats-remove {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px; min-width: 0; padding: 0; margin-inline-start: auto;
+  border: 0; border-radius: var(--modular-diary-radius-control);
+  background: transparent; box-shadow: none; color: var(--text-faint);
+}
+.modular-diary-container button.modular-diary-period-stats-add:hover,
+.modular-diary-container button.modular-diary-period-stats-remove:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.modular-diary-period-stats-add svg, .modular-diary-period-stats-remove svg { width: 14px; height: 14px; }
+.modular-diary-container button.modular-diary-period-stats-remove { opacity: 0; }
+.modular-diary-period-stats:is(:hover, :focus-within) button.modular-diary-period-stats-remove { opacity: 1; }
+@media (hover: none) { .modular-diary-container button.modular-diary-period-stats-remove { opacity: 1; } }
+.modular-diary-period-share { display: flex; align-items: center; gap: 14px; }
+.modular-diary-period-donut { flex: none; width: 86px; height: 86px; }
+.modular-diary-period-share-legend { display: grid; gap: 3px; min-width: 0; flex: 1; font-size: var(--modular-diary-font-caption); }
+.modular-diary-period-share-row { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.modular-diary-period-share-dot { width: 8px; height: 8px; border-radius: 50%; }
+.modular-diary-period-share-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-normal); }
+.modular-diary-period-share-pct { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.modular-diary-period-days-row { display: flex; gap: 4px; }
+.modular-diary-period-day-dot {
+  --modular-diary-day-color: var(--interactive-accent);
+  flex: 1;
+  display: grid; place-items: center;
+  height: 24px; min-width: 0;
+  border-radius: 6px;
+  background: var(--background-modifier-hover);
+  color: var(--text-faint);
+  font-size: var(--modular-diary-font-micro);
+}
+.modular-diary-period-day-dot.is-done { background: var(--modular-diary-day-color); color: #fff; font-weight: 600; }
+.modular-diary-period-day-dot.is-today { box-shadow: inset 0 0 0 1.5px var(--text-muted); }

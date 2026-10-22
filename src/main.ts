@@ -1,3 +1,4 @@
+import { canTrackDays, periodStatsToken } from "./core/period-stats"
 import { getLanguage, MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownRenderer, MarkdownView, Menu, moment, normalizePath, Notice, Platform, Plugin, setIcon, TAbstractFile, TFile, TFolder } from "obsidian"
 import type momentFactory from "moment"
 import { normalizeSpan, parseTimeline } from "./core/parser"
@@ -2305,6 +2306,7 @@ export default class ModularDiaryPlugin extends Plugin {
       spec: period, browsing: Boolean(browsed), period: resolved, today,
       goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView: doc.todoView, days,
       todoGroupOrder: doc.todoGroupOrder,
+      statsWidgets: doc.periodStats,
       rangeStartMin, rangeEndMin,
       indexReady: ready, railWidth: doc.railWidth ?? 248,
     }
@@ -2451,6 +2453,23 @@ export default class ModularDiaryPlugin extends Plugin {
         : replaceEntryLine(current, line, formatGoalLine(goal))),
       onDeleteGoal: (line) => void rewrite((current) => deleteEntryLine(current, line)),
       onRailWidth: (px) => void rewrite((current) => setHeaderValue(current, "rail", String(px))),
+      onAddStatsWidget: (x, y) => {
+        const present = new Set(doc.periodStats)
+        const write = (token: string): void => void rewrite((current) =>
+          setHeaderValue(current, "period-stats", [...parseTimeline(current).periodStats.filter((value) => value !== token), token].join(" ")))
+        const menu = new Menu()
+        if (!present.has("share")) menu.addItem((item) => item.setTitle(tr("statsShare")).setIcon("pie-chart").onClick(() => write("share")))
+        const types = [...new Set([...model.totals.map((total) => total.type), ...Object.keys(this.settings.spanTypeColors)])]
+        for (const type of types.filter(canTrackDays)) {
+          const token = periodStatsToken({ kind: "days", type })
+          if (!present.has(token)) menu.addItem((item) => item.setTitle(tr("statsDays", { type })).setIcon("calendar-check").onClick(() => write(token)))
+        }
+        menu.showAtPosition({ x, y }, el.ownerDocument)
+      },
+      onRemoveStatsWidget: (token) => void rewrite((current) => {
+        const rest = parseTimeline(current).periodStats.filter((value) => value !== token)
+        return rest.length ? setHeaderValue(current, "period-stats", rest.join(" ")) : removeHeaderValue(current, "period-stats")
+      }),
     })
   }
 

@@ -71,6 +71,7 @@ renderPeriodInto(host, {
   spec: block.period!, browsing: true, period, today, goals: goalProgress(block.goals, days), totals: periodTotals(days), todos, todoView: block.todoView,
   days: days.map((d) => ({ ...d, allDay: todos.filter((t) => t.placement && t.placement.startMin === undefined && t.placement.date === d.date) })),
   rangeStartMin: 7 * 60, rangeEndMin: 23 * 60, indexReady: true, railWidth: block.railWidth ?? 248,
+  statsWidgets: ["share", "days:运动"],
 }, {
   typeColors: colors, categories: Object.keys(colors),
   tagStyle: (tag) => tag === "模块日记" ? { background: "color-mix(in srgb, #53a3f2 22%, var(--background-primary))", color: "color-mix(in srgb, #53a3f2 70%, var(--text-normal))" } : null,
@@ -89,6 +90,8 @@ renderPeriodInto(host, {
   onSaveGoal: (line, goal) => window.__events.push("goal:" + line + ":" + goal.kind + ":" + goal.key + ":" + goal.targetMinutes),
   onDeleteGoal: (line) => window.__events.push("goal-delete:" + line),
   onRailWidth: (px) => window.__events.push("rail:" + px),
+  onAddStatsWidget: () => window.__events.push("stats-add"),
+  onRemoveStatsWidget: (token) => window.__events.push("stats-remove:" + token),
 })
 `)
 
@@ -145,6 +148,22 @@ for (const [name, vars] of Object.entries(themes)) {
     const toolbarRightPad = parseFloat(getComputedStyle(document.querySelector(".modular-diary-period-toolbar")).paddingRight)
     return { railWidth, iconChrome, todoRows, flags, pills, heads, goals, bars, colHeight, due, toolbarRightPad, railHeight: railBox.height, mainHeight, flagsVisible, zeroActualShown, namedBlocks, blockFont, microFont, ticks, pinVisible }
   })
+  // Statistics widgets from period-stats: a donut with a legend, and one category's days.
+  const stats = await page.evaluate(() => {
+    const share = document.querySelector('[data-stats-widget="share"]')
+    const days = document.querySelector('[data-stats-widget="days:运动"]')
+    days?.querySelector(".modular-diary-period-stats-remove")?.click()
+    document.querySelector(".modular-diary-period-stats-add")?.click()
+    return {
+      slices: share?.querySelectorAll("circle").length ?? 0,
+      legend: [...(share?.querySelectorAll(".modular-diary-period-share-name") ?? [])].map((el) => el.textContent),
+      cells: days?.querySelectorAll(".modular-diary-period-day-dot").length ?? 0,
+      done: days?.querySelectorAll(".modular-diary-period-day-dot.is-done").length ?? 0,
+      count: days?.querySelector(".modular-diary-component-count")?.textContent ?? "",
+    }
+  })
+  if (stats.slices < 2 || stats.slices !== stats.legend.length || stats.legend[0] !== "开发") errors.push("the share widget must draw one slice per legend row, largest first: " + JSON.stringify(stats))
+  if (stats.cells !== 7 || stats.done !== 1 || stats.count !== "1/7 天") errors.push("the days widget must mark the days with an actual record of its category: " + JSON.stringify(stats))
   if (Math.round(state.railWidth) !== 256) errors.push("rail: header must set the rail width, got " + state.railWidth)
   if (state.iconChrome !== "rgba(0, 0, 0, 0)") errors.push("toolbar icons must not inherit host button chrome: " + state.iconChrome)
   if (state.todoRows.length !== 6) errors.push("the rail lists every period todo with the day todo component: " + state.todoRows.length)

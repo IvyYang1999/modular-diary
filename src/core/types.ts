@@ -49,6 +49,8 @@ export interface TimelineDoc {
   todoView: TodoViewConfig
   /** Dragged group order for the todo list (`todo-groups:` header, flat composite keys). */
   todoGroupOrder: string[]
+  /** Period block statistics widgets (`period-stats:` header); see core/period-stats. */
+  periodStats: string[]
   /** Present when the block is a period view (`days:`). */
   period?: PeriodSpec
   /** Period block: width of the goals/todos rail in px (`rail:` header). */

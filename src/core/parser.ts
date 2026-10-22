@@ -1,3 +1,4 @@
+import { parsePeriodStatsWidget } from "./period-stats"
 /**
  * Modular Diary timeline source parser (mermaid-style fenced block body, without the fences).
  *
@@ -85,6 +86,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     todos: [],
     todoView: { ...DEFAULT_TODO_VIEW },
     todoGroupOrder: [],
+    periodStats: [],
     goals: [],
     texts: [],
     checklists: [],
@@ -379,6 +381,10 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       const view = parseTodoViewHeaderValue(value)
       if (view) doc.todoView = view
       else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
+      return
+    }
+    case "period-stats": {
+      doc.periodStats = value.split(/\s+/).filter((token) => parsePeriodStatsWidget(token) !== null)
       return
     }
     case "todo-groups": {
