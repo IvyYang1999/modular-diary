@@ -107,6 +107,7 @@ const html = `<!doctype html><html><head><style>${css}
 #wide { position: relative; }
 #relocate-shell { width: 600px; margin-top: 40px; }
 #relocate { position: relative; }
+body { padding-bottom: 600px; }
 .modular-diary-slot { background: #eee; }
 </style></head><body><div id="base" class="modular-diary-container"><div id="body"></div></div><div id="scroll" class="modular-diary-container"><div id="wide" class="modular-diary-body"></div></div><div id="relocate-shell" class="modular-diary-container"><div id="relocate" class="modular-diary-body"></div></div><script>${fs.readFileSync(path.join(out, "bundle.js"), "utf8")}</script></body></html>`
 fs.writeFileSync(path.join(out, "index.html"), html)
@@ -127,7 +128,7 @@ if (edgeHandleHoverBackground !== "rgba(0, 0, 0, 0)") {
 const bodyBox = await page.locator("#body").boundingBox()
 // cellW = 600/12 = 50, rowH = 20
 
-// 1. move toolbar (grip) down ~5 rows: y 0 -> 5; timeline (y2,h10) should push below? toolbar h2 at y5 overlaps timeline(y2..12) -> timeline pushed to 7
+// 1. move toolbar (grip) down ~5 rows into the timeline (y2,h10): the two swap, timeline -> 0, toolbar -> 10
 const grip = await page.locator('#body .modular-diary-slot[data-slot="toolbar"] .modular-diary-slot-grip').boundingBox()
 await page.mouse.move(grip.x + 4, grip.y + 4)
 await page.mouse.down()
@@ -174,8 +175,10 @@ if (movePointerReleased.active || movePointerReleased.captured) {
 // 1b. The real regression: move a left-column Stats block across the timeline
 // and place it directly below that timeline. The whole held gesture must
 // survive the long cross-component route and persist the destination.
+// A taller viewport keeps this long route out of the edge-scroll zone (see grid-scroll-smoke).
+await page.setViewportSize({ width: 800, height: 700 })
 const relocateBody = page.locator("#relocate")
-await relocateBody.scrollIntoViewIfNeeded()
+await relocateBody.evaluate((el) => el.scrollIntoView({ block: "start" }))
 const relocateBodyBox = await relocateBody.boundingBox()
 const statsGrip = await page.locator('#relocate .modular-diary-slot[data-slot="stats"] .modular-diary-slot-grip').boundingBox()
 await page.mouse.move(statsGrip.x + 4, statsGrip.y + 4)
@@ -195,6 +198,7 @@ if (!relocateDuring.active || !relocateDuring.placeholder || !relocateDuring.clo
 }
 await page.locator("#relocate-shell").screenshot({ path: path.join(out, "stats-below-timeline-preview.png") })
 await page.mouse.up()
+await page.setViewportSize({ width: 800, height: 500 })
 const relocateAfter = await page.evaluate(() => {
   const stats = document.querySelector('#relocate .modular-diary-slot[data-slot="stats"]')
   const timeline = document.querySelector('#relocate .modular-diary-slot[data-slot="timeline"]')
@@ -331,8 +335,9 @@ if (commits.length !== 2) { console.error("expected 2 commits"); process.exit(1)
 const [move, resize] = commits
 const mvToolbar = move.find((i) => i.id === "toolbar")
 const mvTimeline = move.find((i) => i.id === "timeline")
-if (mvToolbar.y !== 5) { console.error("move y mismatch", mvToolbar); process.exit(1) }
-if (mvTimeline.y !== 7) { console.error("push-down mismatch", mvTimeline); process.exit(1) }
+// Dragging the toolbar down into the timeline swaps them instead of shoving the timeline down.
+if (mvTimeline.y !== 0) { console.error("swap mismatch: timeline should move up", mvTimeline); process.exit(1) }
+if (mvToolbar.y !== 10) { console.error("swap mismatch: toolbar should land below the timeline", mvToolbar); process.exit(1) }
 const rzTimeline = resize.find((i) => i.id === "timeline")
 if (rzTimeline.w !== 6) { console.error("resize w mismatch", rzTimeline); process.exit(1) }
 const wideCommit = wideState.commits.at(-1)

@@ -9,11 +9,12 @@
  */
 import {
   GRID_COLS, GRID_ROW_H, GridItem, SlotId, clampItem, compactGrid, gridColumns, gridRows,
-  compactGridVertically, resolveHorizontalOverlaps, resolveOverlaps,
+  compactGridVertically, resolveHorizontalOverlaps, resolveOverlaps, swapOnDownwardDrag,
 } from "../core/grid-layout"
 import { t } from "../i18n"
 import { appendSixDotGrip } from "../render/grip"
 import { createFrameCoalescer } from "./frame-coalescer"
+import { holdGridViewport } from "./grid-viewport"
 import { setPointerInteractionActive } from "./pointer-interaction"
 
 export function applyItemToSlot(slot: HTMLElement, it: GridItem, columns = GRID_COLS): void {
@@ -110,10 +111,10 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
       e.stopPropagation()
       const pointerId = e.pointerId
       const initialItems = slots.map(itemFromSlot)
-      const bodyRect = body.getBoundingClientRect()
       const slotRect = slot.getBoundingClientRect()
       const columns = Number(body.dataset.gridCols) || gridColumns(slots.map(itemFromSlot))
-      const cellW = bodyRect.width / columns
+      const cellW = body.getBoundingClientRect().width / columns
+      const origin = itemFromSlot(slot)
       const grabDX = e.clientX - slotRect.left
       const grabDY = e.clientY - slotRect.top
 
@@ -129,28 +130,37 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
       const item = itemFromSlot(slot)
       body.classList.add("is-grid-interacting")
       setPointerInteractionActive(pointerOwner, true)
-      const applyMove = (ev: PointerEvent): void => {
+      let lastMove: PointerEvent | null = null
+      const applyMove = (ev: PointerEvent, force = false): void => {
+        lastMove = ev
         clone.style.left = `${ev.clientX - grabDX}px`
         clone.style.top = `${ev.clientY - grabDY}px`
+        // Read the body live: an edge scroll moves it on screen mid-gesture.
+        const bodyRect = body.getBoundingClientRect()
         const gx = Math.round((ev.clientX - bodyRect.left - grabDX) / cellW)
         const gy = Math.round((ev.clientY - bodyRect.top - grabDY) / GRID_ROW_H)
         const next = clampItem({ ...item, x: gx, y: Math.max(0, gy) })
-        if (next.x === item.x && next.y === item.y) return
+        if (next.x === item.x && next.y === item.y && !force) return
         item.x = next.x
         item.y = next.y
         // iOS 式实时重排：被拖组件优先，其余组件立刻让位+重力压实（带 CSS 过渡）
-        const current = slots.map((other) => other === slot ? next : itemFromSlot(other))
+        // 往下拖过相邻组件的中线时两者换位，而不是把它继续往下挤。
+        const others = initialItems.map((other) => other.id === origin.id ? next : other)
+        const current = swapOnDownwardDrag(others, origin, next)
         const items = compactGridVertically(
           resolveOverlaps(current, slot.dataset.slot as SlotId),
           slot.dataset.slot as SlotId,
         )
         applyGridToBody(body, items)
         body.style.height = `${gridRows(items) * GRID_ROW_H}px`
+        viewport.changed()
       }
       const moveFrames = createFrameCoalescer(requestFrame, cancelFrame, applyMove)
+      const viewport = holdGridViewport(body, () => { if (lastMove) applyMove(lastMove, true) })
       let active = true
       const onMove = (ev: PointerEvent): void => {
         if (ev.pointerId !== pointerId) return
+        viewport.pointer(ev.clientY)
         moveFrames.push(ev)
       }
       const releaseCapture = (): void => {
@@ -158,6 +168,7 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
       }
       const cleanup = (): void => {
         moveFrames.flush()
+        viewport.stop()
         dom.removeEventListener("pointermove", onMove)
         dom.removeEventListener("pointerup", onUp)
         dom.removeEventListener("pointercancel", onCancel)
@@ -179,6 +190,7 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
         if (!active) return
         active = false
         moveFrames.cancel()
+        viewport.stop()
         dom.removeEventListener("pointermove", onMove)
         dom.removeEventListener("pointerup", onUp)
         dom.removeEventListener("pointercancel", onCancel)
@@ -223,11 +235,14 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
         slot.classList.add("is-resizing")
         body.classList.add("is-grid-interacting")
         setPointerInteractionActive(pointerOwner, true)
-        const bodyRect = body.getBoundingClientRect()
         const columns = Number(body.dataset.gridCols) || gridColumns(slots.map(itemFromSlot))
-        const cellW = bodyRect.width / columns
+        const cellW = body.getBoundingClientRect().width / columns
 
+        let lastResize: PointerEvent | null = null
         const applyMove = (ev: PointerEvent): void => {
+          lastResize = ev
+          // Read the body live: an edge scroll moves it on screen mid-gesture.
+          const bodyRect = body.getBoundingClientRect()
           const it = itemFromSlot(slot)
           const gx = Math.round((ev.clientX - bodyRect.left) / cellW)
           const gy = Math.round((ev.clientY - bodyRect.top) / GRID_ROW_H)
@@ -255,11 +270,14 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
           const items = compactGrid(resolved, priorityId)
           applyGridToBody(body, items)
           body.style.height = `${gridRows(items) * GRID_ROW_H}px`
+          viewport.changed()
         }
         const resizeFrames = createFrameCoalescer(requestFrame, cancelFrame, applyMove)
+        const viewport = holdGridViewport(body, () => { if (lastResize) applyMove(lastResize) })
         let active = true
         const onMove = (ev: PointerEvent): void => {
           if (ev.pointerId !== pointerId) return
+          viewport.pointer(ev.clientY)
           resizeFrames.push(ev)
         }
         const releaseCapture = (): void => {
@@ -267,6 +285,7 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
         }
         const cleanup = (): void => {
           resizeFrames.flush()
+          viewport.stop()
           dom.removeEventListener("pointermove", onMove)
           dom.removeEventListener("pointerup", onUp)
           dom.removeEventListener("pointercancel", onCancel)
@@ -287,6 +306,7 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
           if (!active) return
           active = false
           resizeFrames.cancel()
+          viewport.stop()
           dom.removeEventListener("pointermove", onMove)
           dom.removeEventListener("pointerup", onUp)
           dom.removeEventListener("pointercancel", onCancel)

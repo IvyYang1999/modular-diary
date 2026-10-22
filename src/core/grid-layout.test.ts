@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  swapOnDownwardDrag,
   clampItem, compactGrid, compactGridVertically, COMPONENT_SLOT_COLS, defaultComponentSlot, defaultGrid, gridColumns, gridRows, HABITS_EMPTY_ROWS, overlaps, parseLayoutHeader, resolveGrid,
   resolveHorizontalOverlaps, resolveOverlaps, serializeLayoutHeader,
 } from "./grid-layout"
@@ -222,5 +223,28 @@ describe("resolveGrid with hiddenSlots", () => {
     expect(ids).toContain("timeline")
     expect(ids).not.toContain("stats")
     expect(ids).not.toContain("dialog")
+  })
+})
+
+describe("swapOnDownwardDrag", () => {
+  const a = { id: "todos", x: 0, y: 0, w: 6, h: 4 } as const
+  const b = { id: "habits", x: 0, y: 4, w: 6, h: 3 } as const
+  it("swaps a tall neighbour after half the shorter height, not after its middle", () => {
+    const tall = { id: "habits", x: 0, y: 4, w: 6, h: 20 } as const
+    expect(swapOnDownwardDrag([a, tall], a, { ...a, y: 2 }).find((i) => i.id === "habits")?.y).toBe(0)
+    expect(swapOnDownwardDrag([a, tall], a, { ...a, y: 1 })).toEqual([a, tall])
+  })
+  it("swaps once the dragged item's middle passes the neighbour's middle", () => {
+    const out = swapOnDownwardDrag([a, b], a, { ...a, y: 4 })
+    expect(out.find((i) => i.id === "habits")?.y).toBe(0)
+    expect(out.find((i) => i.id === "todos")?.y).toBe(4)
+  })
+  it("leaves the layout alone before the middle is reached", () => {
+    expect(swapOnDownwardDrag([a, b], a, { ...a, y: 1 })).toEqual([a, b])
+  })
+  it("ignores neighbours in other columns and upward drags", () => {
+    const side = { id: "habits", x: 6, y: 4, w: 6, h: 3 } as const
+    expect(swapOnDownwardDrag([a, side], a, { ...a, y: 5 })).toEqual([a, side])
+    expect(swapOnDownwardDrag([a, b], b, { ...b, y: 0 })).toEqual([a, b])
   })
 })

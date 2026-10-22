@@ -124,6 +124,28 @@ export function overlaps(a: GridItem, b: GridItem): boolean {
 }
 
 /**
+ * Dragging a component down into a neighbour swaps the two instead of shoving
+ * the neighbour further down: once the overlap reaches half the shorter of the
+ * two, the neighbour takes the dragged item's original top and the dragged item
+ * lands right after it. Dragging up already reads as a swap through push-down,
+ * so only the downward case is handled.
+ */
+export function swapOnDownwardDrag(items: GridItem[], origin: GridItem, next: GridItem): GridItem[] {
+  if (next.y <= origin.y) return items
+  const bottom0 = next.y + next.h
+  const passed = items.filter((other) => other.id !== next.id
+    && other.x < next.x + next.w && next.x < other.x + other.w
+    && other.y >= origin.y && bottom0 - other.y >= Math.min(next.h, other.h) / 2)
+  if (!passed.length) return items
+  const top = Math.min(...passed.map((other) => other.y))
+  const shift = top - origin.y
+  const bottom = Math.max(...passed.map((other) => other.y - shift + other.h))
+  return items.map((other) => other.id === next.id
+    ? { ...next, y: Math.max(next.y, bottom) }
+    : passed.includes(other) ? { ...other, y: other.y - shift } : other)
+}
+
+/**
  * Push-down compaction: later items overlapping earlier ones get pushed below.
  * priorityId（正在被拖拽的组件）先落位——拖动的组件赢，别人让它。
  */

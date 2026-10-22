@@ -13,7 +13,7 @@
     "e2e:agent": "node e2e/agent-smoke.mjs",
     "e2e:api": "node e2e/api-smoke.mjs",
     "e2e:draw": "node e2e/draw-smoke.mjs",
-    "e2e:grid": "node e2e/grid-smoke.mjs",
+    "e2e:grid": "node e2e/grid-smoke.mjs && node e2e/grid-scroll-smoke.mjs",
     "e2e:mount": "node e2e/mount-smoke.mjs",
     "e2e:components": "node e2e/components-smoke.mjs",
     "e2e:quotes": "node e2e/daily-quote-smoke.mjs",
