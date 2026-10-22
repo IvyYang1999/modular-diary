@@ -115,6 +115,8 @@ export interface TodoItem {
    * the parent's category; un-parenting restores it ("" = it had none).
    */
   ownCategory?: string
+  /** Images, vault files and links (`attach="…"`, one per line); see core/todo-attachments. */
+  attach?: string[]
   /**
    * The day this todo was pushed to. The line stays where it was as a
    * durable shadow: it shows "moved" here, and it refills the destination if

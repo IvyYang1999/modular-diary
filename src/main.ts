@@ -83,7 +83,7 @@ const momentFormat = (momentFormat: string, date: string): string =>
   ((window as unknown as { moment?: MomentLike }).moment?.(date, "YYYY-MM-DD").format(momentFormat)) ?? date
 import { formatTodoViewHeaderValue, groupTodoTree, indexTodoTree, isWeeklyTodoDue, moveTodoGroupKey, normalizeTodoPriorities, todoMetrics, TODO_BUCKETS } from "./core/todos"
 import { renderHabitsInto } from "./render/habits-view"
-import { renderTodosInto, type NewTodoInput, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
+import { renderTodosInto, type NewTodoInput, type TodoAttachmentDeps, type TodoEditDraft, type TodoViewItem } from "./render/todos-view"
 import { renderDailyQuoteInto } from "./render/daily-quote-view"
 import { dailyQuoteForDate, normalizeDailyQuoteDefinition, resolveQuoteInk } from "./core/daily-quotes"
 /** Quote slot default height: header + two lines of sentence + source, on the 20px grid. */
@@ -1158,6 +1158,7 @@ export default class ModularDiaryPlugin extends Plugin {
           categories: spanPaletteTypes,
           tagStyle,
           tagSuggest: this.tagSuggestDeps(),
+          attachments: this.todoAttachmentDeps(ctx.sourcePath),
           typeColors: spanPaletteForRender,
           view: doc.todoView,
           priorities: this.settings.todoPriorities,
@@ -1237,6 +1238,7 @@ export default class ModularDiaryPlugin extends Plugin {
               title: input.title, group: "", type: input.type,
               estimateMin: input.estimateMinutes, completed: false,
               note: input.note, difficulty: input.difficulty, priority: input.priority,
+              ...(input.attach?.length ? { attach: input.attach } : {}),
               ...(input.bucket ? { bucket: input.bucket } : {}),
             }
             void this.applyBlockTransform(el, ctx, source, (current) =>
@@ -1261,6 +1263,7 @@ export default class ModularDiaryPlugin extends Plugin {
               type: input.type,
               estimateMin: input.estimateMinutes,
               note: input.note, difficulty: input.difficulty, priority: input.priority,
+              attach: input.attach,
             }))
           },
           onToggle: (id, completed) => {
@@ -2175,6 +2178,34 @@ export default class ModularDiaryPlugin extends Plugin {
     }
     if (!this.dayIndexReady()) void this.refreshDayIndex()
     return [...seen]
+  }
+
+  /** Todo attachments: vault image thumbnails, opening, and saving pasted images next to the note. */
+  private todoAttachmentDeps(sourcePath: string): TodoAttachmentDeps {
+    const resolve = (target: string): TFile | null => this.app.metadataCache.getFirstLinkpathDest(target, sourcePath)
+    return {
+      imageSrc: (target) => {
+        const file = resolve(target)
+        return file ? this.app.vault.getResourcePath(file) : null
+      },
+      open: (attachment) => {
+        if (attachment.kind === "link") window.open(attachment.target)
+        else void this.app.workspace.openLinkText(attachment.target, sourcePath, true)
+      },
+      saveImage: async (file) => {
+        const ext = (file.type.split("/")[1] ?? "png").replace("jpeg", "jpg").replace(/[^a-z0-9]/gi, "") || "png"
+        const name = file.name && !/^image\.\w+$/i.test(file.name) ? file.name : `Pasted image ${new Date().toISOString().replace(/\D/g, "").slice(0, 14)}.${ext}`
+        try {
+          const path = await this.app.fileManager.getAvailablePathForAttachment(name, sourcePath)
+          const created = await this.app.vault.createBinary(path, await file.arrayBuffer())
+          return `[[${created.path}]]`
+        } catch (error) {
+          console.error("Modular Diary: failed to save pasted image", error)
+          new Notice(tr("saveFailed"))
+          return null
+        }
+      },
+    }
   }
 
   private tagSuggestDeps(): TagSuggestDeps {

@@ -41,7 +41,8 @@ function mount(){
  categories:['work'],priorities:['马上','随时'],typeColors:{work:'#777'},view:doc.todoView,editDraft,
  onEditDraftChange:d=>editDraft=d,
  onAdd:i=>persist(s=>insertTodo(s,{id:'new',title:i.title,group:'',type:i.type,estimateMin:i.estimateMinutes,completed:false,note:i.note,difficulty:i.difficulty,priority:i.priority})),
- onEdit:(id,i)=>persist(s=>updateTodo(s,id,{title:i.title,type:i.type,estimateMin:i.estimateMinutes,note:i.note,difficulty:i.difficulty,priority:i.priority})),
+ onEdit:(id,i)=>persist(s=>updateTodo(s,id,{title:i.title,type:i.type,estimateMin:i.estimateMinutes,note:i.note,difficulty:i.difficulty,priority:i.priority,attach:i.attach})),
+ attachments:{imageSrc:t=>t.endsWith('.png')?'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2210%22%3E%3Crect width=%2210%22 height=%2210%22 fill=%22teal%22/%3E%3C/svg%3E':null,open:a=>(window.opened=window.opened||[]).push(a.target),saveImage:async()=>'[[附件/pasted.png]]'},
  onToggle:(id,completed)=>persist(s=>updateTodo(s,id,{completed,partial:false})),
  onMenu:(item,x,y,edit)=>{document.querySelector('#menu')?.remove();const menu=document.body.createDiv({});menu.id='menu';
  for(const [label,action] of [['编辑',edit],['半完成',()=>persist(s=>updateTodo(s,item.id,{completed:false,partial:true}))],[${JSON.stringify('推到明天 → ')}+${JSON.stringify(destination)},()=>{queue=queue.then(async()=>{const result=await window.postponeSource(source,item.id);source=result;mount()});return queue}]]){
@@ -203,6 +204,23 @@ try {
  await addForm.getByRole('button',{name:'保存',exact:true}).click();await page.evaluate(()=>window.whenSaved())
  const addedRow=fs.readFileSync(sourceFile,'utf8').split('\n').find(line=>line.includes('id="new"'))
  for(const field of ['title="新建点选测试"','difficulty=2','priority="P0"'])assert.ok(addedRow.includes(field),'new task must persist '+field)
+ // Attachments: paste a link and an image into the edit form; they save as one attach field and show as a compact strip.
+ await row('new').click({button:'right'});await page.getByRole('button',{name:'编辑',exact:true}).click()
+ const attachInput=row('new').getByRole('textbox',{name:'附件和链接',exact:true})
+ await attachInput.fill('https://example.com/spec');await attachInput.press('Enter')
+ await attachInput.evaluate(el=>{const data=new DataTransfer();data.items.add(new File([new Uint8Array([137,80,78,71])],'image.png',{type:'image/png'}));el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}))})
+ await row('new').locator('.modular-diary-todo-attach-chip.is-image').waitFor()
+ assert.equal(await row('new').locator('.modular-diary-todo-attach-chip').count(),2)
+ await row('new').getByRole('button',{name:'保存',exact:true}).click();await page.evaluate(()=>window.whenSaved())
+ const attachedRow=fs.readFileSync(sourceFile,'utf8').split('\n').find(line=>line.includes('id="new"'))
+ assert.ok(attachedRow.includes('attach="https://example.com/spec\\n[[附件/pasted.png]]"'),attachedRow)
+ assert.equal(await row('new').locator('.modular-diary-todo-attachment').count(),2)
+ assert.equal(await row('new').locator('.modular-diary-todo-attachment img').count(),1,'a vault image shows as a thumbnail')
+ const rowHeight=await row('new').evaluate(r=>r.getBoundingClientRect().height)
+ assert.ok(rowHeight<60,'attachments must not make the row tall: '+rowHeight)
+ await row('new').getByRole('button',{name:'example.com/spec',exact:true}).click()
+ assert.deepEqual(await page.evaluate(()=>window.opened),['https://example.com/spec'])
+ await page.screenshot({path:path.join(out,'todo-attachments-light.png')})
  // Exercise both branches together through the renderer and durable file adapter.
  const combined='date: 2026-10-10\n'
    +'- [/] todo: id="low" estimate=30 category="work" group="" title="#alpha First" note="Retained note" difficulty=2 priority="P2"\n'

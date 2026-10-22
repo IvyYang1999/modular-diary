@@ -154,6 +154,7 @@ export function updateTodo(source: string, id: string, patch: Partial<Omit<TodoI
     const previous = current[key as keyof TodoItem]
     if (key === "note") return (value ?? "") === (previous ?? "")
     if (key === "partial") return Boolean(value) === Boolean(previous)
+    if (key === "attach") return ((value as string[] | undefined) ?? []).join("\n") === ((previous as string[] | undefined) ?? []).join("\n")
     return value === previous
   })
   if (unchanged) return source

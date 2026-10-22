@@ -190,6 +190,16 @@ describe("todo and habit source rewrites", () => {
     expect(parseTimeline(source).entries).toHaveLength(1)
   })
 
+  it("round-trips attachments as one attach field, and a hand edit of it is read back", () => {
+    let source = insertTodo("---", { ...item("a"), attach: ["[[附件/图 1.png]]", "https://example.com/x"] })
+    expect(source).toContain('attach="[[附件/图 1.png]]\\nhttps://example.com/x"')
+    expect(parseTimeline(source).todos[0].attach).toEqual(["[[附件/图 1.png]]", "https://example.com/x"])
+    source = source.replace("https://example.com/x", "https://example.org")
+    expect(parseTimeline(source).todos[0].attach).toEqual(["[[附件/图 1.png]]", "https://example.org"])
+    source = updateTodo(source, "a", { attach: [] })
+    expect(source).not.toContain("attach=")
+  })
+
   it("refuses to re-parent into its own subtree", () => {
     let source = "---"
     source = insertTodo(source, item("a"))

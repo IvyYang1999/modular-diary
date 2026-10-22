@@ -1,5 +1,6 @@
 import { setIcon } from "obsidian"
 import { durationInputMinutes, durationInputValue, formatHours, preferredDurationUnit, type DurationInputUnit } from "../core/duration"
+import { parseTodoAttachment, attachmentsFromText, type TodoAttachment } from "../core/todo-attachments"
 import { DEFAULT_TODO_PRIORITIES, normalizeTodoPriorities, sortTodoItems } from "../core/todos"
 import type { TodoViewConfig } from "../core/types"
 import { t } from "../i18n"
@@ -31,6 +32,8 @@ export interface TodoViewItem {
   movedTo?: string
   /** Cell in the ABC / four-quadrant layouts. */
   bucket?: string
+  /** Images, vault files and links (`attach=`). */
+  attach?: string[]
   /** Quiet status pills after the title (a period todo's placement, its deadline). */
   flags?: Array<{ text: string; tone?: "placed" | "due" | "elsewhere" }>
 }
@@ -50,6 +53,16 @@ export interface NewTodoInput {
   parent?: string
   /** Preserve the authored number while a draft is remounted. */
   estimateValue?: string
+  attach?: string[]
+}
+
+/** Host services for todo attachments: thumbnails, opening, and saving a pasted image. */
+export interface TodoAttachmentDeps {
+  /** A loadable URL for a vault image, or null when the file is missing. */
+  imageSrc: (target: string) => string | null
+  open: (attachment: TodoAttachment) => void
+  /** Store a pasted or dropped image in the vault; resolves to its `[[link]]`. */
+  saveImage: (file: File) => Promise<string | null>
 }
 export interface TodoEditDraft { id: string; input: NewTodoInput }
 
@@ -92,6 +105,8 @@ export interface TodoViewDeps {
   tagStyle?: (tag: string) => { background: string; color: string } | null
   /** `#` autocomplete for the title inputs. */
   tagSuggest?: TagSuggestDeps
+  /** Attachment services; without them attachments still render as plain chips. */
+  attachments?: TodoAttachmentDeps
   draft?: NewTodoInput | null
   onDraftChange?: (draft: NewTodoInput | null) => void
   editDraft?: TodoEditDraft | null
@@ -113,6 +128,7 @@ export function createTodoForm(
   onDraftChange?: (draft: NewTodoInput | null) => void,
   priorities: string[] = DEFAULT_TODO_PRIORITIES,
   tagSuggest?: TagSuggestDeps,
+  attachments?: TodoAttachmentDeps,
 ): TodoFormController {
   const form = parent.createEl("form", { cls: `modular-diary-todo-form ${className}` })
   // Chromium validates before `submit`, which would replace our interaction
@@ -194,10 +210,61 @@ export function createTodoForm(
   const note = form.createEl("textarea", { cls: "modular-diary-todo-note-input", attr: { "aria-label": t("note"), placeholder: t("note"), rows: "2" } })
   let originalNote = ""
   let displayedNote = ""
-  const extraValues = (): Pick<NewTodoInput, "note" | "difficulty" | "priority"> => ({
+  // Attachments: removable chips plus one field that takes a pasted link or image.
+  let attached: string[] = []
+  const attachField = form.createDiv({ cls: "modular-diary-todo-attach-field" })
+  const attachChips = attachField.createDiv({ cls: "modular-diary-todo-attach-chips" })
+  const attachInput = attachField.createEl("input", { cls: "modular-diary-todo-attach-input", attr: { type: "text", placeholder: t("todoAttachPlaceholder"), "aria-label": t("todoAttach") } })
+  const syncAttachments = (): void => {
+    attachChips.replaceChildren()
+    for (const raw of attached) {
+      const item = parseTodoAttachment(raw)
+      if (!item) continue
+      const chip = attachChips.createEl("span", { cls: `modular-diary-todo-attach-chip is-${item.kind}`, attr: { title: item.raw } })
+      renderAttachmentIcon(chip, item, attachments)
+      chip.createEl("span", { cls: "modular-diary-todo-attach-label", text: item.label })
+      const remove = chip.createEl("button", { cls: "modular-diary-todo-attach-remove", attr: { type: "button", "aria-label": t("todoAttachRemove", { name: item.label }) } })
+      setIcon(remove, "x")
+      remove.addEventListener("click", () => { attached = attached.filter((value) => value !== raw); syncAttachments(); emitDraft() })
+    }
+  }
+  const addAttachments = (items: string[]): void => {
+    const fresh = items.filter((raw) => !attached.includes(raw))
+    if (!fresh.length) return
+    attached = [...attached, ...fresh]
+    syncAttachments()
+    emitDraft()
+  }
+  const takeFiles = (files: FileList | null | undefined): boolean => {
+    const images = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"))
+    if (!images.length || !attachments) return false
+    void Promise.all(images.map((file) => attachments.saveImage(file))).then((links) => addAttachments(links.filter((link): link is string => Boolean(link))))
+    return true
+  }
+  attachInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return
+    event.preventDefault()
+    const items = attachmentsFromText(attachInput.value)
+    if (!items.length) return
+    addAttachments(items)
+    attachInput.value = ""
+  })
+  attachInput.addEventListener("paste", (event) => {
+    if (takeFiles(event.clipboardData?.files)) { event.preventDefault(); return }
+    const items = attachmentsFromText(event.clipboardData?.getData("text") ?? "")
+    if (!items.length) return
+    event.preventDefault()
+    addAttachments(items)
+  })
+  form.addEventListener("dragover", (event) => { if (event.dataTransfer?.types.includes("Files")) event.preventDefault() })
+  form.addEventListener("drop", (event) => {
+    if (takeFiles(event.dataTransfer?.files)) event.preventDefault()
+  })
+  const extraValues = (): Pick<NewTodoInput, "note" | "difficulty" | "priority" | "attach"> => ({
     // Textareas normalize CR/CRLF. Keep the authored value while its display is unchanged.
     note: note.value === displayedNote ? originalNote : note.value,
     difficulty: selectedDifficulty, priority: selectedPriority,
+    attach: attached,
   })
   note.addEventListener("input", () => emitDraft())
   const error = form.createDiv({ cls: "modular-diary-todo-form-error", attr: { role: "status", "aria-live": "polite" } })
@@ -266,6 +333,9 @@ export function createTodoForm(
       displayedNote = note.value
       selectedDifficulty = value.difficulty
       syncStars()
+      attached = [...(value.attach ?? [])]
+      attachInput.value = ""
+      syncAttachments()
       fillPriorities(value.priority)
       title.value = value.title
       fillCategories(value.type)
@@ -278,6 +348,17 @@ export function createTodoForm(
     },
     close,
   }
+}
+
+/** Thumbnail for a resolvable vault image, otherwise an icon for the attachment's kind. */
+function renderAttachmentIcon(host: HTMLElement, attachment: TodoAttachment, deps?: TodoAttachmentDeps): void {
+  const src = attachment.kind === "image" ? deps?.imageSrc(attachment.target) : null
+  if (src) {
+    host.createEl("img", { cls: "modular-diary-todo-attach-thumb", attr: { src, alt: "", loading: "lazy" } })
+    return
+  }
+  const icon = host.createEl("span", { cls: "modular-diary-todo-attach-icon", attr: { "aria-hidden": "true" } })
+  setIcon(icon, attachment.kind === "link" ? "link" : attachment.kind === "image" ? "image" : "paperclip")
 }
 
 /** `#tags` inside free text become badges; the text around them is untouched. */
@@ -341,7 +422,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     ...input,
     ...(addIntoBucket ? { bucket: addIntoBucket } : {}),
     ...(addIntoParent ? { parent: addIntoParent } : {}),
-  }), () => homeAddForm(), deps.onDraftChange && ((draft) => deps.onDraftChange?.(draft && addIntoParent ? { ...draft, parent: addIntoParent } : draft)), deps.priorities, deps.tagSuggest)
+  }), () => homeAddForm(), deps.onDraftChange && ((draft) => deps.onDraftChange?.(draft && addIntoParent ? { ...draft, parent: addIntoParent } : draft)), deps.priorities, deps.tagSuggest, deps.attachments)
   // The form normally lives under the header; a sub-todo form moves under its parent row.
   const addFormHome = document.createComment("todo-add-form")
   addForm.form.after(addFormHome)
@@ -615,10 +696,11 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       (draft) => deps.onEditDraftChange?.(draft ? { id: item.id, input: draft } : null),
       deps.priorities,
       deps.tagSuggest,
+      deps.attachments,
     )
     const edit = (): void => {
       row.classList.add("is-editing")
-      editForm.open({ title: item.title, type: item.type, estimateMinutes: item.estimateMinutes, note: item.note, difficulty: item.difficulty, priority: item.priority })
+      editForm.open({ title: item.title, type: item.type, estimateMinutes: item.estimateMinutes, note: item.note, difficulty: item.difficulty, priority: item.priority, attach: item.attach })
     }
     // Lets a sibling surface (a period block's calendar pill) open this row's editor.
     row.addEventListener("modular-diary-edit", edit)
@@ -727,7 +809,21 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       })
       if (collapsed) titleEl.createEl("span", { cls: "modular-diary-todo-collapsed-count", text: `+${todoTree.descendantIds(item.id).length}` })
     }
-    renderTitleWithTags(titleEl, item.title, deps.tagStyle)
+    // With attachments the title text truncates on its own so the strip after it stays visible.
+    const hasAttachments = Boolean(item.attach?.length)
+    if (hasAttachments) titleEl.classList.add("has-attachments")
+    renderTitleWithTags(hasAttachments ? titleEl.createEl("span", { cls: "modular-diary-todo-title-text" }) : titleEl, item.title, deps.tagStyle)
+    if (item.attach?.length) {
+      // Compact: a thumbnail or icon per attachment after the title; click to open.
+      const strip = titleEl.createEl("span", { cls: "modular-diary-todo-attachments" })
+      for (const raw of item.attach) {
+        const attachment = parseTodoAttachment(raw)
+        if (!attachment) continue
+        const open = strip.createEl("button", { cls: `modular-diary-todo-attachment is-${attachment.kind}`, attr: { type: "button", "aria-label": attachment.label, title: attachment.label } })
+        renderAttachmentIcon(open, attachment, deps.attachments)
+        open.addEventListener("click", (event) => { event.stopPropagation(); deps.attachments?.open(attachment) })
+      }
+    }
     if (item.movedTo) titleEl.createEl("span", { cls: "modular-diary-todo-moved", text: t("movedToBadge", { date: item.movedTo.slice(5).replace("-", ".") }) })
     if (!deps.compactMeta) for (const flag of item.flags ?? []) titleEl.createEl("span", { cls: `modular-diary-todo-flag is-${flag.tone ?? "placed"}`, text: flag.text })
     // A parent row reports its whole subtree: totals roll up, plus a done/total count.
