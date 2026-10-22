@@ -740,7 +740,7 @@ export default class ModularDiaryPlugin extends Plugin {
       if (this.activeMarkerType === "" && blockActiveMarkerType) this.activeMarkerType = blockActiveMarkerType
 
       const slotLabels: Record<string, string> = {
-        ...Object.fromEntries((doc.checklists ?? []).map((c) => [c.id, c.title || "Checklist"])),
+        ...Object.fromEntries((doc.checklists ?? []).map((c) => [c.id, c.title || tr("checklistDefaultName")])),
         toolbar: tr("category"),
         stats: tr("statistics"),
         dialog: tr("quickRecord"),
@@ -2403,7 +2403,7 @@ export default class ModularDiaryPlugin extends Plugin {
 
   private addChecklistComponent(source: string, doc: { layout?: unknown }, container: HTMLElement, template?: ChecklistTemplate): string {
     const current = this.persistLayoutOnce(source, doc, container)
-    const next = addChecklistModule(current, template?.name ?? "Checklist", template)
+    const next = addChecklistModule(current, template?.name ?? tr("checklistDefaultName"), template)
     const id = this.parse(next).checklists!.at(-1)!.id
     return this.addComponentSlot(next, this.parse(current), container, id)
   }
