@@ -9,6 +9,8 @@ export interface TextPaneDeps {
   onDraftChange?: (index: number, draft: TextDraftState | null, savedValue?: string) => void
   /** Rename a titled section. */
   onRenameTitle?: (index: number, title: string) => void | Promise<void>
+  /** Right-click on a section title (pin it to the add menu, …). */
+  onTitleMenu?: (title: string, x: number, y: number) => void
   /** Open this section's title editor right away (a section just added as "custom"). */
   autoRenameIndex?: number
 }
@@ -551,6 +553,12 @@ export function renderTimelineInto(
           input.addEventListener("blur", () => finish(true))
         }
         heading.addEventListener("click", beginRename)
+        heading.addEventListener("contextmenu", (event) => {
+          if (!textPane.onTitleMenu) return
+          event.preventDefault()
+          event.stopPropagation()
+          textPane.onTitleMenu(title, event.clientX, event.clientY)
+        })
         if (textPane.autoRenameIndex === idx) queueMicrotask(beginRename)
       }
       const pane = slot.createDiv({ cls: "modular-diary-text-pane" })

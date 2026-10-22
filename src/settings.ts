@@ -58,6 +58,8 @@ export interface ModularDiarySettings {
   checklistFolder: string
   /** Tag -> category membership; a tag missing here is independent (neutral badge). */
   tagCategories: Record<string, string>
+  /** Section titles pinned to the add-component menu. */
+  pinnedSections: string[]
   /** On the hour, ask in the status bar what the last hour went into. */
   hourlyNudge: boolean
   /** Hours the nudge may ask about: an hour starting at or after start, ending at or before end. */
@@ -90,6 +92,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   dailyQuoteInk: "",
   checklistFolder: DEFAULT_CHECKLIST_FOLDER,
   tagCategories: {},
+  pinnedSections: [],
   hourlyNudge: true,
   nudgeStartHour: 9,
   nudgeEndHour: 24,

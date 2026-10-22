@@ -665,6 +665,18 @@ export default class ModularDiaryPlugin extends Plugin {
           },
           onSave: saveText,
           onRenameTitle: (index, title) => this.applyBlockTransform(el, ctx, source, (s) => setTextTitle(s, index, title || undefined)),
+          onTitleMenu: (title, x, y) => {
+            // A section can be pinned so the add menu offers it next to the built-in components.
+            const pinned = (this.settings.pinnedSections ?? []).includes(title)
+            const menu = new Menu()
+            menu.addItem((item) => item.setTitle(tr(pinned ? "unpinSection" : "pinSection", { name: title })).setIcon(pinned ? "pin-off" : "pin").onClick(() => {
+              const current = this.settings.pinnedSections ?? []
+              this.settings.pinnedSections = pinned ? current.filter((value) => value !== title) : [...current, title]
+              void this.saveSettings()
+              new Notice(tr(pinned ? "sectionUnpinned" : "sectionPinned", { name: title }))
+            }))
+            menu.showAtPosition({ x, y }, dom)
+          },
           autoRenameIndex: (() => {
             const pending = this.pendingSectionRename
             if (!pending || pending.path !== ctx.sourcePath || pending.index >= doc.texts.length) return undefined
@@ -786,6 +798,10 @@ export default class ModularDiaryPlugin extends Plugin {
             })
         }
         menu.addItem((item) => item.setTitle(tr("addTextBox")).setIcon("file-plus-2").setSection("components").onClick(() => addTextSection()))
+        // Pinned sections sit beside the built-in components.
+        for (const pinned of this.settings.pinnedSections ?? []) {
+          menu.addItem((item) => item.setTitle(tr("addPinnedSection", { name: pinned })).setIcon("pin").setSection("components").onClick(() => addTextSection(pinned)))
+        }
         const createChecklist = (template?: ChecklistTemplate): void => {
           void this.applyBlockTransform(el, ctx, source, (s) => this.addChecklistComponent(s, doc, container, template))
             .catch(() => new Notice(tr("saveFailed")))
@@ -3108,6 +3124,7 @@ export default class ModularDiaryPlugin extends Plugin {
       todoPriorities: normalizeTodoPriorities(Array.isArray(data?.todoPriorities) ? data.todoPriorities.filter((value): value is string => typeof value === "string") : DEFAULT_SETTINGS.todoPriorities),
       dailyQuoteInk: typeof data?.dailyQuoteInk === "string" ? data.dailyQuoteInk : "",
       checklistFolder: typeof data?.checklistFolder === "string" ? data.checklistFolder : DEFAULT_SETTINGS.checklistFolder,
+      pinnedSections: Array.isArray(data?.pinnedSections) ? [...new Set(data.pinnedSections.filter((value): value is string => typeof value === "string" && value.trim() !== ""))] : [],
       timelineOnboardingSeen: resolveTimelineOnboardingSeen(
         data?.timelineOnboardingSeen,
         hasPersistedSettings

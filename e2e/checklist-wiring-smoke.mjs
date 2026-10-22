@@ -15,7 +15,7 @@ for(const [method,tag] of [['createDiv','div'],['createSpan','span'],['createEl'
 HTMLElement.prototype.empty=function(){this.replaceChildren()};HTMLElement.prototype.addClass=function(...c){this.classList.add(...c)};HTMLElement.prototype.removeClass=function(...c){this.classList.remove(...c)};HTMLElement.prototype.toggleClass=function(c,v){this.classList.toggle(c,v)};HTMLElement.prototype.setText=function(t){this.textContent=t};
 const cleanup=[];class Base{registerDomEvent(target,name,cb,opts){target.addEventListener(name,cb,opts);cleanup.push(()=>target.removeEventListener(name,cb,opts))}registerEvent(){}register(){}addChild(){}}
 class TFile{};class TFolder{};class MarkdownView{};
-class Menu{constructor(){this.items=[]}addItem(cb){let title='',handler=()=>{},label=false;const item=new Proxy({setTitle:t=>{title=t;return item},onClick:cb=>{handler=cb;return item},setIsLabel:()=>{label=true;return item}},{get:(o,k)=>o[k]||(()=>item)});cb(item);this.items.push({title,handler,label});return this}addSeparator(){return this}showAtPosition(){document.querySelector('#menu')?.remove();const m=document.body.createDiv({});m.id='menu';m.setAttribute('role','menu');for(const i of this.items){const b=m.createEl('button',{text:i.title,attr:{type:'button'}});b.disabled=i.label;b.onclick=()=>{m.remove();i.handler()}}}}
+class Menu{constructor(){this.items=[]}addItem(cb){let title='',handler=()=>{},label=false,sub=null;const item=new Proxy({setTitle:t=>{title=t;return item},onClick:cb=>{handler=cb;return item},setIsLabel:()=>{label=true;return item},setSubmenu:()=>(sub=new Menu())},{get:(o,k)=>o[k]||(()=>item)});cb(item);this.items.push({title,handler,label,get sub(){return sub}});return this}addSeparator(){return this}flat(){return this.items.flatMap(i=>i.sub?[{...i,label:true},...i.sub.flat()]:[i])}showAtPosition(){document.querySelector('#menu')?.remove();const m=document.body.createDiv({});m.id='menu';m.setAttribute('role','menu');for(const i of this.flat()){const b=m.createEl('button',{text:i.title,attr:{type:'button'}});b.disabled=i.label;b.onclick=()=>{m.remove();i.handler()}}}}
 const obsidian=new Proxy({Plugin:Base,PluginSettingTab:Base,Modal:Base,MarkdownRenderChild:Base,FuzzySuggestModal:Base,TFile,TFolder,MarkdownView,Menu,Platform:{isDesktopApp:false,isMobile:false},getLanguage:()=> 'zh',normalizePath:p=>p,setIcon:(el,name)=>{const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.innerHTML='<path d="M5 12h14M12 5v14" stroke="currentColor"/>';el.append(svg)},MarkdownRenderer:{render:async(_a,text,el)=>{el.textContent=text}},Notice:class{constructor(text){window.notices.push(text)}},moment:()=>({format:()=> '2026-10-22'})},{get:(o,k)=>o[k]??Base});
 window.notices=[];window.require=n=>n==='obsidian'?obsidian:n==='node:os'?{homedir:()=>'/synthetic'}:n==='node:path'?{join:(...p)=>p.join('/')}:{};
 window.__base={obsidian,cleanup};
@@ -65,6 +65,21 @@ try{
  await page.locator('[data-slot="checklist1"]').waitFor()
  assert.equal(await page.locator('[data-slot="checklist1"]').getByRole('checkbox',{name:'Actual plugin checklist item',exact:true}).isChecked(),true)
  await page.screenshot({path:path.join(out,'actual-plugin-checklists.png')})
+ // A section title can be pinned, and the add menu then offers it next to the built-in components.
+ await page.evaluate(()=>{window.plugin.saveData=async()=>{};window.plugin.settings.pinnedSections=[]})
+ await page.getByRole('button',{name:'添加模块',exact:true}).click()
+ await page.getByRole('button',{name:'阅读笔记',exact:true}).click()
+ await page.getByRole('button',{name:'重命名栏目 阅读笔记',exact:true}).waitFor()
+ await page.getByRole('button',{name:'重命名栏目 阅读笔记',exact:true}).click({button:'right'})
+ await page.getByRole('button',{name:'固定「阅读笔记」到添加菜单',exact:true}).click()
+ assert.deepEqual(await page.evaluate(()=>window.plugin.settings.pinnedSections),['阅读笔记'])
+ await page.getByRole('button',{name:'添加模块',exact:true}).click()
+ await page.getByRole('button',{name:'添加「阅读笔记」',exact:true}).click()
+ await page.waitForFunction(()=>document.querySelectorAll('.modular-diary-text-title').length===2)
+ await page.getByRole('button',{name:'重命名栏目 阅读笔记',exact:true}).first().click({button:'right'})
+ await page.getByRole('button',{name:'从添加菜单取消固定「阅读笔记」',exact:true}).click()
+ assert.deepEqual(await page.evaluate(()=>window.plugin.settings.pinnedSections),[])
+ await page.evaluate(()=>{window.notices.length=0})
  assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.notices),[])
  console.log('PASS actual plugin menu → independent modules → disk checkbox → remount. Screenshot:',out)
 } catch(e){console.error(e);process.exitCode=1}finally{await browser.close()}
