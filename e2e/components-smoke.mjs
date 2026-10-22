@@ -253,7 +253,7 @@ const renderTreeTodos = (): void => {
       else window.__treeCollapsed.splice(at, 1)
       renderTreeTodos()
     },
-    onAdd: (input) => window.__events.push("todo-add:" + input.title + ":" + input.estimateMinutes + ":" + (input.parent ?? "")),
+    onAdd: (input) => window.__events.push("todo-add:" + input.title + ":" + input.estimateMinutes + ":" + (input.parent ?? "") + ":" + (input.type ?? "")),
     onReparent: (id, parent) => window.__events.push("todo-reparent:" + id + ":" + parent),
     onEdit: () => {}, onGroupMenu: () => {}, onSortMenu: () => {}, onToggle: () => {}, onMenu: () => {},
     onMove: (id, index) => window.__events.push("tree-move:" + id + ":" + index),
@@ -834,6 +834,21 @@ const todoTree = await page.evaluate(() => {
     addFormVisible: Boolean(form && !form.hidden),
   }
 })
+// The sub-todo form opens in place under its parent, indented, naming the parent, with no category picker.
+const childForm = await page.evaluate(() => {
+  const slot = document.querySelector('.modular-diary-slot[data-slot="todos-tree"]')
+  const form = slot.querySelector(".modular-diary-todo-add-form")
+  const parentRow = slot.querySelector('.modular-diary-todo-row[data-todo-id="tp"]')
+  return {
+    afterParentRow: parentRow?.nextElementSibling === form,
+    isChild: form?.classList.contains("is-child") ?? false,
+    hint: form?.querySelector(".modular-diary-todo-child-hint")?.textContent ?? "",
+    categoryHidden: getComputedStyle(form.querySelector(".modular-diary-todo-category-select")).display === "none",
+    indented: form.getBoundingClientRect().left > parentRow.getBoundingClientRect().left + 10,
+    focused: document.activeElement === form.querySelector(".modular-diary-todo-title-input"),
+  }
+})
+if (!childForm.afterParentRow || !childForm.isChild || childForm.hint !== "子待办 · 属于「优化 openTrends」" || !childForm.categoryHidden || !childForm.indented || !childForm.focused) errors.push("add-child must open the form under the parent row, indented and named, without a category picker: " + JSON.stringify(childForm))
 await page.locator('.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-add-form .modular-diary-todo-title-input').fill("新子任务")
 await page.locator('.modular-diary-slot[data-slot="todos-tree"] .modular-diary-todo-add-form').dispatchEvent("submit")
 // Collapse: the chevron hides the whole subtree and re-renders without it.
@@ -1073,7 +1088,7 @@ for (const expected of ["habit-edit", "habit-menu:weekly", "habit-move:weekly:1"
 }
 if (!events.includes("todo-edit:local:整理发布清单:45")) errors.push("todo estimate edit did not reach the persistence contract")
 if (!events.includes("todo-add:整理学习资料:30")) errors.push("hour-based todo creation did not convert to canonical minutes")
-if (!events.includes("todo-add:新子任务:30:tp")) errors.push("adding a sub-todo did not carry the parent id through the add form")
+if (!events.includes("todo-add:新子任务:30:tp:develop")) errors.push("adding a sub-todo must carry the parent id and inherit its category: " + JSON.stringify(events.filter((e) => e.startsWith("todo-add"))))
 if (!events.includes("tree-move:tc1:1")) errors.push("a subtree drop must map onto the owned todo order: " + JSON.stringify(subtreeDrag))
 if (!events.includes("todo-reparent:tz:tp")) errors.push("a drop onto a row must re-parent instead of reorder")
 if (!events.includes('todo-group-move:"c:read":1')) errors.push("group keyboard reorder did not reach the persistence contract")

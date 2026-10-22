@@ -5511,3 +5511,23 @@ textarea.modular-diary-template-source {
 .modular-diary-slot[data-slot^="checklist"] { overflow: hidden; }
 .modular-diary-checklist { height: 100%; min-height: 0; overflow: auto; padding-block-end: 8px; overscroll-behavior: contain; }
 .modular-diary-checklist .modular-diary-component-header { position: sticky; top: 0; z-index: 1; background: var(--background-primary); }
+
+/* Sub-todo add form: opens under its parent row, one level in, with the parent named. */
+.modular-diary-todo-child-hint { display: none; }
+.modular-diary-todo-form.is-child {
+  margin-inline-start: calc(var(--modular-diary-todo-depth, 1) * 14px + 10px);
+  padding-inline-start: 8px;
+  border-inline-start: 2px solid var(--background-modifier-border);
+}
+.modular-diary-todo-form.is-child .modular-diary-todo-child-hint {
+  display: block;
+  grid-column: 1 / -1;
+  order: -1;
+  color: var(--text-muted);
+  font-size: var(--modular-diary-font-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.modular-diary-todo-form.is-child .modular-diary-todo-category-select { display: none; }
+.modular-diary-todo-form.is-child .modular-diary-todo-title-input { grid-column: 1 / 3; }

@@ -338,20 +338,49 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     ...input,
     ...(addIntoBucket ? { bucket: addIntoBucket } : {}),
     ...(addIntoParent ? { parent: addIntoParent } : {}),
-  }), undefined, deps.onDraftChange, deps.priorities, deps.tagSuggest)
+  }), () => homeAddForm(), deps.onDraftChange && ((draft) => deps.onDraftChange?.(draft && addIntoParent ? { ...draft, parent: addIntoParent } : draft)), deps.priorities, deps.tagSuggest)
+  // The form normally lives under the header; a sub-todo form moves under its parent row.
+  const addFormHome = document.createComment("todo-add-form")
+  addForm.form.after(addFormHome)
+  const childHint = addForm.form.createDiv({ cls: "modular-diary-todo-child-hint" })
+  addForm.form.prepend(childHint)
+  const homeAddForm = (): void => {
+    addForm.form.classList.remove("is-child")
+    addForm.form.style.removeProperty("--modular-diary-todo-depth")
+    childHint.textContent = ""
+    if (addFormHome.isConnected) addFormHome.before(addForm.form)
+  }
   add.addEventListener("click", () => {
     addIntoBucket = undefined
     addIntoParent = undefined
+    homeAddForm()
     if (addForm.form.hidden) addForm.open({ title: "", estimateMinutes: 30, estimateUnit: "minutes" })
     else addForm.close()
   })
-  /** Open the add form so the new todo becomes a child of `id`. */
-  const addChildFor = (id: string): void => {
+  /**
+   * Open the add form right under `id`'s row, indented one level. The sub-todo takes
+   * its parent's category, so the category picker is hidden and a hint names the parent.
+   */
+  const addChildFor = (id: string, draft?: NewTodoInput): void => {
+    const parent = items.find((item) => item.id === id)
+    if (!parent) return
     addIntoBucket = undefined
     addIntoParent = id
-    addForm.open({ title: "", estimateMinutes: 30, estimateUnit: "minutes" })
+    addForm.open(draft ?? { title: "", type: parent.type, estimateMinutes: 30, estimateUnit: "minutes" }, { focus: !draft })
+    addForm.form.classList.add("is-child")
+    childHint.textContent = t("todoChildOf", { title: parent.title })
+    // Rows are drawn after this point on a remount; place the form once they exist.
+    queueMicrotask(() => {
+      const row = root.querySelector<HTMLElement>(`.modular-diary-todo-node[data-todo-node="${CSS.escape(id)}"] > .modular-diary-todo-row`)
+      if (!row) return
+      const depth = Number(row.style.getPropertyValue("--modular-diary-todo-depth") || 0) + 1
+      addForm.form.style.setProperty("--modular-diary-todo-depth", String(depth))
+      row.after(addForm.form)
+      if (!draft) addForm.form.querySelector<HTMLInputElement>(".modular-diary-todo-title-input")?.focus()
+    })
   }
-  if (deps.draft) addForm.open(deps.draft, { focus: false })
+  if (deps.draft?.parent) addChildFor(deps.draft.parent, deps.draft)
+  else if (deps.draft) addForm.open(deps.draft, { focus: false })
 
   // With cells, an empty day still shows them: filling the cells is the point.
   if (items.length === 0 && !buckets) {
