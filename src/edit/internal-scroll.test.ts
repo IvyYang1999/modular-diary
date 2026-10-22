@@ -19,7 +19,7 @@ function slot(id: string, top: number, left: number): FakeSlot {
     pane,
     scrollTop: 0,
     scrollLeft: 0,
-    querySelector: (selector) => selector === ".modular-diary-text-pane" ? pane : null,
+    querySelector: (selector) => selector === (id.startsWith("checklist") ? ".modular-diary-checklist" : ".modular-diary-text-pane") ? pane : null,
   }
 }
 
@@ -56,6 +56,15 @@ describe("timeline internal scroll", () => {
     expect(newTimeline).toEqual(oldTimeline)
     expect(newText.pane).toEqual(oldText.pane)
     expect(newText2.pane).toEqual(oldText2.pane)
+  })
+
+  it("restores the inner Checklist scroll owner by module identity", () => {
+    const old = slot("checklist2", 96, 0)
+    const snapshot = captureInternalScroll(container({ scrollTop: 0, scrollLeft: 0 }, { scrollTop: 0, scrollLeft: 0 }, [old]))
+    const first = slot("checklist1", 0, 0), second = slot("checklist2", 0, 0)
+    restoreInternalScroll(snapshot, container({ scrollTop: 0, scrollLeft: 0 }, { scrollTop: 0, scrollLeft: 0 }, [first, second]))
+    expect(first.pane.scrollTop).toBe(0)
+    expect(second.pane.scrollTop).toBe(96)
   })
 
   it("restores the timeline again after its remounted scroll range becomes measurable", () => {

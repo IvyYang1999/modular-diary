@@ -18,6 +18,7 @@ import { parsePeriodSpec } from "./period"
 import { t as tr } from "../i18n"
 import { extractTags } from "./tags"
 import { bodyExtent, readBody, separatorTitle, TEXT_SEPARATOR_RE, unescapeSectionLine } from "./body-extent"
+import { isChecklistSlot, parseChecklistModule } from "./checklist-modules"
 import {
   Annotation,
   DAY_MINUTES,
@@ -85,6 +86,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     todoGroupOrder: [],
     goals: [],
     texts: [],
+    checklists: [],
   }
 
   const lines = source.split(/\r?\n/)
@@ -329,7 +331,7 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
     }
     case "off": {
       const ids = value.split(/[\s,，]+/).filter((t): t is import("./grid-layout").SlotId =>
-        ["toolbar", "stats", "dialog", "habits", "todos", "quote", "hourlog"].includes(t) // text/timeline 不允许隐藏
+        ["toolbar", "stats", "dialog", "habits", "todos", "quote", "hourlog"].includes(t) || isChecklistSlot(t) // text/timeline 不允许隐藏
       )
       doc.hiddenSlots.push(...ids)
       return
@@ -354,6 +356,12 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
     }
     case "habit-skip": {
       doc.habitSkips.push(...value.split(/[\s,，]+/).filter((id) => /^[a-z0-9_-]+$/i.test(id)))
+      return
+    }
+    case "checklist": {
+      const module = parseChecklistModule(value)
+      if (module && !doc.checklists?.some((c) => c.id === module.id)) doc.checklists?.push(module)
+      else doc.errors.push({ line, text: raw, reason: tr("invalidChecklist") })
       return
     }
     case "todo": {

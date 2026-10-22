@@ -1768,6 +1768,7 @@
 
 /* 打卡 / Todo：保持紧凑；打卡状态行使用无阴影描边以承载只读状态徽标。 */
 .modular-diary-habits,
+.modular-diary-checklist,
 .modular-diary-todos {
   display: flex;
   flex-direction: column;
@@ -2547,12 +2548,12 @@ button.modular-diary-item-drag:active {
  * 常规内容槽共享同一条左右内容起始线。时间轴不在此列：它的小时标签、
  * 轨道和右侧标注车道使用独立坐标系，改变 slot padding 会移动几何基准。
  */
-.modular-diary-slot:is(.modular-diary-slot-dialog, .modular-diary-slot-toolbar, .modular-diary-slot-stats, .modular-diary-slot-habits, .modular-diary-slot-todos, .modular-diary-slot-quote, .modular-diary-slot-hourlog, [data-slot^="text"]) {
+.modular-diary-slot:is(.modular-diary-slot-dialog, .modular-diary-slot-toolbar, .modular-diary-slot-stats, .modular-diary-slot-habits, .modular-diary-slot-todos, .modular-diary-slot-quote, .modular-diary-slot-hourlog, [data-slot^="checklist"], [data-slot^="text"]) {
   padding-inline: var(--modular-diary-content-inset);
 }
 
 /* slot padding 变宽不应把固定在左上角的拖拽手柄一起推向内侧。 */
-.modular-diary-slot:is(.modular-diary-slot-dialog, .modular-diary-slot-toolbar, .modular-diary-slot-stats, .modular-diary-slot-habits, .modular-diary-slot-todos, .modular-diary-slot-quote, .modular-diary-slot-hourlog, [data-slot^="text"])
+.modular-diary-slot:is(.modular-diary-slot-dialog, .modular-diary-slot-toolbar, .modular-diary-slot-stats, .modular-diary-slot-habits, .modular-diary-slot-todos, .modular-diary-slot-quote, .modular-diary-slot-hourlog, [data-slot^="checklist"], [data-slot^="text"])
   > .modular-diary-slot-grip-anchor {
   transform: translate(
     calc(var(--size-4-1, 4px) - var(--modular-diary-content-inset)),
@@ -2764,6 +2765,7 @@ button.modular-diary-item-drag:active {
 /* 块级快捷入口（右下角，hover 淡入） */
 
 .modular-diary-more-actions,
+.modular-diary-add-component,
 .modular-diary-open-settings {
   appearance: none;
   -webkit-appearance: none;
@@ -5378,3 +5380,134 @@ textarea.modular-diary-template-source {
 .modular-diary-template-info.is-error { color: var(--text-error); }
 .notice button.modular-diary-notice-undo { margin-left: 10px; }
 
+
+/* Independent Checklist modules use the same draggable slot shell as Todos.
+ * Rows read like Obsidian task lines; the title, items and add row are edited in place. */
+.modular-diary-checklist { min-width: 0; container-type: inline-size; }
+.modular-diary-checklist button { font: inherit; }
+.modular-diary-container .modular-diary-checklist button.modular-diary-checklist-title {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+  font-weight: var(--font-semibold, 600);
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.modular-diary-container .modular-diary-checklist button.modular-diary-checklist-title:hover { color: var(--text-accent); }
+.modular-diary-checklist .modular-diary-component-count.is-complete { color: var(--color-green); }
+.modular-diary-checklist-items { display: flex; flex-direction: column; }
+.modular-diary-checklist-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 28px;
+  padding-block: 3px;
+}
+.modular-diary-checklist-row input.task-list-item-checkbox { flex: none; margin: 3px 0 0; }
+.modular-diary-container .modular-diary-checklist button.modular-diary-checklist-text {
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+  display: block;
+  font-weight: var(--font-normal, 400);
+  line-height: 1.45;
+  text-align: start;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+.modular-diary-checklist-row.is-checked button.modular-diary-checklist-text { color: var(--text-faint); text-decoration: line-through; }
+.modular-diary-container .modular-diary-checklist button.modular-diary-checklist-remove {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--modular-diary-radius-control);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-faint);
+  opacity: 0;
+}
+.modular-diary-checklist-row:is(:hover, :focus-within) button.modular-diary-checklist-remove { opacity: 1; }
+.modular-diary-container .modular-diary-checklist button.modular-diary-checklist-remove:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.modular-diary-checklist-remove svg { width: 13px; height: 13px; }
+/* Inline fields sit exactly where the text was: no box, just a caret and an accent underline. */
+.modular-diary-checklist-inline { display: flex; flex: 1; min-width: 0; }
+.modular-diary-checklist :is(.modular-diary-checklist-inline, .modular-diary-checklist-add) input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  height: auto;
+  padding: 0 0 1px;
+  border: 0;
+  border-bottom: 1px solid var(--interactive-accent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+  font: inherit;
+  line-height: 1.45;
+}
+.modular-diary-checklist-inline.is-title input[type="text"] { font-weight: var(--font-semibold, 600); }
+.modular-diary-checklist :is(.modular-diary-checklist-inline, .modular-diary-checklist-add) input[type="text"]::placeholder { color: var(--text-faint); }
+/* The add row: a dashed box where the next checkbox will be, then the prompt. */
+.modular-diary-checklist-ghost-box {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--checkbox-size, 15px);
+  height: var(--checkbox-size, 15px);
+  margin-top: 3px;
+  border: 1px dashed var(--text-faint);
+  border-radius: var(--checkbox-radius, 4px);
+  color: var(--text-faint);
+}
+.modular-diary-checklist-ghost-box svg { width: 10px; height: 10px; stroke-width: 2.5; }
+.modular-diary-checklist-add-trigger .modular-diary-checklist-ghost-box { border-color: transparent; }
+.modular-diary-container .modular-diary-checklist button.modular-diary-checklist-add-trigger {
+  width: 100%;
+  height: auto;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-faint);
+  font-weight: var(--font-normal, 400);
+  line-height: 1.45;
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: start;
+  cursor: text;
+}
+.modular-diary-container .modular-diary-checklist button.modular-diary-checklist-add-trigger:hover { color: var(--text-muted); }
+.modular-diary-checklist-error { color: var(--text-error); font-size: var(--modular-diary-font-caption); }
+.modular-diary-checklist-error:empty { display: none; }
+.modular-diary-checklist button:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 1px; }
+@media (hover: none) { .modular-diary-container .modular-diary-checklist button.modular-diary-checklist-remove { opacity: 1; } }
+.modular-diary-add-component {
+  right: calc(4px + 2 * (var(--modular-diary-icon-button-size) + var(--modular-diary-control-gap)));
+}
+.modular-diary-add-component:hover { color: var(--text-normal); }
+.modular-diary-add-component svg { width: 15px; height: 15px; }
+
+/* The content scrolls inside the fixed slot, leaving all resize edges outside the controls. */
+.modular-diary-slot[data-slot^="checklist"] { overflow: hidden; }
+.modular-diary-checklist { height: 100%; min-height: 0; overflow: auto; padding-block-end: 8px; overscroll-behavior: contain; }
+.modular-diary-checklist .modular-diary-component-header { position: sticky; top: 0; z-index: 1; background: var(--background-primary); }

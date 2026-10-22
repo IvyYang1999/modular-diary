@@ -6,6 +6,8 @@
  */
 import { FENCE_LINE_RE, TEXT_SEPARATOR_RE } from "./body-extent"
 import { parseTimeline } from "./parser"
+import { parseChecklistModule } from "./checklist-modules"
+import { parseTodoSourceLine } from "./todos"
 
 /** Header keys that describe how a block looks, not what happened that day. */
 const SHAPE_KEYS = new Set(["range", "width", "side", "hide", "hide-marker", "layout", "off", "todo-view", "block-size", "canvas-width", "float"])
@@ -20,9 +22,14 @@ export function skeletonFromSource(source: string): string {
     const line = raw.trim()
     if (TEXT_SEPARATOR_RE.test(raw)) { inHeader = false; sections.push(raw.trimEnd()); continue }
     if (!inHeader || sections.length > 0) continue
+    if (parseTodoSourceLine(line, 0)) continue
     if (line === "---") { inHeader = false; continue }
     const match = /^([A-Za-z][\w-]*)\s*:/.exec(line)
-    if (match && SHAPE_KEYS.has(match[1].toLowerCase())) head.push(line)
+    if (match && match[1].toLowerCase() === "checklist") {
+      const module = parseChecklistModule(line.slice(line.indexOf(":") + 1))
+      if (module) head.push(`checklist: ${JSON.stringify({ ...module, items: module.items.map((item) => ({ ...item, checked: false })) })}`)
+    }
+    else if (match && SHAPE_KEYS.has(match[1].toLowerCase())) head.push(line)
     else if (!match && line !== "" && !line.startsWith("#")) inHeader = false
   }
   return [...head, "---", ...sections].join("\n")

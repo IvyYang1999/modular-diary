@@ -87,6 +87,13 @@ class ChecklistSuggestModal extends FuzzySuggestModal<ChecklistTemplate> {
   onChooseItem(template: ChecklistTemplate): void { this.choose(template) }
 }
 
+/** Pick a reusable template without assuming an Editor or a rendering mode. */
+export async function chooseChecklistTemplate(host: ChecklistHost, choose: (template: ChecklistTemplate) => void): Promise<void> {
+  const templates = (await loadChecklistTemplates(host)).map(({ template }) => template).filter((template) => template.items.length)
+  if (!templates.length) { new Notice(t("noChecklists", { folder: checklistFolderPath(host) })); return }
+  new ChecklistSuggestModal(host.app, templates, choose).open()
+}
+
 /** "Add checklist": pick a template and insert its copy at the cursor. */
 export async function chooseChecklistForEditor(host: ChecklistHost, editor: Editor): Promise<void> {
   const templates = (await loadChecklistTemplates(host)).map(({ template }) => template).filter((template) => template.items.length)
