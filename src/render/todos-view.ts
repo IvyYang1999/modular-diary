@@ -143,45 +143,48 @@ export function createTodoForm(
   }
   const save = form.createEl("button", { cls: "modular-diary-todo-save", attr: { type: "submit", "aria-label": t("save") } })
   setIcon(save, "check")
-  const difficulty = form.createDiv({ cls: "modular-diary-todo-rank-field modular-diary-todo-difficulty", attr: { role: "group", "aria-label": t("todoDifficulty") } })
+  // Difficulty and priority share one row. Pressing the selected choice again
+  // clears it, so the unset state needs no extra control.
+  const rankRow = form.createDiv({ cls: "modular-diary-todo-rank-row" })
+  const difficulty = rankRow.createDiv({ cls: "modular-diary-todo-rank-field modular-diary-todo-difficulty", attr: { role: "group", "aria-label": t("todoDifficulty") } })
   difficulty.createEl("span", { cls: "modular-diary-todo-rank-label", text: t("todoDifficulty") })
   const stars = difficulty.createDiv({ cls: "modular-diary-todo-stars" })
   let selectedDifficulty: number | undefined
   const starButtons: HTMLButtonElement[] = []
   const syncStars = (preview = selectedDifficulty ?? 0): void => {
     starButtons.forEach((button, index) => {
-      const filled = index < preview
-      button.textContent = filled ? "★" : "☆"
-      button.classList.toggle("is-filled", filled)
-      button.setAttribute("aria-pressed", String(selectedDifficulty === index + 1))
+      const pressed = selectedDifficulty === index + 1
+      button.classList.toggle("is-filled", index < preview)
+      button.setAttribute("aria-pressed", String(pressed))
+      button.title = pressed ? t("todoRankClearHint") : t("todoDifficultyStars", { count: index + 1 })
     })
-    clearDifficulty.setAttribute("aria-pressed", String(selectedDifficulty === undefined))
   }
   for (let count = 1; count <= 5; count++) {
-    const button = stars.createEl("button", { cls: "modular-diary-todo-star", text: "☆", attr: { type: "button", "aria-label": t("todoDifficultyStars", { count }), "aria-pressed": "false" } })
+    const button = stars.createEl("button", { cls: "modular-diary-todo-star", attr: { type: "button", "aria-label": t("todoDifficultyStars", { count }), "aria-pressed": "false" } })
+    setIcon(button, "star")
     starButtons.push(button)
     button.addEventListener("pointerenter", () => syncStars(count))
-    button.addEventListener("click", () => { selectedDifficulty = count; syncStars(); emitDraft() })
+    button.addEventListener("click", () => { selectedDifficulty = selectedDifficulty === count ? undefined : count; syncStars(); emitDraft() })
   }
   stars.addEventListener("pointerleave", () => syncStars())
-  const clearDifficulty = difficulty.createEl("button", { cls: "modular-diary-todo-rank-clear", text: "×", attr: { type: "button", "aria-label": t("todoDifficultyUnset"), title: t("todoDifficultyUnset") } })
-  clearDifficulty.addEventListener("click", () => { selectedDifficulty = undefined; syncStars(); emitDraft() })
-  const priority = form.createDiv({ cls: "modular-diary-todo-rank-field modular-diary-todo-priority", attr: { role: "group", "aria-label": t("todoPriority") } })
+  const priority = rankRow.createDiv({ cls: "modular-diary-todo-rank-field modular-diary-todo-priority", attr: { role: "group", "aria-label": t("todoPriority") } })
   priority.createEl("span", { cls: "modular-diary-todo-rank-label", text: t("todoPriority") })
   const priorityChoices = priority.createDiv({ cls: "modular-diary-todo-priority-choices" })
   let selectedPriority: string | undefined
   const syncPriority = (): void => {
     priorityChoices.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
-      button.setAttribute("aria-pressed", String(button.dataset.priority === (selectedPriority ?? "")))
+      const pressed = button.dataset.priority === selectedPriority
+      button.setAttribute("aria-pressed", String(pressed))
+      button.title = pressed ? t("todoRankClearHint") : ""
     })
   }
   const fillPriorities = (selected?: string): void => {
     selectedPriority = selected
     priorityChoices.replaceChildren()
-    for (const value of [...new Set([...normalizeTodoPriorities(priorities), ...(selected ? [selected] : [])]), ""]) {
-      const button = priorityChoices.createEl("button", { cls: value ? "modular-diary-todo-priority-choice" : "modular-diary-todo-rank-clear", text: value || "×", attr: { type: "button", "aria-label": value || t("todoPriorityUnset"), title: value || t("todoPriorityUnset") } })
+    for (const value of new Set([...normalizeTodoPriorities(priorities), ...(selected ? [selected] : [])])) {
+      const button = priorityChoices.createEl("button", { cls: "modular-diary-todo-priority-choice", text: value, attr: { type: "button" } })
       button.dataset.priority = value
-      button.addEventListener("click", () => { selectedPriority = value || undefined; syncPriority(); emitDraft() })
+      button.addEventListener("click", () => { selectedPriority = selectedPriority === value ? undefined : value; syncPriority(); emitDraft() })
     }
     syncPriority()
   }
@@ -653,7 +656,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     const subtree = item.weekly || item.movedTo ? null : (todoTree.childrenOf(item.id).length > 0 ? rollupOf(item.id) : null)
     const estimateShown = subtree ? subtree.estimate : item.estimateMinutes
     const actualShown = subtree ? subtree.actual : item.actualMinutes
-    const metaParts = [item.difficulty ? `${t("todoDifficulty")} ${item.difficulty}` : "", item.priority ?? "", item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(actualShown), estimate: formatHours(estimateShown) }), ...(subtree ? [t("todoSubtreeProgress", { done: subtree.done, total: subtree.total })] : [])].filter(Boolean)
+    const metaParts = [item.weekly ? t("weeklyGoal") : "", t("actualVsEstimate", { actual: formatHours(actualShown), estimate: formatHours(estimateShown) }), ...(subtree ? [t("todoSubtreeProgress", { done: subtree.done, total: subtree.total })] : [])].filter(Boolean)
     if (deps.compactMeta) {
       const meta = body.createEl("span", { cls: "modular-diary-item-meta is-compact" })
       for (const flag of item.flags ?? []) meta.createEl("span", { cls: `modular-diary-todo-flag is-${flag.tone ?? "placed"}`, text: flag.text })
@@ -662,7 +665,16 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
         : t("estimateOnly", { estimate: formatHours(estimateShown) })
       meta.createEl("span", { cls: "modular-diary-item-meta-numbers", text: numbers })
       if (subtree) meta.createEl("span", { cls: "modular-diary-item-meta-numbers", text: t("todoSubtreeProgress", { done: subtree.done, total: subtree.total }) })
-    } else body.createEl("span", { cls: "modular-diary-item-meta", text: metaParts.join(" · ") })
+    } else {
+      // Priority and difficulty lead as a badge and stars; the numbers stay plain text.
+      const meta = body.createEl("span", { cls: "modular-diary-item-meta" })
+      if (item.priority) meta.createEl("span", { cls: `modular-diary-todo-priority-badge${item.priority === "P0" ? " is-top" : ""}`, text: item.priority, attr: { title: t("todoPriority") } })
+      if (item.difficulty) {
+        const label = `${t("todoDifficulty")} ${item.difficulty}`
+        meta.createEl("span", { cls: "modular-diary-todo-difficulty-stars", text: "★".repeat(item.difficulty), attr: { role: "img", "aria-label": label, title: label } })
+      }
+      meta.createEl("span", { cls: "modular-diary-item-meta-numbers", text: metaParts.join(" · ") })
+    }
     // The note sits on its own full-width row under title + meta.
     if (item.note) body.createDiv({ cls: "modular-diary-todo-note", text: item.note, attr: { title: item.note } })
     // A zero-progress track is just a full-width grey underline that reads
