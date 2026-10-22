@@ -59,7 +59,11 @@ import {
 import { habitProgress, isHabitDue, moveHabitInVisibleOrder, normalizeHabitDefinition, orderedHabits, type HabitDefinition } from "./core/habits"
 import { extractDatedTimelineEntries, filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledger"
 import { appendPostponedTodo, dailyNotesTodoPath, nextTodoDate, removePostponedTodo, transferPostponedTodo } from "./edit/todo-postpone"
-import { addDailyChecklists, chooseChecklistForEditor, watchNewDailyNotes } from "./checklists"
+import { addDailyChecklists, chooseChecklistForEditor, chooseChecklistTemplate, watchNewDailyNotes } from "./checklists"
+import { isChecklistSlot, type ChecklistModule } from "./core/checklist-modules"
+import type { ChecklistTemplate } from "./core/checklists"
+import { addChecklistModule, updateChecklistModule } from "./edit/checklist-source"
+import { renderChecklistInto, type ChecklistDraft } from "./render/checklist-view"
 import { DayIndex } from "./core/day-index"
 import { dailyNotePath, fillDailyTemplate, parseDailyNotesConfig, shiftDate, type DailyNotesConfig } from "./core/daily-notes"
 import { ensureBlockForDate } from "./core/day-content"
@@ -161,6 +165,7 @@ export default class ModularDiaryPlugin extends Plugin {
   private readonly documentOwnerTokens = new Map<string, object>()
   private todoDrafts = new WeakMap<object, Map<string, NewTodoInput>>()
   private todoEditDrafts = new WeakMap<object, Map<string, TodoEditDraft>>()
+  private checklistDrafts = new WeakMap<object, Map<string, ChecklistDraft>>()
   private readonly textDrafts = new TextDraftRegistry<object>()
   private readonly sourceRevisions = new SourceRevisions()
   private readonly textSaveNotices = new Map<string, { notice: Notice; expires: number }>()
@@ -213,6 +218,7 @@ export default class ModularDiaryPlugin extends Plugin {
     this.documentOwnerTokens.clear()
     this.todoDrafts = new WeakMap()
     this.todoEditDrafts = new WeakMap()
+    this.checklistDrafts = new WeakMap()
     this.textDrafts.clear()
     this.sourceRevisions.clear()
     this.textSaveNotices.forEach(({ notice }) => notice.hide())
@@ -603,6 +609,7 @@ export default class ModularDiaryPlugin extends Plugin {
       const weeklyEntries = weeklyDatedEntries.flatMap((item) => item.entries)
       const layoutHas = (id: string): boolean => Boolean(doc.layout?.some((item) => item.id === id))
       const extraSlots: GridItem[] = []
+      for (const checklist of doc.checklists ?? []) extraSlots.push(defaultComponentSlot(checklist.id, 8, doc.side))
       if (dueHabits.length > 0 || layoutHas("habits")) {
         extraSlots.push(defaultComponentSlot("habits", Math.max(HABITS_EMPTY_ROWS, dueHabits.length * 2 + 2), doc.side))
       }
@@ -733,6 +740,7 @@ export default class ModularDiaryPlugin extends Plugin {
       if (this.activeMarkerType === "" && blockActiveMarkerType) this.activeMarkerType = blockActiveMarkerType
 
       const slotLabels: Record<string, string> = {
+        ...Object.fromEntries((doc.checklists ?? []).map((c) => [c.id, c.title || "Checklist"])),
         toolbar: tr("category"),
         stats: tr("statistics"),
         dialog: tr("quickRecord"),
@@ -742,9 +750,9 @@ export default class ModularDiaryPlugin extends Plugin {
         hourlog: tr("hourlog"),
       }
 
-      const showMoreMenu = (x: number, y: number): void => {
+      const showMoreMenu = (x: number, y: number, componentsOnly = false): void => {
         const menu = new Menu()
-        menu.addItem((item) => item.setTitle(tr("editSource")).setIcon("code-2").setSection("source").onClick(() => {
+        if (!componentsOnly) menu.addItem((item) => item.setTitle(tr("editSource")).setIcon("code-2").setSection("source").onClick(() => {
           const session = this.sourceDrafts.get(el) ?? { originalSource: source, draft: source }
           this.sourceDrafts.set(el, session)
           mountCurrentSourceMode(session)
@@ -775,6 +783,14 @@ export default class ModularDiaryPlugin extends Plugin {
             })
         }
         menu.addItem((item) => item.setTitle(tr("addTextBox")).setIcon("file-plus-2").setSection("components").onClick(() => addTextSection()))
+        const createChecklist = (template?: ChecklistTemplate): void => {
+          void this.applyBlockTransform(el, ctx, source, (s) => this.addChecklistComponent(s, doc, container, template))
+            .catch(() => new Notice(tr("saveFailed")))
+        }
+        menu.addItem((item) => item.setTitle(tr("addChecklistComponent")).setIcon("list-checks").setSection("components").onClick(() => createChecklist()))
+        menu.addItem((item) => item.setTitle(tr("addChecklistFromTemplate")).setIcon("copy").setSection("components").onClick(() => {
+          void chooseChecklistTemplate(this, createChecklist).catch(() => new Notice(tr("saveFailed")))
+        }))
         menu.addItem((item) => {
           item.setTitle(tr("addTitledSection")).setIcon("heading").setSection("components")
           const sub = (item as unknown as { setSubmenu?: () => Menu }).setSubmenu?.()
@@ -807,6 +823,7 @@ export default class ModularDiaryPlugin extends Plugin {
             })
           )
         }
+        if (componentsOnly) { menu.showAtPosition({ x, y }, dom); return }
         menu.addSeparator()
         menu.addItem((item) => item.setTitle(tr("layout")).setIsLabel(true).setSection("layout"))
         menu.addItem((item) =>
@@ -1047,6 +1064,19 @@ export default class ModularDiaryPlugin extends Plugin {
         attachRowCompaction(topbar, TIMELINE_TOPBAR_COMPACTION)
       }
 
+      for (const checklist of doc.checklists ?? []) {
+        const slot = container.querySelector<HTMLElement>(`.modular-diary-slot-${checklist.id}`)
+        if (!slot) continue
+        const owner = textBlockKey.owner
+        let drafts = this.checklistDrafts.get(owner)
+        if (!drafts) { drafts = new Map(); this.checklistDrafts.set(owner, drafts) }
+        const key = `${ctx.sourcePath}\u0000${draftBlockOrdinal}\u0000${checklist.id}`
+        renderChecklistInto(slot, checklist, {
+          draft: drafts.get(key),
+          onDraft: (draft) => { if (draft.add || draft.edit) drafts?.set(key, draft); else drafts?.delete(key) },
+          save: (change) => this.saveChecklistModule(el, ctx, source, checklist.id, change),
+        })
+      }
       const habitsSlot = container.querySelector<HTMLElement>(".modular-diary-slot-habits")
       if (habitsSlot) {
         renderHabitsInto(habitsSlot, dueHabits.map((habit) => ({
@@ -1807,6 +1837,18 @@ export default class ModularDiaryPlugin extends Plugin {
         showMoreMenu(r.left, r.top)
       })
       container.appendChild(more)
+      const addModule = dom.createElement("button")
+      addModule.type = "button"
+      addModule.className = "modular-diary-add-component"
+      setIcon(addModule, "plus")
+      addModule.setAttribute("aria-label", tr("addComponent"))
+      addModule.setAttribute("aria-haspopup", "menu")
+      addModule.addEventListener("click", (e) => {
+        e.stopPropagation()
+        const r = addModule.getBoundingClientRect()
+        showMoreMenu(r.left, r.bottom, true)
+      })
+      container.appendChild(addModule)
 
       // 触控端不直接暴露细小手柄：先进入显式布局编辑态，再显示放大的命中区。
       const layoutEdit = dom.createElement("button")
@@ -1863,7 +1905,7 @@ export default class ModularDiaryPlugin extends Plugin {
           menu.showAtPosition({ x: e.clientX, y: e.clientY }, dom)
           return
         }
-        if (slotId && ["toolbar", "stats", "dialog", "habits", "todos", "quote", "hourlog"].includes(slotId)) {
+        if (slotId && (["toolbar", "stats", "dialog", "habits", "todos", "quote", "hourlog"].includes(slotId) || isChecklistSlot(slotId))) {
           showActionMenuAtPoint(
             dom,
             e.clientX,
@@ -2352,7 +2394,21 @@ export default class ModularDiaryPlugin extends Plugin {
     await this.app.workspace.openLinkText(path, "", false)
   }
 
-  private addComponentSlot(source: string, doc: { layout?: unknown }, container: HTMLElement, id: "habits" | "todos" | "quote" | "hourlog"): string {
+  private async saveChecklistModule(el: HTMLElement, ctx: MarkdownPostProcessorContext, source: string, id: string, change: (c: ChecklistModule) => ChecklistModule): Promise<ChecklistModule> {
+    let committed: ChecklistModule | undefined
+    await this.applyBlockTransform(el, ctx, source, (s) => updateChecklistModule(s, id, (c) => { committed = change(c); return committed }))
+    if (!committed) throw new Error(tr("sourceChanged"))
+    return committed
+  }
+
+  private addChecklistComponent(source: string, doc: { layout?: unknown }, container: HTMLElement, template?: ChecklistTemplate): string {
+    const current = this.persistLayoutOnce(source, doc, container)
+    const next = addChecklistModule(current, template?.name ?? "Checklist", template)
+    const id = this.parse(next).checklists!.at(-1)!.id
+    return this.addComponentSlot(next, this.parse(current), container, id)
+  }
+
+  private addComponentSlot(source: string, doc: { layout?: unknown }, container: HTMLElement, id: string): string {
     let out = removeOffSlot(this.persistLayoutOnce(source, doc, container), id)
     const parsed = this.parse(out)
     const items = parsed.layout ? [...parsed.layout] : []
@@ -2376,7 +2432,7 @@ export default class ModularDiaryPlugin extends Plugin {
       let grew = false
       for (const slot of slots) {
         // 文字槽不自动撑高：保持用户拖的尺寸，内部滚动（yyt 2026-08-19）
-        if (slot.dataset.slot && /^text\d*$/.test(slot.dataset.slot)) continue
+        if (slot.dataset.slot && (/^text\d*$/.test(slot.dataset.slot) || isChecklistSlot(slot.dataset.slot))) continue
         const need = Math.ceil(slot.scrollHeight / GRID_ROW_H)
         const cur = Number(slot.dataset.h)
         if (need > cur) {

@@ -53,6 +53,8 @@ export interface TimelineDoc {
   railWidth?: number
   /** Period goals (`goal:` headers). */
   goals: PeriodGoal[]
+  /** Independent Checklist copies, stored in repeated `checklist:` headers. */
+  checklists?: import("./checklist-modules").ChecklistModule[]
 }
 
 export interface Entry {

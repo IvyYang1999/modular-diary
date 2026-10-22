@@ -1,3 +1,5 @@
+import { isChecklistSlot } from "../core/checklist-modules"
+
 export interface ScrollOffset {
   top: number
   left: number
@@ -24,8 +26,8 @@ export function captureInternalScroll(container: HTMLElement): TimelineInternalS
   const texts: Record<string, ScrollOffset> = {}
   container.querySelectorAll<HTMLElement>(".modular-diary-slot").forEach((slot) => {
     const slotId = slot.dataset.slot ?? ""
-    if (!/^text\d*$/.test(slotId)) return
-    const pane = slot.querySelector<HTMLElement>(".modular-diary-text-pane") ?? slot
+    if (!/^text\d*$/.test(slotId) && !isChecklistSlot(slotId)) return
+    const pane = slot.querySelector<HTMLElement>(isChecklistSlot(slotId) ? ".modular-diary-checklist" : ".modular-diary-text-pane") ?? slot
     texts[slotId] = { top: pane.scrollTop, left: pane.scrollLeft }
   })
   return {
@@ -46,7 +48,7 @@ export function restoreInternalScroll(
     const slot = Array.from(container.querySelectorAll<HTMLElement>(".modular-diary-slot"))
       .find((candidate) => candidate.dataset.slot === slotId)
     if (!slot) continue
-    applyOffset(slot.querySelector<HTMLElement>(".modular-diary-text-pane") ?? slot, offset)
+    applyOffset(slot.querySelector<HTMLElement>(isChecklistSlot(slotId) ? ".modular-diary-checklist" : ".modular-diary-text-pane") ?? slot, offset)
   }
 }
 

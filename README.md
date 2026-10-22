@@ -23,3 +23,9 @@ Changing the plugin ID is **not** an in-place update. Back up `.obsidian/plugins
 5. Update custom CSS snippets that target `.oneday-*` classes or `--oneday-*` variables to `.modular-diary-*` and `--modular-diary-*`. Keep the old installation until the new one is verified; only then decide whether to remove it.
 
 The Markdown `timeline` blocks and their contents do not need migration. See [release notes](RELEASE_NOTES.md) for the complete impact list.
+
+### Independent Checklist modules
+
+Open **Add module (+) → Add Checklist** in a diary block to create a standalone list. Each Checklist has its own name, items, completion count and layout slot. Use its six-dot grip to move it, drag its edges to resize, or right-click its blank area to hide it. Hidden lists keep their data and can be restored from Add module.
+
+**Add Checklist from template** copies a template into a new module. Later template edits do not change that copy. Items and checkbox states are stored in the diary block's `checklist:` headers; placement is stored in `layout:`. Saving the block as a new-day layout keeps the list items and resets their checks. Existing Markdown checklists and the legacy daily-copy commands keep their current behavior; historical notes are not converted automatically.

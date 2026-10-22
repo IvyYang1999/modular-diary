@@ -5,6 +5,8 @@
  * Overlaps resolve by pushing down (gridstack-style vertical compaction).
  */
 
+import { isChecklistSlot } from "./checklist-modules"
+
 export const GRID_COLS = 12
 /** Safety ceiling for the horizontally scrollable canvas (10 viewport widths). */
 export const MAX_GRID_COLS = 120
@@ -29,6 +31,7 @@ export function isValidSlotId(id: string): id is SlotId {
   return (CORE_SLOT_IDS as readonly string[]).includes(id)
     || (OPTIONAL_SLOT_IDS as readonly string[]).includes(id)
     || isTextSlot(id)
+    || isChecklistSlot(id)
 }
 
 export interface GridItem {
