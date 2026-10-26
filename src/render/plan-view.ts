@@ -194,6 +194,16 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
           if (row.slots.length > 1) el.querySelector(".modular-diary-plan-name")!.textContent = `${rhythm.name} ${index + 1}`
           const meta = el.createEl("span", { cls: `modular-diary-plan-meta${slot.placement ? " is-where" : ""}${slot.owed && !slot.placement ? " is-owed" : ""}` })
           meta.textContent = slot.placement ? slotWhere(slot, model) : slot.owed ? t("boardOwedFrom", { period: slot.owed }) : rhythm.span.kind === "allDay" ? t("allDay") : rhythm.span.kind === "days" ? t("spanDays", { days: rhythm.span.min === rhythm.span.max ? String(rhythm.span.min) : `${rhythm.span.min}-${rhythm.span.max}` }) : rhythm.zone ? zoneRangeLabel(rhythm, zoneLabel) : ""
+          if (rhythm.quota.kind === "duration") {
+            // A session to place, measured by the period's hours: the bar says how much of the quota is in.
+            el.classList.add("is-measured")
+            const where = meta.textContent
+            meta.textContent = `${where ? where + " · " : ""}${formatHours(row.minutes)} / ${formatHours(rhythm.quota.minutes)}`
+            const fill = el.createDiv({ cls: "modular-diary-plan-bar" }).createDiv({ cls: "modular-diary-plan-bar-fill" })
+            fill.style.width = `${Math.min(100, (row.minutes / Math.max(1, rhythm.quota.minutes)) * 100)}%`
+            const color = rhythm.type ? deps.typeColors[rhythm.type] : undefined
+            if (color) fill.style.background = color
+          }
           el.classList.add("modular-diary-period-draggable")
           el.tabIndex = 0
           attachDrag(root, el, { todo: slot, from: slotFrom(slot), rhythmId: rhythm.id }, model, deps)
@@ -271,7 +281,7 @@ export function renderPlanCalendar(main: HTMLElement, root: HTMLElement, model: 
   for (const day of model.days) {
     const cell = grid.createDiv({ cls: `modular-diary-plan-cell${day.date === model.today ? " is-today" : ""}${day.date < model.today ? " is-past" : ""}` })
     const pills = pillsOf(day, model)
-    const strip = cell.createDiv({ cls: "modular-diary-plan-strip" })
+    const strip = cell.createDiv({ cls: "modular-diary-plan-strip", attr: { "data-label": t("allDay") } })
     strip.dataset.zone = day.date
     strip.dataset.zoneKind = "list"
     for (const pill of pills.all) renderPill(strip, root, pill, model, deps, menuFor)
@@ -352,16 +362,14 @@ export function renderActualMonth(main: HTMLElement, model: PeriodViewModel, dep
       part.style.height = `${((end - start) / span) * 100}%`
       part.style.background = deps.typeColors[entry.type] ?? "var(--text-faint)"
     }
+    // The total beside the strip; the breakdown is one hover away.
     const hours = body.createDiv({ cls: "modular-diary-plan-hours" })
-    hours.createEl("b", { text: formatHours(total).replace(/h$/, "") })
+    hours.createEl("b", { text: formatTotal(total).replace(/h$/, "") })
     hours.createEl("small", { text: "h" })
-    const top = [...minutes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
-    const legend = body.createDiv({ cls: "modular-diary-plan-daytop" })
-    for (const [type, value] of top.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))) {
-      const item = legend.createEl("span", { attr: { title: `${type} ${formatHours(value)}` } })
-      item.style.setProperty("--c", deps.typeColors[type] ?? "var(--text-faint)")
-      item.textContent = formatHours(value).replace(/h$/, "")
-    }
+    const breakdown = [...minutes.entries()].sort((a, b) => b[1] - a[1]).map(([type, value]) => `${type} ${formatHours(value)}`).join("\n")
+    bar.title = breakdown
+    hours.title = breakdown
+    void order
   }
   const trailing = (7 - ((lead + model.days.length) % 7)) % 7
   for (let i = 0; i < trailing; i++) grid.createDiv({ cls: "modular-diary-plan-month-cell is-outside" })

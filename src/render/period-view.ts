@@ -22,6 +22,7 @@ import { formatHours } from "../core/duration"
 import type { GoalProgress, ResolvedPeriod } from "../core/period"
 import type { Entry, PeriodGoal, PeriodSpec, SpanNote, TodoItem, TodoViewConfig } from "../core/types"
 import { attachTagSuggest, type TagSuggestDeps } from "../edit/tag-suggest"
+import { setPointerInteractionActive } from "../edit/pointer-interaction"
 import { t } from "../i18n"
 import { renderTodosInto, type NewTodoInput, type TodoViewItem } from "./todos-view"
 
@@ -257,16 +258,21 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
       const snapped = Math.round(raw / PERIOD_SNAP_MINUTES) * PERIOD_SNAP_MINUTES
       return Math.max(model.rangeStartMin, Math.min(snapped, model.rangeEndMin - duration))
     }
+    // While a drag is in flight the block must not be redrawn under it (that is how ghosts got stranded).
+    const owner = root.closest<HTMLElement>(".modular-diary-container")
+    let finished = false
     const onMove = (move: PointerEvent): void => {
+      if (finished) return
       if (!ghost) {
         if (Math.hypot(move.clientX - startX, move.clientY - startY) < 4) return
         ghost = dom.createElement("div")
-        ghost.className = "modular-diary-period-pill is-ghost"
-        ghost.textContent = plainTitle(subject.todo.title)
-        if (color) ghost.style.setProperty("--modular-diary-pill-color", color)
+        ghost.className = "modular-diary-plan-pill is-ghost"
+        ghost.createEl("span", { cls: "modular-diary-plan-pill-text", text: plainTitle(subject.todo.title) })
+        if (color) ghost.style.setProperty("--pc", color)
         dom.body.appendChild(ghost)
         root.classList.add("is-dragging")
         handle.classList.add("is-drag-source")
+        if (owner) setPointerInteractionActive(owner, true)
       }
       ghost.style.transform = `translate(${move.clientX + 12}px, ${move.clientY + 10}px)`
       lastX = move.clientX; lastY = move.clientY
@@ -303,10 +309,16 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
       if (ghost) ghost.hidden = zone?.dataset.zoneKind === "axis"
     }
     const finish = (commit: boolean): void => {
+      if (finished) return
+      finished = true
       handle.removeEventListener("pointermove", onMove)
       handle.removeEventListener("pointerup", onUp)
       handle.removeEventListener("pointercancel", onCancel)
+      dom.removeEventListener("pointermove", onMove)
+      dom.removeEventListener("pointerup", onUp, true)
+      dom.removeEventListener("pointercancel", onCancel, true)
       dom.removeEventListener("keydown", onKey, true)
+      if (owner) setPointerInteractionActive(owner, false)
       if (scrollFrame && win) { win.cancelAnimationFrame(scrollFrame); scrollFrame = 0 }
       const dropped = zone, minutes = startMin, dragged = ghost !== null, reorder = rowTarget
       clear()
@@ -336,6 +348,10 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
     handle.addEventListener("pointermove", onMove)
     handle.addEventListener("pointerup", onUp)
     handle.addEventListener("pointercancel", onCancel)
+    // Should the handle be replaced mid-drag, the document still ends the gesture.
+    dom.addEventListener("pointermove", onMove)
+    dom.addEventListener("pointerup", onUp, true)
+    dom.addEventListener("pointercancel", onCancel, true)
     dom.addEventListener("keydown", onKey, true)
   })
 }

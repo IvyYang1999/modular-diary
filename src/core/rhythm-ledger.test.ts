@@ -34,13 +34,15 @@ describe("rhythm slots", () => {
   it("adds one slot per count for the rhythms due this week, presets a fixed weekday, and is idempotent", () => {
     const once = ensureRhythmSlots("days: 2026-10-26..2026-11-01\n---", rhythms, week)
     const todos = parseTimeline(once).todos
-    expect(todos.map((todo) => [todo.rhythm, todo.day ?? ""])).toEqual([["拍口播视频", ""], ["和爸妈出门", ""], ["和爸妈出门", ""], ["心理咨询", "2026-10-27"]])
+    // A duration rhythm (学习 3小时) gets one session slot too, estimated at its quota.
+    expect(todos.map((todo) => [todo.rhythm, todo.day ?? ""])).toEqual([["拍口播视频", ""], ["和爸妈出门", ""], ["和爸妈出门", ""], ["心理咨询", "2026-10-27"], ["学习", ""]])
     expect(todos[3]).toMatchObject({ estimateMin: 60, type: "家人" })
+    expect(todos[4]).toMatchObject({ estimateMin: 180, type: "学习" })
     expect(todos[3].id).toMatch(/^r-[a-z0-9]+-1$/)
     expect(ensureRhythmSlots(once, rhythms, week)).toBe(once)
     // The biweekly one is off next week, and a skipped rhythm gets no slot.
     const next = ensureRhythmSlots("days: 2026-11-02..2026-11-08\nrhythm-skip: 拍口播视频\n---", rhythms, shiftScope(week, 1))
-    expect(parseTimeline(next).todos.map((todo) => todo.rhythm)).toEqual(["和爸妈出门", "和爸妈出门"])
+    expect(parseTimeline(next).todos.map((todo) => todo.rhythm)).toEqual(["和爸妈出门", "和爸妈出门", "学习"])
   })
   it("carries open slots into the next period and shadows them in the old one", () => {
     let prev = ensureRhythmSlots("days: 2026-10-19..2026-10-25\n---", rhythms, shiftScope(week, -1))
@@ -49,8 +51,8 @@ describe("rhythm slots", () => {
     const here = ensureRhythmSlots("days: 2026-10-26..2026-11-01\n---", rhythms, week)
     const carried = carryOver(here, prev, rhythms, week, "2026-W43")
     const owed = parseTimeline(carried.source).todos.filter((todo) => todo.owed)
-    expect(owed.map((todo) => [todo.rhythm, todo.owed])).toEqual([["和爸妈出门", "2026-W43"], ["和爸妈出门", "2026-W43"]])
-    expect(parseTimeline(carried.prevSource).todos.filter((todo) => todo.moved).map((todo) => todo.rhythm)).toEqual(["和爸妈出门", "和爸妈出门"])
+    expect(owed.map((todo) => [todo.rhythm, todo.owed])).toEqual([["和爸妈出门", "2026-W43"], ["和爸妈出门", "2026-W43"], ["学习", "2026-W43"]])
+    expect(parseTimeline(carried.prevSource).todos.filter((todo) => todo.moved).map((todo) => todo.rhythm)).toEqual(["和爸妈出门", "和爸妈出门", "学习"])
     // Running it again changes nothing.
     const again = carryOver(carried.source, carried.prevSource, rhythms, week, "2026-W43")
     expect(again).toEqual(carried)

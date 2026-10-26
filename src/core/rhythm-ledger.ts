@@ -110,9 +110,21 @@ export function rhythmsDueIn(rhythms: Rhythm[], scope: PeriodScope): Rhythm[] {
   })
 }
 
-/** Count rhythms get slots; daily and duration rhythms are measured instead. */
+/** Weekly, biweekly and monthly rhythms get slots to place on a day; daily ones are measured day by day. */
 export function takesSlots(rhythm: Rhythm): boolean {
-  return rhythm.quota.kind === "count" && rhythm.cadence !== "daily" && rhythm.cadence !== "weekdays"
+  return rhythm.cadence !== "daily" && rhythm.cadence !== "weekdays"
+}
+
+/** How many slots a period gets: the count, or one session for a duration quota. */
+function slotCount(rhythm: Rhythm): number {
+  return rhythm.quota.kind === "count" ? rhythm.quota.count : 1
+}
+
+/** A planned block for a slot: the fixed time's length, else the quota (a long one starts as an hour). */
+function slotEstimate(rhythm: Rhythm): number {
+  if (rhythm.startMin !== undefined && rhythm.endMin !== undefined) return rhythm.endMin - rhythm.startMin
+  if (rhythm.quota.kind === "duration") return rhythm.quota.minutes <= 180 ? rhythm.quota.minutes : 60
+  return 0
 }
 
 function fixedDay(rhythm: Rhythm, scope: PeriodScope): string | undefined {
@@ -142,11 +154,11 @@ export function ensureRhythmSlots(source: string, rhythms: Rhythm[], scope: Peri
     if (!takesSlots(rhythm) || doc.rhythmSkips.includes(rhythm.id)) continue
     const existing = doc.todos.filter((todo) => todo.rhythm === rhythm.id && !todo.owed)
     const day = fixedDay(rhythm, scope)
-    const count = rhythm.quota.kind === "count" ? rhythm.quota.count : 0
+    const count = slotCount(rhythm)
     for (let index = existing.length + 1; index <= count; index++) {
       out = insertTodo(out, {
         id: slotId(rhythm, index), title: rhythm.name, group: "", type: rhythm.type, completed: false,
-        estimateMin: rhythm.startMin !== undefined && rhythm.endMin !== undefined ? rhythm.endMin - rhythm.startMin : 0,
+        estimateMin: slotEstimate(rhythm),
         rhythm: rhythm.id, ...(rhythm.zone ? { zone: rhythm.zone } : {}), ...(day ? { day } : {}),
       })
     }
@@ -200,37 +212,44 @@ function weeksOn(rhythm: Rhythm, scope: PeriodScope): string[] {
  * lists its own slots; a month also lists the weekly rhythms (summed over its
  * weeks) and the daily ones, so the month protocol is never empty.
  */
-export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: Array<TodoItem & { placement?: { date: string; startMin?: number }; actualMinutes?: number }>, days: PeriodDayFacts[], skips: string[]): RhythmBoardRow[] {
+type PlacedTodo = TodoItem & { placement?: { date: string; startMin?: number }; actualMinutes?: number }
+
+export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: PlacedTodo[], days: PeriodDayFacts[], skips: string[], weekTodos: PlacedTodo[] = []): RhythmBoardRow[] {
   const byDate = new Map(days.map((day) => [day.date, day]))
   const shown = scope.kind === "month" ? rhythms : rhythmsDueIn(rhythms, scope)
+  const recordedIn = (rhythm: Rhythm): number => daysOf(scope).reduce((sum, date) => sum + recordedOn(byDate.get(date), rhythm), 0)
+  /** A slot is done when ticked, or (count) its day has a record, or (duration) the period's hours reach the quota. */
+  const slotDone = (todo: PlacedTodo, rhythm: Rhythm, minutes: number): boolean => todo.completed
+    || (rhythm.quota.kind === "duration" ? minutes >= rhythm.quota.minutes : Boolean(todo.placement && recordedOn(byDate.get(todo.placement.date), rhythm) > 0))
   return shown.map((rhythm) => {
     const skipped = skips.includes(rhythm.id)
     const weekly = rhythm.cadence === "weekly" || rhythm.cadence === "biweekly"
     if (scope.kind === "month" && weekly) {
-      // Seen from the month: how many of its weeks have the rhythm, and how much got recorded.
+      // Seen from the month: the weeks' own slots, summed. No week file yet means nothing done yet.
       const weeks = weeksOn(rhythm, scope).length
-      const recordedDays = daysOf(scope).filter((date) => recordedOn(byDate.get(date), rhythm) > 0 || byDate.get(date)?.habitDone?.includes(rhythm.id))
-      const minutes = daysOf(scope).reduce((sum, date) => sum + recordedOn(byDate.get(date), rhythm), 0)
+      const slots = weekTodos.filter((todo) => todo.rhythm === rhythm.id && !todo.moved)
+      const minutes = recordedIn(rhythm)
       if (rhythm.quota.kind === "duration") {
         const target = rhythm.quota.minutes * Math.max(1, weeks)
         return { rhythm, slots: [], skipped, due: 0, placed: 0, done: minutes >= target ? 1 : 0, minutes, owed: 0, targetMinutes: target }
       }
-      const due = rhythm.quota.count * weeks
-      const done = Math.min(due, recordedDays.length)
-      return { rhythm, slots: [], skipped, due, placed: done, done, minutes, owed: 0, unit: "times" }
+      const due = Math.max(rhythm.quota.count * weeks, slots.length)
+      const done = slots.filter((slot) => slotDone(slot, rhythm, minutes)).length
+      return { rhythm, slots: [], skipped, due, placed: slots.filter((slot) => slot.placement).length, done, minutes, owed: 0, unit: "times" }
     }
     if (takesSlots(rhythm)) {
+      const minutes = recordedIn(rhythm)
       const slots: RhythmSlotView[] = todos.filter((todo) => todo.rhythm === rhythm.id && !todo.moved).map((todo) => ({
         ...todo,
         actualMinutes: todo.actualMinutes ?? 0,
-        done: todo.completed || Boolean(todo.placement && recordedOn(byDate.get(todo.placement.date), rhythm) > 0),
+        done: slotDone(todo, rhythm, minutes),
       }))
       return {
         rhythm, slots, skipped,
         due: slots.length,
         placed: slots.filter((slot) => slot.placement).length,
         done: slots.filter((slot) => slot.done).length,
-        minutes: slots.reduce((sum, slot) => sum + (slot.placement ? recordedOn(byDate.get(slot.placement.date), rhythm) : 0), 0),
+        minutes,
         owed: slots.filter((slot) => slot.owed).length,
       }
     }

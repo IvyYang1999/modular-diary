@@ -2578,7 +2578,7 @@ export default class ModularDiaryPlugin extends Plugin {
     const model: PeriodViewModel = {
       spec: period, browsing: embed ? this.embedBrowse.has(embed.key) : Boolean(browsed), period: resolved, today,
       scope, face: doc.periodFace ?? (scope ? "plan" : "actual"),
-      board: scope ? rhythmBoard(this.rhythms.items, scope, todos, facts, doc.rhythmSkips) : [],
+      board: scope ? rhythmBoard(this.rhythms.items, scope, todos, facts, doc.rhythmSkips, foreignTodos) : [],
       embeddedView: embed?.view,
       goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView: doc.todoView, days,
       todoGroupOrder: doc.todoGroupOrder,
