@@ -206,14 +206,14 @@ export default class ModularDiaryPlugin extends Plugin {
   readonly upcoming = createUpcomingSchedule(this.upcomingOptions)
   /** The rhythms note; daily / weekly rhythms double as the habit rules. */
   readonly rhythms = new RhythmsNote({
-    app: this.app,
-    settings: this.settings,
+    app: () => this.app,
+    settings: () => this.settings,
     saveSettings: () => this.saveSettings(),
     onChange: () => this.rerenderMountedTimelines(),
   })
   /** Plugin-managed week / month notes that day blocks embed. */
   readonly periodFiles = new PeriodFiles({
-    app: this.app,
+    app: () => this.app,
     folder: () => this.settings.periodFolder || "周期",
     onChange: () => this.rerenderMountedTimelines(),
   })
@@ -929,7 +929,6 @@ export default class ModularDiaryPlugin extends Plugin {
           ["todos", tr("addTodoComponent"), "list-todo"],
           ["quote", tr("addDailyQuoteComponent"), "quote"],
           ["hourlog", tr("addHourlogComponent"), "book-open-text"],
-          ["upcoming", tr("addUpcomingComponent"), "calendar-clock"],
         ] as const) {
           if (container.querySelector(`.modular-diary-slot-${slotId}`) || doc.hiddenSlots.includes(slotId)) continue
           menu.addItem((item) => item.setTitle(label).setIcon(icon).setSection("components").onClick(() => {

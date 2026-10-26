@@ -5788,6 +5788,7 @@ textarea.modular-diary-template-source {
 .modular-diary-upcoming-modal .modular-diary-upcoming-form { display: grid; gap: 10px; }
 .modular-diary-upcoming-field { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); align-items: center; gap: 10px; }
 .modular-diary-upcoming-field:nth-child(2) { grid-template-columns: 6.5em auto auto auto 1fr; }
+.modular-diary-upcoming-form select:disabled { opacity: .5; }
 .modular-diary-upcoming-field > span:first-child { color: var(--text-muted); }
 .modular-diary-upcoming-form input[type="time"] {
   height: var(--input-height, 30px);

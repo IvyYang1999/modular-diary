@@ -11,7 +11,8 @@ import { carryOver, ensureRhythmSlots, periodKey, shiftScope, type PeriodScope }
 import type { Rhythm } from "./core/rhythms"
 
 export interface PeriodFilesHost {
-  app: App
+  /** Read lazily: the plugin's app is set after this object is built. */
+  app: () => App
   folder: () => string
   /** Redraw mounted blocks after a period note changed. */
   onChange: () => void
@@ -34,7 +35,7 @@ export class PeriodFiles {
   }
 
   private file(path: string): TFile | null {
-    const found = this.host.app.vault.getAbstractFileByPath(path)
+    const found = this.host.app().vault.getAbstractFileByPath(path)
     return found instanceof TFile ? found : null
   }
 
@@ -53,7 +54,7 @@ export class PeriodFiles {
   private async load(path: string): Promise<string | null> {
     const file = this.file(path)
     if (!file) { this.sources.delete(path); return null }
-    const content = await this.host.app.vault.cachedRead(file)
+    const content = await this.host.app().vault.cachedRead(file)
     const fence = timelineFences(content).next().value
     if (!fence) { this.sources.delete(path); return null }
     this.sources.set(path, fence.source)
@@ -65,8 +66,8 @@ export class PeriodFiles {
     const path = this.path(scope)
     if (!this.file(path)) {
       const folder = path.slice(0, path.lastIndexOf("/"))
-      if (folder && !this.host.app.vault.getAbstractFileByPath(folder)) await this.host.app.vault.createFolder(folder)
-      await this.host.app.vault.create(path, `\`\`\`timeline\n${periodBlockTemplate(scope)}\n\`\`\`\n`)
+      if (folder && !this.host.app().vault.getAbstractFileByPath(folder)) await this.host.app().vault.createFolder(folder)
+      await this.host.app().vault.create(path, `\`\`\`timeline\n${periodBlockTemplate(scope)}\n\`\`\`\n`)
     }
     await this.load(path)
     return path
@@ -78,7 +79,7 @@ export class PeriodFiles {
     const file = this.file(path)
     if (!file) throw new Error(`period note missing: ${path}`)
     let next = ""
-    await this.host.app.vault.process(file, (content) => {
+    await this.host.app().vault.process(file, (content) => {
       const fence = timelineFences(content).next().value
       const current = fence ? fence.source : null
       if (!fence || current === null) {
@@ -131,7 +132,7 @@ export class PeriodFiles {
       if (!this.sources.has(path) && !path.startsWith(`${normalizePath(this.host.folder())}/`)) return
       void this.load(path).then(() => this.host.onChange())
     }
-    const vault = this.host.app.vault
+    const vault = this.host.app().vault
     register(vault.on("modify", (file) => refresh(file.path)))
     register(vault.on("delete", (file) => { this.sources.delete(file.path); this.host.onChange() }))
     register(vault.on("rename", (file, oldPath) => { this.sources.delete(oldPath); refresh(file.path) }))

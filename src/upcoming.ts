@@ -92,11 +92,14 @@ export class AddUpcomingModal extends Modal {
     const end = timeRow.createEl("input", { attr: { type: "time", "aria-label": t("upcomingEnd") } })
     const category = field(t("category")).createEl("select")
     for (const value of this.categories) category.createEl("option", { text: value, attr: { value } })
+    const zone = field(t("upcomingZone")).createEl("select", { attr: { "aria-label": t("upcomingZone") } })
+    zone.createEl("option", { text: t("allDay"), attr: { value: "" } })
+    for (const [value, label] of [["am", t("zoneAm")], ["pm", t("zonePm")], ["ev", t("zoneEv")]] as const) zone.createEl("option", { text: label, attr: { value } })
     const text = field(t("upcomingText")).createEl("input", { attr: { type: "text", placeholder: t("upcomingTextPlaceholder") } })
     const hint = form.createEl("p", { cls: "modular-diary-upcoming-hint", text: t("upcomingHint") })
     const error = form.createEl("p", { cls: "modular-diary-upcoming-error", attr: { role: "status" } })
     const submit = form.createEl("button", { cls: "mod-cta", text: t("save"), attr: { type: "submit" } })
-    const sync = (): void => { category.disabled = !start.value; hint.hidden = Boolean(start.value) }
+    const sync = (): void => { category.disabled = !start.value; zone.disabled = Boolean(start.value); hint.hidden = Boolean(start.value) }
     start.addEventListener("input", sync)
     sync()
     form.addEventListener("submit", (event) => {
@@ -110,7 +113,7 @@ export class AddUpcomingModal extends Modal {
       submit.disabled = true
       const item = start.value
         ? { date: date.value, startMin: minutes(start.value), endMin: minutes(end.value), type: category.value, text: text.value.trim() }
-        : { date: date.value, text: text.value.trim() }
+        : { date: date.value, text: text.value.trim(), ...(zone.value ? { zone: zone.value as "am" | "pm" | "ev" } : {}) }
       void this.onSubmit(item).then(() => {
         new Notice(t("upcomingAdded", { date: date.value }))
         this.close()

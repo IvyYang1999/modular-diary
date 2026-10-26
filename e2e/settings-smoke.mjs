@@ -126,6 +126,8 @@ fs.writeFileSync(path.join(out, "entry.ts"), `
 import { renderCategorySettings, renderHabitSettings } from "${path.join(here, "../src/settings-editors")}" 
 import { CategorySettingsModal, HabitSettingsModal } from "${path.join(here, "../src/settings-modals")}" 
 import { ModularDiarySettingTab } from "${path.join(here, "../src/settings")}"
+import { RhythmsNote } from "${path.join(here, "../src/rhythms-note")}"
+import { parseRhythms } from "${path.join(here, "../src/core/rhythms")}"
 import { configureI18n } from "${path.join(here, "../src/i18n")}"
 import { TFile, TFolder } from "obsidian"
 
@@ -160,7 +162,7 @@ const settings = {
     { id: "weekly", name: "运动", type: "sport", targetMinutes: 180, targetPeriod: "week", schedule: { kind: "daily" }, repeatWeekly: false, weekAnchor: "2026-08-17", order: 1 },
     { id: "any", name: "发布", type: "develop", targetMinutes: 0, targetPeriod: "day", schedule: { kind: "weekdays" }, order: 2 },
     { id: "count", name: "复盘", type: "develop", targetMinutes: 0, targetPeriod: "week", targetMetric: "count", targetCount: 3, schedule: { kind: "daily" }, repeatWeekly: true, order: 3 },
-  ], weeklyTodos: [], todoPriorities: ["P1", "P2", "P3"], hourHeight: 48, width: 200, rangeStartHour: 7, rangeEndHour: 23,
+  ], weeklyTodos: [], rhythmsFile: "节律.md", periodFolder: "周期", todoPriorities: ["P1", "P2", "P3"], hourHeight: 48, width: 200, rangeStartHour: 7, rangeEndHour: 23,
   dailyQuotes: [],
   dailyQuoteDefaults: {
     theme: "timeline", layout: "left", font: "interface", fontSize: 20,
@@ -190,6 +192,8 @@ const app = {
 }
 Object.assign(settings, { checklistFolder: "Checklists" })
 const host = { app, settings, refreshHourlyNudge: () => undefined, effectiveTemplateSource: () => settings.templateSource ?? "---", saveSettings: async () => { window.__saves += 1 } }
+host.rhythms = new RhythmsNote({ app: () => app, settings: () => settings, saveSettings: host.saveSettings, onChange: () => undefined })
+host.rhythms.items = parseRhythms("- 每天 30分钟 开发 @develop\\n- 每周 3小时 运动 @sport\\n- 每月 1次 独立旅游 @sport 2-3天")
 window.__saves = 0
 window.__settings = settings
 renderCategorySettings(document.querySelector("#categories"), host)
@@ -274,7 +278,8 @@ const state = await page.evaluate(() => {
   const currentSections = [...globalSettings.querySelectorAll(".modular-diary-settings-section")]
   const globalCategoryList = globalSettings.querySelector(".modular-diary-settings-section[data-settings-section='span-categories'] .modular-diary-category-editor-list") ?? currentSections[0]?.querySelector(".modular-diary-category-editor-list")
   const globalMarkerRows = globalSettings.querySelectorAll(".modular-diary-settings-section[data-settings-section='marker-categories'] .modular-diary-category-editor-row")
-  const globalHabitRow = globalSettings.querySelector(".modular-diary-settings-section[data-settings-section='habits'] .modular-diary-rule-editor") ?? currentSections[2]?.querySelector(".modular-diary-rule-editor")
+  // The habits section lists the rhythms note now: one three-column row per rhythm.
+  const globalHabitRow = globalSettings.querySelector(".modular-diary-settings-section[data-settings-section='habits'] .modular-diary-rhythm-row") ?? currentSections[2]?.querySelector(".modular-diary-rhythm-row")
   const globalHabitRect = globalHabitRow.getBoundingClientRect()
   const globalHabitChildren = [...globalHabitRow.children].map((el) => el.getBoundingClientRect())
   const globalSections = [...globalSettings.querySelectorAll(".modular-diary-settings-section")]
@@ -377,7 +382,7 @@ await page.locator("#categories").screenshot({ path: path.join(out, "categories-
 await page.locator("#global-settings").evaluate((el) => { el.style.width = "440px" })
 const globalNarrowState = await page.locator("#global-settings").evaluate((root) => {
   const sections = [...root.querySelectorAll(".modular-diary-settings-section")]
-  const habitRow = root.querySelector("[data-settings-section='habits'] .modular-diary-rule-editor") ?? sections[2]?.querySelector(".modular-diary-rule-editor")
+  const habitRow = root.querySelector("[data-settings-section='habits'] .modular-diary-rhythm-row") ?? sections[2]?.querySelector(".modular-diary-rhythm-row")
   const habitRect = habitRow.getBoundingClientRect()
   return {
     categoryColumns: getComputedStyle(root.querySelector("[data-settings-section='span-categories'] .modular-diary-category-editor-list") ?? sections[0]?.querySelector(".modular-diary-category-editor-list")).gridTemplateColumns.split(" ").length,
@@ -489,7 +494,7 @@ if (state.categoryRows !== 2) errors.push("category editor did not render the sh
 if (state.modalTitles.join("|") !== "时间分类|打卡设置") errors.push("focused settings modals are not independently addressable")
 if (state.focusedCategoryScope !== "marker" || state.focusedCategoryRows !== 1) errors.push("time-point category entry did not open its independent focused set")
 if (state.globalMarkerRows !== 1) errors.push("global settings did not render the independent time-point category set")
-if (state.globalCategoryColumns !== 2 || state.globalHabitColumns !== 6) errors.push("typical-width global settings collapsed into the narrow layout too early")
+if (state.globalCategoryColumns !== 2 || state.globalHabitColumns !== 3) errors.push("typical-width global settings collapsed into the narrow layout too early")
 if (!state.globalHabitWithinRow) errors.push("global habit controls overflow their editor row")
 if (state.globalSectionGap < 20) errors.push("global settings sections have no stable vertical separation")
 if (state.globalSectionKeys.join("|") !== "timeline|span-categories|marker-categories|habits|todo-rules|daily-quotes|checklists|natural-language") errors.push("global settings must run timeline → categories → habits → todo rules → daily quotes → checklists → natural-language capture")
@@ -502,7 +507,6 @@ if (state.timelineTop > 120) errors.push("timeline defaults must be the first th
 if (!state.quoteSection.present || !state.quoteSection.hasLibrary || !state.quoteSection.hasInkDots || state.quoteSection.hasDesigner || state.quoteSection.sectionHeight > 420) errors.push("daily quote settings must be one textarea plus highlighter dots, no designer or disclosure")
 if (state.todoRulesHeading !== "待办规则" || state.timelineHeading !== "时间轴") errors.push("global todo and timeline sections need clear concept-level headings")
 if (state.weeklyLegacyHeadingCount !== 0) errors.push("weekly cumulative todos must not appear as a separate top-level product concept")
-if (state.addWeeklyLabel !== "添加每周目标" || state.addWeeklyHeight > 36 || state.addWeeklyBackground !== "rgba(0, 0, 0, 0)" || state.addWeeklyBorderStyle !== "dashed") errors.push("empty recurring todo rules must use one compact shared dashed add action")
 if (state.timelineSettingNames.join("|") !== "默认时间范围（起–止，小时）|每小时高度（px）|整点提醒写小时日记|提醒时段（起–止，小时）|新日记模板|同时发系统通知") errors.push("timeline defaults escaped their own settings section")
 if (!["Habit name", "Tracked category", "Completion condition", "Target duration", "Repeat rule"].every((label) => state.englishLabels.includes(label))) errors.push("English habit fields are not locale-parity with Chinese")
 if (!state.englishGoalOptions.includes("Daily total below") || !state.englishGoalOptions.includes("Weekly completion count") || !state.englishRepeatOptions.includes("Every N days") || !state.englishRepeatOptions.includes("Specific calendar dates")) errors.push("English recurrence and completion-condition options are incomplete")

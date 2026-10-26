@@ -10,8 +10,9 @@ import type { WeeklyTodoDefinition } from "./core/todos"
 import { t } from "./i18n"
 
 export interface RhythmsHost {
-  app: App
-  settings: { rhythmsFile: string; habits: HabitDefinition[]; weeklyTodos: WeeklyTodoDefinition[] }
+  /** Read lazily: the plugin's app and settings are set after this object is built. */
+  app: () => App
+  settings: () => { rhythmsFile: string; habits: HabitDefinition[]; weeklyTodos: WeeklyTodoDefinition[] }
   saveSettings: () => Promise<void>
   /** Redraw mounted blocks after the rhythms changed. */
   onChange: () => void
@@ -27,27 +28,27 @@ export class RhythmsNote {
   constructor(private readonly host: RhythmsHost) {}
 
   path(): string {
-    const value = this.host.settings.rhythmsFile.trim() || DEFAULT_RHYTHMS_FILE
+    const value = this.host.settings().rhythmsFile.trim() || DEFAULT_RHYTHMS_FILE
     return normalizePath(value.endsWith(".md") ? value : `${value}.md`)
   }
 
   private file(): TFile | null {
-    const found = this.host.app.vault.getAbstractFileByPath(this.path())
+    const found = this.host.app().vault.getAbstractFileByPath(this.path())
     return found instanceof TFile ? found : null
   }
 
   /** Read the note; without one, write the old settings into a new note first (once). */
   async load(): Promise<void> {
     let file = this.file()
-    if (!file && !this.migrated && (this.host.settings.habits.length || this.host.settings.weeklyTodos.length)) {
+    if (!file && !this.migrated && (this.host.settings().habits.length || this.host.settings().weeklyTodos.length)) {
       this.migrated = true
-      file = await this.create(rhythmLinesFromSettings(this.host.settings.habits, this.host.settings.weeklyTodos))
+      file = await this.create(rhythmLinesFromSettings(this.host.settings().habits, this.host.settings().weeklyTodos))
       // Weekly todos now live in the note as weekly rhythms.
-      this.host.settings.weeklyTodos = []
+      this.host.settings().weeklyTodos = []
       await this.host.saveSettings()
     }
-    this.items = file ? parseRhythms(await this.host.app.vault.cachedRead(file)) : []
-    this.host.settings.habits = this.habits()
+    this.items = file ? parseRhythms(await this.host.app().vault.cachedRead(file)) : []
+    this.host.settings().habits = this.habits()
   }
 
   /** Daily and weekly rhythms as habit rules, in note order. */
@@ -58,8 +59,8 @@ export class RhythmsNote {
   private async create(content: string): Promise<TFile> {
     const path = this.path()
     const folder = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : ""
-    if (folder && !this.host.app.vault.getAbstractFileByPath(folder)) await this.host.app.vault.createFolder(folder)
-    return this.host.app.vault.create(path, content)
+    if (folder && !this.host.app().vault.getAbstractFileByPath(folder)) await this.host.app().vault.createFolder(folder)
+    return this.host.app().vault.create(path, content)
   }
 
   watch(register: (ref: EventRef) => void): void {
@@ -67,7 +68,7 @@ export class RhythmsNote {
       if (normalizePath(path) !== this.path()) return
       void this.load().then(() => this.host.onChange())
     }
-    const vault = this.host.app.vault
+    const vault = this.host.app().vault
     register(vault.on("modify", (file) => reloadIf(file.path)))
     register(vault.on("create", (file) => reloadIf(file.path)))
     register(vault.on("delete", (file) => reloadIf(file.path)))
@@ -78,7 +79,7 @@ export class RhythmsNote {
   async open(): Promise<void> {
     let file = this.file()
     if (!file) file = await this.create(`# 节律\n\n${t("rhythmsStarter")}\n`)
-    await this.host.app.workspace.getLeaf(true).openFile(file)
+    await this.host.app().workspace.getLeaf(true).openFile(file)
   }
 
   /** Settings: where the note is, what it currently says, and how to write a line. */
@@ -87,11 +88,11 @@ export class RhythmsNote {
       .setName(t("rhythmsFile"))
       .setDesc(t("rhythmsFileDescription"))
       .addText((control) => {
-        control.setPlaceholder(DEFAULT_RHYTHMS_FILE).setValue(this.host.settings.rhythmsFile)
+        control.setPlaceholder(DEFAULT_RHYTHMS_FILE).setValue(this.host.settings().rhythmsFile)
         control.inputEl.addEventListener("blur", async () => {
           const value = control.inputEl.value.trim() || DEFAULT_RHYTHMS_FILE
-          if (value === this.host.settings.rhythmsFile) return
-          this.host.settings.rhythmsFile = value
+          if (value === this.host.settings().rhythmsFile) return
+          this.host.settings().rhythmsFile = value
           await this.host.saveSettings()
           await this.load()
           this.host.onChange()
