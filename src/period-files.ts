@@ -26,6 +26,7 @@ export class PeriodFiles {
   /** Block source by note path, for synchronous rendering. */
   readonly sources = new Map<string, string>()
   private readonly loading = new Set<string>()
+  private readonly ensuring = new Map<string, Promise<string>>()
   private readonly preparing = new Set<string>()
 
   constructor(private readonly host: PeriodFilesHost) {}
@@ -46,7 +47,8 @@ export class PeriodFiles {
     if (cached !== undefined) return cached
     if (!this.loading.has(path)) {
       this.loading.add(path)
-      void this.load(path).finally(() => { this.loading.delete(path); this.host.onChange() })
+      // Redraw only when a note was read: a miss would otherwise redraw forever.
+      void this.load(path).then((source) => { if (source !== null) this.host.onChange() }).finally(() => this.loading.delete(path))
     }
     return null
   }
@@ -61,23 +63,35 @@ export class PeriodFiles {
     return fence.source
   }
 
-  /** Create the note for a scope when missing; resolves to its path. */
-  async ensure(scope: PeriodScope): Promise<string> {
+  /** Create the note for a scope when missing; resolves to its path. Concurrent calls share one creation. */
+  ensure(scope: PeriodScope): Promise<string> {
     const path = this.path(scope)
-    if (!this.file(path)) {
-      const folder = path.slice(0, path.lastIndexOf("/"))
-      if (folder && !this.host.app().vault.getAbstractFileByPath(folder)) await this.host.app().vault.createFolder(folder)
-      await this.host.app().vault.create(path, `\`\`\`timeline\n${periodBlockTemplate(scope)}\n\`\`\`\n`)
-    }
-    await this.load(path)
-    return path
+    const pending = this.ensuring.get(path)
+    if (pending) return pending
+    const run = (async (): Promise<string> => {
+      if (!this.file(path)) {
+        const vault = this.host.app().vault
+        const folder = path.slice(0, path.lastIndexOf("/"))
+        if (folder && !vault.getAbstractFileByPath(folder)) {
+          // Another caller (or the user) may have just made it.
+          await vault.createFolder(folder).catch((error) => { if (vault.getAbstractFileByPath(folder) === null) throw error })
+        }
+        if (!this.file(path)) await vault.create(path, `\`\`\`timeline\n${periodBlockTemplate(scope)}\n\`\`\`\n`)
+      }
+      await this.load(path)
+      return path
+    })()
+    this.ensuring.set(path, run)
+    return run.finally(() => this.ensuring.delete(path))
   }
 
-  /** Rewrite the block in a period note (creating the note when missing). */
+  /** Rewrite the block in a period note (creating the note when missing). A no-op transform touches nothing. */
   async write(scope: PeriodScope, transform: (source: string) => string): Promise<string> {
     const path = await this.ensure(scope)
     const file = this.file(path)
     if (!file) throw new Error(`period note missing: ${path}`)
+    const cached = this.sources.get(path)
+    if (cached !== undefined && transform(cached) === cached) return cached
     let next = ""
     await this.host.app().vault.process(file, (content) => {
       const fence = timelineFences(content).next().value
@@ -107,21 +121,21 @@ export class PeriodFiles {
       const prevScope = shiftScope(scope, -1)
       const prevPath = this.path(prevScope)
       const prev = this.file(prevPath) ? await this.load(prevPath) : null
-      let changed = false
-      await this.write(scope, (source) => {
+      let prevNext: string | null = null
+      const step = (source: string): string => {
         let out = ensureRhythmSlots(source, rhythms, scope)
         if (prev !== null) {
           const carried = carryOver(out, prev, rhythms, scope, periodKey(prevScope))
           out = carried.source
-          if (carried.prevSource !== prev) {
-            changed = true
-            void this.write(prevScope, () => carried.prevSource)
-          }
+          prevNext = carried.prevSource !== prev ? carried.prevSource : null
         }
-        if (out !== source) changed = true
         return out
-      })
-      if (changed) this.host.onChange()
+      }
+      const before = this.sources.get(path) ?? await this.load(path) ?? periodBlockTemplate(scope)
+      const after = await this.write(scope, step)
+      const carriedPrev = prevNext as string | null
+      if (carriedPrev !== null) await this.write(prevScope, () => carriedPrev)
+      if (after !== before || carriedPrev !== null) this.host.onChange()
     } finally {
       this.preparing.delete(path)
     }
