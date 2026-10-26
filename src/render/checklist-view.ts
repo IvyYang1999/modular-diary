@@ -8,6 +8,8 @@ export interface ChecklistViewDeps {
   save: (change: (module: ChecklistModule) => ChecklistModule) => Promise<ChecklistModule>
   draft?: ChecklistDraft
   onDraft: (draft: ChecklistDraft) => void
+  /** Module actions (save as template, …) at x, y; the header shows ⋯ only when given. */
+  onMenu?: (x: number, y: number) => void
 }
 
 /**
@@ -107,6 +109,16 @@ export function renderChecklistInto(slot: HTMLElement, module: ChecklistModule, 
     titleButton.addEventListener("click", () => startEdit(null, title))
   }
   if (module.items.length) header.createEl("span", { cls: `modular-diary-component-count${done === module.items.length ? " is-complete" : ""}`, text: `${done}/${module.items.length}` })
+  if (deps.onMenu) {
+    const actions = header.createDiv({ cls: "modular-diary-component-actions" })
+    const more = actions.createEl("button", { cls: "modular-diary-checklist-more", attr: { type: "button", "aria-label": t("checklistActions"), title: t("checklistActions"), "aria-haspopup": "menu" } })
+    setIcon(more, "ellipsis")
+    more.addEventListener("click", (event) => { event.stopPropagation(); const rect = more.getBoundingClientRect(); deps.onMenu?.(rect.left, rect.bottom) })
+    header.addEventListener("contextmenu", (event) => {
+      if ((event.target as HTMLElement).closest("input")) return
+      event.preventDefault(); event.stopPropagation(); deps.onMenu?.(event.clientX, event.clientY)
+    })
+  }
   const error = root.createDiv({ cls: "modular-diary-checklist-error", attr: { role: "status" } })
 
   const list = root.createDiv({ cls: "modular-diary-checklist-items" })

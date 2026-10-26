@@ -1,7 +1,8 @@
+import { parseChecklistTemplate } from "./core/checklists"
 import { PeriodFiles } from "./period-files"
 import { rhythmBoard, scopeContaining, scopeOfRange, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
 import { RhythmsNote } from "./rhythms-note"
-import { isDailyNote } from "./checklists"
+import { isDailyNote, findChecklistTemplateFile, saveChecklistAsTemplate } from "./checklists"
 import { AddUpcomingModal, createUpcomingSchedule, watchUpcoming, type UpcomingVaultOptions } from "./upcoming"
 import { pendingForDate, upcomingFrom } from "./core/upcoming"
 import { renderUpcomingInto } from "./render/upcoming-view"
@@ -1195,6 +1196,18 @@ export default class ModularDiaryPlugin extends Plugin {
           draft: drafts.get(key),
           onDraft: (draft) => { if (draft.add || draft.edit) drafts?.set(key, draft); else drafts?.delete(key) },
           save: (change) => this.saveChecklistModule(el, ctx, source, checklist.id, change),
+          onMenu: (x, y) => void (async () => {
+            // Save this block's list as a reusable template (Checklists/<title>.md), or update that template.
+            const existing = findChecklistTemplateFile(this, checklist.title)
+            const current = existing ? parseChecklistTemplate(existing.basename, await this.app.vault.cachedRead(existing)) : null
+            const save = (daily?: boolean): void => void saveChecklistAsTemplate(this, checklist, daily)
+              .then(({ name }) => new Notice(tr("checklistTemplateSaved", { name })))
+              .catch((error: unknown) => new Notice(error instanceof Error && error.message === "checklist-needs-title" ? tr("checklistTemplateNeedsTitle") : tr("saveFailed")))
+            const menu = new Menu()
+            menu.addItem((item) => item.setTitle(existing ? tr("checklistUpdateTemplate", { name: existing.basename }) : tr("checklistSaveTemplate")).setIcon("save").onClick(() => save()))
+            if (current) menu.addItem((item) => item.setTitle(tr("checklistTemplateDaily")).setIcon("calendar-check").setChecked(current.daily).onClick(() => save(!current.daily)))
+            menu.showAtPosition({ x, y }, dom)
+          })(),
         })
       }
       const habitsSlot = container.querySelector<HTMLElement>(".modular-diary-slot-habits")

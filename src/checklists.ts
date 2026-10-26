@@ -5,6 +5,7 @@
  */
 import { App, Editor, EventRef, FuzzySuggestModal, moment, normalizePath, Notice, Setting, setIcon, TFile, TFolder } from "obsidian"
 import type momentFactory from "moment"
+import type { ChecklistModule } from "./core/checklist-modules"
 import { appendChecklists, checklistInsertion, checklistTemplateStarter, hasChecklist, isDailyNotePath, parseChecklistTemplate, type ChecklistTemplate } from "./core/checklists"
 import { t } from "./i18n"
 
@@ -18,6 +19,41 @@ export const DEFAULT_CHECKLIST_FOLDER = "Checklists"
 
 export function checklistFolderPath(host: ChecklistHost): string {
   return normalizePath(host.settings.checklistFolder.trim() || DEFAULT_CHECKLIST_FOLDER)
+}
+
+/** The template note a module of this title would be saved to, when it exists. */
+export function findChecklistTemplateFile(host: ChecklistHost, title: string): TFile | null {
+  const name = templateName(title)
+  if (!name) return null
+  const found = host.app.vault.getAbstractFileByPath(normalizePath(`${checklistFolderPath(host)}/${name}.md`))
+  return found instanceof TFile ? found : null
+}
+
+function templateName(title: string): string {
+  return title.trim().replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim()
+}
+
+/**
+ * Save a block-local checklist as a reusable template note in the checklist
+ * folder (`Checklists/<title>.md`): one `- item` line per entry, `daily` in
+ * the frontmatter. An existing template of that name is rewritten, keeping
+ * its `daily` unless given. Resolves to the template's name.
+ */
+export async function saveChecklistAsTemplate(host: ChecklistHost, module: ChecklistModule, daily?: boolean): Promise<{ name: string; created: boolean }> {
+  const name = templateName(module.title)
+  if (!name) throw new Error("checklist-needs-title")
+  const vault = host.app.vault
+  const folder = checklistFolderPath(host)
+  if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder)
+  const path = normalizePath(`${folder}/${name}.md`)
+  const body = module.items.map((item) => `${item.indent ?? ""}- ${item.text}`).join("\n")
+  const existing = vault.getAbstractFileByPath(path)
+  if (existing instanceof TFile) {
+    await vault.process(existing, (content) => `---\ndaily: ${daily ?? parseChecklistTemplate(name, content).daily}\n---\n${body}\n`)
+    return { name, created: false }
+  }
+  await vault.create(path, `---\ndaily: ${daily ?? false}\n---\n${body}\n`)
+  return { name, created: true }
 }
 
 function templateFiles(host: ChecklistHost): TFile[] {

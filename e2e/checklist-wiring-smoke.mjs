@@ -23,7 +23,7 @@ window.__base={obsidian,cleanup};
 const init=`
 window.renderActual=async()=>{const {obsidian,cleanup}=window.__base;cleanup.splice(0).forEach(f=>f());const plugin=window.plugin||(window.plugin=new MDPlugin.default());const file=window.file||(window.file=new obsidian.TFile());file.path='synthetic.md';const host=document.querySelector('#host');host.empty();let content=await window.readDisk();const view=window.view||(window.view=new obsidian.MarkdownView());view.file=file;view.leaf=window.owner||(window.owner={});view.containerEl=host;view.getMode=()=> 'preview';view.editor={getValue:()=>content};
 plugin.settings={...plugin.settings,spanTypeColors:{work:'#53b5d1',study:'#c085db'},habits:[],weeklyTodos:[],dailyQuotes:[],timelineOnboardingSeen:true,tagCategories:{},dialogBackend:'claude-cli'};
-plugin.app={vault:{getAbstractFileByPath:p=>p==='synthetic.md'?file:null,read:async()=>window.readDisk(),process:async(_f,change)=>{if(window.failWrite)throw Error('synthetic write failure');content=change(await window.readDisk());await window.writeDisk(content);setTimeout(()=>window.mountActual(),0)}},workspace:{iterateAllLeaves:f=>f({view}),getActiveViewOfType:()=>view,getActiveFile:()=>file,getLeavesOfType:()=>[{view}],on:()=>({})},metadataCache:{getFileCache:()=>({})}};
+window.extra=window.extra||{};window.folders=window.folders||{};const tf=p=>{const t=new obsidian.TFile();t.path=p;t.basename=p.split('/').pop().replace(/\.md$/,'');t.extension='md';return t};const folderOf=p=>{const f=Object.assign(new obsidian.TFolder(),{path:p,children:Object.keys(window.extra).filter(k=>k.startsWith(p+'/')).map(tf)});return f};plugin.app={vault:{getAbstractFileByPath:p=>p==='synthetic.md'?file:window.extra[p]!==undefined?tf(p):window.folders[p]?folderOf(p):null,read:async f=>f===file?window.readDisk():window.extra[f.path],cachedRead:async f=>f===file?window.readDisk():window.extra[f.path],create:async(p,c)=>{window.extra[p]=c;return tf(p)},createFolder:async p=>{window.folders[p]=true},process:async(f,change)=>{if(f!==file){window.extra[f.path]=change(window.extra[f.path]);return window.extra[f.path]}if(window.failWrite)throw Error('synthetic write failure');content=change(await window.readDisk());await window.writeDisk(content);setTimeout(()=>window.mountActual(),0)}},workspace:{iterateAllLeaves:f=>f({view}),getActiveViewOfType:()=>view,getActiveFile:()=>file,getLeavesOfType:()=>[{view}],on:()=>({})},metadataCache:{getFileCache:()=>({})}};
 const ctx={sourcePath:file.path,docId:'actual-plugin',getSectionInfo:()=>({text:content,lineStart:0,lineEnd:content.split('\\n').findIndex((line,index)=>index>0&&line==='\`\`\`')}),addChild:()=>{}};const source=content.match(/\`\`\`timeline\\n([\\s\\S]*?)\\n\`\`\`/)[1];plugin.renderTimelineBlock(source,host,ctx,null);plugin.remountVisual.clear();
 };let mountQueue=Promise.resolve();window.mountActual=()=>{mountQueue=mountQueue.then(()=>window.renderActual());return mountQueue};window.mountActual();
 `
@@ -79,6 +79,19 @@ try{
  await page.getByRole('button',{name:'重命名栏目 阅读笔记',exact:true}).first().click({button:'right'})
  await page.getByRole('button',{name:'从添加菜单取消固定「阅读笔记」',exact:true}).click()
  assert.deepEqual(await page.evaluate(()=>window.plugin.settings.pinnedSections),[])
+ // Save a module as a reusable template: a note in the checklist folder; saving again updates it and can flag it daily.
+ const list1=page.locator('[data-slot="checklist1"]')
+ await list1.locator('.modular-diary-checklist-title').click()
+ await list1.getByRole('textbox',{name:'重命名清单',exact:true}).fill('睡前');await list1.getByRole('textbox',{name:'重命名清单',exact:true}).press('Enter')
+ await list1.getByText('睡前',{exact:true}).waitFor()
+ await list1.getByRole('button',{name:'清单操作',exact:true}).click()
+ await page.getByRole('button',{name:'保存为模板',exact:true}).click()
+ await page.waitForFunction(()=>window.extra['Checklists/睡前.md'])
+ assert.equal(await page.evaluate(()=>window.extra['Checklists/睡前.md']),'---\ndaily: false\n---\n- Actual plugin checklist item\n')
+ await list1.getByRole('button',{name:'清单操作',exact:true}).click()
+ await page.getByRole('button',{name:'每天自动加入新日记',exact:true}).click()
+ await page.waitForFunction(()=>window.extra['Checklists/睡前.md'].includes('daily: true'))
+ await page.getByRole('button',{name:'更新模板「睡前」',exact:true}).waitFor({state:'detached'}).catch(()=>{})
  await page.evaluate(()=>{window.notices.length=0})
  assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.notices),[])
  console.log('PASS actual plugin menu → independent modules → disk checkbox → remount. Screenshot:',out)

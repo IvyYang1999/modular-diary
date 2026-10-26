@@ -5908,3 +5908,7 @@ textarea.modular-diary-template-source {
 .modular-diary-period-days-row.is-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
 .modular-diary-period-days-row.is-month .modular-diary-period-day-dot { height: 20px; }
 .modular-diary-period-day-dot.is-blank { background: transparent; }
+
+.modular-diary-container .modular-diary-checklist button.modular-diary-checklist-more { opacity: 0; }
+.modular-diary-checklist:is(:hover, :focus-within) button.modular-diary-checklist-more { opacity: 1; }
+@media (hover: none) { .modular-diary-container .modular-diary-checklist button.modular-diary-checklist-more { opacity: 1; } }
