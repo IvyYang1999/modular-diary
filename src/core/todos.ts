@@ -21,9 +21,9 @@ export function parseTodoViewHeaderValue(value: string): TodoViewConfig | null {
   const sortBy = fields.sort
   const group2 = fields.group2
   const layout = fields.layout ?? "list"
-  if (!(["none", "category", "status", "tag"] as string[]).includes(groupBy)) return null
+  if (!(["none", "category", "status", "tag", "placement"] as string[]).includes(groupBy)) return null
   if (!(["manual", "estimate", "actual", "difficulty", "priority"] as string[]).includes(sortBy)) return null
-  if (group2 !== undefined && !(["category", "status", "tag"] as string[]).includes(group2)) return null
+  if (group2 !== undefined && !(["category", "status", "tag", "placement"] as string[]).includes(group2)) return null
   if (!(["list", "abc", "matrix"] as string[]).includes(layout)) return null
   return normalizeTodoView({ groupBy, sortBy, ...(group2 ? { group2 } : {}), ...(layout !== "list" ? { layout } : {}) } as TodoViewConfig)
 }
@@ -45,12 +45,15 @@ export interface TodoGroupable {
   partial?: boolean
   tags?: string[]
   title?: string
+  /** Period todos: already on a day (or at a time) of the period. */
+  placed?: boolean
 }
 
 /** Stable, locale-free identity of an item's group: `c:分类` / `s:open|s:done` / `t:标签` (empty value = none). */
 export function todoGroupKey(item: TodoGroupable, by: TodoSubGroupBy): string {
   if (by === "category") return `c:${item.type ?? ""}`
   if (by === "status") return item.completed ? "s:done" : item.partial ? "s:partial" : "s:open"
+  if (by === "placement") return item.completed ? "p:done" : item.placed ? "p:placed" : "p:open"
   const tag = item.tags?.[0] ?? (item.title ? extractTags(item.title)[0] : undefined)
   return `t:${tag ?? ""}`
 }
@@ -61,6 +64,7 @@ export function todoGroupLabel(key: string): string {
   const value = leaf.slice(2)
   if (leaf.startsWith("c:")) return value || t("noCategory")
   if (leaf.startsWith("s:")) return value === "done" ? t("complete") : value === "partial" ? t("todoPartial") : t("incomplete")
+  if (leaf.startsWith("p:")) return value === "done" ? t("boardDone") : value === "placed" ? t("boardPlaced") : t("boardUnplaced")
   return value ? `#${value}` : t("noTag")
 }
 
@@ -92,8 +96,8 @@ export function groupTodoItems<T extends TodoGroupable>(items: T[], by: TodoSubG
   const keys = [...buckets.keys()]
   // The "none" bucket (no category / no tag) always comes last, not into the label sort.
   const emptyKey = (key: string): boolean => /(?:^|\n)[ct]:$/.test(key)
-  if (by === "status") {
-    const rank = (key: string): number => key.endsWith(":done") ? 2 : key.endsWith(":partial") ? 1 : 0
+  if (by === "status" || by === "placement") {
+    const rank = (key: string): number => key.endsWith(":done") ? 2 : key.endsWith(":partial") || key.endsWith(":placed") ? 1 : 0
     keys.sort((a, b) => rank(a) - rank(b))
   }
   else keys.sort((a, b) => Number(emptyKey(a)) - Number(emptyKey(b)) || todoGroupLabel(a).localeCompare(todoGroupLabel(b)))

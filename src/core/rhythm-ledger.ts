@@ -11,7 +11,7 @@
  * day count or minutes against the quota.
  */
 import { isHabitDue } from "./habits"
-import { insertTodo, setHeaderValue, updateTodo } from "../edit/source-rewriter"
+import { deleteTodoSubtree, insertTodo, setHeaderValue, updateTodo } from "../edit/source-rewriter"
 import { parseTimeline } from "./parser"
 import { rhythmToHabit, rhythmWeekOn, type Rhythm } from "./rhythms"
 import { shiftDate } from "./daily-notes"
@@ -150,9 +150,22 @@ export function slotId(rhythm: Rhythm, index: number): string {
 export function ensureRhythmSlots(source: string, rhythms: Rhythm[], scope: PeriodScope): string {
   const doc = parseTimeline(source)
   let out = source
+  // Slots that no longer belong: a rhythm that was deleted, skipped or had its quota lowered.
+  // Only untouched ones go (not ticked, not placed, not carried): nothing the user did is lost.
+  const untouched = (todo: TodoItem): boolean => !todo.completed && !todo.day && !todo.owed && !todo.moved
+  const due = new Map(rhythmsDueIn(rhythms, scope).map((rhythm) => [rhythm.id, rhythm]))
+  const byRhythm = new Map<string, TodoItem[]>()
+  for (const todo of doc.todos) if (todo.rhythm) byRhythm.set(todo.rhythm, [...(byRhythm.get(todo.rhythm) ?? []), todo])
+  for (const [id, slots] of byRhythm) {
+    const rhythm = due.get(id)
+    const wanted = rhythm && takesSlots(rhythm) && !doc.rhythmSkips.includes(id) ? slotCount(rhythm) : 0
+    const surplus = Math.max(0, slots.filter((todo) => !todo.owed && !todo.moved).length - wanted)
+    for (const todo of slots.filter(untouched).reverse().slice(0, surplus)) out = deleteTodoSubtree(out, todo.id)
+  }
+  const current = parseTimeline(out)
   for (const rhythm of rhythmsDueIn(rhythms, scope)) {
     if (!takesSlots(rhythm) || doc.rhythmSkips.includes(rhythm.id)) continue
-    const existing = doc.todos.filter((todo) => todo.rhythm === rhythm.id && !todo.owed)
+    const existing = current.todos.filter((todo) => todo.rhythm === rhythm.id && !todo.owed)
     const day = fixedDay(rhythm, scope)
     const count = slotCount(rhythm)
     for (let index = existing.length + 1; index <= count; index++) {

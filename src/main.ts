@@ -85,7 +85,7 @@ import { ensureBlockForDate } from "./core/day-content"
 import { learnTagCategories, tagCategory, unionMinutes } from "./core/tags"
 import { skeletonFromSource } from "./core/template"
 import { formatGoalLine, formatPeriodSpec, goalProgress, periodTotals, resolvePeriod, shiftPeriod } from "./core/period"
-import { POOL_ZONE, renderPeriodInto, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewModel } from "./render/period-view"
+import { iconButton, POOL_ZONE, renderPeriodInto, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewModel } from "./render/period-view"
 import { buildScheduledPlan } from "./edit/timeline-schedule-drag"
 import { setNotePopoverTagSuggest } from "./edit/note-popover"
 import { composerDefaults, findLinkable, hourlogItems, linkableEntries, linkOf, locateHourlogItem, type HourlogItem } from "./core/hourlog"
@@ -2070,6 +2070,15 @@ export default class ModularDiaryPlugin extends Plugin {
           if (view !== "day") button.addEventListener("click", () => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "view", view))
             .catch((error) => { console.error("Modular Diary: failed to switch the view", error); new Notice(tr("viewSwitchFailed")) }))
         }
+        // The same bar as the week and month: a day back or forward, the date, and the way home.
+        const go = (date: string): void => void this.openDay(date).catch((error) => console.error("Modular Diary: failed to open the day", error))
+        iconButton(switchBar, "chevron-left", tr("dayBack")).addEventListener("click", () => go(shiftDate(dateStr, -1)))
+        iconButton(switchBar, "chevron-right", tr("dayForward")).addEventListener("click", () => go(shiftDate(dateStr, 1)))
+        const title = switchBar.createEl("span", { cls: "modular-diary-period-title" })
+        title.createEl("span", { cls: "modular-diary-period-title-week", text: weekday(dateStr) })
+        title.createEl("span", { text: dateStr.replace(/-/g, ".") })
+        const today = inferDate(null)
+        if (dateStr !== today) switchBar.createEl("button", { cls: "modular-diary-period-text-button", text: tr("today"), attr: { type: "button" } }).addEventListener("click", () => go(today))
         container.prepend(switchBar)
       }
       // 当前 block 的低频附加操作：组件管理 + 布局，不再误用「添加」语义。
@@ -2491,9 +2500,9 @@ export default class ModularDiaryPlugin extends Plugin {
   }
 
   /** The todo grouping menu: primary grouping, and a second level once the first is on. */
-  private showTodoGroupMenu(dom: Document, x: number, y: number, view: TimelineDoc["todoView"], setView: (patch: Partial<TimelineDoc["todoView"]>) => void): void {
+  private showTodoGroupMenu(dom: Document, x: number, y: number, view: TimelineDoc["todoView"], setView: (patch: Partial<TimelineDoc["todoView"]>) => void, period = false): void {
     const menu = new Menu()
-    const titles = { none: tr("todoGroupNone"), category: tr("todoGroupCategory"), status: tr("todoGroupStatus"), tag: tr("todoGroupTag") }
+    const titles = { none: tr("todoGroupNone"), category: tr("todoGroupCategory"), status: tr("todoGroupStatus"), tag: tr("todoGroupTag"), ...(period ? { placement: tr("todoGroupPlacement") } : {}) }
     buildTodoGroupMenuOptions(view.groupBy, titles).forEach(({ value, title, checked }) => menu.addItem((item) => item
       .setTitle(title)
       .setChecked(checked)
@@ -2574,13 +2583,15 @@ export default class ModularDiaryPlugin extends Plugin {
     rangeStartMin = Math.max(0, rangeStartMin)
     rangeEndMin = Math.min(30 * 60, rangeEndMin)
     const scope = embed?.scope ?? (doc.periodScope ? scopeContaining(doc.periodScope, resolved.start) : scopeOfRange(resolved.start, resolved.end) ?? undefined)
+    // Without an explicit todo-view, a period lists its todos as 待安排 / 已安排.
+    const todoView = /^todo-view:/m.test(source) ? doc.todoView : { ...doc.todoView, groupBy: "placement" as const }
     const facts = dayData.map((day) => ({ date: day.date, entries: day.entries, habitDone: this.dayIndex.blocksForDate(day.date).flatMap((block) => block.habitDone) }))
     const model: PeriodViewModel = {
       spec: period, browsing: embed ? this.embedBrowse.has(embed.key) : Boolean(browsed), period: resolved, today,
       scope, face: doc.periodFace ?? (scope ? "plan" : "actual"),
       board: scope ? rhythmBoard(this.rhythms.items, scope, todos, facts, doc.rhythmSkips, foreignTodos) : [],
       embeddedView: embed?.view,
-      goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView: doc.todoView, days,
+      goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView, days,
       todoGroupOrder: doc.todoGroupOrder,
       statsWidgets: doc.periodStats,
       rangeStartMin, rangeEndMin,
@@ -2608,7 +2619,7 @@ export default class ModularDiaryPlugin extends Plugin {
       })
     }
     const setView = (patch: Partial<typeof doc.todoView>): void => {
-      void rewrite((value) => setHeaderValue(value, "todo-view", formatTodoViewHeaderValue({ ...doc.todoView, ...patch })))
+      void rewrite((value) => setHeaderValue(value, "todo-view", formatTodoViewHeaderValue({ ...todoView, ...patch })))
     }
     renderPeriodInto(container, model, {
       typeColors: { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors },
@@ -2703,8 +2714,8 @@ export default class ModularDiaryPlugin extends Plugin {
       },
       onReparent: (id, parentId) => void rewrite((current) => setTodoParent(current, id, parentId)),
       onMoveGroup: (key, targetIndex) => void rewrite((current) =>
-        setHeaderValue(current, "todo-groups", JSON.stringify(moveTodoGroupKey(groupTodoTree(todos, doc.todoView, doc.todoGroupOrder), key, targetIndex)))),
-      onGroupMenu: (x, y) => this.showTodoGroupMenu(dom, x, y, doc.todoView, setView),
+        setHeaderValue(current, "todo-groups", JSON.stringify(moveTodoGroupKey(groupTodoTree(todos, todoView, doc.todoGroupOrder), key, targetIndex)))),
+      onGroupMenu: (x, y) => this.showTodoGroupMenu(dom, x, y, todoView, setView, true),
       onSortMenu: (x, y) => {
         const menu = new Menu()
         buildTodoSortMenuOptions(doc.todoView.sortBy, { manual: tr("todoSortManual"), estimate: tr("todoSortEstimate"), actual: tr("todoSortActual"), difficulty: tr("todoDifficulty"), priority: tr("todoPriority") })

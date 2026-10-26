@@ -204,6 +204,8 @@ interface DragSubject {
   rhythmId?: string
   /** Board rows without slots (measured rhythms) only reorder; they never land on a day. */
   reorderOnly?: boolean
+  /** A period todo row: dropping on another todo row reorders the list. */
+  todoRow?: boolean
 }
 
 export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: DragSubject, model: PeriodViewModel, deps: PeriodViewDeps): void {
@@ -274,13 +276,16 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
         handle.classList.add("is-drag-source")
         if (owner) setPointerInteractionActive(owner, true)
       }
-      ghost.style.transform = `translate(${move.clientX + 12}px, ${move.clientY + 10}px)`
+      // The pill rides under the pointer, not beside it.
+      ghost.style.transform = `translate(${move.clientX - 14}px, ${move.clientY - 14}px)`
       lastX = move.clientX; lastY = move.clientY
       if (!scrollFrame && win) scrollFrame = win.requestAnimationFrame(autoscroll)
       const hit = dom.elementFromPoint(move.clientX, move.clientY)
       // Over another board row: this is a reorder, not a placement.
-      const row = subject.rhythmId ? (hit?.closest(".modular-diary-plan-row[data-rhythm]") ?? null) as HTMLElement | null : null
-      if (row && row.dataset.rhythm !== subject.rhythmId && root.contains(row)) {
+      const row = subject.rhythmId ? (hit?.closest(".modular-diary-plan-row[data-rhythm]") ?? null) as HTMLElement | null
+        : subject.todoRow ? (hit?.closest(".modular-diary-period-todos .modular-diary-todo-row[data-todo-id]") ?? null) as HTMLElement | null : null
+      const sameRow = subject.rhythmId ? row?.dataset.rhythm === subject.rhythmId : row?.dataset.todoId === subject.todo.id
+      if (row && !sameRow && root.contains(row)) {
         const rect = row.getBoundingClientRect()
         const before = move.clientY < rect.top + rect.height / 2
         if (rowTarget?.row !== row || rowTarget.before !== before) {
@@ -326,6 +331,16 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
       root.classList.remove("is-dragging")
       handle.classList.remove("is-drag-source")
       if (!commit || !dragged) return
+      if (reorder && subject.todoRow) {
+        // Reorder in source order: the index the dragged subtree takes among the other todos.
+        const targetId = reorder.row.dataset.todoId ?? ""
+        const moving = new Set<string>([subject.todo.id])
+        for (let grew = true; grew;) { grew = false; for (const todo of model.todos) if (todo.parent && moving.has(todo.parent) && !moving.has(todo.id)) { moving.add(todo.id); grew = true } }
+        const rest = model.todos.filter((todo) => !moving.has(todo.id)).map((todo) => todo.id)
+        const at = rest.indexOf(targetId)
+        if (at >= 0) deps.onMove(subject.todo.id, at + (reorder.before ? 0 : 1))
+        return
+      }
       if (reorder && subject.rhythmId) {
         // Dropping below a row means "before the rhythm after it" in note order.
         const ids = [...new Set(Array.from(root.querySelectorAll<HTMLElement>(".modular-diary-plan-row[data-rhythm]")).map((el) => el.dataset.rhythm ?? ""))]
@@ -541,13 +556,14 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
   section.dataset.zone = POOL_ZONE
   section.dataset.zoneKind = "list"
   const items: TodoViewItem[] = model.todos.filter((todo) => !todo.rhythm).map((todo) => ({
-    id: todo.id, title: todo.title, group: todo.group, type: todo.type, completed: todo.completed, weekly: false,
+    id: todo.id, title: todo.title, group: todo.group, type: todo.type, completed: todo.completed, weekly: false, placed: Boolean(todo.placement),
     tags: todo.tags, note: todo.note, parent: todo.parent, partial: todo.partial, difficulty: todo.difficulty, priority: todo.priority,
     estimateMinutes: todo.estimateMin, actualMinutes: todo.actualMinutes, flags: placementFlag(todo, model),
   }))
   renderTodosInto(section, items, {
     title: t(model.scope?.kind === "week" ? "periodTodosWeek" : model.scope?.kind === "month" ? "periodTodosMonth" : "periodTodos"),
     compactMeta: true,
+    rowGrips: false,
     categories: deps.categories,
     priorities: deps.priorities,
     typeColors: deps.typeColors,
@@ -568,12 +584,12 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
     onMenu: (item, x, y, edit, addChild) => deps.onTodoMenu?.(item.id, x, y, edit, addChild),
   })
   const byId = new Map(model.todos.map((todo) => [todo.id, todo]))
+  // The whole row drags: onto a day (or band) to place it, onto another row to reorder.
   section.querySelectorAll<HTMLElement>(".modular-diary-todo-row[data-todo-id]").forEach((row) => {
     const todo = byId.get(row.dataset.todoId ?? "")
-    const body = row.querySelector<HTMLElement>(".modular-diary-todo-body")
-    if (!todo || !body) return
-    body.classList.add("modular-diary-period-draggable")
-    attachDrag(root, body, { todo, from: todo.placement && todo.placement.startMin === undefined ? todo.placement.date : POOL_ZONE }, model, deps)
+    if (!todo) return
+    row.classList.add("modular-diary-period-draggable")
+    attachDrag(root, row, { todo, todoRow: true, from: todo.placement && todo.placement.startMin === undefined ? (todo.zone ? `${todo.placement.date}@${todo.zone}` : todo.placement.date) : POOL_ZONE }, model, deps)
   })
 }
 

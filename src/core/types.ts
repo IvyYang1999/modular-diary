@@ -171,9 +171,9 @@ export interface PeriodGoal {
   line: number
 }
 
-export type TodoGroupBy = "none" | "category" | "status" | "tag"
+export type TodoGroupBy = "none" | "category" | "status" | "tag" | "placement"
 /** Second grouping level inside a primary group; never "none" when present, never equal to groupBy. */
-export type TodoSubGroupBy = "category" | "status" | "tag"
+export type TodoSubGroupBy = "category" | "status" | "tag" | "placement"
 export type TodoSortBy = "manual" | "estimate" | "actual" | "difficulty" | "priority"
 export type TimelineDrawTool = "span" | "marker"
 

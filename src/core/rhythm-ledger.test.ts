@@ -84,3 +84,18 @@ describe("rhythm board", () => {
     expect(month.find((item) => item.rhythm.id === "学习")).toMatchObject({ targetMinutes: 180 * 6, minutes: 0 })
   })
 })
+
+describe("slot pruning", () => {
+  it("drops untouched surplus slots when a quota shrinks, keeps placed or ticked ones, and removes a deleted rhythm's slots", () => {
+    const six = parseRhythms("- 每周 6次 心理咨询 @家人\n- 每周 散步")
+    let source = ensureRhythmSlots("days: 2026-10-26..2026-11-01\n---", six, week)
+    expect(parseTimeline(source).todos.filter((todo) => todo.rhythm === "心理咨询")).toHaveLength(6)
+    // One slot placed on a day, one ticked: they survive the cut to 1次.
+    const ids = parseTimeline(source).todos.filter((todo) => todo.rhythm === "心理咨询").map((todo) => todo.id)
+    source = source.replace(new RegExp(`id="${ids[0]}"`), `id="${ids[0]}" day=2026-10-27`).replace(new RegExp(`- \\[ \\] (todo: id="${ids[1]}")`), "- [x] $1")
+    const one = parseRhythms("- 每周 心理咨询 @家人")
+    const pruned = parseTimeline(ensureRhythmSlots(source, one, week)).todos
+    expect(pruned.filter((todo) => todo.rhythm === "心理咨询").map((todo) => todo.id)).toEqual([ids[0], ids[1]])
+    expect(pruned.some((todo) => todo.rhythm === "散步")).toBe(false)
+  })
+})

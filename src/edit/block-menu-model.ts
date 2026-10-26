@@ -30,7 +30,7 @@ export function buildTodoMenuOptions(
   ]
 }
 
-export type TodoGroupValue = "none" | "category" | "status" | "tag"
+export type TodoGroupValue = "none" | "category" | "status" | "tag" | "placement"
 
 export interface TodoGroupMenuOption {
   title: string
@@ -41,10 +41,10 @@ export interface TodoGroupMenuOption {
 /** The parent button already establishes that this menu controls grouping. */
 export function buildTodoGroupMenuOptions(
   current: TodoGroupValue,
-  titles: Record<TodoGroupValue, string>
+  titles: Partial<Record<TodoGroupValue, string>>
 ): TodoGroupMenuOption[] {
-  return (["none", "category", "status", "tag"] as const).map((value) => ({
-    title: titles[value],
+  return (["none", "category", "status", "tag", "placement"] as const).filter((value) => titles[value] !== undefined).map((value) => ({
+    title: titles[value] ?? value,
     value,
     checked: current === value,
   }))
@@ -54,12 +54,12 @@ export function buildTodoGroupMenuOptions(
 export function buildTodoSubGroupMenuOptions(
   primary: TodoGroupValue,
   current: TodoGroupValue,
-  titles: Record<TodoGroupValue, string>
+  titles: Partial<Record<TodoGroupValue, string>>
 ): TodoGroupMenuOption[] {
-  return (["none", "category", "status", "tag"] as const)
-    .filter((value) => value === "none" || value !== primary)
+  return (["none", "category", "status", "tag", "placement"] as const)
+    .filter((value) => titles[value] !== undefined && (value === "none" || value !== primary))
     .map((value) => ({
-      title: titles[value],
+      title: titles[value] ?? value,
       value,
       checked: current === value,
     }))

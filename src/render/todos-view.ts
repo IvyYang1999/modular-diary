@@ -69,6 +69,8 @@ export interface TodoAttachmentDeps {
 export interface TodoEditDraft { id: string; input: NewTodoInput }
 
 export interface TodoViewDeps {
+  /** False: no sort grips; the host attaches its own row drag (reorder and more). */
+  rowGrips?: boolean
   /** Header title; defaults to the day todo list's name. */
   title?: string
   /**
@@ -681,7 +683,9 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   }
   const renderRow = (item: TodoViewItem, sourceIndex: number, node: HTMLElement, siblings: HTMLElement, containerIds: string[] | null, depth: number, childCount: number, collapsed: boolean): void => {
     // Bucket cells are chosen per root; children follow their root's cell.
-    const rowDraggable = !item.body && (buckets ? !item.weekly && Boolean(deps.onSetBucket) && todoTree.parentOf(item.id) === null : manualSort && (!grouped || !item.weekly))
+    // Alt+↑/↓ reorders whenever the order is manual; the pointer grip can be left to the host.
+    const keyReorder = !item.body && (buckets ? !item.weekly && Boolean(deps.onSetBucket) && todoTree.parentOf(item.id) === null : manualSort && (!grouped || !item.weekly))
+    const rowDraggable = deps.rowGrips !== false && keyReorder
     const row = node.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : item.partial ? " is-partial" : ""}${rowDraggable ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
     if (depth > 0) row.style.setProperty("--modular-diary-todo-depth", String(depth))
     row.tabIndex = 0
@@ -761,7 +765,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
         if (next !== undefined && next !== cellKey) deps.onSetBucket?.(item.id, next, null)
       }
     })
-    else if (rowDraggable) row.addEventListener("keydown", (event) => {
+    else if (keyReorder) row.addEventListener("keydown", (event) => {
       if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown") || event.target !== row || !containerIds) return
       event.preventDefault()
       const siblingsInList = Array.from(node.parentElement?.children ?? []).filter((child): child is HTMLElement => child instanceof HTMLElement && child.matches(".modular-diary-todo-node"))

@@ -78,8 +78,33 @@ function pillsOf(day: PeriodDayView, model: PeriodViewModel): Record<"all" | Rhy
   return out
 }
 
+/** A hover card with the whole title and its small print; narrow cells cut pills short. */
+function attachPillPreview(el: HTMLElement, lines: string[]): void {
+  let pop: HTMLElement | null = null
+  let timer = 0
+  const dom = el.ownerDocument
+  const hide = (): void => { if (timer) { dom.defaultView?.clearTimeout(timer); timer = 0 } pop?.remove(); pop = null }
+  const show = (): void => {
+    hide()
+    pop = dom.body.createDiv({ cls: "modular-diary-plan-pop" })
+    lines.forEach((line, index) => pop!.createDiv({ cls: index === 0 ? "modular-diary-plan-pop-title" : "modular-diary-plan-pop-line", text: line }))
+    const rect = el.getBoundingClientRect()
+    const width = Math.min(280, (dom.defaultView?.innerWidth ?? 800) - 16)
+    pop.style.left = `${Math.max(8, Math.min(rect.left, (dom.defaultView?.innerWidth ?? 800) - width - 8))}px`
+    pop.style.top = `${rect.bottom + 6}px`
+    pop.style.maxWidth = `${width}px`
+  }
+  el.addEventListener("mouseenter", () => { timer = dom.defaultView?.setTimeout(show, 260) ?? 0 })
+  el.addEventListener("mouseleave", hide)
+  el.addEventListener("pointerdown", hide)
+  el.addEventListener("focus", show)
+  el.addEventListener("blur", hide)
+}
+
 function renderPill(host: HTMLElement, root: HTMLElement, pill: Pill, model: PeriodViewModel, deps: PeriodViewDeps, menuFor?: (el: HTMLElement, id: string) => void): HTMLElement {
-  const el = host.createDiv({ cls: `modular-diary-plan-pill is-${pill.kind}${pill.done ? " is-done" : ""}${pill.owed ? " is-owed" : ""}`, attr: { title: pill.title ?? pill.text } })
+  const el = host.createDiv({ cls: `modular-diary-plan-pill is-${pill.kind}${pill.done ? " is-done" : ""}${pill.owed ? " is-owed" : ""}` })
+  const small = [pill.time, pill.todo?.type, pill.todo?.note].filter((line): line is string => Boolean(line))
+  attachPillPreview(el, [pill.title && pill.title !== pill.text ? pill.title : pill.text, ...small.filter((line) => !(pill.title ?? "").includes(line))])
   const color = pill.type ? deps.typeColors[pill.type] : undefined
   if (color) el.style.setProperty("--pc", color)
   if (pill.done) setIcon(el.createEl("span", { cls: "modular-diary-plan-pill-check" }), "check")
