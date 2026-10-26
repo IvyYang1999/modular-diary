@@ -63,3 +63,31 @@ describe("rhythms as habits", () => {
     expect(parseRhythms(text)).toHaveLength(4)
   })
 })
+
+describe("writing rhythms back", () => {
+  it("replaces the rhythm lines in place and keeps the prose", async () => {
+    const { writeRhythms, reorderRhythms } = await import("./rhythms")
+    const items = parseRhythms(note)
+    const moved = reorderRhythms(items, "独立旅游", "运动")
+    expect(moved.map((item) => item.name)[0]).toBe("独立旅游")
+    const out = writeRhythms(note, moved)
+    const lines = out.split("\n")
+    expect(lines.slice(0, 3)).toEqual(["# 节律", "", "说明文字，不是节律。"])
+    expect(lines[3]).toBe("- 每月 独立旅游 @旅行 2-3天 #自由")
+    expect(lines[4]).toBe("- 每天 30分钟 运动 @运动 下午")
+    expect(out).toContain("- 每天 八段锦 @运动 晚上\n  陪妈一起\n")
+    expect(out).toContain("- [ ] 2026-11-06 不是节律，是日程")
+    expect(parseRhythms(out).map((item) => item.name)).toEqual(moved.map((item) => item.name))
+  })
+  it("appends to a note without rhythms and drops unnamed drafts", async () => {
+    const { writeRhythms } = await import("./rhythms")
+    const out = writeRhythms("# 节律\n\n", [{ name: "  ", cadence: "daily", quota: { kind: "count", count: 1 }, span: { kind: "slot" }, tags: [] }, { name: "跑步", cadence: "weekly", quota: { kind: "count", count: 2 }, span: { kind: "slot" }, tags: [] }])
+    expect(out).toBe("# 节律\n\n- 每周 2次 跑步\n")
+  })
+  it("moving to the end and unknown ids are no-ops or last", async () => {
+    const { reorderRhythms } = await import("./rhythms")
+    const items = parseRhythms("- 每天 a\n- 每天 b\n- 每天 c")
+    expect(reorderRhythms(items, "a", null).map((i) => i.name)).toEqual(["b", "c", "a"])
+    expect(reorderRhythms(items, "zz", "a")).toBe(items)
+  })
+})

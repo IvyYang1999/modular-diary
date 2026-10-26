@@ -415,6 +415,15 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       } catch { /* malformed view state is simply ignored */ }
       return
     }
+    case "height": {
+      const n = Number(value)
+      if (!Number.isFinite(n) || n < 320 || n > 1400) {
+        doc.errors.push({ line, text: raw, reason: tr("invalidHeight") })
+        return
+      }
+      doc.periodHeight = Math.round(n)
+      return
+    }
     case "rail": {
       const n = Number(value)
       if (!Number.isFinite(n) || n < 160 || n > 480) {

@@ -91,6 +91,7 @@ const deps = {
   onAddStatsWidget: () => {}, onRemoveStatsWidget: () => {},
   onSetFace: (face) => window.__events.push("face:" + face), onSwitchView: (view) => window.__events.push("view:" + view),
   onRhythmMenu: (id) => window.__events.push("rhythm-menu:" + id), onOpenRhythms: () => window.__events.push("rhythms"),
+  onReorderRhythm: (id, before) => window.__events.push("reorder:" + id + ":" + before), onHeight: (px) => window.__events.push("height:" + px),
 }
 window.mount = (kind: "week" | "month", face: "plan" | "actual") => {
   host.replaceChildren()
@@ -109,6 +110,7 @@ window.mount = (kind: "week" | "month", face: "plan" | "actual") => {
       upcoming: d.date === "2026-10-03" ? [{ line: 0, date: d.date, startMin: 840, endMin: 900, type: "运动", text: "爬山", done: false }, { line: 1, date: d.date, text: "交房租", done: false, zone: "ev" }] : d.date === "2026-09-25" ? [{ line: 2, date: d.date, text: "去某地", done: false, zone: "pm" }] : [] })),
     rangeStartMin: 7 * 60, rangeEndMin: 23 * 60, indexReady: true, railWidth: 262, statsWidgets: ["share", "days:运动"],
     scope, face, board: rhythmBoard(rhythms, scope, todos, facts, block.rhythmSkips), embeddedView: kind,
+    height: face === "plan" ? 560 : undefined,
   }, deps)
 }
 window.mount("week", "plan")

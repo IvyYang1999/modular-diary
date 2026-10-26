@@ -217,3 +217,48 @@ export function rhythmLinesFromSettings(habits: HabitDefinition[], weeklyTodos: 
   }
   return `# 节律\n\n${lines.join("\n")}\n`
 }
+
+/** A rhythm as the editor holds it: everything but the derived id and the note line. */
+export type RhythmDraft = Omit<Rhythm, "id" | "line">
+
+/** Line indices a rhythm occupies in the note: its own line and its indented note lines. */
+function rhythmLineSpans(content: string): Array<{ start: number; end: number }> {
+  const lines = content.split("\n")
+  return parseRhythms(content).map((rhythm) => ({ start: rhythm.line, end: rhythm.line + (rhythm.note ? rhythm.note.split("\n").length : 0) }))
+    .filter((span) => span.end < lines.length)
+}
+
+/**
+ * Rewrite the note with these rhythms, in this order. Headings and prose stay
+ * where they are; the rhythm lines go where the first one was, or at the end.
+ */
+export function writeRhythms(content: string, rhythms: RhythmDraft[]): string {
+  const lines = content.split("\n")
+  const spans = rhythmLineSpans(content)
+  const removed = new Set<number>()
+  for (const span of spans) for (let index = span.start; index <= span.end; index++) removed.add(index)
+  const block = rhythms.filter((rhythm) => rhythm.name.trim()).map((rhythm) => formatRhythmLine({ ...rhythm, name: rhythm.name.trim() }))
+  const at = spans[0]?.start ?? -1
+  const out: string[] = []
+  lines.forEach((line, index) => {
+    if (index === at) out.push(...block)
+    if (!removed.has(index)) out.push(line)
+  })
+  if (at < 0) {
+    while (out.length && out[out.length - 1].trim() === "") out.pop()
+    if (out.length) out.push("")
+    out.push(...block)
+  }
+  const text = out.join("\n")
+  return text.endsWith("\n") ? text : `${text}\n`
+}
+
+/** Move the rhythm `id` so it sits before `beforeId` (or last when null). */
+export function reorderRhythms(rhythms: Rhythm[], id: string, beforeId: string | null): Rhythm[] {
+  const moving = rhythms.find((rhythm) => rhythm.id === id)
+  if (!moving || id === beforeId) return rhythms
+  const rest = rhythms.filter((rhythm) => rhythm.id !== id)
+  const index = beforeId === null ? rest.length : rest.findIndex((rhythm) => rhythm.id === beforeId)
+  if (index < 0) return rhythms
+  return [...rest.slice(0, index), moving, ...rest.slice(index)]
+}

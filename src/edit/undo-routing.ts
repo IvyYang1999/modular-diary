@@ -25,9 +25,14 @@ const NATIVE_EDITING_SURFACE_SELECTOR = [
   '[contenteditable="plaintext-only"]',
 ].join(", ")
 
+/** The nearest native text control (input, textarea, select, contenteditable) around a target. */
+export function nativeEditingSurface(target: ClosestCapableTarget | null): Element | null {
+  return target?.closest(NATIVE_EDITING_SURFACE_SELECTOR) ?? null
+}
+
 /** Native controls own Delete/Backspace and their local undo history. */
 export function isNativeEditingSurfaceTarget(target: ClosestCapableTarget | null): boolean {
-  return Boolean(target?.closest(NATIVE_EDITING_SURFACE_SELECTOR))
+  return nativeEditingSurface(target) !== null
 }
 
 /** True when a keyboard event belongs to a native/app text editing surface. */

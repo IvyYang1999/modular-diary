@@ -19,15 +19,16 @@ for(const [method,tag] of [['createDiv','div'],['createSpan','span'],['createEl'
 HTMLElement.prototype.empty=function(){this.replaceChildren()};HTMLElement.prototype.addClass=function(...c){this.classList.add(...c)};HTMLElement.prototype.removeClass=function(...c){this.classList.remove(...c)};HTMLElement.prototype.toggleClass=function(c,v){this.classList.toggle(c,v)};HTMLElement.prototype.setText=function(t){this.textContent=t};
 const cleanup=[];class Base{registerDomEvent(target,name,cb,opts){target.addEventListener(name,cb,opts);cleanup.push(()=>target.removeEventListener(name,cb,opts))}registerEvent(){}register(){}addChild(){}}
 class TFile{constructor(p){this.path=p;this.basename=p.split('/').pop().replace(/\\.md$/,'');this.extension='md'}};class TFolder{};class MarkdownView{};
+class Modal{constructor(app){this.app=app;this.modalEl=document.createElement('div');this.modalEl.className='modal';this.titleEl=document.createElement('h2');this.contentEl=document.createElement('div');this.modalEl.append(this.titleEl,this.contentEl);document.body.appendChild(this.modalEl);this.modalEl.__modal=this}setTitle(v){this.titleEl.textContent=v;return this}open(){this.onOpen()}close(){this.onClose();this.modalEl.remove()}onOpen(){}onClose(){}}
 class Menu{constructor(){this.items=[]}addItem(cb){let title='',handler=()=>{};const item=new Proxy({setTitle:t=>{title=t;return item},onClick:cb=>{handler=cb;return item}},{get:(o,k)=>o[k]||(()=>item)});cb(item);this.items.push({title,handler});return this}addSeparator(){return this}showAtPosition(){document.querySelector('#menu')?.remove();const m=document.body.createDiv({});m.id='menu';m.setAttribute('role','menu');for(const i of this.items){const b=m.createEl('button',{text:i.title,attr:{type:'button'}});b.onclick=()=>{m.remove();i.handler()}}}}
-const obsidian=new Proxy({Plugin:Base,PluginSettingTab:Base,Modal:Base,MarkdownRenderChild:Base,FuzzySuggestModal:Base,TFile,TFolder,MarkdownView,Menu,Platform:{isDesktopApp:false,isMobile:false},getLanguage:()=> 'zh',normalizePath:p=>p.replace(/^\\/+/,''),setIcon:(el,name)=>{const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.innerHTML='<path d="M5 12h14M12 5v14" stroke="currentColor"/>';el.append(svg)},MarkdownRenderer:{render:async(_a,text,el)=>{el.textContent=text}},Notice:class{constructor(text){window.notices.push(text)}},moment:()=>({format:()=> '2026-10-22'})},{get:(o,k)=>o[k]??Base});
+const obsidian=new Proxy({Plugin:Base,PluginSettingTab:Base,Modal,MarkdownRenderChild:Base,FuzzySuggestModal:Base,TFile,TFolder,MarkdownView,Menu,Platform:{isDesktopApp:false,isMobile:false},getLanguage:()=> 'zh',normalizePath:p=>p.replace(/^\\/+/,''),setIcon:(el,name)=>{const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.innerHTML='<path d="M5 12h14M12 5v14" stroke="currentColor"/>';el.append(svg)},MarkdownRenderer:{render:async(_a,text,el)=>{el.textContent=text}},Notice:class{constructor(text){window.notices.push(text)}},moment:()=>({format:()=> '2026-10-22'})},{get:(o,k)=>o[k]??Base});
 window.activeWindow=window;window.activeDocument=document;window.notices=[];window.require=n=>n==='obsidian'?obsidian:n==='node:os'?{homedir:()=>'/synthetic'}:n==='node:path'?{join:(...p)=>p.join('/')}:{};
 window.__base={obsidian,cleanup};
 window.files={'synthetic.md':${JSON.stringify('```timeline\n'+daySource+'\n```')},'节律.md':${JSON.stringify(rhythms)}};
 `
 const init=`
 window.renderActual=async()=>{const {obsidian,cleanup}=window.__base;cleanup.splice(0).forEach(f=>f());const plugin=window.plugin||(window.plugin=new MDPlugin.default());const tfiles=new Map();const tfile=p=>{if(!tfiles.has(p))tfiles.set(p,new obsidian.TFile(p));return tfiles.get(p)};const file=tfile('synthetic.md');const host=document.querySelector('#host');host.empty();const view=window.view||(window.view=new obsidian.MarkdownView());view.file=file;view.leaf=window.owner||(window.owner={});view.containerEl=host;view.getMode=()=> 'preview';view.editor={getValue:()=>window.files['synthetic.md']};
-plugin.settings={...plugin.settings,spanTypeColors:{work:'#53b5d1',study:'#c085db'},habits:[],weeklyTodos:[],dailyQuotes:[],timelineOnboardingSeen:true,tagCategories:{},dialogBackend:'claude-cli',rhythmsFile:'节律.md',periodFolder:'周期',upcomingFile:'Upcoming.md'};
+plugin.saveData=async()=>{};plugin.settings={...plugin.settings,spanTypeColors:{work:'#53b5d1',study:'#c085db'},habits:[],weeklyTodos:[],dailyQuotes:[],timelineOnboardingSeen:true,tagCategories:{},dialogBackend:'claude-cli',rhythmsFile:'节律.md',periodFolder:'周期',upcomingFile:'Upcoming.md'};
 plugin.app={vault:{getAbstractFileByPath:p=>window.files[p]!==undefined?tfile(p):(p==='周期'?{}:null),read:async f=>window.files[f.path],cachedRead:async f=>window.files[f.path],getMarkdownFiles:()=>Object.keys(window.files).map(tfile),create:async(p,c)=>{window.files[p]=c;return tfile(p)},createFolder:async()=>{},process:async(f,change)=>{const next=change(window.files[f.path]);window.files[f.path]=next;if(f.path==='synthetic.md')setTimeout(()=>window.mountActual(),0);return next},on:()=>({})},workspace:{iterateAllLeaves:f=>f({view}),getActiveViewOfType:()=>view,getActiveFile:()=>file,getLeavesOfType:()=>[{view}],on:()=>({}),onLayoutReady:f=>f(),getLeaf:()=>({openFile:async()=>{}})},metadataCache:{getFileCache:()=>({}),getFirstLinkpathDest:()=>null},fileManager:{}};
 await plugin.rhythms.load();
 const content=window.files['synthetic.md'];const ctx={sourcePath:file.path,docId:'actual-plugin',getSectionInfo:()=>({text:content,lineStart:0,lineEnd:content.split('\\n').findIndex((line,index)=>index>0&&line==='\`\`\`')}),addChild:()=>{}};const source=content.match(/\`\`\`timeline\\n([\\s\\S]*?)\\n\`\`\`/)[1];plugin.renderTimelineBlock(source,host,ctx,null);plugin.remountVisual.clear();
@@ -88,6 +89,36 @@ try{
  await page.evaluate(()=>window.mountActual())
  await page.locator('.modular-diary-plan-month').waitFor()
  assert.equal(await page.locator('.modular-diary-plan-month-cell:not(.is-outside)').count(),31)
+ // 5. The board's pencil opens the rhythms panel (forms, not markdown); edits write back to 节律.md.
+ await page.locator('.modular-diary-plan-board .modular-diary-component-actions button').nth(1).click()
+ await page.locator('.modular-diary-rhythm-modal .modular-diary-rhythm-item').nth(3).waitFor()
+ assert.equal(await page.locator('.modular-diary-rhythm-item').count(),4)
+ const nameInput=page.locator('.modular-diary-rhythm-item').nth(3).locator('.modular-diary-rhythm-name-input')
+ assert.equal(await nameInput.inputValue(),'旅游')
+ await nameInput.fill('远行');await nameInput.press('Enter')
+ await page.waitForFunction(()=>window.files['节律.md'].includes('- 每月 远行 @study 2-3天'))
+ await page.locator('.modular-diary-rhythm-item').nth(3).locator('.modular-diary-rhythm-grip').focus();await page.keyboard.press('ArrowUp')
+ await page.waitForFunction(()=>window.files['节律.md'].indexOf('远行')<window.files['节律.md'].indexOf('- 每天 30分钟 运动'))
+ const note=await page.evaluate(()=>window.files['节律.md'])
+ assert.ok(note.startsWith('# 节律\n\n- 每周 拍视频 @work 整天\n- 每周 2次 散步 @study 下午\n- 每月 远行 @study 2-3天\n- 每天 30分钟 运动 @study\n'),note)
+ await page.evaluate(()=>document.querySelector('.modular-diary-rhythm-modal').__modal.close())
+ await page.evaluate(()=>window.mountActual())
+ await page.locator('.modular-diary-plan-row',{hasText:'远行'}).waitFor()
+ // 6. Hour targets live on the board: "+" opens the form; the saved goal is a board row, not a section of its own.
+ await page.locator('.modular-diary-plan-board .modular-diary-component-actions button').nth(0).click()
+ await page.locator('.modular-diary-plan-board .modular-diary-period-goal-form').waitFor()
+ await page.locator('.modular-diary-period-goal-key select').selectOption('work')
+ await page.locator('.modular-diary-period-goal-target input').fill('2')
+ await page.locator('.modular-diary-period-goal-form').evaluate(f=>f.requestSubmit())
+ await page.waitForFunction(()=>window.files['周期/2026-10.md'].includes('goal: type="work" target=120'))
+ await page.evaluate(()=>window.mountActual())
+ await page.locator('.modular-diary-plan-row.is-goal',{hasText:'work'}).waitFor()
+ assert.equal(await page.locator('.modular-diary-period-goals').count(),0,'no separate goals section on the plan face')
+ // 7. Embedded views keep one fixed height; the bottom handle's arrow step persists it.
+ assert.equal(await page.locator('.modular-diary-period.is-fixed-height').count(),1)
+ await page.locator('.modular-diary-period-height-handle').focus();await page.keyboard.press('ArrowDown')
+ await page.waitForFunction(()=>window.plugin.settings.periodHeight===624)
+ await page.screenshot({path:path.join(out,'month-plan-embedded.png')})
  assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.notices),[])
  console.log('PASS day block → embedded week/month notes with rhythm slots, band drop, face flip. Screenshot:',out)
 }catch(e){console.error(e);process.exitCode=1}finally{await browser.close()}

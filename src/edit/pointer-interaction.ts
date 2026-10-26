@@ -1,4 +1,4 @@
-import { isEditingSurfaceTarget } from "./undo-routing"
+import { isEditingSurfaceTarget, nativeEditingSurface } from "./undo-routing"
 
 export interface PointerRedrawGate {
   run(container: HTMLElement, redraw: () => void): boolean
@@ -31,7 +31,12 @@ function ownsActiveEditingSurface(container: HTMLElement): boolean {
   // A form closed with `hidden` can briefly remain document.activeElement;
   // it no longer owns an editing session and must not keep refresh pending.
   if (active.closest("[hidden]")) return false
-  return isEditingSurfaceTarget(active)
+  // Live Preview mounts the whole block inside CodeMirror's contenteditable, so
+  // a focused button of the block must not count as the editor's text surface:
+  // only a text control that belongs to this block holds a redraw back.
+  const surface = nativeEditingSurface(active)
+  if (surface) return container.contains(surface)
+  return isEditingSurfaceTarget(active) && !active.closest(".modular-diary-container")
 }
 
 export function setPointerInteractionActive(container: HTMLElement, active: boolean): void {

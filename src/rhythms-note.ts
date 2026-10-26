@@ -5,7 +5,8 @@
  */
 import { App, Notice, Setting, TFile, normalizePath, type EventRef } from "obsidian"
 import type { HabitDefinition } from "./core/habits"
-import { parseRhythms, rhythmLinesFromSettings, rhythmToHabit, type Rhythm } from "./core/rhythms"
+import { parseRhythms, reorderRhythms, rhythmLinesFromSettings, rhythmToHabit, writeRhythms, type Rhythm, type RhythmDraft } from "./core/rhythms"
+import { RhythmEditorModal } from "./rhythm-editor-modal"
 import type { WeeklyTodoDefinition } from "./core/todos"
 import { t } from "./i18n"
 
@@ -16,6 +17,9 @@ export interface RhythmsHost {
   saveSettings: () => Promise<void>
   /** Redraw mounted blocks after the rhythms changed. */
   onChange: () => void
+  /** Timeline categories and their colours, for the editor's pickers. */
+  categories: () => string[]
+  typeColors: () => Record<string, string>
 }
 
 export const DEFAULT_RHYTHMS_FILE = "节律.md"
@@ -75,6 +79,33 @@ export class RhythmsNote {
     register(vault.on("rename", (file, oldPath) => { reloadIf(file.path); reloadIf(oldPath) }))
   }
 
+  /** Write these rhythms into the note (created when missing), then reload. */
+  async save(drafts: RhythmDraft[]): Promise<void> {
+    let file = this.file()
+    if (!file) file = await this.create("# 节律\n\n")
+    await this.host.app().vault.process(file, (content) => writeRhythms(content, drafts))
+    await this.load()
+    this.host.onChange()
+  }
+
+  /** Move one rhythm before another (or last); the board and the day block follow the note's order. */
+  async move(id: string, beforeId: string | null): Promise<void> {
+    const next = reorderRhythms(this.items, id, beforeId)
+    if (next === this.items) return
+    await this.save(next.map(({ id: _id, line: _line, ...draft }) => draft))
+  }
+
+  /** The rhythms panel (forms, not markdown). */
+  openEditor(): void {
+    new RhythmEditorModal(this.host.app(), {
+      items: () => this.items,
+      save: (drafts) => this.save(drafts),
+      openNote: () => void this.open().catch(() => new Notice(t("saveFailed"))),
+      categories: this.host.categories,
+      typeColors: this.host.typeColors,
+    }).open()
+  }
+
   /** Open the note to edit it, creating a starter note when there is none. */
   async open(): Promise<void> {
     let file = this.file()
@@ -99,11 +130,12 @@ export class RhythmsNote {
           this.renderSettings(container)
         })
       })
+      .addButton((button) => button.setButtonText(t("rhythmEditorTitle")).setCta().onClick(() => this.openEditor()))
       .addButton((button) => button.setButtonText(t("rhythmsOpen")).onClick(() => void this.open().catch(() => new Notice(t("saveFailed")))))
     const list = container.querySelector(".modular-diary-rhythm-list") ?? container.createDiv({ cls: "modular-diary-rhythm-list" })
     list.empty()
     if (!this.items.length) {
-      list.createEl("p", { cls: "setting-item-description", text: t("rhythmsEmpty") })
+      list.createEl("p", { cls: "setting-item-description", text: t("rhythmEditorEmpty") })
     } else {
       for (const rhythm of this.items) {
         const row = list.createDiv({ cls: "modular-diary-rhythm-row" })

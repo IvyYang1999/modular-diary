@@ -68,6 +68,8 @@ export interface PeriodViewModel {
   board: RhythmBoardRow[]
   /** Set when a day block embeds this period: which switch is active. */
   embeddedView?: "week" | "month"
+  /** Fixed block height in px; the rail and the calendar scroll inside it. Absent: the block grows with its content. */
+  height?: number
 }
 
 export interface GoalDraft { kind: PeriodGoal["kind"]; key: string; targetMinutes: number }
@@ -112,6 +114,10 @@ export interface PeriodViewDeps {
   onSwitchView?: (view: "day" | "week" | "month") => void
   onRhythmMenu?: (rhythmId: string, x: number, y: number) => void
   onOpenRhythms?: () => void
+  /** Reorder a rhythm in the note: before `beforeId`, or last when null. */
+  onReorderRhythm?: (id: string, beforeId: string | null) => void
+  /** The block's fixed height was dragged (0 = back to the default). */
+  onHeight?: (px: number) => void
 }
 
 /** Starting hour height; the rendered block adapts it to the rail's height (22–40px). */
@@ -124,6 +130,8 @@ const ALLDAY_VISIBLE = 3
 export const POOL_ZONE = "pool"
 export const RAIL_MIN = 180
 export const RAIL_MAX = 420
+export const HEIGHT_MIN = 320
+export const HEIGHT_MAX = 1400
 
 export const clock = (minutes: number): string => `${String(Math.floor(minutes / 60) % 24).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`
 const monthDay = (date: string): string => date.slice(5).replace("-", ".")
@@ -180,7 +188,14 @@ export function iconButton(parent: HTMLElement, icon: string, label: string, cls
 
 /* ── drag: list rows and calendar pills move between the list, all-day cells and a day's hours ── */
 
-interface DragSubject { todo: PeriodTodoView; from: string }
+interface DragSubject {
+  todo: PeriodTodoView
+  from: string
+  /** A protocol board row: dropping on another row reorders the rhythms. */
+  rhythmId?: string
+  /** Board rows without slots (measured rhythms) only reorder; they never land on a day. */
+  reorderOnly?: boolean
+}
 
 export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: DragSubject, model: PeriodViewModel, deps: PeriodViewDeps): void {
   handle.addEventListener("pointerdown", (event) => {
@@ -195,7 +210,11 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
     let startMin = 0
     const color = subject.todo.type ? deps.typeColors[subject.todo.type] : undefined
     const duration = Math.max(PERIOD_SNAP_MINUTES, subject.todo.estimateMin || PERIOD_SNAP_MINUTES)
-    const clear = (): void => { zone?.classList.remove("is-over"); preview?.remove(); preview = null; zone = null }
+    let rowTarget: { row: HTMLElement; before: boolean } | null = null
+    const clear = (): void => {
+      zone?.classList.remove("is-over"); preview?.remove(); preview = null; zone = null
+      rowTarget?.row.classList.remove("is-drop-before", "is-drop-after"); rowTarget = null
+    }
     // Near an edge of the note or of the calendar strip, keep scrolling so far targets stay reachable.
     let lastX = startX, lastY = startY, scrollFrame = 0
     const win = dom.defaultView
@@ -244,8 +263,22 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
       ghost.style.transform = `translate(${move.clientX + 12}px, ${move.clientY + 10}px)`
       lastX = move.clientX; lastY = move.clientY
       if (!scrollFrame && win) scrollFrame = win.requestAnimationFrame(autoscroll)
-      const under = (dom.elementFromPoint(move.clientX, move.clientY)?.closest("[data-zone]") ?? null) as HTMLElement | null
-      if (under !== zone) { clear(); zone = under; zone?.classList.add("is-over") }
+      const hit = dom.elementFromPoint(move.clientX, move.clientY)
+      // Over another board row: this is a reorder, not a placement.
+      const row = subject.rhythmId ? (hit?.closest(".modular-diary-plan-row[data-rhythm]") ?? null) as HTMLElement | null : null
+      if (row && row.dataset.rhythm !== subject.rhythmId && root.contains(row)) {
+        const rect = row.getBoundingClientRect()
+        const before = move.clientY < rect.top + rect.height / 2
+        if (rowTarget?.row !== row || rowTarget.before !== before) {
+          clear()
+          rowTarget = { row, before }
+          row.classList.add(before ? "is-drop-before" : "is-drop-after")
+        }
+        if (ghost) ghost.hidden = false
+        return
+      }
+      const under = subject.reorderOnly ? null : (hit?.closest("[data-zone]") ?? null) as HTMLElement | null
+      if (under !== zone || rowTarget) { clear(); zone = under; zone?.classList.add("is-over") }
       if (zone?.dataset.zoneKind === "axis") {
         startMin = minutesAt(zone, move.clientY)
         if (!preview) {
@@ -267,12 +300,23 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
       handle.removeEventListener("pointercancel", onCancel)
       dom.removeEventListener("keydown", onKey, true)
       if (scrollFrame && win) { win.cancelAnimationFrame(scrollFrame); scrollFrame = 0 }
-      const dropped = zone, minutes = startMin, dragged = ghost !== null
+      const dropped = zone, minutes = startMin, dragged = ghost !== null, reorder = rowTarget
       clear()
       ghost?.remove(); ghost = null
       root.classList.remove("is-dragging")
       handle.classList.remove("is-drag-source")
-      if (!commit || !dragged || !dropped) return
+      if (!commit || !dragged) return
+      if (reorder && subject.rhythmId) {
+        // Dropping below a row means "before the rhythm after it" in note order.
+        const ids = [...new Set(Array.from(root.querySelectorAll<HTMLElement>(".modular-diary-plan-row[data-rhythm]")).map((el) => el.dataset.rhythm ?? ""))]
+        const targetId = reorder.row.dataset.rhythm ?? ""
+        const order = model.board.map((row) => row.rhythm.id).filter((id) => ids.includes(id))
+        const index = order.indexOf(targetId)
+        const beforeId = reorder.before ? targetId : order[index + 1] ?? null
+        deps.onReorderRhythm?.(subject.rhythmId, beforeId)
+        return
+      }
+      if (!dropped) return
       const to = dropped.dataset.zone ?? ""
       if (dropped.dataset.zoneKind === "axis") { if (canPlan) deps.onPlan(subject.todo.id, to, minutes) }
       else if (to !== subject.from) deps.onAssign(subject.todo.id, to)
@@ -290,7 +334,7 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
 
 /* ── rail ── */
 
-function goalEditor(host: HTMLElement, initial: GoalDraft | null, line: number | null, deps: PeriodViewDeps, close: () => void): HTMLFormElement {
+export function goalEditor(host: HTMLElement, initial: GoalDraft | null, line: number | null, deps: PeriodViewDeps, close: () => void): HTMLFormElement {
   const form = host.createEl("form", { cls: "modular-diary-period-goal-form" })
   form.noValidate = true
   let kind: PeriodGoal["kind"] = initial?.kind ?? "type"
@@ -806,6 +850,14 @@ function fitHourHeight(root: HTMLElement, rail: HTMLElement, main: HTMLElement, 
       return
     }
     const chrome = cal.getBoundingClientRect().height - col.getBoundingClientRect().height
+    if (root.classList.contains("is-fixed-height")) {
+      // The block owns its height: the hours fill the main pane, and the week scrolls past 22px an hour.
+      const hour = Math.max(PERIOD_HOUR_MIN, Math.min(PERIOD_HOUR_MAX, Math.floor((main.clientHeight - chrome - 14) / hours)))
+      root.style.setProperty("--modular-diary-period-hour", `${hour}px`)
+      rail.classList.remove("is-capped")
+      rail.style.maxHeight = ""
+      return
+    }
     // scrollHeight, not the box: capping the rail below must not feed back into this measure.
     const available = rail.scrollHeight - chrome - 14
     const ideal = Math.floor(available / hours)
@@ -881,7 +933,7 @@ export function renderPeriodInto(container: HTMLElement, model: PeriodViewModel,
   const plan = model.face === "plan" && model.scope !== undefined
   root.classList.toggle("is-plan", plan)
   if (plan) {
-    renderGoals(rail, model, deps)
+    // Hour targets are protocol too: they sit on the board, not in a section of their own.
     renderRhythmBoard(rail, root, model, deps)
     renderTodoList(rail, root, model, deps)
   } else {
@@ -892,11 +944,53 @@ export function renderPeriodInto(container: HTMLElement, model: PeriodViewModel,
   const handle = body.createDiv({ cls: "modular-diary-period-rail-handle", attr: { role: "separator", tabindex: "0", "aria-orientation": "vertical", "aria-label": t("resizeRail"), title: t("resizeRail") } })
   attachRailResize(root, handle, deps)
   const main = body.createDiv({ cls: "modular-diary-period-main" })
+  if (model.height) {
+    root.classList.add("is-fixed-height")
+    root.style.setProperty("--modular-diary-period-height", `${Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, model.height))}px`)
+  }
   if (plan) renderPlanCalendar(main, root, model, deps, menuForRow(deps))
   else if (model.scope?.kind === "month") renderActualMonth(main, model, deps)
   else {
     renderCalendar(main, root, model, deps)
     fitHourHeight(root, rail, main, (model.rangeEndMin - model.rangeStartMin) / 60)
   }
+  if (model.height && deps.onHeight) attachHeightResize(root, deps)
   return root
+}
+
+/** A grab bar along the bottom edge: drag sets the block height, double-click restores the default. */
+function attachHeightResize(root: HTMLElement, deps: PeriodViewDeps): void {
+  const handle = root.createDiv({ cls: "modular-diary-period-height-handle", attr: { role: "separator", tabindex: "0", "aria-orientation": "horizontal", "aria-label": t("resizeHeight"), title: t("resizeHeight") } })
+  handle.createEl("span", { cls: "modular-diary-period-height-grip" })
+  const current = (): number => parseFloat(getComputedStyle(root).getPropertyValue("--modular-diary-period-height")) || HEIGHT_MIN
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const startY = event.clientY, startHeight = current()
+    let height = startHeight
+    root.classList.add("is-resizing-height")
+    const move = (e: PointerEvent): void => {
+      height = Math.round(Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, startHeight + e.clientY - startY)))
+      root.style.setProperty("--modular-diary-period-height", `${height}px`)
+    }
+    const up = (): void => {
+      handle.removeEventListener("pointermove", move)
+      handle.removeEventListener("pointerup", up)
+      handle.removeEventListener("pointercancel", up)
+      root.classList.remove("is-resizing-height")
+      if (height !== startHeight) deps.onHeight?.(height)
+    }
+    handle.setPointerCapture(event.pointerId)
+    handle.addEventListener("pointermove", move)
+    handle.addEventListener("pointerup", up)
+    handle.addEventListener("pointercancel", up)
+  })
+  handle.addEventListener("dblclick", () => deps.onHeight?.(0))
+  handle.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return
+    event.preventDefault()
+    const next = Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, current() + (event.key === "ArrowDown" ? 24 : -24)))
+    root.style.setProperty("--modular-diary-period-height", `${next}px`)
+    deps.onHeight?.(next)
+  })
 }

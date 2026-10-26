@@ -73,6 +73,8 @@ export interface ModularDiarySettings {
   zoneEvHour: number
   /** Folder for the plugin-managed week / month notes (`周期/2026-W44.md`). */
   periodFolder: string
+  /** Fixed height of the week / month views embedded in a diary (px). */
+  periodHeight: number
   /** On the hour, ask in the status bar what the last hour went into. */
   hourlyNudge: boolean
   /** Hours the nudge may ask about: an hour starting at or after start, ending at or before end. */
@@ -118,6 +120,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   zonePmHour: 12,
   zoneEvHour: 18,
   periodFolder: "周期",
+  periodHeight: 600,
   hourlyNudge: true,
   nudgeStartHour: 9,
   nudgeEndHour: 24,

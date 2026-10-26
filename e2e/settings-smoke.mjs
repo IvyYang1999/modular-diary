@@ -95,6 +95,7 @@ class ButtonControl {
   buttonEl: HTMLButtonElement
   constructor(parent: HTMLElement) { this.buttonEl = document.createElement("button"); parent.appendChild(this.buttonEl) }
   setButtonText(value: string): this { this.buttonEl.textContent = value; return this }
+  setCta(): this { this.buttonEl.classList.add("mod-cta"); return this }
   setIcon(value: string): this { setIcon(this.buttonEl, value); return this }
   setTooltip(value: string): this { this.buttonEl.setAttribute("aria-label", value); return this }
   onClick(callback: () => void): this { this.buttonEl.addEventListener("click", callback); return this }

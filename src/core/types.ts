@@ -63,6 +63,8 @@ export interface TimelineDoc {
   period?: PeriodSpec
   /** Period block: width of the goals/todos rail in px (`rail:` header). */
   railWidth?: number
+  /** `height:` fixed block height for a period block (px). */
+  periodHeight?: number
   /** Period goals (`goal:` headers). */
   goals: PeriodGoal[]
   /** Independent Checklist copies, stored in repeated `checklist:` headers. */

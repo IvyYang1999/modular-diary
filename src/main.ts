@@ -212,6 +212,8 @@ export default class ModularDiaryPlugin extends Plugin {
     settings: () => this.settings,
     saveSettings: () => this.saveSettings(),
     onChange: () => this.rerenderMountedTimelines(),
+    categories: () => Object.keys(this.settings.spanTypeColors),
+    typeColors: () => ({ ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors }),
   })
   /** Plugin-managed week / month notes that day blocks embed. */
   readonly periodFiles = new PeriodFiles({
@@ -654,6 +656,7 @@ export default class ModularDiaryPlugin extends Plugin {
         const switchView = (view: "day" | "week" | "month"): void => {
           this.embedBrowse.delete(embedKey)
           void this.applyBlockTransform(el, ctx, source, (current) => view === "day" ? removeHeaderValue(current, "view") : setHeaderValue(current, "view", view))
+            .catch((error) => { console.error("Modular Diary: failed to switch the view", error); new Notice(tr("viewSwitchFailed")) })
         }
         const periodSource = this.periodFiles.source(scope)
         if (periodSource === null) {
@@ -2063,7 +2066,8 @@ export default class ModularDiaryPlugin extends Plugin {
         const seg = switchBar.createDiv({ cls: "modular-diary-seg", attr: { role: "group", "aria-label": tr("viewSwitch") } })
         for (const [view, label] of [["day", tr("viewDay")], ["week", tr("viewWeek")], ["month", tr("viewMonth")]] as const) {
           const button = seg.createEl("button", { text: label, attr: { type: "button", "aria-pressed": String(view === "day") } })
-          if (view !== "day") button.addEventListener("click", () => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "view", view)))
+          if (view !== "day") button.addEventListener("click", () => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "view", view))
+            .catch((error) => { console.error("Modular Diary: failed to switch the view", error); new Notice(tr("viewSwitchFailed")) }))
         }
         container.prepend(switchBar)
       }
@@ -2561,6 +2565,8 @@ export default class ModularDiaryPlugin extends Plugin {
       statsWidgets: doc.periodStats,
       rangeStartMin, rangeEndMin,
       indexReady: ready, railWidth: doc.railWidth ?? 248,
+      // Embedded views keep one height for all weeks and months; a standalone block sets its own with `height:`.
+      height: embed ? this.settings.periodHeight : doc.periodHeight,
     }
     const container = el.createDiv({ cls: "modular-diary-container modular-diary-period-container" })
     const fail = (date: string, error: unknown): void => {
@@ -2730,6 +2736,15 @@ export default class ModularDiaryPlugin extends Plugin {
         : replaceEntryLine(current, line, formatGoalLine(goal))),
       onDeleteGoal: (line) => void rewrite((current) => deleteEntryLine(current, line)),
       onRailWidth: (px) => void rewrite((current) => setHeaderValue(current, "rail", String(px))),
+      onHeight: (px) => {
+        if (embed) {
+          this.settings.periodHeight = px || DEFAULT_SETTINGS.periodHeight
+          void this.saveSettings({ rerender: true })
+          return
+        }
+        void rewrite((current) => px ? setHeaderValue(current, "height", String(px)) : removeHeaderValue(current, "height"))
+      },
+      onReorderRhythm: (id, beforeId) => void this.rhythms.move(id, beforeId).catch((error) => { console.error("Modular Diary: failed to reorder rhythms", error); new Notice(tr("rhythmSaveFailed")) }),
       onAddStatsWidget: (x, y) => {
         const present = new Set(doc.periodStats)
         const write = (token: string): void => void rewrite((current) =>
@@ -3531,6 +3546,7 @@ export default class ModularDiaryPlugin extends Plugin {
       zonePmHour: Number.isInteger(data?.zonePmHour) && (data!.zonePmHour as number) >= 1 && (data!.zonePmHour as number) <= 22 ? (data!.zonePmHour as number) : DEFAULT_SETTINGS.zonePmHour,
       zoneEvHour: Number.isInteger(data?.zoneEvHour) && (data!.zoneEvHour as number) >= 2 && (data!.zoneEvHour as number) <= 23 ? (data!.zoneEvHour as number) : DEFAULT_SETTINGS.zoneEvHour,
       periodFolder: typeof data?.periodFolder === "string" && data.periodFolder.trim() ? data.periodFolder.trim().replace(/\/+$/, "") : DEFAULT_SETTINGS.periodFolder,
+      periodHeight: Number.isFinite(data?.periodHeight) && (data!.periodHeight as number) >= 320 && (data!.periodHeight as number) <= 1400 ? Math.round(data!.periodHeight as number) : DEFAULT_SETTINGS.periodHeight,
       todoReviewChecklist: typeof data?.todoReviewChecklist === "string" && data.todoReviewChecklist.trim() ? data.todoReviewChecklist : DEFAULT_TODO_REVIEW_CHECKLIST,
       pinnedSections: Array.isArray(data?.pinnedSections) ? [...new Set(data.pinnedSections.filter((value): value is string => typeof value === "string" && value.trim() !== ""))] : [],
       timelineOnboardingSeen: resolveTimelineOnboardingSeen(
@@ -3556,7 +3572,7 @@ export default class ModularDiaryPlugin extends Plugin {
   }
 
   private openHabitSettings(): void {
-    void this.rhythms.open().catch((error) => console.error("Modular Diary: failed to open the rhythms note", error))
+    this.rhythms.openEditor()
   }
 
   async saveSettings(options: { rerender?: boolean } = {}): Promise<void> {

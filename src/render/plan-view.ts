@@ -9,7 +9,7 @@ import type { RhythmBoardRow, RhythmSlotView } from "../core/rhythm-ledger"
 import type { RhythmZone } from "../core/rhythms"
 import type { UpcomingItem } from "../core/upcoming"
 import { t } from "../i18n"
-import { attachDrag, clock, plainTitle, POOL_ZONE, shortDate, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewDeps, type PeriodViewModel } from "./period-view"
+import { attachDrag, clock, formatTotal, goalEditor, plainTitle, POOL_ZONE, shortDate, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewDeps, type PeriodViewModel } from "./period-view"
 
 /** Where a timed item falls: the bands' hour edges; settings set the afternoon and evening starts. */
 export const ZONE_EDGES = { am: 6 * 60, pm: 12 * 60, ev: 18 * 60 }
@@ -108,25 +108,36 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
   header.createEl("span", { cls: "modular-diary-component-title", text: t(scope.kind === "week" ? "periodProtocolWeek" : "periodProtocolMonth") })
   const counted = model.board.filter((row) => !row.skipped && (row.slots.length > 0 || row.due > 0 || row.rhythm.quota.kind === "duration"))
   const doneCount = counted.filter((row) => row.slots.length ? row.done === row.due : row.rhythm.quota.kind === "duration" && row.due === 0 ? row.done > 0 : row.done === row.due).length
-  if (counted.length) header.createEl("span", { cls: "modular-diary-component-count", text: `${doneCount}/${counted.length}` })
+  const total = counted.length + model.goals.length
+  if (total) header.createEl("span", { cls: "modular-diary-component-count", text: `${doneCount + model.goals.filter((goal) => goal.complete).length}/${total}` })
   const actions = header.createDiv({ cls: "modular-diary-component-actions" })
+  const addGoal = actions.createEl("button", { attr: { type: "button", "aria-label": t("addGoalProtocol"), title: t("addGoalProtocol") } })
+  setIcon(addGoal, "plus")
   const edit = actions.createEl("button", { attr: { type: "button", "aria-label": t("openRhythms"), title: t("openRhythms") } })
   setIcon(edit, "pencil")
   edit.addEventListener("click", () => deps.onOpenRhythms?.())
-  if (!model.board.length) {
+  // One inline editor at a time; it sits where the goal it edits was.
+  let open: HTMLFormElement | null = null
+  const closeEditor = (): void => { open?.remove(); open = null; section.querySelectorAll<HTMLElement>(".modular-diary-plan-row.is-goal").forEach((row) => { row.hidden = false }) }
+  const goalsHost = (): HTMLElement => section.querySelector<HTMLElement>(".modular-diary-plan-goals") ?? section.createDiv({ cls: "modular-diary-plan-goals" })
+  addGoal.addEventListener("click", () => {
+    closeEditor()
+    const host = goalsHost()
+    if (!host.querySelector(".modular-diary-plan-board-label")) host.createDiv({ cls: "modular-diary-plan-board-label", text: t("boardGoals") })
+    open = goalEditor(host, null, null, deps, closeEditor)
+  })
+  if (!model.board.length && !model.goals.length) {
     const empty = section.createEl("button", { cls: "modular-diary-component-empty", attr: { type: "button" } })
     setIcon(empty.createEl("span", { cls: "modular-diary-component-empty-icon" }), "plus")
     empty.createEl("span", { text: t("rhythmsEmptyBoard") })
     empty.addEventListener("click", () => deps.onOpenRhythms?.())
     return
   }
-  const groups: Array<{ key: string; rows: HTMLElement[] }> = []
+  const labels = new Set<string>()
   const group = (key: string): HTMLElement => {
-    let found = groups.find((item) => item.key === key)
-    if (!found) {
-      const label = section.createDiv({ cls: "modular-diary-plan-board-label", text: t(key as Parameters<typeof t>[0]) })
-      found = { key, rows: [label] }
-      groups.push(found)
+    if (!labels.has(key)) {
+      labels.add(key)
+      section.createDiv({ cls: "modular-diary-plan-board-label", text: t(key as Parameters<typeof t>[0]) })
     }
     return section
   }
@@ -141,6 +152,14 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
     row.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); deps.onRhythmMenu?.(rhythm.id, event.clientX, event.clientY) })
     return row
   }
+  /** A row without a slot still moves within the board, so the note's order can be set by hand. */
+  const reorderOnly = (row: HTMLElement, rhythm: RhythmBoardRow["rhythm"]): void => {
+    if (!deps.onReorderRhythm) return
+    row.classList.add("modular-diary-period-draggable")
+    row.tabIndex = 0
+    const stub = { id: `rhythm:${rhythm.id}`, title: rhythm.name, group: "", type: rhythm.type ?? "", estimateMin: 0, completed: false, tags: [], actualMinutes: 0 } as unknown as PeriodTodoView
+    attachDrag(root, row, { todo: stub, from: POOL_ZONE, rhythmId: rhythm.id, reorderOnly: true }, model, deps)
+  }
   const order = ["boardOwed", "boardUnplaced", "boardPlaced", "boardProgress", "boardDone", "boardSkipped"]
   // Slot rhythms: one row per slot, grouped by its state. Measured rhythms: one progress row.
   const rowsByKey = new Map<string, Array<() => void>>()
@@ -151,6 +170,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
       queue("boardSkipped", () => {
         const el = rowEl("boardSkipped", rhythm, "is-skipped")
         el.createEl("span", { cls: "modular-diary-plan-meta", text: t("boardSkippedMeta") })
+        reorderOnly(el, rhythm)
       })
       continue
     }
@@ -164,7 +184,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
           meta.textContent = slot.placement ? slotWhere(slot, model) : slot.owed ? t("boardOwedFrom", { period: slot.owed }) : rhythm.span.kind === "allDay" ? t("allDay") : rhythm.span.kind === "days" ? t("spanDays", { days: rhythm.span.min === rhythm.span.max ? String(rhythm.span.min) : `${rhythm.span.min}-${rhythm.span.max}` }) : rhythm.zone ? zoneLabel(rhythm.zone) : ""
           el.classList.add("modular-diary-period-draggable")
           el.tabIndex = 0
-          attachDrag(root, el, { todo: slot, from: slotFrom(slot) }, model, deps)
+          attachDrag(root, el, { todo: slot, from: slotFrom(slot), rhythmId: rhythm.id }, model, deps)
         })
       })
       continue
@@ -183,9 +203,37 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
         meta.textContent = t("daysDone", { done: String(row.done), total: String(row.due) })
         fill.style.width = `${row.due ? Math.min(100, (row.done / row.due) * 100) : 0}%`
       }
+      reorderOnly(el, rhythm)
     })
   }
   for (const key of order) for (const build of rowsByKey.get(key) ?? []) build()
+  // Hour targets for this period only (`goal:` lines): the same row, a bar of hours done.
+  if (model.goals.length) {
+    const host = goalsHost()
+    host.createDiv({ cls: "modular-diary-plan-board-label", text: t("boardGoals") })
+    for (const item of model.goals) {
+      const row = host.createDiv({ cls: `modular-diary-plan-row is-goal is-measured${item.complete ? " is-done" : ""}`, attr: { role: "button", tabindex: "0", "aria-label": t("editGoalNamed", { name: item.goal.key }) } })
+      row.dataset.goalLine = String(item.goal.line)
+      const color = item.goal.kind === "type" ? deps.typeColors[item.goal.key] : deps.tagStyle?.(item.goal.key)?.color
+      const dot = row.createEl("span", { cls: "modular-diary-plan-dot" })
+      if (color) dot.style.setProperty("--c", color)
+      row.createEl("span", { cls: "modular-diary-plan-name", text: item.goal.kind === "type" ? item.goal.key : `#${item.goal.key}` })
+      row.createEl("span", { cls: "modular-diary-plan-meta", text: `${formatTotal(item.doneMinutes)} / ${formatTotal(item.goal.targetMinutes)}` })
+      const bar = row.createDiv({ cls: "modular-diary-plan-bar" })
+      const fill = bar.createDiv({ cls: "modular-diary-plan-bar-fill" })
+      fill.style.width = `${Math.round(Math.min(1, item.ratio) * 100)}%`
+      if (color) fill.style.background = color
+      row.title = item.complete ? t("goalComplete") : t("goalRemaining", { hours: formatHours(item.goal.targetMinutes - item.doneMinutes) })
+      const editGoal = (): void => {
+        closeEditor()
+        row.hidden = true
+        open = goalEditor(host, { kind: item.goal.kind, key: item.goal.key, targetMinutes: item.goal.targetMinutes }, item.goal.line, deps, closeEditor)
+        host.insertBefore(open, row)
+      }
+      row.addEventListener("click", editGoal)
+      row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); editGoal() } })
+    }
+  }
 }
 
 /* ── main: plan calendars ── */
