@@ -51,6 +51,14 @@ export interface TimelineDoc {
   todoGroupOrder: string[]
   /** Period block statistics widgets (`period-stats:` header); see core/period-stats. */
   periodStats: string[]
+  /** Rhythms skipped in this period (`rhythm-skip:` header, rhythm ids). */
+  rhythmSkips: string[]
+  /** A period block's kind (`scope:` header): week or month; inferred from the range when absent. */
+  periodScope?: "week" | "month"
+  /** Which face a period block shows (`face:` header): plan (default) or actual. */
+  periodFace?: "plan" | "actual"
+  /** A day block showing its week or month instead of the day (`view:` header). */
+  dayView?: "week" | "month"
   /** Present when the block is a period view (`days:`). */
   period?: PeriodSpec
   /** Period block: width of the goals/todos rail in px (`rail:` header). */
@@ -119,6 +127,12 @@ export interface TodoItem {
   ownCategory?: string
   /** Images, vault files and links (`attach="…"`, one per line); see core/todo-attachments. */
   attach?: string[]
+  /** This todo is a slot of a rhythm (`rhythm="<id>"`, see core/rhythms); the period plan board groups by it. */
+  rhythm?: string
+  /** Part of the day for an all-day placement: `zone=am|pm|ev`. */
+  zone?: "am" | "pm" | "ev"
+  /** Carried over from an earlier period that did not finish it (`owed="2026-W43"`). */
+  owed?: string
   /**
    * The day this todo was pushed to. The line stays where it was as a
    * durable shadow: it shows "moved" here, and it refills the destination if

@@ -87,6 +87,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     todoView: { ...DEFAULT_TODO_VIEW },
     todoGroupOrder: [],
     periodStats: [],
+    rhythmSkips: [],
     goals: [],
     texts: [],
     checklists: [],
@@ -381,6 +382,25 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       const view = parseTodoViewHeaderValue(value)
       if (view) doc.todoView = view
       else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
+      return
+    }
+    case "rhythm-skip": {
+      doc.rhythmSkips.push(...value.split(/\s+/).filter(Boolean))
+      return
+    }
+    case "scope": {
+      if (value === "week" || value === "month") doc.periodScope = value
+      else doc.errors.push({ line, text: raw, reason: tr("unknownHeaderValue", { key, value }) })
+      return
+    }
+    case "face": {
+      if (value === "plan" || value === "actual") doc.periodFace = value
+      else doc.errors.push({ line, text: raw, reason: tr("unknownHeaderValue", { key, value }) })
+      return
+    }
+    case "view": {
+      if (value === "week" || value === "month") doc.dayView = value
+      else if (value !== "day") doc.errors.push({ line, text: raw, reason: tr("unknownHeaderValue", { key, value }) })
       return
     }
     case "period-stats": {

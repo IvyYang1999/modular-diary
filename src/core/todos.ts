@@ -257,6 +257,9 @@ export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem, n
     ...(todo.parent ? [`parent=${JSON.stringify(todo.parent)}`] : []),
     ...(todo.ownCategory !== undefined ? [`own-category=${JSON.stringify(todo.ownCategory)}`] : []),
     ...(todo.attach?.length ? [`attach=${JSON.stringify(todo.attach.join("\n"))}`] : []),
+    ...(todo.rhythm ? [`rhythm=${JSON.stringify(todo.rhythm)}`] : []),
+    ...(todo.zone ? [`zone=${todo.zone}`] : []),
+    ...(todo.owed ? [`owed=${todo.owed}`] : []),
     ...(noteSourceValue === undefined && todo.note ? [`note=${JSON.stringify(todo.note)}`] : []),
     ...(todo.difficulty !== undefined ? [`difficulty=${todo.difficulty}`] : []),
     ...(todo.priority ? [`priority=${JSON.stringify(todo.priority)}`] : []),
@@ -340,7 +343,7 @@ export function todoNoteSourceValue(text: string): string | undefined {
 function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | null {
   const fields = parseReadableFields(value)
   const keys = ["id", "done", "estimate", "category", "group", "title"]
-  const optional = ["due", "moved", "day", "bucket", "note", "parent", "own-category", "attach", "difficulty", "priority"]
+  const optional = ["due", "moved", "day", "bucket", "note", "parent", "own-category", "attach", "rhythm", "zone", "owed", "difficulty", "priority"]
   if (!fields || keys.some((key) => !fields.has(key)) || [...fields.keys()].some((key) => !keys.includes(key) && !optional.includes(key))) return null
   const due = fields.get("due")
   const moved = fields.get("moved")
@@ -359,6 +362,8 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
   const difficulty = fields.get("difficulty")
   if (difficulty !== undefined && !/^[1-5]$/.test(difficulty)) return null
   if (parent !== undefined && !/^[a-z0-9_-]+$/i.test(parent)) return null
+  const zone = fields.get("zone")
+  if (zone !== undefined && !["am", "pm", "ev"].includes(zone)) return null
   return {
     ...(fields.has("note") ? { note: fields.get("note") } : {}),
     ...(difficulty !== undefined ? { difficulty: Number(difficulty) } : {}),
@@ -377,6 +382,9 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
     ...(parent && parent !== id ? { parent } : {}),
     ...(fields.has("own-category") ? { ownCategory: fields.get("own-category") } : {}),
     ...(fields.get("attach") ? { attach: fields.get("attach")!.split("\n").map((item) => item.trim()).filter(Boolean) } : {}),
+    ...(fields.get("rhythm") ? { rhythm: fields.get("rhythm") } : {}),
+    ...(zone ? { zone: zone as "am" | "pm" | "ev" } : {}),
+    ...(fields.get("owed") ? { owed: fields.get("owed") } : {}),
     line,
   }
 }
