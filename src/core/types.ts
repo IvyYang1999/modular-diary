@@ -160,9 +160,14 @@ export interface PeriodSpec {
 
 /** `goal:` header — a duration target for the period, by category or by tag. */
 export interface PeriodGoal {
-  kind: "type" | "tag"
+  /** Hours of a category or tag, or a plain written goal (`text=`) ticked by hand. */
+  kind: "type" | "tag" | "text"
   key: string
+  /** 0 for a text goal. */
   targetMinutes: number
+  note?: string
+  /** Text goals only. */
+  done?: boolean
   line: number
 }
 

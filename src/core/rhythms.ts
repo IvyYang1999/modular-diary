@@ -16,7 +16,8 @@ import type { WeeklyTodoDefinition } from "./todos"
 
 export type RhythmCadence = "daily" | "weekdays" | "weekly" | "biweekly" | "monthly"
 export type RhythmZone = "am" | "pm" | "ev"
-export type RhythmQuota = { kind: "count"; count: number } | { kind: "duration"; minutes: number }
+/** A duration remembers the unit it was written in, so "60分钟" never reopens as "1小时". */
+export type RhythmQuota = { kind: "count"; count: number } | { kind: "duration"; minutes: number; unit?: "minutes" | "hours" }
 export type RhythmSpan = { kind: "slot" } | { kind: "allDay" } | { kind: "days"; min: number; max: number }
 
 export interface Rhythm {
@@ -34,7 +35,9 @@ export interface Rhythm {
   /** Timeline category (`@运动`): colour, and a record of it completes a slot. */
   type?: string
   span: RhythmSpan
+  /** Part of the day; with `zoneEnd` a contiguous range (上午 到 下午). */
   zone?: RhythmZone
+  zoneEnd?: RhythmZone
   tags: string[]
   note?: string
   line: number
@@ -76,9 +79,9 @@ export function parseRhythmLine(text: string, line = 0): Rhythm | null {
     } else if (!quotaSeen && (match = /^(\d+)次$/.exec(token))) {
       rhythm.quota = { kind: "count", count: Math.max(1, Number(match[1])) }; quotaSeen = true
     } else if (!quotaSeen && (match = /^(\d+(?:\.\d+)?)(小时|h)$/i.exec(token))) {
-      rhythm.quota = { kind: "duration", minutes: Math.round(Number(match[1]) * 60) }; quotaSeen = true
+      rhythm.quota = { kind: "duration", minutes: Math.round(Number(match[1]) * 60), unit: "hours" }; quotaSeen = true
     } else if (!quotaSeen && (match = /^(\d+)(分钟|分|m|min)$/i.exec(token))) {
-      rhythm.quota = { kind: "duration", minutes: Number(match[1]) }; quotaSeen = true
+      rhythm.quota = { kind: "duration", minutes: Number(match[1]), unit: "minutes" }; quotaSeen = true
     } else if (token.startsWith("@") && token.length > 1) {
       rhythm.type = token.slice(1)
     } else if (token.startsWith("#") && token.length > 1) {
@@ -88,8 +91,12 @@ export function parseRhythmLine(text: string, line = 0): Rhythm | null {
     } else if ((match = /^(\d+)(?:-(\d+))?天$/.exec(token))) {
       const min = Number(match[1]), max = match[2] ? Number(match[2]) : min
       rhythm.span = { kind: "days", min: Math.max(1, Math.min(min, max)), max: Math.max(1, max, min) }
+    } else if ((match = /^(上午|下午|晚上)\s*(?:-|–|~|到|至)\s*(上午|下午|晚上)$/.exec(token))) {
+      rhythm.zone = ZONE_BY_LABEL[match[1]]; rhythm.zoneEnd = ZONE_BY_LABEL[match[2]]
     } else if (ZONE_BY_LABEL[token]) {
-      rhythm.zone = ZONE_BY_LABEL[token]
+      // A second part of the day extends the first into a range (上午 下午, or 上午-下午).
+      if (rhythm.zone === undefined) rhythm.zone = ZONE_BY_LABEL[token]
+      else rhythm.zoneEnd = ZONE_BY_LABEL[token]
     } else if ((match = /^自(\d{4}-\d{2}-\d{2})$/.exec(token))) {
       rhythm.anchor = match[1]
     } else {
@@ -97,6 +104,12 @@ export function parseRhythmLine(text: string, line = 0): Rhythm | null {
     }
   }
   rhythm.name = words.join(" ")
+  if (rhythm.zoneEnd !== undefined && rhythm.zone !== undefined) {
+    const [a, b] = [RHYTHM_ZONES.indexOf(rhythm.zone), RHYTHM_ZONES.indexOf(rhythm.zoneEnd)].sort()
+    rhythm.zone = RHYTHM_ZONES[a]
+    if (a === b) delete rhythm.zoneEnd
+    else rhythm.zoneEnd = RHYTHM_ZONES[b]
+  }
   if (!rhythm.name) return null
   rhythm.id = rhythmId(rhythm.name)
   return rhythm
@@ -136,13 +149,16 @@ export function formatRhythmLine(rhythm: Omit<Rhythm, "id" | "line">): string {
   const parts = [CADENCE_WORD[rhythm.cadence]]
   if (rhythm.weekday !== undefined) parts.push(`周${WEEKDAY_CHARS[rhythm.weekday] ?? "日"}`)
   if (rhythm.startMin !== undefined && rhythm.endMin !== undefined) parts.push(`${clock(rhythm.startMin)}-${clock(rhythm.endMin)}`)
-  if (rhythm.quota.kind === "duration") parts.push(rhythm.quota.minutes % 60 === 0 ? `${rhythm.quota.minutes / 60}小时` : `${rhythm.quota.minutes}分钟`)
+  if (rhythm.quota.kind === "duration") {
+    const hours = rhythm.quota.unit === "hours" || (rhythm.quota.unit === undefined && rhythm.quota.minutes % 60 === 0)
+    parts.push(hours ? `${+(rhythm.quota.minutes / 60).toFixed(2)}小时` : `${rhythm.quota.minutes}分钟`)
+  }
   else if (rhythm.quota.count !== 1) parts.push(`${rhythm.quota.count}次`)
   parts.push(rhythm.name)
   if (rhythm.type) parts.push(`@${rhythm.type}`)
   if (rhythm.span.kind === "allDay") parts.push("整天")
   else if (rhythm.span.kind === "days") parts.push(rhythm.span.min === rhythm.span.max ? `${rhythm.span.min}天` : `${rhythm.span.min}-${rhythm.span.max}天`)
-  if (rhythm.zone) parts.push(ZONE_LABELS[rhythm.zone])
+  if (rhythm.zone) parts.push(rhythm.zoneEnd && rhythm.zoneEnd !== rhythm.zone ? `${ZONE_LABELS[rhythm.zone]}-${ZONE_LABELS[rhythm.zoneEnd]}` : ZONE_LABELS[rhythm.zone])
   if (rhythm.anchor) parts.push(`自${rhythm.anchor}`)
   for (const tag of rhythm.tags) parts.push(`#${tag}`)
   return `- ${parts.join(" ")}${rhythm.note ? "\n" + rhythm.note.split("\n").map((text) => `  ${text}`).join("\n") : ""}`
@@ -261,4 +277,10 @@ export function reorderRhythms(rhythms: Rhythm[], id: string, beforeId: string |
   const index = beforeId === null ? rest.length : rest.findIndex((rhythm) => rhythm.id === beforeId)
   if (index < 0) return rhythms
   return [...rest.slice(0, index), moving, ...rest.slice(index)]
+}
+
+/** "上午" or "上午–下午": the part of the day a rhythm asks for. */
+export function zoneRangeLabel(rhythm: Pick<Rhythm, "zone" | "zoneEnd">, label: (zone: RhythmZone) => string = (zone) => ZONE_LABELS[zone]): string {
+  if (!rhythm.zone) return ""
+  return rhythm.zoneEnd && rhythm.zoneEnd !== rhythm.zone ? `${label(rhythm.zone)}–${label(rhythm.zoneEnd)}` : label(rhythm.zone)
 }

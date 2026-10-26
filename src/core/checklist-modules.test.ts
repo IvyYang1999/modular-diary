@@ -57,3 +57,25 @@ describe("independent Checklist modules", () => {
     expect(() => updateChecklistModule(duplicate, "checklist1", (c) => c)).toThrow()
   })
 })
+
+describe("checklist reorder and indent", async () => {
+  const { moveChecklistItem, indentChecklistItem } = await import("./checklist-modules")
+  const module = { id: "checklist1", title: "t", items: [
+    { id: "item1", text: "a", checked: false }, { id: "item2", text: "a.1", checked: false, indent: "  " },
+    { id: "item3", text: "b", checked: false }, { id: "item4", text: "c", checked: false },
+  ] }
+  it("moves an item with its sub-items", () => {
+    expect(moveChecklistItem(module, "item1", "item4").items.map((i) => i.id)).toEqual(["item3", "item1", "item2", "item4"])
+    expect(moveChecklistItem(module, "item4", "item1").items.map((i) => i.id)).toEqual(["item4", "item1", "item2", "item3"])
+    expect(moveChecklistItem(module, "item1", null).items.map((i) => i.id)).toEqual(["item3", "item4", "item1", "item2"])
+    expect(moveChecklistItem(module, "item1", "item2")).toBe(module)
+    expect(moveChecklistItem(module, "nope", "item2")).toBe(module)
+  })
+  it("indents one step under the line above and outdents back", () => {
+    expect(indentChecklistItem(module, "item1", 1)).toBe(module)
+    expect(indentChecklistItem(module, "item3", 1).items[2].indent).toBe("  ")
+    expect(indentChecklistItem(module, "item4", 1).items[3].indent).toBe("  ")
+    expect(indentChecklistItem(module, "item2", -1).items[1].indent).toBeUndefined()
+    expect(indentChecklistItem(module, "item3", -1)).toBe(module)
+  })
+})

@@ -29,6 +29,8 @@ export interface PeriodTodoView extends TodoItem {
   actualMinutes: number
   /** Where the todo sits in the period: all-day on a date, or planned at a time. */
   placement?: { date: string; startMin?: number }
+  /** Set on items that belong to another period (the month seen from a week, or the reverse): where they come from. */
+  foreign?: string
 }
 
 export interface PeriodDayView {
@@ -39,6 +41,8 @@ export interface PeriodDayView {
   allDay: PeriodTodoView[]
   /** Future schedule items (Upcoming.md) not yet copied into this day's diary. */
   upcoming?: UpcomingItem[]
+  /** Items of the other period kind placed on this date (shown, not moved). */
+  foreign?: PeriodTodoView[]
   hasNote: boolean
 }
 
@@ -70,9 +74,11 @@ export interface PeriodViewModel {
   embeddedView?: "week" | "month"
   /** Fixed block height in px; the rail and the calendar scroll inside it. Absent: the block grows with its content. */
   height?: number
+  /** Every todo of the overlapping periods of the other kind, for plan entries bound to them. */
+  foreignTodos?: PeriodTodoView[]
 }
 
-export interface GoalDraft { kind: PeriodGoal["kind"]; key: string; targetMinutes: number }
+export interface GoalDraft { kind: PeriodGoal["kind"]; key: string; targetMinutes: number; note?: string; done?: boolean }
 
 export interface PeriodViewDeps {
   typeColors: Record<string, string>
@@ -104,6 +110,8 @@ export interface PeriodViewDeps {
   onTodoMenu?: (id: string, x: number, y: number, edit: () => void, addChild: (() => void) | null) => void
   onSaveGoal: (line: number | null, goal: GoalDraft) => void
   onDeleteGoal: (line: number) => void
+  /** Tick or untick a written goal. */
+  onToggleGoal?: (line: number, done: boolean) => void
   onRailWidth: (px: number) => void
   /** Offer the statistics widgets that can be added (menu at x, y). */
   onAddStatsWidget?: (x: number, y: number) => void
@@ -334,9 +342,30 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
 
 /* ── rail ── */
 
-export function goalEditor(host: HTMLElement, initial: GoalDraft | null, line: number | null, deps: PeriodViewDeps, close: () => void): HTMLFormElement {
-  const form = host.createEl("form", { cls: "modular-diary-period-goal-form" })
+export function goalEditor(host: HTMLElement, initial: GoalDraft | null, line: number | null, deps: PeriodViewDeps, close: () => void, mode: "hours" | "text" = "hours"): HTMLFormElement {
+  const form = host.createEl("form", { cls: `modular-diary-period-goal-form${mode === "text" ? " is-text" : ""}` })
   form.noValidate = true
+  if (mode === "text") {
+    // A written goal: what, and an optional note.
+    const title = form.createEl("input", { cls: "modular-diary-period-goal-title", attr: { type: "text", placeholder: t("textGoalPlaceholder"), "aria-label": t("addTextGoal") } })
+    title.value = initial?.key ?? ""
+    const noteInput = form.createEl("input", { cls: "modular-diary-period-goal-note", attr: { type: "text", placeholder: t("goalNotePlaceholder"), "aria-label": t("goalNotePlaceholder") } })
+    noteInput.value = initial?.note ?? ""
+    const actions = form.createDiv({ cls: "modular-diary-period-goal-actions" })
+    if (line !== null) iconButton(actions, "trash-2", t("deleteGoal"), "is-danger").addEventListener("click", () => deps.onDeleteGoal(line))
+    iconButton(actions, "x", t("cancel")).addEventListener("click", close)
+    const save = actions.createEl("button", { cls: "modular-diary-period-icon is-primary", attr: { type: "submit", "aria-label": t("save") } })
+    setIcon(save, "check")
+    form.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.preventDefault(); close() } })
+    form.addEventListener("submit", (event) => {
+      event.preventDefault()
+      const key = title.value.trim()
+      if (!key) { title.focus(); title.setAttribute("aria-invalid", "true"); return }
+      deps.onSaveGoal(line, { kind: "text", key, targetMinutes: 0, note: noteInput.value.trim() || undefined, done: initial?.done })
+    })
+    queueMicrotask(() => title.focus({ preventScroll: true }))
+    return form
+  }
   let kind: PeriodGoal["kind"] = initial?.kind ?? "type"
   const seg = form.createDiv({ cls: "modular-diary-period-seg", attr: { role: "radiogroup", "aria-label": t("goalKind") } })
   const typeBtn = seg.createEl("button", { text: t("goalByCategory"), attr: { type: "button", role: "radio" } })
@@ -346,6 +375,8 @@ export function goalEditor(host: HTMLElement, initial: GoalDraft | null, line: n
   const hours = target.createEl("input", { attr: { type: "number", min: "0.25", step: "0.25", inputmode: "decimal", "aria-label": t("goalTargetHours") } })
   hours.value = initial ? String(+(initial.targetMinutes / 60).toFixed(2)) : "3"
   target.createEl("span", { text: t("hoursShort") })
+  const noteInput = form.createEl("input", { cls: "modular-diary-period-goal-note", attr: { type: "text", placeholder: t("goalNotePlaceholder"), "aria-label": t("goalNotePlaceholder") } })
+  noteInput.value = initial?.note ?? ""
   const actions = form.createDiv({ cls: "modular-diary-period-goal-actions" })
   if (line !== null) {
     const remove = iconButton(actions, "trash-2", t("deleteGoal"), "is-danger")
@@ -384,7 +415,7 @@ export function goalEditor(host: HTMLElement, initial: GoalDraft | null, line: n
     const minutes = Math.round(Number(hours.value) * 60)
     if (!key) { keyControl.focus(); keyControl.setAttribute("aria-invalid", "true"); return }
     if (!Number.isFinite(minutes) || minutes <= 0) { hours.focus(); hours.setAttribute("aria-invalid", "true"); return }
-    deps.onSaveGoal(line, { kind, key, targetMinutes: minutes })
+    deps.onSaveGoal(line, { kind, key, targetMinutes: minutes, note: noteInput.value.trim() || undefined })
   })
   queueMicrotask(() => (kind === "tag" ? keyControl : hours).focus({ preventScroll: true }))
   return form
@@ -413,6 +444,7 @@ function renderGoals(rail: HTMLElement, model: PeriodViewModel, deps: PeriodView
     empty.addEventListener("click", () => { empty.remove(); add.click() })
   }
   for (const item of model.goals) {
+    if (item.goal.kind === "text") continue
     const row = list.createDiv({ cls: `modular-diary-period-goal${item.complete ? " is-complete" : ""}`, attr: { role: "button", tabindex: "0" } })
     row.setAttribute("aria-label", t("editGoalNamed", { name: item.goal.key }))
     row.title = item.complete ? t("goalComplete") : t("goalRemaining", { hours: formatHours(item.goal.targetMinutes - item.doneMinutes) })
@@ -435,6 +467,43 @@ function renderGoals(rail: HTMLElement, model: PeriodViewModel, deps: PeriodView
     }
     row.addEventListener("click", edit)
     row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); edit() } })
+  }
+}
+
+/** Written goals of the period: a box to tick, the text, a note underneath. */
+function renderTextGoals(rail: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): void {
+  const goals = model.goals.filter((item) => item.goal.kind === "text")
+  const section = rail.createEl("section", { cls: "modular-diary-period-section modular-diary-period-text-goals" })
+  const header = section.createDiv({ cls: "modular-diary-component-header" })
+  header.createEl("span", { cls: "modular-diary-component-title", text: t(model.scope?.kind === "month" ? "textGoalsMonth" : "textGoalsWeek") })
+  if (goals.length) header.createEl("span", { cls: `modular-diary-component-count${goals.every((g) => g.complete) ? " is-complete" : ""}`, text: `${goals.filter((g) => g.complete).length}/${goals.length}` })
+  const actions = header.createDiv({ cls: "modular-diary-component-actions" })
+  const add = actions.createEl("button", { attr: { type: "button", "aria-label": t("addTextGoal"), title: t("addTextGoal") } })
+  setIcon(add, "plus")
+  const list = section.createDiv({ cls: "modular-diary-period-goal-list" })
+  let open: HTMLFormElement | null = null
+  const closeEditor = (): void => { open?.remove(); open = null; list.querySelectorAll<HTMLElement>(".modular-diary-text-goal").forEach((row) => { row.hidden = false }) }
+  add.addEventListener("click", () => { closeEditor(); open = goalEditor(list, null, null, deps, closeEditor, "text") })
+  if (!goals.length) {
+    const empty = list.createEl("button", { cls: "modular-diary-component-empty", attr: { type: "button" } })
+    setIcon(empty.createEl("span", { cls: "modular-diary-component-empty-icon" }), "plus")
+    empty.createEl("span", { text: t("textGoalEmpty") })
+    empty.addEventListener("click", () => { empty.remove(); add.click() })
+  }
+  for (const item of goals) {
+    const row = list.createDiv({ cls: `modular-diary-text-goal${item.complete ? " is-done" : ""}` })
+    const box = row.createEl("input", { cls: "task-list-item-checkbox", attr: { type: "checkbox", "aria-label": t("toggleGoalDone") } })
+    box.checked = item.complete
+    box.addEventListener("change", () => deps.onToggleGoal?.(item.goal.line, box.checked))
+    const body = row.createEl("button", { cls: "modular-diary-text-goal-body", attr: { type: "button", title: t("editTextGoal") } })
+    body.createEl("span", { cls: "modular-diary-text-goal-title", text: item.goal.key })
+    if (item.goal.note) body.createEl("span", { cls: "modular-diary-text-goal-note", text: item.goal.note })
+    body.addEventListener("click", () => {
+      closeEditor()
+      row.hidden = true
+      open = goalEditor(list, { kind: "text", key: item.goal.key, targetMinutes: 0, note: item.goal.note, done: item.goal.done }, item.goal.line, deps, closeEditor, "text")
+      list.insertBefore(open, row)
+    })
   }
 }
 
@@ -933,7 +1002,8 @@ export function renderPeriodInto(container: HTMLElement, model: PeriodViewModel,
   const plan = model.face === "plan" && model.scope !== undefined
   root.classList.toggle("is-plan", plan)
   if (plan) {
-    // Hour targets are protocol too: they sit on the board, not in a section of their own.
+    // Written goals first; hour targets are protocol and sit on the board.
+    renderTextGoals(rail, model, deps)
     renderRhythmBoard(rail, root, model, deps)
     renderTodoList(rail, root, model, deps)
   } else {

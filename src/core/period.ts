@@ -86,6 +86,7 @@ export interface GoalProgress {
 /** Actual (not plan) minutes inside the period that count toward each goal. */
 export function goalProgress(goals: PeriodGoal[], days: PeriodDay[]): GoalProgress[] {
   return goals.map((goal) => {
+    if (goal.kind === "text") return { goal, doneMinutes: 0, ratio: goal.done ? 1 : 0, complete: Boolean(goal.done) }
     let doneMinutes = 0
     for (const day of days) {
       for (const entry of day.entries) {
@@ -108,6 +109,8 @@ export function periodTotals(days: PeriodDay[]): Array<{ type: string; minutes: 
   return [...totals].map(([type, minutes]) => ({ type, minutes })).sort((a, b) => b.minutes - a.minutes)
 }
 
-export function formatGoalLine(goal: Pick<PeriodGoal, "kind" | "key" | "targetMinutes">): string {
-  return `goal: ${goal.kind}=${JSON.stringify(goal.key)} target=${Math.max(1, Math.round(goal.targetMinutes))}`
+export function formatGoalLine(goal: Pick<PeriodGoal, "kind" | "key" | "targetMinutes"> & { note?: string; done?: boolean }): string {
+  const note = goal.note?.trim() ? ` note=${JSON.stringify(goal.note.trim())}` : ""
+  if (goal.kind === "text") return `goal: text=${JSON.stringify(goal.key)}${note}${goal.done ? " done=true" : ""}`
+  return `goal: ${goal.kind}=${JSON.stringify(goal.key)} target=${Math.max(1, Math.round(goal.targetMinutes))}${note}`
 }

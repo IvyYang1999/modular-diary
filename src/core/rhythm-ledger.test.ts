@@ -75,7 +75,10 @@ describe("rhythm board", () => {
     expect(row("运动")).toMatchObject({ due: 7, done: 1 })
     expect(row("八段锦")).toMatchObject({ due: 7, done: 2 })
     expect(board.some((item) => item.rhythm.id === "独立旅游")).toBe(false)
-    const month = rhythmBoard(rhythms, scopeContaining("month", "2026-11-10"), [], [], [])
-    expect(month.map((item) => item.rhythm.id)).toEqual(["独立旅游"])
+    // The month lists every rhythm: its own slots, and the weekly / daily ones summed over its weeks and days.
+    const month = rhythmBoard(rhythms, scopeContaining("month", "2026-11-10"), [], days, [])
+    expect(month.map((item) => item.rhythm.id)).toEqual(rhythms.map((item) => item.id))
+    expect(month.find((item) => item.rhythm.id === "拍口播视频")).toMatchObject({ unit: "times", due: 6, done: 0 })
+    expect(month.find((item) => item.rhythm.id === "学习")).toMatchObject({ targetMinutes: 180 * 6, minutes: 0 })
   })
 })

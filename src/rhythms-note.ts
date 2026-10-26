@@ -9,6 +9,7 @@ import { parseRhythms, reorderRhythms, rhythmLinesFromSettings, rhythmToHabit, w
 import { RhythmEditorModal } from "./rhythm-editor-modal"
 import type { WeeklyTodoDefinition } from "./core/todos"
 import { t } from "./i18n"
+import type { TagSuggestDeps } from "./edit/tag-suggest"
 
 export interface RhythmsHost {
   /** Read lazily: the plugin's app and settings are set after this object is built. */
@@ -20,6 +21,7 @@ export interface RhythmsHost {
   /** Timeline categories and their colours, for the editor's pickers. */
   categories: () => string[]
   typeColors: () => Record<string, string>
+  tagSuggest?: () => TagSuggestDeps
 }
 
 export const DEFAULT_RHYTHMS_FILE = "节律.md"
@@ -103,6 +105,7 @@ export class RhythmsNote {
       openNote: () => void this.open().catch(() => new Notice(t("saveFailed"))),
       categories: this.host.categories,
       typeColors: this.host.typeColors,
+      tagSuggest: this.host.tagSuggest,
     }).open()
   }
 

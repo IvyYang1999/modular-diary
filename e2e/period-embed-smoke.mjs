@@ -89,6 +89,25 @@ try{
  await page.evaluate(()=>window.mountActual())
  await page.locator('.modular-diary-plan-month').waitFor()
  assert.equal(await page.locator('.modular-diary-plan-month-cell:not(.is-outside)').count(),31)
+ // The month board lists every rhythm: the monthly slot plus the weekly and daily ones summed over the month.
+ const monthRows=await page.locator('.modular-diary-plan-board .modular-diary-plan-row').evaluateAll(rows=>rows.map(r=>r.querySelector('.modular-diary-plan-name')?.textContent+'|'+(r.querySelector('.modular-diary-plan-meta')?.textContent??'')))
+ assert.ok(monthRows.some(r=>r.startsWith('旅游|')),JSON.stringify(monthRows))
+ assert.ok(monthRows.some(r=>/^拍视频\|\d+\/\d+ 次$/.test(r)),JSON.stringify(monthRows))
+ assert.ok(monthRows.some(r=>/^运动\|.* 天$/.test(r)),JSON.stringify(monthRows))
+ // The week's placed slot (散步 on 10-22) shows in the month as a read-only item from that week.
+ await page.locator('.modular-diary-plan-month-cell[data-zone="2026-10-22"] .modular-diary-plan-pill.is-foreign',{hasText:'散步'}).waitFor()
+ // A written goal with a note, ticked from the rail.
+ await page.locator('.modular-diary-period-text-goals .modular-diary-component-actions button').click()
+ await page.locator('.modular-diary-period-goal-form.is-text .modular-diary-period-goal-title').fill('把月视图做完')
+ await page.locator('.modular-diary-period-goal-form.is-text .modular-diary-period-goal-note').fill('纵向时间轴')
+ await page.locator('.modular-diary-period-goal-form.is-text').evaluate(f=>f.requestSubmit())
+ await page.waitForFunction(()=>window.files['周期/2026-10.md'].includes('goal: text="把月视图做完" note="纵向时间轴"'))
+ await page.evaluate(()=>window.mountActual())
+ await page.locator('.modular-diary-text-goal',{hasText:'把月视图做完'}).waitFor()
+ await page.locator('.modular-diary-text-goal input[type="checkbox"]').check()
+ await page.waitForFunction(()=>window.files['周期/2026-10.md'].includes('goal: text="把月视图做完" note="纵向时间轴" done=true'))
+ await page.evaluate(()=>window.mountActual())
+ await page.locator('.modular-diary-text-goal.is-done').waitFor()
  // 5. The board's pencil opens the rhythms panel (forms, not markdown); edits write back to 节律.md.
  await page.locator('.modular-diary-plan-board .modular-diary-component-actions button').nth(1).click()
  await page.locator('.modular-diary-rhythm-modal .modular-diary-rhythm-item').nth(3).waitFor()

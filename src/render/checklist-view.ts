@@ -1,5 +1,5 @@
 import { setIcon } from "obsidian"
-import { appendChecklistItem, nextChecklistItemId, type ChecklistModule } from "../core/checklist-modules"
+import { appendChecklistItem, indentChecklistItem, moveChecklistItem, nextChecklistItemId, type ChecklistModule } from "../core/checklist-modules"
 import { t } from "../i18n"
 
 /** `edit.id === null` edits the title; `adding` keeps the add row open across redraws. */
@@ -76,7 +76,11 @@ export function renderChecklistInto(slot: HTMLElement, module: ChecklistModule, 
       else cancel()
     }
     input.addEventListener("input", () => { if (draft.edit) { draft.edit.text = input.value; remember() } })
-    input.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); finish(false) } })
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); finish(false) }
+      // Tab makes the item a sub-item of the line above; Shift+Tab brings it back out.
+      else if (e.key === "Tab" && draft.edit?.id) { e.preventDefault(); const id = draft.edit.id; settled = true; void run((c) => indentChecklistItem(c, id, e.shiftKey ? -1 : 1), () => { draft.edit = { id, text: input.value } }) }
+    })
     input.addEventListener("blur", (e) => { if (!busy && !replaced) finish(true, movesWithin(e)) })
     form.addEventListener("submit", (e) => { e.preventDefault(); finish(true) })
     return input
@@ -97,6 +101,44 @@ export function renderChecklistInto(slot: HTMLElement, module: ChecklistModule, 
     input?.select()
   }
   const stopEdit = (): void => { draft.edit = undefined; remember(); redraw() }
+
+  /** Drag a row by its grip onto another row: above its top half, below its bottom half. */
+  const attachRowDrag = (grip: HTMLElement, row: HTMLElement, id: string): void => {
+    grip.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || busy) return
+      event.preventDefault()
+      const dom = root.ownerDocument
+      let target: { id: string | null; row: HTMLElement; before: boolean } | null = null
+      let started = false
+      const clear = (): void => { target?.row.classList.remove("is-drop-before", "is-drop-after"); target = null }
+      const move = (e: PointerEvent): void => {
+        if (!started) { started = true; row.classList.add("is-drag-source") }
+        const under = (dom.elementFromPoint(e.clientX, e.clientY)?.closest(".modular-diary-checklist-row[data-item-id]") ?? null) as HTMLElement | null
+        clear()
+        if (!under || under === row || !root.contains(under)) return
+        const rect = under.getBoundingClientRect()
+        const before = e.clientY < rect.top + rect.height / 2
+        target = { id: under.dataset.itemId ?? null, row: under, before }
+        under.classList.add(before ? "is-drop-before" : "is-drop-after")
+      }
+      const up = (): void => {
+        grip.removeEventListener("pointermove", move)
+        grip.removeEventListener("pointerup", up)
+        grip.removeEventListener("pointercancel", up)
+        row.classList.remove("is-drag-source")
+        const dropped = target
+        clear()
+        if (!dropped || !dropped.id) return
+        const ids = module.items.map((item) => item.id)
+        const beforeId = dropped.before ? dropped.id : ids[ids.indexOf(dropped.id) + 1] ?? null
+        void run((c) => moveChecklistItem(c, id, beforeId))
+      }
+      grip.setPointerCapture(event.pointerId)
+      grip.addEventListener("pointermove", move)
+      grip.addEventListener("pointerup", up)
+      grip.addEventListener("pointercancel", up)
+    })
+  }
 
   const header = root.createDiv({ cls: "modular-diary-component-header" })
   if (draft.edit?.id === null) {
@@ -126,6 +168,9 @@ export function renderChecklistInto(slot: HTMLElement, module: ChecklistModule, 
     const row = list.createDiv({ cls: `modular-diary-checklist-row${item.checked ? " is-checked" : ""}` })
     row.dataset.itemId = item.id
     row.style.paddingInlineStart = `${Math.min(8, (item.indent?.length ?? 0) / 2) * 18}px`
+    const grip = row.createEl("button", { cls: "modular-diary-checklist-grip", attr: { type: "button", "aria-label": t("checklistReorder"), title: t("checklistReorder") } })
+    setIcon(grip, "grip-vertical")
+    attachRowDrag(grip, row, item.id)
     const check = row.createEl("input", { cls: "task-list-item-checkbox", attr: { type: "checkbox", "aria-label": item.text } })
     check.checked = item.checked
     check.dataset.itemId = item.id
@@ -160,7 +205,7 @@ export function renderChecklistInto(slot: HTMLElement, module: ChecklistModule, 
   if (draft.adding || draft.add) {
     const add = list.createEl("form", { cls: "modular-diary-checklist-row modular-diary-checklist-add" })
     add.createEl("span", { cls: "modular-diary-checklist-ghost-box", attr: { "aria-hidden": "true" } })
-    const input = add.createEl("input", { attr: { type: "text", placeholder: t("checklistAddPlaceholder"), "aria-label": t("checklistAddItem") } })
+    const input = add.createEl("input", { attr: { type: "text", placeholder: t("checklistAddPlaceholder"), "aria-label": t("checklistAddItem"), title: t("checklistIndentHint") } })
     input.value = draft.add
     input.addEventListener("input", () => { draft.add = input.value; remember() })
     const close = (): void => { draft.adding = false; draft.add = ""; remember(); redraw() }

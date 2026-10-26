@@ -441,13 +441,21 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
     }
     case "goal": {
       const fields = parseReadableFields(value)
+      const note = fields?.get("note")?.trim() || undefined
+      // A written goal: goal: text="…" [note="…"] [done=true]
+      if (fields && fields.has("text") && !fields.has("type") && !fields.has("tag")) {
+        const text = fields.get("text")?.trim() ?? ""
+        if (!text) { doc.errors.push({ line, text: raw, reason: tr("invalidGoal") }); return }
+        doc.goals.push({ kind: "text", key: text, targetMinutes: 0, line, ...(note ? { note } : {}), done: fields.get("done") === "true" })
+        return
+      }
       const key = fields?.get("type") ?? fields?.get("tag")
       const target = Number(fields?.get("target"))
       if (!fields || !key || (fields.has("type") && fields.has("tag")) || !Number.isInteger(target) || target <= 0) {
         doc.errors.push({ line, text: raw, reason: tr("invalidGoal") })
         return
       }
-      doc.goals.push({ kind: fields.has("type") ? "type" : "tag", key, targetMinutes: target, line })
+      doc.goals.push({ kind: fields.has("type") ? "type" : "tag", key, targetMinutes: target, line, ...(note ? { note } : {}) })
       return
     }
     // Legacy quote headers (card designer, retired 2026-09-10): the sentence

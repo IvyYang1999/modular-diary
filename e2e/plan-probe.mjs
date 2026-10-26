@@ -41,11 +41,11 @@ HTMLElement.prototype.appendText = function (text: string) { this.appendChild(do
 HTMLElement.prototype.empty = function () { this.replaceChildren() }
 
 const colors = { 开发: "#53a3f2", 写作: "#a0c849", 运动: "#ae7ee2", 吃饭: "#f47b74", 阅读: "#f4a437", 睡觉: "#cfccc4", 看剧: "#6b6b6b", 视频: "#f4a437", 家人: "#e0569a", 活动: "#3fb28a", 旅行: "#2bb3c0" }
-const rhythms = parseRhythms(["- 每周 拍口播视频 @视频 整天", "- 每周 和爸妈出门 @家人", "- 每两周 周二 14:00-15:00 心理咨询 @家人 自2026-09-29", "- 每周 线下 AI 活动 @活动", "- 每周 3小时 学习 @阅读", "- 每天 30分钟 运动 @运动", "- 每天 八段锦", "- 每月 独立旅游 @旅行 2-3天", "- 每月 市内一人游 @旅行 整天"].join("\\n"))
+const rhythms = parseRhythms(["- 每周 拍口播视频 @视频 整天", "- 每周 和爸妈出门 @家人 上午-下午", "- 每两周 周二 14:00-15:00 心理咨询 @家人 自2026-09-29", "- 每周 线下 AI 活动 @活动", "- 每周 3小时 学习 @阅读", "- 每天 30分钟 运动 @运动", "- 每天 八段锦", "- 每月 独立旅游 @旅行 2-3天", "- 每月 市内一人游 @旅行 整天"].join("\\n"))
 const weekScope = scopeContaining("week", "2026-09-30"), monthScope = scopeContaining("month", "2026-09-30")
 let weekSrc = ensureRhythmSlots([
   'days: 2026-09-28..2026-10-04', 'scope: week', 'rail: 262',
-  'goal: type="运动" target=180', 'goal: tag="飞搜" target=120', 'goal: type="开发" target=1200',
+  'goal: type="运动" target=180', 'goal: tag="飞搜" target=120 note="投放前把内页做完"', 'goal: type="开发" target=1200', 'goal: text="把周视图第 3 轮改完" note="节律面板、联动、月视图"', 'goal: text="给爸妈打一次电话" done=true',
   'todo: id="t8" done=false estimate=60 category="写作" group="" due=2026-10-04 title="写周报 #官网"',
   'todo: id="t9" done=false estimate=45 category="开发" group="" title="装 Obsidian 测一遍 #模块日记"',
   'todo: id="t10" done=false estimate=30 category="" group="" title="回邮件"',
@@ -103,10 +103,14 @@ window.mount = (kind: "week" | "month", face: "plan" | "actual") => {
   const planned = new Map(); const actual = new Map()
   for (const d of days) for (const e of d.entries) { if (!e.todoId) continue; if (e.plan) planned.set(e.todoId, { date: d.date, startMin: e.startMin }); else actual.set(e.todoId, (actual.get(e.todoId) ?? 0) + e.endMin - e.startMin) }
   const todos = block.todos.map((todo) => ({ ...todo, actualMinutes: actual.get(todo.id) ?? 0, placement: planned.get(todo.id) ?? (todo.day ? { date: todo.day } : undefined) }))
+  // The other period kind's items: the month's placed rhythm in the week, a week's placed slots in the month.
+  const otherSrc = kind === "week" ? monthSrc.replace("2026-09-18", "2026-10-02") : weekSrc
+  const foreignTodos = parseTimeline(otherSrc).todos.filter((todo) => !todo.moved && todo.day).map((todo) => ({ ...todo, actualMinutes: 0, placement: { date: todo.day }, foreign: kind === "week" ? "来自本月协议" : "来自第 40 周" }))
   const facts = days.map((d) => ({ date: d.date, entries: d.entries, habitDone: d.date === "2026-09-28" ? ["八段锦"] : [] }))
   renderPeriodInto(host, {
     spec: block.period!, browsing: false, period, today, goals: goalProgress(block.goals, days), totals: periodTotals(days), todos, todoView: block.todoView, todoGroupOrder: block.todoGroupOrder,
-    days: days.map((d) => ({ ...d, allDay: todos.filter((t) => t.placement && t.placement.startMin === undefined && t.placement.date === d.date),
+    foreignTodos,
+    days: days.map((d) => ({ ...d, allDay: todos.filter((t) => t.placement && t.placement.startMin === undefined && t.placement.date === d.date), foreign: foreignTodos.filter((t) => t.placement.date === d.date),
       upcoming: d.date === "2026-10-03" ? [{ line: 0, date: d.date, startMin: 840, endMin: 900, type: "运动", text: "爬山", done: false }, { line: 1, date: d.date, text: "交房租", done: false, zone: "ev" }] : d.date === "2026-09-25" ? [{ line: 2, date: d.date, text: "去某地", done: false, zone: "pm" }] : [] })),
     rangeStartMin: 7 * 60, rangeEndMin: 23 * 60, indexReady: true, railWidth: 262, statsWidgets: ["share", "days:运动"],
     scope, face, board: rhythmBoard(rhythms, scope, todos, facts, block.rhythmSkips), embeddedView: kind,

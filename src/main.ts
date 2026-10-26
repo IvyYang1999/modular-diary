@@ -1,7 +1,7 @@
 import { setZoneEdges } from "./render/plan-view"
 import { parseChecklistTemplate } from "./core/checklists"
 import { PeriodFiles } from "./period-files"
-import { rhythmBoard, scopeContaining, scopeOfRange, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
+import { periodKey, rhythmBoard, scopeContaining, scopeOfRange, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
 import { RhythmsNote } from "./rhythms-note"
 import { isDailyNote, findChecklistTemplateFile, saveChecklistAsTemplate } from "./checklists"
 import { AddUpcomingModal, createUpcomingSchedule, watchUpcoming, type UpcomingVaultOptions } from "./upcoming"
@@ -214,6 +214,7 @@ export default class ModularDiaryPlugin extends Plugin {
     onChange: () => this.rerenderMountedTimelines(),
     categories: () => Object.keys(this.settings.spanTypeColors),
     typeColors: () => ({ ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors }),
+    tagSuggest: () => this.tagSuggestDeps(),
   })
   /** Plugin-managed week / month notes that day blocks embed. */
   readonly periodFiles = new PeriodFiles({
@@ -2536,10 +2537,29 @@ export default class ModularDiaryPlugin extends Plugin {
       actualMinutes: actual.get(todo.id) ?? 0,
       placement: plannedAt.get(todo.id) ?? (todo.day ? { date: todo.day } : undefined),
     }))
+    const scopeForForeign = embed?.scope ?? (doc.periodScope ? scopeContaining(doc.periodScope, resolved.start) : scopeOfRange(resolved.start, resolved.end) ?? undefined)
+    // The other period kind, read-only: the month's items placed inside this week, or each week's inside this month.
+    const foreignTodos: PeriodTodoView[] = []
+    if (scopeForForeign) {
+      const others: PeriodScope[] = []
+      const push = (other: PeriodScope): void => { if (!others.some((item) => item.start === other.start)) others.push(other) }
+      if (scopeForForeign.kind === "week") { push(scopeContaining("month", resolved.start)); push(scopeContaining("month", resolved.end)) }
+      else { for (let date = resolved.start; date <= resolved.end; date = shiftDate(date, 7)) push(scopeContaining("week", date)); push(scopeContaining("week", resolved.end)) }
+      for (const other of others) {
+        const otherSource = this.periodFiles.source(other)
+        if (otherSource === null) continue
+        const label = other.kind === "month" ? tr("foreignFromMonth") : tr("foreignFromWeek", { week: periodKey(other).replace(/^.*W0?/, "") })
+        for (const todo of this.parse(otherSource).todos) {
+          if (todo.moved) continue
+          foreignTodos.push({ ...todo, actualMinutes: 0, placement: todo.day ? { date: todo.day } : undefined, foreign: label })
+        }
+      }
+    }
     const days: PeriodDayView[] = dayData.map((day) => ({
       ...day,
       allDay: todos.filter((todo) => todo.placement && todo.placement.startMin === undefined && todo.placement.date === day.date),
       upcoming: pendingForDate(this.upcoming.items, day.date),
+      foreign: foreignTodos.filter((todo) => todo.placement?.date === day.date && !plannedAt.has(todo.id)),
     }))
     // The grid grows to fit the week's records, so early mornings, late nights and
     // after-midnight blocks are never counted in the totals but missing from the grid.
@@ -2567,6 +2587,7 @@ export default class ModularDiaryPlugin extends Plugin {
       indexReady: ready, railWidth: doc.railWidth ?? 248,
       // Embedded views keep one height for all weeks and months; a standalone block sets its own with `height:`.
       height: embed ? this.settings.periodHeight : doc.periodHeight,
+      foreignTodos,
     }
     const container = el.createDiv({ cls: "modular-diary-container modular-diary-period-container" })
     const fail = (date: string, error: unknown): void => {
@@ -2735,6 +2756,10 @@ export default class ModularDiaryPlugin extends Plugin {
         ? insertHeaderLine(current, "goal", formatGoalLine(goal))
         : replaceEntryLine(current, line, formatGoalLine(goal))),
       onDeleteGoal: (line) => void rewrite((current) => deleteEntryLine(current, line)),
+      onToggleGoal: (line, done) => {
+        const goal = doc.goals.find((item) => item.line === line)
+        if (goal) void rewrite((current) => replaceEntryLine(current, line, formatGoalLine({ ...goal, done })))
+      },
       onRailWidth: (px) => void rewrite((current) => setHeaderValue(current, "rail", String(px))),
       onHeight: (px) => {
         if (embed) {

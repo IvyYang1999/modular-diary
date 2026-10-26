@@ -91,3 +91,17 @@ describe("writing rhythms back", () => {
     expect(reorderRhythms(items, "zz", "a")).toBe(items)
   })
 })
+
+describe("parts of the day as a range", () => {
+  it("reads two zone words or a dash and writes them back as a range", async () => {
+    const { zoneRangeLabel } = await import("./rhythms")
+    const spaced = parseRhythmLine("每周 和爸妈出门 @家人 上午 下午")!
+    expect(spaced).toMatchObject({ zone: "am", zoneEnd: "pm" })
+    expect(formatRhythmLine(spaced)).toBe("- 每周 和爸妈出门 @家人 上午-下午")
+    const dashed = parseRhythmLine("每周 和爸妈出门 晚上-上午")!
+    expect(dashed).toMatchObject({ zone: "am", zoneEnd: "ev" })
+    expect(zoneRangeLabel(dashed)).toBe("上午–晚上")
+    expect(parseRhythmLine("每天 运动 下午 下午")!.zoneEnd).toBeUndefined()
+    expect(zoneRangeLabel(parseRhythmLine("每天 运动 下午")!)).toBe("下午")
+  })
+})

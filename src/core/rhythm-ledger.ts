@@ -48,6 +48,10 @@ export interface RhythmBoardRow {
   /** Slots carried over from earlier periods. */
   owed: number
   skipped: boolean
+  /** What `due` / `done` count: days (daily rhythms) or times (weekly rhythms seen from a month). */
+  unit?: "days" | "times"
+  /** Duration rhythms: the quota for this period (a weekly quota times the weeks of a month). */
+  targetMinutes?: number
 }
 
 export function mondayOf(date: string): string {
@@ -185,11 +189,36 @@ function recordedOn(day: PeriodDayFacts | undefined, rhythm: Rhythm): number {
   return day.entries.filter((entry) => !entry.plan && entry.type === rhythm.type).reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0)
 }
 
-/** The board: every rhythm due in the period with its slots and counts. */
+/** Weeks (Mondays) a weekly / biweekly rhythm is on inside a scope. */
+function weeksOn(rhythm: Rhythm, scope: PeriodScope): string[] {
+  const mondays = [...new Set(daysOf(scope).map(mondayOf))]
+  return rhythm.cadence === "biweekly" ? mondays.filter((monday) => rhythmWeekOn(rhythm, monday)) : mondays
+}
+
+/**
+ * The board: every rhythm the period shows, with slots and counts. A week
+ * lists its own slots; a month also lists the weekly rhythms (summed over its
+ * weeks) and the daily ones, so the month protocol is never empty.
+ */
 export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: Array<TodoItem & { placement?: { date: string; startMin?: number }; actualMinutes?: number }>, days: PeriodDayFacts[], skips: string[]): RhythmBoardRow[] {
   const byDate = new Map(days.map((day) => [day.date, day]))
-  return rhythmsDueIn(rhythms, scope).map((rhythm) => {
+  const shown = scope.kind === "month" ? rhythms : rhythmsDueIn(rhythms, scope)
+  return shown.map((rhythm) => {
     const skipped = skips.includes(rhythm.id)
+    const weekly = rhythm.cadence === "weekly" || rhythm.cadence === "biweekly"
+    if (scope.kind === "month" && weekly) {
+      // Seen from the month: how many of its weeks have the rhythm, and how much got recorded.
+      const weeks = weeksOn(rhythm, scope).length
+      const recordedDays = daysOf(scope).filter((date) => recordedOn(byDate.get(date), rhythm) > 0 || byDate.get(date)?.habitDone?.includes(rhythm.id))
+      const minutes = daysOf(scope).reduce((sum, date) => sum + recordedOn(byDate.get(date), rhythm), 0)
+      if (rhythm.quota.kind === "duration") {
+        const target = rhythm.quota.minutes * Math.max(1, weeks)
+        return { rhythm, slots: [], skipped, due: 0, placed: 0, done: minutes >= target ? 1 : 0, minutes, owed: 0, targetMinutes: target }
+      }
+      const due = rhythm.quota.count * weeks
+      const done = Math.min(due, recordedDays.length)
+      return { rhythm, slots: [], skipped, due, placed: done, done, minutes, owed: 0, unit: "times" }
+    }
     if (takesSlots(rhythm)) {
       const slots: RhythmSlotView[] = todos.filter((todo) => todo.rhythm === rhythm.id && !todo.moved).map((todo) => ({
         ...todo,

@@ -6,7 +6,7 @@
 import { setIcon } from "obsidian"
 import { formatHours } from "../core/duration"
 import type { RhythmBoardRow, RhythmSlotView } from "../core/rhythm-ledger"
-import type { RhythmZone } from "../core/rhythms"
+import { zoneRangeLabel, type RhythmZone } from "../core/rhythms"
 import type { UpcomingItem } from "../core/upcoming"
 import { t } from "../i18n"
 import { attachDrag, clock, formatTotal, goalEditor, plainTitle, POOL_ZONE, shortDate, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewDeps, type PeriodViewModel } from "./period-view"
@@ -32,7 +32,7 @@ interface Pill {
   text: string
   type?: string
   time?: string
-  kind: "slot" | "todo" | "upcoming" | "due"
+  kind: "slot" | "todo" | "upcoming" | "due" | "foreign"
   done?: boolean
   owed?: boolean
   todo?: PeriodTodoView
@@ -60,6 +60,17 @@ function pillsOf(day: PeriodDayView, model: PeriodViewModel): Record<"all" | Rhy
   for (const item of day.upcoming ?? []) {
     const zone = item.startMin !== undefined ? zoneOfMinute(item.startMin) : item.zone
     out[zone ?? "all"].push({ text: item.text || item.type || "", type: item.type, time: item.startMin !== undefined ? clock(item.startMin) : undefined, kind: "upcoming", title: `${t("upcomingTitle")} · ${item.text}` })
+  }
+  // The other period kind's items on this day: the month's rhythms in a week, a week's in the month.
+  for (const todo of day.foreign ?? []) {
+    out[todo.zone ?? "all"].push({ text: plainTitle(todo.title), type: todo.type, kind: "foreign", done: todo.completed, title: `${todo.foreign ?? ""} · ${todo.title}` })
+  }
+  const foreignById = new Map((model.foreignTodos ?? []).map((todo) => [todo.id, todo]))
+  for (const entry of day.entries) {
+    if (!entry.plan || !entry.todoId || byId.has(entry.todoId)) continue
+    const todo = foreignById.get(entry.todoId)
+    if (!todo) continue
+    out[zoneOfMinute(entry.startMin)].push({ text: plainTitle(todo.title), type: todo.type, time: clock(entry.startMin), kind: "foreign", done: todo.completed, title: `${todo.foreign ?? ""} · ${clock(entry.startMin)}–${clock(entry.endMin)} ${todo.title}` })
   }
   for (const todo of model.todos) {
     if (todo.due === day.date && !todo.completed) out.all.push({ text: `⚑ ${plainTitle(todo.title)}`, kind: "due", title: t("dueOn", { date: shortDate(todo.due) }) })
@@ -108,8 +119,9 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
   header.createEl("span", { cls: "modular-diary-component-title", text: t(scope.kind === "week" ? "periodProtocolWeek" : "periodProtocolMonth") })
   const counted = model.board.filter((row) => !row.skipped && (row.slots.length > 0 || row.due > 0 || row.rhythm.quota.kind === "duration"))
   const doneCount = counted.filter((row) => row.slots.length ? row.done === row.due : row.rhythm.quota.kind === "duration" && row.due === 0 ? row.done > 0 : row.done === row.due).length
-  const total = counted.length + model.goals.length
-  if (total) header.createEl("span", { cls: "modular-diary-component-count", text: `${doneCount + model.goals.filter((goal) => goal.complete).length}/${total}` })
+  const hourGoalsAll = model.goals.filter((item) => item.goal.kind !== "text")
+  const total = counted.length + hourGoalsAll.length
+  if (total) header.createEl("span", { cls: "modular-diary-component-count", text: `${doneCount + hourGoalsAll.filter((goal) => goal.complete).length}/${total}` })
   const actions = header.createDiv({ cls: "modular-diary-component-actions" })
   const addGoal = actions.createEl("button", { attr: { type: "button", "aria-label": t("addGoalProtocol"), title: t("addGoalProtocol") } })
   setIcon(addGoal, "plus")
@@ -126,7 +138,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
     if (!host.querySelector(".modular-diary-plan-board-label")) host.createDiv({ cls: "modular-diary-plan-board-label", text: t("boardGoals") })
     open = goalEditor(host, null, null, deps, closeEditor)
   })
-  if (!model.board.length && !model.goals.length) {
+  if (!model.board.length && !hourGoalsAll.length) {
     const empty = section.createEl("button", { cls: "modular-diary-component-empty", attr: { type: "button" } })
     setIcon(empty.createEl("span", { cls: "modular-diary-component-empty-icon" }), "plus")
     empty.createEl("span", { text: t("rhythmsEmptyBoard") })
@@ -181,7 +193,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
           const el = rowEl(key, rhythm, slot.done ? "is-done" : slot.owed ? "is-owed" : slot.placement ? "is-placed" : "is-unplaced")
           if (row.slots.length > 1) el.querySelector(".modular-diary-plan-name")!.textContent = `${rhythm.name} ${index + 1}`
           const meta = el.createEl("span", { cls: `modular-diary-plan-meta${slot.placement ? " is-where" : ""}${slot.owed && !slot.placement ? " is-owed" : ""}` })
-          meta.textContent = slot.placement ? slotWhere(slot, model) : slot.owed ? t("boardOwedFrom", { period: slot.owed }) : rhythm.span.kind === "allDay" ? t("allDay") : rhythm.span.kind === "days" ? t("spanDays", { days: rhythm.span.min === rhythm.span.max ? String(rhythm.span.min) : `${rhythm.span.min}-${rhythm.span.max}` }) : rhythm.zone ? zoneLabel(rhythm.zone) : ""
+          meta.textContent = slot.placement ? slotWhere(slot, model) : slot.owed ? t("boardOwedFrom", { period: slot.owed }) : rhythm.span.kind === "allDay" ? t("allDay") : rhythm.span.kind === "days" ? t("spanDays", { days: rhythm.span.min === rhythm.span.max ? String(rhythm.span.min) : `${rhythm.span.min}-${rhythm.span.max}` }) : rhythm.zone ? zoneRangeLabel(rhythm, zoneLabel) : ""
           el.classList.add("modular-diary-period-draggable")
           el.tabIndex = 0
           attachDrag(root, el, { todo: slot, from: slotFrom(slot), rhythmId: rhythm.id }, model, deps)
@@ -197,10 +209,11 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
       const fill = bar.createDiv({ cls: "modular-diary-plan-bar-fill" })
       if (color) fill.style.background = color
       if (rhythm.quota.kind === "duration" && row.due === 0) {
-        meta.textContent = `${formatHours(row.minutes)} / ${formatHours(rhythm.quota.minutes)}`
-        fill.style.width = `${Math.min(100, (row.minutes / Math.max(1, rhythm.quota.minutes)) * 100)}%`
+        const target = row.targetMinutes ?? rhythm.quota.minutes
+        meta.textContent = `${formatHours(row.minutes)} / ${formatHours(target)}`
+        fill.style.width = `${Math.min(100, (row.minutes / Math.max(1, target)) * 100)}%`
       } else {
-        meta.textContent = t("daysDone", { done: String(row.done), total: String(row.due) })
+        meta.textContent = t(row.unit === "times" ? "timesDone" : "daysDone", { done: String(row.done), total: String(row.due) })
         fill.style.width = `${row.due ? Math.min(100, (row.done / row.due) * 100) : 0}%`
       }
       reorderOnly(el, rhythm)
@@ -208,10 +221,11 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
   }
   for (const key of order) for (const build of rowsByKey.get(key) ?? []) build()
   // Hour targets for this period only (`goal:` lines): the same row, a bar of hours done.
-  if (model.goals.length) {
+  const hourGoals = model.goals.filter((item) => item.goal.kind !== "text")
+  if (hourGoals.length) {
     const host = goalsHost()
     host.createDiv({ cls: "modular-diary-plan-board-label", text: t("boardGoals") })
-    for (const item of model.goals) {
+    for (const item of hourGoals) {
       const row = host.createDiv({ cls: `modular-diary-plan-row is-goal is-measured${item.complete ? " is-done" : ""}`, attr: { role: "button", tabindex: "0", "aria-label": t("editGoalNamed", { name: item.goal.key }) } })
       row.dataset.goalLine = String(item.goal.line)
       const color = item.goal.kind === "type" ? deps.typeColors[item.goal.key] : deps.tagStyle?.(item.goal.key)?.color
@@ -326,14 +340,27 @@ export function renderActualMonth(main: HTMLElement, model: PeriodViewModel, dep
     for (const entry of day.entries) if (!entry.plan) minutes.set(entry.type, (minutes.get(entry.type) ?? 0) + entry.endMin - entry.startMin)
     const total = [...minutes.values()].reduce((sum, value) => sum + value, 0)
     if (!total) continue
-    const hours = cell.createDiv({ cls: "modular-diary-plan-hours" })
+    // The day as a thin vertical timeline (same hour range as the week): where the colours fall, top to bottom.
+    const body = cell.createDiv({ cls: "modular-diary-plan-daycol" })
+    const bar = body.createDiv({ cls: "modular-diary-plan-daybar", attr: { title: `${clock(model.rangeStartMin)}–${clock(model.rangeEndMin)}` } })
+    const span = Math.max(1, model.rangeEndMin - model.rangeStartMin)
+    for (const entry of [...day.entries].filter((item) => !item.plan).sort((a, b) => a.startMin - b.startMin)) {
+      const start = Math.max(entry.startMin, model.rangeStartMin), end = Math.min(entry.endMin, model.rangeEndMin)
+      if (end <= start) continue
+      const part = bar.createDiv({ attr: { title: `${clock(entry.startMin)}–${clock(entry.endMin)} ${entry.type}${entry.note ? " · " + entry.note : ""}` } })
+      part.style.top = `${((start - model.rangeStartMin) / span) * 100}%`
+      part.style.height = `${((end - start) / span) * 100}%`
+      part.style.background = deps.typeColors[entry.type] ?? "var(--text-faint)"
+    }
+    const hours = body.createDiv({ cls: "modular-diary-plan-hours" })
     hours.createEl("b", { text: formatHours(total).replace(/h$/, "") })
     hours.createEl("small", { text: "h" })
-    const stack = cell.createDiv({ cls: "modular-diary-plan-stack" })
-    for (const type of [...minutes.keys()].sort((a, b) => order.indexOf(a) - order.indexOf(b))) {
-      const part = stack.createDiv({ attr: { title: `${type} ${formatHours(minutes.get(type) ?? 0)}` } })
-      part.style.width = `${((minutes.get(type) ?? 0) / total) * 100}%`
-      part.style.background = deps.typeColors[type] ?? "var(--text-faint)"
+    const top = [...minutes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
+    const legend = body.createDiv({ cls: "modular-diary-plan-daytop" })
+    for (const [type, value] of top.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))) {
+      const item = legend.createEl("span", { attr: { title: `${type} ${formatHours(value)}` } })
+      item.style.setProperty("--c", deps.typeColors[type] ?? "var(--text-faint)")
+      item.textContent = formatHours(value).replace(/h$/, "")
     }
   }
   const trailing = (7 - ((lead + model.days.length) % 7)) % 7
