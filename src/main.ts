@@ -1,3 +1,4 @@
+import { setZoneEdges } from "./render/plan-view"
 import { parseChecklistTemplate } from "./core/checklists"
 import { PeriodFiles } from "./period-files"
 import { rhythmBoard, scopeContaining, scopeOfRange, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
@@ -2173,10 +2174,21 @@ export default class ModularDiaryPlugin extends Plugin {
             // @ts-expect-error 内部 API
             this.app.setting?.openTabById?.("modular-diary")
           },
-          writeActions: (actions) =>
-            this.applyBlockTransform(el, ctx, source, (s) => {
+          writeActions: async (actions) => {
+            // Future items go to the schedule note (or straight into that day's diary when it exists).
+            for (const a of actions) {
+              if (a.kind !== "schedule") continue
+              await this.upcoming.add({
+                date: a.date, text: a.text,
+                ...(a.startMin !== undefined && a.endMin !== undefined ? { startMin: a.startMin, endMin: a.endMin, type: a.type ?? "" } : {}),
+                ...(a.zone ? { zone: a.zone } : {}),
+              })
+            }
+            const blockActions = actions.filter((a): a is Exclude<typeof a, { kind: "schedule" }> => a.kind !== "schedule")
+            if (!blockActions.length) return
+            await this.applyBlockTransform(el, ctx, source, (s) => {
               let out = this.persistLayoutOnce(s, doc, container)
-              for (const a of actions) {
+              for (const a of blockActions) {
                 if (a.kind === "create") {
                   out = insertEntryLine(out, a.entry.sourceLine, a.entry.startMin)
                   continue
@@ -2203,7 +2215,8 @@ export default class ModularDiaryPlugin extends Plugin {
                 }
               }
               return out
-            }),
+            })
+          },
         })
       }
       const sourceSession = this.sourceDrafts.get(el)
@@ -3515,6 +3528,8 @@ export default class ModularDiaryPlugin extends Plugin {
       checklistFolder: typeof data?.checklistFolder === "string" ? data.checklistFolder : DEFAULT_SETTINGS.checklistFolder,
       upcomingFile: typeof data?.upcomingFile === "string" && data.upcomingFile.trim() ? data.upcomingFile.trim() : DEFAULT_SETTINGS.upcomingFile,
       rhythmsFile: typeof data?.rhythmsFile === "string" && data.rhythmsFile.trim() ? data.rhythmsFile.trim() : DEFAULT_SETTINGS.rhythmsFile,
+      zonePmHour: Number.isInteger(data?.zonePmHour) && (data!.zonePmHour as number) >= 1 && (data!.zonePmHour as number) <= 22 ? (data!.zonePmHour as number) : DEFAULT_SETTINGS.zonePmHour,
+      zoneEvHour: Number.isInteger(data?.zoneEvHour) && (data!.zoneEvHour as number) >= 2 && (data!.zoneEvHour as number) <= 23 ? (data!.zoneEvHour as number) : DEFAULT_SETTINGS.zoneEvHour,
       periodFolder: typeof data?.periodFolder === "string" && data.periodFolder.trim() ? data.periodFolder.trim().replace(/\/+$/, "") : DEFAULT_SETTINGS.periodFolder,
       todoReviewChecklist: typeof data?.todoReviewChecklist === "string" && data.todoReviewChecklist.trim() ? data.todoReviewChecklist : DEFAULT_TODO_REVIEW_CHECKLIST,
       pinnedSections: Array.isArray(data?.pinnedSections) ? [...new Set(data.pinnedSections.filter((value): value is string => typeof value === "string" && value.trim() !== ""))] : [],
@@ -3524,6 +3539,8 @@ export default class ModularDiaryPlugin extends Plugin {
       ),
     }
     if (needsCategoryMigration) await this.saveData(this.settings)
+    if (this.settings.zoneEvHour <= this.settings.zonePmHour) this.settings.zoneEvHour = this.settings.zonePmHour + 1
+    setZoneEdges(this.settings.zonePmHour, this.settings.zoneEvHour)
   }
 
   private openSettings(): void {

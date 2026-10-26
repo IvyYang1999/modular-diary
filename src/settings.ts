@@ -1,3 +1,4 @@
+import { setZoneEdges } from "./render/plan-view"
 import { DEFAULT_TODO_REVIEW_CHECKLIST } from "./agent/todo-review"
 /**
  * Plugin settings: type -> color mapping (荧光笔色号, D2) + 对话模型配置
@@ -67,6 +68,9 @@ export interface ModularDiarySettings {
   upcomingFile: string
   /** Vault path of the rhythms note (see core/rhythms). */
   rhythmsFile: string
+  /** Hour the afternoon / evening bands start (the morning band starts the day). */
+  zonePmHour: number
+  zoneEvHour: number
   /** Folder for the plugin-managed week / month notes (`周期/2026-W44.md`). */
   periodFolder: string
   /** On the hour, ask in the status bar what the last hour went into. */
@@ -111,6 +115,8 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   todoReviewChecklist: DEFAULT_TODO_REVIEW_CHECKLIST,
   upcomingFile: "Upcoming.md",
   rhythmsFile: "节律.md",
+  zonePmHour: 12,
+  zoneEvHour: 18,
   periodFolder: "周期",
   hourlyNudge: true,
   nudgeStartHour: 9,
@@ -303,6 +309,26 @@ export class ModularDiarySettingTab extends PluginSettingTab {
             this.plugin.settings.bodyTodoSection = value.trim()
             await this.plugin.saveSettings({ rerender: true })
           })
+      })
+    new Setting(weeklyTodoSection).setName(tr("zoneSettings")).setDesc(tr("zoneSettingsHint"))
+      .addText((control) => {
+        control.inputEl.type = "number"; control.inputEl.min = "1"; control.inputEl.max = "22"; control.inputEl.setAttribute("aria-label", tr("zonePmHour"))
+        control.setValue(String(this.plugin.settings.zonePmHour)).onChange(async (value) => {
+          const hour = Math.max(1, Math.min(22, Math.round(Number(value) || 12)))
+          this.plugin.settings.zonePmHour = hour
+          this.plugin.settings.zoneEvHour = Math.max(hour + 1, this.plugin.settings.zoneEvHour)
+          setZoneEdges(this.plugin.settings.zonePmHour, this.plugin.settings.zoneEvHour)
+          await this.plugin.saveSettings({ rerender: true })
+        })
+      })
+      .addText((control) => {
+        control.inputEl.type = "number"; control.inputEl.min = "2"; control.inputEl.max = "23"; control.inputEl.setAttribute("aria-label", tr("zoneEvHour"))
+        control.setValue(String(this.plugin.settings.zoneEvHour)).onChange(async (value) => {
+          const hour = Math.max(this.plugin.settings.zonePmHour + 1, Math.min(23, Math.round(Number(value) || 18)))
+          this.plugin.settings.zoneEvHour = hour
+          setZoneEdges(this.plugin.settings.zonePmHour, this.plugin.settings.zoneEvHour)
+          await this.plugin.saveSettings({ rerender: true })
+        })
       })
     new Setting(weeklyTodoSection).setName(tr("upcomingFile")).setDesc(tr("upcomingFileHint"))
       .addText((control) => {

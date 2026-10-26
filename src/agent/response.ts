@@ -133,6 +133,16 @@ export type AgentAction =
   | { kind: "create"; entry: ValidatedEntry }
   | { kind: "update"; targetIndex: number; patch: { startMin?: number; endMin?: number; type?: string; note?: string } }
   | { kind: "delete"; targetIndex: number }
+  /** A future item for the schedule note (Upcoming.md): a date, optionally a time span or a part of the day. */
+  | { kind: "schedule"; date: string; startMin?: number; endMin?: number; zone?: "am" | "pm" | "ev"; type?: string; text: string }
+
+const ZONE_WORDS: Record<string, "am" | "pm" | "ev"> = { am: "am", pm: "pm", ev: "ev", 上午: "am", 早上: "am", 早晨: "am", morning: "am", 下午: "pm", 中午: "pm", afternoon: "pm", 晚上: "ev", 傍晚: "ev", 晚间: "ev", evening: "ev", night: "ev" }
+
+function validDate(value: unknown): string | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const d = new Date(`${value}T00:00:00Z`)
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value ? null : value
+}
 
 export type ActionsResult =
   | { ok: true; actions: AgentAction[] }
@@ -174,6 +184,25 @@ export function interpretActions(text: string, doc: TimelineDoc, userText?: stri
       const r = validateEntry(obj, doc, list.length === 1 ? userText : undefined)
       if (!r.ok) return { ok: false, reason: r.reason }
       actions.push({ kind: "create", entry: r.entry })
+      continue
+    }
+
+    if (action === "schedule") {
+      const date = validDate(obj.date)
+      if (!date) return { ok: false, reason: t("invalidScheduleDate") }
+      const text = typeof obj.text === "string" ? obj.text.trim() : typeof obj.note === "string" ? obj.note.trim() : ""
+      const type = typeof obj.type === "string" && obj.type.trim() ? obj.type.trim() : undefined
+      if (type && !/^\S+$/.test(type)) return { ok: false, reason: t("categoryNoWhitespace") }
+      const zone = typeof obj.zone === "string" ? ZONE_WORDS[obj.zone.trim().toLowerCase()] ?? ZONE_WORDS[obj.zone.trim()] : undefined
+      if (obj.start !== undefined || obj.end !== undefined) {
+        const startMin = parseClock(obj.start), endMin = parseClock(obj.end)
+        if (startMin === null || endMin === null || endMin <= startMin) return { ok: false, reason: t("invalidStartEnd") }
+        if (!type) return { ok: false, reason: t("scheduleNeedsType") }
+        actions.push({ kind: "schedule", date, startMin, endMin, type, text })
+        continue
+      }
+      if (!text && !type) return { ok: false, reason: t("scheduleNeedsText") }
+      actions.push({ kind: "schedule", date, text: text || type!, ...(type ? { type } : {}), ...(zone ? { zone } : {}) })
       continue
     }
 

@@ -136,12 +136,13 @@ export function attachDialog(container: HTMLElement, doc: TimelineDoc, deps: Dia
       const cost = typeof rawCost === "number"
         ? locale === "zh" ? `（$${rawCost.toFixed(4)}）` : ` ($${rawCost.toFixed(4)})`
         : ""
-      const kinds = { create: 0, update: 0, delete: 0 }
+      const kinds = { create: 0, update: 0, delete: 0, schedule: 0 }
       for (const a of result.actions) kinds[a.kind]++
       const parts = [
         kinds.create && t("actionCreate", { count: kinds.create }),
         kinds.update && t("actionUpdate", { count: kinds.update }),
         kinds.delete && t("actionDelete", { count: kinds.delete }),
+        kinds.schedule && t("actionSchedule", { count: kinds.schedule }),
       ].filter((part): part is string => typeof part === "string")
       status.setText(t("actionsSaved", { actions: parts.join(locale === "zh" ? "、" : ", "), cost }))
     } catch (error) {

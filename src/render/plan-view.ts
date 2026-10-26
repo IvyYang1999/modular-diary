@@ -11,8 +11,12 @@ import type { UpcomingItem } from "../core/upcoming"
 import { t } from "../i18n"
 import { attachDrag, clock, plainTitle, POOL_ZONE, shortDate, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewDeps, type PeriodViewModel } from "./period-view"
 
-/** Where a timed item falls: the bands' hour edges (settings may move these later). */
+/** Where a timed item falls: the bands' hour edges; settings set the afternoon and evening starts. */
 export const ZONE_EDGES = { am: 6 * 60, pm: 12 * 60, ev: 18 * 60 }
+export function setZoneEdges(pmHour: number, evHour: number): void {
+  ZONE_EDGES.pm = Math.max(1, Math.min(23, Math.round(pmHour))) * 60
+  ZONE_EDGES.ev = Math.max(ZONE_EDGES.pm / 60 + 1, Math.min(23, Math.round(evHour))) * 60
+}
 const ZONES: RhythmZone[] = ["am", "pm", "ev"]
 const MONTH_CELL_VISIBLE = 4
 
@@ -236,10 +240,19 @@ function renderPlanMonth(main: HTMLElement, root: HTMLElement, model: PeriodView
     const pills = pillsOf(day, model)
     const flat = [...pills.all, ...pills.am, ...pills.pm, ...pills.ev]
     const shown = flat.length > MONTH_CELL_VISIBLE ? flat.slice(0, MONTH_CELL_VISIBLE - 1) : flat
+    const column = (lead + model.days.indexOf(day)) % 7
     for (const pill of shown) {
       const el = renderPill(cell, root, pill, model, deps, menuFor)
       const span = pill.todo?.rhythm ? model.board.find((row) => row.rhythm.id === pill.todo?.rhythm)?.rhythm.span : undefined
-      if (span?.kind === "days") el.createEl("span", { cls: "modular-diary-plan-pill-time", text: t("spanDays", { days: span.min === span.max ? String(span.min) : `${span.min}-${span.max}` }) })
+      if (span?.kind === "days") {
+        el.createEl("span", { cls: "modular-diary-plan-pill-time", text: t("spanDays", { days: span.min === span.max ? String(span.min) : `${span.min}-${span.max}` }) })
+        // A multi-day item runs as one bar across the following cells, to the end of its row.
+        const cells = Math.max(1, Math.min(span.max, 7 - column, model.days.length - model.days.indexOf(day)))
+        if (cells > 1) {
+          el.classList.add("is-span")
+          el.style.width = `calc(${cells * 100}% + ${(cells - 1) * 4}px)`
+        }
+      }
     }
     if (shown.length < flat.length) cell.createDiv({ cls: "modular-diary-plan-more", text: `+${flat.length - shown.length}` })
     byDate.delete(day.date)

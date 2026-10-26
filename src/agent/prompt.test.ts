@@ -66,3 +66,12 @@ describe("few-shot（yyt 2026-08-19）", () => {
     expect(p).toContain("21:05")
   })
 })
+
+describe("schedule rule (2026-10-26)", () => {
+  it("tells the model today's date and how to return a future item", () => {
+    const p = buildSystemPrompt({ typeColors: { math: "#000" }, now: new Date(2026, 9, 26, 9, 0), doc: parseTimeline("date: 2026-10-26\n---") })
+    expect(p).toContain("今天是 2026-10-26（周一）")
+    expect(p).toContain('"action":"schedule"')
+    expect(p).toContain("下周三下午去银行办卡")
+  })
+})

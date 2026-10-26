@@ -5912,3 +5912,5 @@ textarea.modular-diary-template-source {
 .modular-diary-container .modular-diary-checklist button.modular-diary-checklist-more { opacity: 0; }
 .modular-diary-checklist:is(:hover, :focus-within) button.modular-diary-checklist-more { opacity: 1; }
 @media (hover: none) { .modular-diary-container .modular-diary-checklist button.modular-diary-checklist-more { opacity: 1; } }
+
+.modular-diary-plan-month-cell .modular-diary-plan-pill.is-span { position: relative; z-index: 2; background: color-mix(in srgb, var(--pc) 26%, var(--background-primary)); box-shadow: 0 0 0 1px var(--background-primary); }

@@ -150,3 +150,18 @@ describe("interpretActions (编辑已有色块)", () => {
     expect(interpretActions('{"action":"update","target":1}', DOC2).ok).toBe(false)
   })
 })
+
+describe("interpretActions (schedule: future items)", () => {
+  const doc = parseTimeline("date: 2026-10-26\n---\n09:00-10:00 math")
+  it("accepts a dated item with a part of the day, a timed item with a category, and rejects bad dates", () => {
+    const zoned = interpretActions('{"action":"schedule","date":"2026-11-04","zone":"下午","text":"去银行办卡"}', doc)
+    expect(zoned).toEqual({ ok: true, actions: [{ kind: "schedule", date: "2026-11-04", zone: "pm", text: "去银行办卡" }] })
+    const timed = interpretActions('{"action":"schedule","date":"2026-11-06","start":"14:00","end":"14:30","type":"math","text":"去某地"}', doc)
+    expect(timed).toEqual({ ok: true, actions: [{ kind: "schedule", date: "2026-11-06", startMin: 840, endMin: 870, type: "math", text: "去某地" }] })
+    expect(interpretActions('{"action":"schedule","date":"2026-02-30","text":"x"}', doc).ok).toBe(false)
+    expect(interpretActions('{"action":"schedule","date":"2026-11-06","start":"14:00","end":"14:30","text":"x"}', doc).ok).toBe(false)
+    // Mixed with a block for today.
+    const mixed = interpretActions('[{"start":"09:00","end":"09:30","type":"math"},{"action":"schedule","date":"2026-11-06","text":"交房租"}]', doc)
+    expect(mixed.ok && mixed.actions.map((a) => a.kind)).toEqual(["create", "schedule"])
+  })
+})
