@@ -13,6 +13,11 @@ describe("upcoming note", () => {
     ])
     expect(formatUpcomingLine(items[0])).toBe("- [ ] 2026-11-06 14:00-14:30 外出 去某地 带身份证")
   })
+  it("reads and writes a part-of-day item", () => {
+    const item = parseUpcoming("- [ ] 2026-11-06 下午 去某地")[0]
+    expect(item).toMatchObject({ zone: "pm", text: "去某地" })
+    expect(formatUpcomingLine(item)).toBe("- [ ] 2026-11-06 下午 去某地")
+  })
   it("inserts in date order and starts an empty note with a heading", () => {
     const added = addUpcoming(note, { date: "2026-11-04", startMin: 600, endMin: 660, type: "运动", text: "游泳" })
     expect(parseUpcoming(added).map((item) => item.date)).toEqual(["2026-11-06", "2026-10-01", "2026-11-03", "2026-11-04"])

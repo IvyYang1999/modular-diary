@@ -36,7 +36,7 @@ export function applyUpcomingToBlock(source: string, items: UpcomingItem[]): str
     if (out.includes(`title=${JSON.stringify(item.text)}`)) continue
     out = insertTodo(out, {
       id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-      title: item.text, group: "", estimateMin: 0, completed: false,
+      title: item.text, group: "", estimateMin: 0, completed: false, ...(item.zone ? { zone: item.zone } : {}),
     })
   }
   return out

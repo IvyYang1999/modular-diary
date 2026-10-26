@@ -1,3 +1,6 @@
+import { PeriodFiles } from "./period-files"
+import { rhythmBoard, scopeContaining, scopeOfRange, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
+import { RhythmsNote } from "./rhythms-note"
 import { isDailyNote } from "./checklists"
 import { AddUpcomingModal, createUpcomingSchedule, watchUpcoming, type UpcomingVaultOptions } from "./upcoming"
 import { pendingForDate, upcomingFrom } from "./core/upcoming"
@@ -16,7 +19,7 @@ import { FALLBACK_COLOR, refreshNowIndicators } from "./render/svg-builder"
 import { hashTypeColor, pickVisibleType } from "./core/type-colors"
 import { disposeInlineTextEditors, flushInlineTextEditors, renderTimelineInto } from "./render/timeline-view"
 import { DEFAULT_SETTINGS, ModularDiarySettings, ModularDiarySettingTab } from "./settings"
-import { CategorySettingsModal, DailyQuoteSettingsModal, HabitSettingsModal } from "./settings-modals"
+import { CategorySettingsModal, DailyQuoteSettingsModal } from "./settings-modals"
 import { attachDialog } from "./agent/dialog"
 import { addHabitSkip, addHiddenType, addOffSlot, convertMarkerToEntry, deleteEntryLine, deleteTodo, deleteTodoSubtree, extractBlockSourceFromContent, insertChildTodo, insertEntryLine, insertHeaderLine, insertMarkerLine, insertSpanLine, insertTodo, moveTodo, moveTodoSubtree, removeHeaderValue, removeHiddenType, removeOffSlot, removeTextSection, removeTimelineBlockFromContent, replaceBlockInContent, replaceEntryLine, setEntryTodoBinding, setHeaderValue, setItemBody, setTextSection, setTextTitle, setTodoCompleted, setTodoParent, updateTodo, placeTodoInBucket, setHabitDone } from "./edit/source-rewriter"
 import { buildLayerToggles, buildToolbar, LayerView } from "./edit/toolbar"
@@ -201,6 +204,21 @@ export default class ModularDiaryPlugin extends Plugin {
     onChange: () => this.rerenderMountedTimelines(),
   }
   readonly upcoming = createUpcomingSchedule(this.upcomingOptions)
+  /** The rhythms note; daily / weekly rhythms double as the habit rules. */
+  readonly rhythms = new RhythmsNote({
+    app: this.app,
+    settings: this.settings,
+    saveSettings: () => this.saveSettings(),
+    onChange: () => this.rerenderMountedTimelines(),
+  })
+  /** Plugin-managed week / month notes that day blocks embed. */
+  readonly periodFiles = new PeriodFiles({
+    app: this.app,
+    folder: () => this.settings.periodFolder || "周期",
+    onChange: () => this.rerenderMountedTimelines(),
+  })
+  /** View state: a day block paging its embedded period away from its own week / month. */
+  private readonly embedBrowse = new Map<string, PeriodScope>()
   private sourceDrafts = new WeakMap<HTMLElement, SourceModeSession>()
   private readonly ledgerModifiedPaths = new Set<string>()
   /** Cross-day reads (weekly goals, push to tomorrow) go through this incremental index. */
@@ -329,6 +347,9 @@ export default class ModularDiaryPlugin extends Plugin {
     watchNewDailyNotes(this)
     // Future schedule: an item goes into its day's diary once that diary exists.
     this.app.workspace.onLayoutReady(() => {
+      void this.rhythms.load().then(() => this.rerenderMountedTimelines())
+      this.rhythms.watch((ref) => this.registerEvent(ref))
+      this.periodFiles.watch((ref) => this.registerEvent(ref))
       void this.upcoming.load().then(() => this.rerenderMountedTimelines())
       watchUpcoming(this.upcoming, this.upcomingOptions, (ref) => this.registerEvent(ref), (path) => isDailyNote(this.app, path))
     })
@@ -624,6 +645,26 @@ export default class ModularDiaryPlugin extends Plugin {
       }
       const showTimelineOnboarding = onboardingDecision === "show"
       const dateStr = this.blockDate(doc, ctx.sourcePath)
+      // 日 / 周 / 月：the day block shows its week or month (a plugin-managed note) in place.
+      if (doc.dayView && dateStr) {
+        const embedKey = `${ctx.sourcePath}#${this.scrollTransactionKey(el, ctx).blockOrdinal}`
+        const scope = this.embedBrowse.get(embedKey) ?? scopeContaining(doc.dayView, dateStr)
+        const switchView = (view: "day" | "week" | "month"): void => {
+          this.embedBrowse.delete(embedKey)
+          void this.applyBlockTransform(el, ctx, source, (current) => view === "day" ? removeHeaderValue(current, "view") : setHeaderValue(current, "view", view))
+        }
+        const periodSource = this.periodFiles.source(scope)
+        if (periodSource === null) {
+          const stub = el.createDiv({ cls: "modular-diary-container modular-diary-period-stub" })
+          stub.createEl("span", { text: tr("periodLoading") })
+          void this.periodFiles.ensure(scope).then(() => this.periodFiles.prepare(scope, this.rhythms.items)).then(() => this.rerenderMountedTimelines())
+            .catch((error) => console.error("Modular Diary: failed to open the period note", error))
+          return
+        }
+        void this.periodFiles.prepare(scope, this.rhythms.items).catch((error) => console.error("Modular Diary: failed to prepare the period", error))
+        this.renderPeriodBlock(periodSource, el, ctx, this.parse(periodSource), { scope, key: embedKey, view: doc.dayView, onSwitchView: switchView })
+        return
+      }
       // A tag first seen on a categorized block adopts that category (yyt 2026-09-28).
       // A day whose block is still empty is refilled from todos pushed to it
       // from other days or period blocks; a day with content is left alone,
@@ -2002,6 +2043,17 @@ export default class ModularDiaryPlugin extends Plugin {
       })
       container.appendChild(settingsButton)
 
+      // 日 / 周 / 月 switch for this diary: week and month are the plugin-managed period notes.
+      if (dateStr) {
+        const switchBar = dom.createElement("div")
+        switchBar.className = "modular-diary-view-bar"
+        const seg = switchBar.createDiv({ cls: "modular-diary-seg", attr: { role: "group", "aria-label": tr("viewSwitch") } })
+        for (const [view, label] of [["day", tr("viewDay")], ["week", tr("viewWeek")], ["month", tr("viewMonth")]] as const) {
+          const button = seg.createEl("button", { text: label, attr: { type: "button", "aria-pressed": String(view === "day") } })
+          if (view !== "day") button.addEventListener("click", () => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "view", view)))
+        }
+        container.prepend(switchBar)
+      }
       // 当前 block 的低频附加操作：组件管理 + 布局，不再误用「添加」语义。
       const more = dom.createElement("button")
       more.type = "button"
@@ -2428,10 +2480,10 @@ export default class ModularDiaryPlugin extends Plugin {
   }
 
   /** A `days:` block: the period's goals and todos live here; each column is that day's note. */
-  private renderPeriodBlock(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext, doc: TimelineDoc): void {
+  private renderPeriodBlock(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext, doc: TimelineDoc, embed?: { scope: PeriodScope; key: string; view: "week" | "month"; onSwitchView: (view: "day" | "week" | "month") => void }): void {
     if (!doc.period) return
-    const browseKey = `${ctx.sourcePath}#${this.scrollTransactionKey(el, ctx).blockOrdinal}`
-    const browsed = this.periodBrowse.get(browseKey)
+    const browseKey = embed?.key ?? `${ctx.sourcePath}#${this.scrollTransactionKey(el, ctx).blockOrdinal}`
+    const browsed = embed ? undefined : this.periodBrowse.get(browseKey)
     const period = browsed ?? doc.period
     const dom = el.ownerDocument
     const today = inferDate(null)
@@ -2472,8 +2524,13 @@ export default class ModularDiaryPlugin extends Plugin {
     }
     rangeStartMin = Math.max(0, rangeStartMin)
     rangeEndMin = Math.min(30 * 60, rangeEndMin)
+    const scope = embed?.scope ?? (doc.periodScope ? scopeContaining(doc.periodScope, resolved.start) : scopeOfRange(resolved.start, resolved.end) ?? undefined)
+    const facts = dayData.map((day) => ({ date: day.date, entries: day.entries, habitDone: this.dayIndex.blocksForDate(day.date).flatMap((block) => block.habitDone) }))
     const model: PeriodViewModel = {
-      spec: period, browsing: Boolean(browsed), period: resolved, today,
+      spec: period, browsing: embed ? this.embedBrowse.has(embed.key) : Boolean(browsed), period: resolved, today,
+      scope, face: doc.periodFace ?? (scope ? "plan" : "actual"),
+      board: scope ? rhythmBoard(this.rhythms.items, scope, todos, facts, doc.rhythmSkips) : [],
+      embeddedView: embed?.view,
       goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView: doc.todoView, days,
       todoGroupOrder: doc.todoGroupOrder,
       statsWidgets: doc.periodStats,
@@ -2485,7 +2542,9 @@ export default class ModularDiaryPlugin extends Plugin {
       console.error("Modular Diary: period block write failed", error)
       if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("periodWriteFailed", { date }))
     }
-    const rewrite = (transform: (current: string) => string): Promise<void> => this.applyBlockTransform(el, ctx, source, transform)
+    const rewrite = (transform: (current: string) => string): Promise<void> => embed
+      ? this.periodFiles.write(embed.scope, transform).then(() => this.rerenderMountedTimelines())
+      : this.applyBlockTransform(el, ctx, source, transform)
     /** Remove the plan block bound to a period todo from the day it was planned on. */
     const unplan = async (id: string, except?: string): Promise<void> => {
       const planned = plannedAt.get(id)
@@ -2506,15 +2565,36 @@ export default class ModularDiaryPlugin extends Plugin {
       tagStyle: (tag) => this.tagStyle(tag),
       tagSuggest: this.tagSuggestDeps(),
       onShift: (direction) => {
+        if (embed) {
+          const next = shiftScope(embed.scope, direction)
+          this.embedBrowse.set(embed.key, next)
+          void this.periodFiles.ensure(next).then(() => this.periodFiles.prepare(next, this.rhythms.items)).then(() => this.rerenderMountedTimelines())
+          return
+        }
         const next = shiftPeriod(period, today, direction)
         if (formatPeriodSpec(next) === formatPeriodSpec(doc.period!)) this.periodBrowse.delete(browseKey)
         else this.periodBrowse.set(browseKey, next)
         this.rerenderMountedTimelines()
       },
       onToday: () => {
+        if (embed) { this.embedBrowse.delete(embed.key); this.rerenderMountedTimelines(); return }
         if (doc.period!.kind === "this-week") this.periodBrowse.delete(browseKey)
         else this.periodBrowse.set(browseKey, { spec: "this-week", kind: "this-week" })
         this.rerenderMountedTimelines()
+      },
+      onSetFace: (face) => void rewrite((current) => face === "plan" ? removeHeaderValue(current, "face") : setHeaderValue(current, "face", face)),
+      onSwitchView: embed?.onSwitchView,
+      onOpenRhythms: () => this.openHabitSettings(),
+      onRhythmMenu: (rhythmId, x, y) => {
+        const menu = new Menu()
+        const skipped = doc.rhythmSkips.includes(rhythmId)
+        menu.addItem((item) => item.setTitle(tr(skipped ? "unskipRhythm" : scope?.kind === "month" ? "skipRhythmMonth" : "skipRhythmWeek")).setIcon(skipped ? "undo-2" : "calendar-x-2").onClick(() => void rewrite((current) => {
+          const rest = parseTimeline(current).rhythmSkips.filter((value) => value !== rhythmId)
+          const next = skipped ? rest : [...rest, rhythmId]
+          return next.length ? setHeaderValue(current, "rhythm-skip", next.join(" ")) : removeHeaderValue(current, "rhythm-skip")
+        })))
+        menu.addItem((item) => item.setTitle(tr("openRhythms")).setIcon("pencil").onClick(() => this.openHabitSettings()))
+        menu.showAtPosition({ x, y }, el.ownerDocument)
       },
       onPin: () => void rewrite((current) => setHeaderValue(current, "days", formatPeriodSpec(period)))
         .then(() => { this.periodBrowse.delete(browseKey); this.rerenderMountedTimelines() }),
@@ -2524,11 +2604,13 @@ export default class ModularDiaryPlugin extends Plugin {
           await unplan(id)
           // Scheduling a parent all-day carries the subtree: planned children keep their own time slots.
           const ids = [id, ...indexTodoTree(doc.todos).descendantIds(id)]
+          // A band target is `date@zone`; the pool clears both.
+          const [day, zone] = to === POOL_ZONE ? [undefined, undefined] : to.split("@") as [string, "am" | "pm" | "ev" | undefined]
           await rewrite((current) => {
             let out = current
             for (const sub of ids) {
               if (sub !== id && plannedAt.has(sub)) continue
-              out = updateTodo(out, sub, { day: to === POOL_ZONE ? undefined : to })
+              out = updateTodo(out, sub, { day, zone: sub === id ? zone : undefined })
             }
             return out
           })
@@ -2546,7 +2628,7 @@ export default class ModularDiaryPlugin extends Plugin {
             return insertEntryLine(out, plan, startMin)
           })
           await unplan(id, date)
-          if (todo.day) await rewrite((current) => updateTodo(current, id, { day: undefined }))
+          if (todo.day || todo.zone) await rewrite((current) => updateTodo(current, id, { day: undefined, zone: undefined }))
         } catch (error) { fail(date, error) }
       })(),
       onAdd: (input) => void rewrite((current) => {
@@ -3420,6 +3502,8 @@ export default class ModularDiaryPlugin extends Plugin {
       dailyQuoteInk: typeof data?.dailyQuoteInk === "string" ? data.dailyQuoteInk : "",
       checklistFolder: typeof data?.checklistFolder === "string" ? data.checklistFolder : DEFAULT_SETTINGS.checklistFolder,
       upcomingFile: typeof data?.upcomingFile === "string" && data.upcomingFile.trim() ? data.upcomingFile.trim() : DEFAULT_SETTINGS.upcomingFile,
+      rhythmsFile: typeof data?.rhythmsFile === "string" && data.rhythmsFile.trim() ? data.rhythmsFile.trim() : DEFAULT_SETTINGS.rhythmsFile,
+      periodFolder: typeof data?.periodFolder === "string" && data.periodFolder.trim() ? data.periodFolder.trim().replace(/\/+$/, "") : DEFAULT_SETTINGS.periodFolder,
       todoReviewChecklist: typeof data?.todoReviewChecklist === "string" && data.todoReviewChecklist.trim() ? data.todoReviewChecklist : DEFAULT_TODO_REVIEW_CHECKLIST,
       pinnedSections: Array.isArray(data?.pinnedSections) ? [...new Set(data.pinnedSections.filter((value): value is string => typeof value === "string" && value.trim() !== ""))] : [],
       timelineOnboardingSeen: resolveTimelineOnboardingSeen(
@@ -3443,7 +3527,7 @@ export default class ModularDiaryPlugin extends Plugin {
   }
 
   private openHabitSettings(): void {
-    new HabitSettingsModal(this.app, this).open()
+    void this.rhythms.open().catch((error) => console.error("Modular Diary: failed to open the rhythms note", error))
   }
 
   async saveSettings(options: { rerender?: boolean } = {}): Promise<void> {

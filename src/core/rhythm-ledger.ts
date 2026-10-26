@@ -28,6 +28,7 @@ export interface PeriodDayFacts {
 
 export interface RhythmSlotView extends TodoItem {
   placement?: { date: string; startMin?: number }
+  actualMinutes: number
   /** Done by its box, or by a record of the category on its day. */
   done: boolean
 }
@@ -185,13 +186,14 @@ function recordedOn(day: PeriodDayFacts | undefined, rhythm: Rhythm): number {
 }
 
 /** The board: every rhythm due in the period with its slots and counts. */
-export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: Array<TodoItem & { placement?: { date: string; startMin?: number } }>, days: PeriodDayFacts[], skips: string[]): RhythmBoardRow[] {
+export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: Array<TodoItem & { placement?: { date: string; startMin?: number }; actualMinutes?: number }>, days: PeriodDayFacts[], skips: string[]): RhythmBoardRow[] {
   const byDate = new Map(days.map((day) => [day.date, day]))
   return rhythmsDueIn(rhythms, scope).map((rhythm) => {
     const skipped = skips.includes(rhythm.id)
     if (takesSlots(rhythm)) {
       const slots: RhythmSlotView[] = todos.filter((todo) => todo.rhythm === rhythm.id && !todo.moved).map((todo) => ({
         ...todo,
+        actualMinutes: todo.actualMinutes ?? 0,
         done: todo.completed || Boolean(todo.placement && recordedOn(byDate.get(todo.placement.date), rhythm) > 0),
       }))
       return {

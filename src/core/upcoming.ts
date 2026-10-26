@@ -17,23 +17,27 @@ export interface UpcomingItem {
   endMin?: number
   /** Category of a timed item (the first word after the time). */
   type?: string
+  /** Part of the day for an untimed item (`2026-11-06 下午 去某地`). */
+  zone?: "am" | "pm" | "ev"
   /** Note of a timed item, or the title of an untimed one. */
   text: string
   done: boolean
 }
 
-const LINE_RE = /^\s*- \[([ xX])\] (\d{4}-\d{2}-\d{2})(?:\s+(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2}))?\s*(.*)$/
+const LINE_RE = /^\s*- \[([ xX])\] (\d{4}-\d{2}-\d{2})(?:\s+(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2}))?(?:\s+(上午|下午|晚上))?\s*(.*)$/
+const ZONES: Record<string, "am" | "pm" | "ev"> = { 上午: "am", 下午: "pm", 晚上: "ev" }
+const ZONE_WORDS: Record<"am" | "pm" | "ev", string> = { am: "上午", pm: "下午", ev: "晚上" }
 
 export function parseUpcoming(content: string): UpcomingItem[] {
   const items: UpcomingItem[] = []
   content.split("\n").forEach((raw, line) => {
     const match = LINE_RE.exec(raw)
     if (!match) return
-    const [, box, date, h1, m1, h2, m2, rest] = match
+    const [, box, date, h1, m1, h2, m2, zoneWord, rest] = match
     const text = rest.trim()
     if (h1 === undefined) {
       if (!text) return
-      items.push({ line, date, text, done: box !== " " })
+      items.push({ line, date, text, done: box !== " ", ...(zoneWord ? { zone: ZONES[zoneWord] } : {}) })
       return
     }
     const startMin = Number(h1) * 60 + Number(m1)
@@ -52,7 +56,7 @@ function clock(minutes: number): string {
 }
 
 export function formatUpcomingLine(item: Omit<UpcomingItem, "line">): string {
-  const time = item.startMin !== undefined && item.endMin !== undefined ? ` ${clock(item.startMin)}-${clock(item.endMin)} ${item.type ?? ""}` : ""
+  const time = item.startMin !== undefined && item.endMin !== undefined ? ` ${clock(item.startMin)}-${clock(item.endMin)} ${item.type ?? ""}` : item.zone ? ` ${ZONE_WORDS[item.zone]}` : ""
   return `- [${item.done ? "x" : " "}] ${item.date}${time}${item.text ? ` ${item.text}` : ""}`.replace(/\s+$/, "")
 }
 

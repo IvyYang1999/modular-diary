@@ -65,6 +65,10 @@ export interface ModularDiarySettings {
   todoReviewChecklist: string
   /** Vault path of the future schedule note (see core/upcoming). */
   upcomingFile: string
+  /** Vault path of the rhythms note (see core/rhythms). */
+  rhythmsFile: string
+  /** Folder for the plugin-managed week / month notes (`周期/2026-W44.md`). */
+  periodFolder: string
   /** On the hour, ask in the status bar what the last hour went into. */
   hourlyNudge: boolean
   /** Hours the nudge may ask about: an hour starting at or after start, ending at or before end. */
@@ -106,6 +110,8 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   pinnedSections: [],
   todoReviewChecklist: DEFAULT_TODO_REVIEW_CHECKLIST,
   upcomingFile: "Upcoming.md",
+  rhythmsFile: "节律.md",
+  periodFolder: "周期",
   hourlyNudge: true,
   nudgeStartHour: 9,
   nudgeEndHour: 24,
@@ -278,9 +284,9 @@ export class ModularDiarySettingTab extends PluginSettingTab {
 
     const habitSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     habitSection.dataset.settingsSection = "habits"
-    habitSection.createEl("h3", { text: tr("habitsHeading") })
-    habitSection.createEl("p", { text: tr("habitsDescription"), cls: "setting-item-description" })
-    renderHabitSettings(habitSection.createDiv({ cls: "modular-diary-settings-section-editor" }), this.plugin)
+    habitSection.createEl("h3", { text: tr("rhythmsHeading") })
+    habitSection.createEl("p", { text: tr("rhythmsDescription"), cls: "setting-item-description" })
+    this.plugin.rhythms.renderSettings(habitSection.createDiv({ cls: "modular-diary-settings-section-editor" }))
 
     const weeklyTodoSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     weeklyTodoSection.dataset.settingsSection = "todo-rules"
@@ -298,48 +304,6 @@ export class ModularDiarySettingTab extends PluginSettingTab {
             await this.plugin.saveSettings({ rerender: true })
           })
       })
-    const weeklyTodosEl = weeklyTodoSection.createDiv({ cls: "modular-diary-rules-settings modular-diary-settings-section-editor" })
-    const renderWeeklyTodos = (): void => {
-      weeklyTodosEl.empty()
-      const categories = Object.keys(this.plugin.settings.spanTypeColors)
-      for (const todo of [...this.plugin.settings.weeklyTodos].sort((a, b) => a.order - b.order)) {
-        const row = new Setting(weeklyTodosEl).setClass("modular-diary-rule-setting")
-        row.addText((control) => control.setValue(todo.title).setPlaceholder(tr("todoTitle")).onChange(async (value) => {
-          todo.title = value.trim(); await this.plugin.saveSettings({ rerender: true })
-        }))
-        row.addDropdown((control) => {
-          control.addOption("", tr("noCategory")); categories.forEach((category) => control.addOption(category, category))
-          control.setValue(todo.type ?? "").onChange(async (value) => {
-            todo.type = value || undefined; await this.plugin.saveSettings({ rerender: true })
-          })
-        })
-        row.addText((control) => {
-          control.inputEl.type = "number"; control.inputEl.min = "5"; control.inputEl.step = "5"
-          control.setValue(String(todo.targetMinutes)).setPlaceholder(tr("targetMinutes")).onChange(async (value) => {
-            todo.targetMinutes = Math.max(5, Number(value) || 5); await this.plugin.saveSettings({ rerender: true })
-          })
-        })
-        row.addExtraButton((button) => button.setIcon("trash").setTooltip(tr("delete")).onClick(async () => {
-          this.plugin.settings.weeklyTodos = this.plugin.settings.weeklyTodos.filter((item) => item.id !== todo.id)
-          await this.plugin.saveSettings({ rerender: true }); renderWeeklyTodos()
-        }))
-      }
-      const add = weeklyTodosEl.createEl("button", {
-        cls: "modular-diary-settings-add-rule",
-        attr: { type: "button", "aria-label": tr("addWeeklyTodo") },
-      })
-      setIcon(add, "plus")
-      add.createEl("span", { text: tr("addWeeklyTodo") })
-      add.addEventListener("click", async () => {
-        this.plugin.settings.weeklyTodos.push({
-          id: newId("weekly"), title: tr("addWeeklyTodo"), group: "", targetMinutes: 120,
-          order: this.plugin.settings.weeklyTodos.length,
-        })
-        await this.plugin.saveSettings({ rerender: true })
-        renderWeeklyTodos()
-      })
-    }
-    renderWeeklyTodos()
     new Setting(weeklyTodoSection).setName(tr("upcomingFile")).setDesc(tr("upcomingFileHint"))
       .addText((control) => {
         control.setPlaceholder("Upcoming.md").setValue(this.plugin.settings.upcomingFile)

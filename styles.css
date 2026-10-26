@@ -5803,3 +5803,107 @@ textarea.modular-diary-template-source {
 .modular-diary-upcoming-error { margin: 0; color: var(--text-error); font-size: var(--font-ui-smaller); }
 .modular-diary-upcoming-error:empty { display: none; }
 .modular-diary-upcoming-form button.mod-cta { justify-self: end; }
+
+/* ── Rhythms / week & month plan views (2026-10-26) ── */
+.modular-diary-seg { display: inline-flex; flex: none; margin-right: 6px; border: 1px solid var(--background-modifier-border); border-radius: 6px; overflow: hidden; }
+.modular-diary-container .modular-diary-seg > button {
+  height: 22px; min-width: 0; padding: 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  color: var(--text-muted); font-size: var(--modular-diary-font-caption); line-height: 22px;
+}
+.modular-diary-container .modular-diary-seg > button + button { border-left: 1px solid var(--background-modifier-border); }
+.modular-diary-container .modular-diary-seg > button:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.modular-diary-container .modular-diary-seg > button[aria-pressed="true"] { background: var(--interactive-accent); color: var(--text-on-accent); font-weight: 500; }
+.modular-diary-container .modular-diary-seg.is-soft > button[aria-pressed="true"] { background: var(--background-modifier-hover); color: var(--text-normal); }
+.modular-diary-view-bar { display: flex; justify-content: flex-end; padding: 4px 44px 2px 8px; }
+.modular-diary-period-stub { padding: 24px; color: var(--text-faint); font-size: var(--modular-diary-font-caption); }
+.modular-diary-rhythm-list { display: grid; gap: 2px; margin: 8px 0; }
+.modular-diary-rhythm-row { display: grid; grid-template-columns: 5em minmax(0, 1fr) auto; gap: 10px; font-size: var(--font-ui-small); }
+.modular-diary-rhythm-cadence { color: var(--text-muted); }
+.modular-diary-rhythm-meta { color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.modular-diary-rhythm-hint { margin: 8px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--background-secondary); color: var(--text-muted); font-size: var(--font-ui-smaller); white-space: pre-wrap; }
+
+/* rail: protocol board */
+.modular-diary-plan-board-label { margin: 6px 0 0; color: var(--text-faint); font-size: var(--modular-diary-font-micro); letter-spacing: .02em; }
+.modular-diary-plan-row { position: relative; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 26px; padding: 0 4px; border-radius: var(--modular-diary-radius-control); font-size: var(--modular-diary-font-body); }
+.modular-diary-plan-row.modular-diary-period-draggable { cursor: grab; }
+.modular-diary-plan-row:hover { background: var(--background-modifier-hover); }
+.modular-diary-plan-dot { --c: var(--text-faint); width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.modular-diary-plan-row.is-unplaced .modular-diary-plan-dot { background: transparent; box-shadow: inset 0 0 0 2px var(--c); }
+.modular-diary-plan-row.is-owed .modular-diary-plan-dot { background: var(--color-red, #e5484d); }
+.modular-diary-plan-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modular-diary-plan-meta { color: var(--text-muted); font-size: var(--modular-diary-font-caption); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.modular-diary-plan-meta.is-where { color: var(--text-accent); }
+.modular-diary-plan-meta.is-owed { color: var(--color-red, #e5484d); }
+.modular-diary-plan-row.is-done .modular-diary-plan-name, .modular-diary-plan-row.is-skipped .modular-diary-plan-name { color: var(--text-faint); text-decoration: line-through; }
+.modular-diary-plan-row.is-skipped .modular-diary-plan-name { text-decoration: none; }
+.modular-diary-plan-row.is-measured, .modular-diary-plan-row.is-done.modular-diary-plan-row:has(.modular-diary-plan-bar) { grid-template-rows: auto 4px; row-gap: 2px; padding-bottom: 4px; }
+.modular-diary-plan-bar { grid-column: 2 / 4; height: 3px; border-radius: 2px; background: var(--background-modifier-border); overflow: hidden; }
+.modular-diary-plan-bar-fill { height: 100%; border-radius: 2px; background: var(--interactive-accent); }
+.modular-diary-plan-board.is-over { border-radius: var(--modular-diary-radius-group); outline: 1.5px solid var(--interactive-accent); outline-offset: 5px; }
+
+/* main: plan week */
+.modular-diary-period.is-plan .modular-diary-period-main { overflow: auto; }
+.modular-diary-plan-week { display: grid; grid-template-columns: repeat(var(--modular-diary-period-days, 7), minmax(0, 1fr)); grid-template-rows: auto minmax(300px, 1fr); gap: 6px; box-sizing: border-box; min-height: 100%; padding: 8px 10px 12px; }
+.modular-diary-plan-week > .modular-diary-period-head { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px 0 4px; cursor: pointer; }
+.modular-diary-plan-cell { position: relative; display: flex; flex-direction: column; min-height: 300px; border: 1px solid var(--background-modifier-border); border-radius: 8px; overflow: hidden; background: var(--background-primary); }
+.modular-diary-plan-cell.is-today { border-color: var(--interactive-accent); }
+.modular-diary-plan-cell.is-past { opacity: .75; }
+.modular-diary-plan-strip { display: flex; flex-direction: column; gap: 4px; padding: 6px 6px 4px; min-height: 12px; }
+.modular-diary-plan-strip:empty { padding: 3px; }
+.modular-diary-plan-band { position: relative; flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 18px 6px 6px; border-top: 1px dashed var(--background-modifier-border); min-height: 54px; }
+.modular-diary-plan-band.is-pm { flex: 1.2; }
+.modular-diary-plan-band-label { position: absolute; right: 6px; top: 3px; font-size: var(--modular-diary-font-micro); color: var(--text-faint); pointer-events: none; }
+.modular-diary-plan-strip.is-over, .modular-diary-plan-band.is-over, .modular-diary-plan-month-cell.is-over { background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-primary)); }
+
+/* pills (A: tint + related text, no bar) */
+.modular-diary-plan-pill {
+  --pc: var(--text-muted);
+  display: flex; align-items: center; gap: 5px; min-width: 0;
+  padding: 3px 8px; border-radius: 6px;
+  background: color-mix(in srgb, var(--pc) 14%, var(--background-primary));
+  color: color-mix(in srgb, var(--pc) 72%, var(--text-normal));
+  font-size: var(--modular-diary-font-caption); font-weight: 500; line-height: 1.3;
+  user-select: none; touch-action: none;
+}
+.modular-diary-plan-pill:has(+ *) { }
+.modular-diary-plan-pill.is-todo { --pc: var(--text-muted); }
+.modular-diary-plan-pill.is-todo:not([style*="--pc"]) { background: var(--background-secondary); color: var(--text-normal); font-weight: 400; }
+.modular-diary-plan-pill.is-upcoming { background: transparent; outline: 1px dashed color-mix(in srgb, var(--pc) 60%, var(--background-modifier-border)); outline-offset: -1px; }
+.modular-diary-plan-pill.is-due { background: transparent; color: var(--color-red, #e5484d); font-weight: 400; padding-left: 2px; }
+.modular-diary-plan-pill.is-owed { outline: 1.5px solid var(--color-red, #e5484d); outline-offset: -1.5px; }
+.modular-diary-plan-pill.is-done { background: transparent; color: var(--text-faint); font-weight: 400; }
+.modular-diary-plan-pill.is-done .modular-diary-plan-pill-text { text-decoration: line-through; }
+.modular-diary-plan-pill-check { display: inline-grid; place-items: center; }
+.modular-diary-plan-pill-check svg { width: 11px; height: 11px; }
+.modular-diary-plan-pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modular-diary-plan-pill-time { margin-left: auto; flex: none; font-size: var(--modular-diary-font-micro); font-weight: 400; opacity: .75; font-variant-numeric: tabular-nums; }
+.modular-diary-plan-pill[tabindex] { cursor: grab; }
+.modular-diary-plan-pill:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 1px; }
+.modular-diary-plan-pill.is-drag-source { opacity: .35; }
+
+/* main: month grids */
+.modular-diary-plan-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 8px 10px 12px; }
+.modular-diary-plan-month-head { text-align: center; padding: 2px 0 4px; color: var(--text-muted); font-size: var(--modular-diary-font-caption); }
+.modular-diary-plan-month-cell { position: relative; display: flex; flex-direction: column; gap: 2px; min-height: 92px; padding: 22px 5px 5px; border: 1px solid var(--background-modifier-border); border-radius: 7px; background: var(--background-primary); }
+.modular-diary-plan-month-cell.is-outside { border-color: transparent; background: transparent; }
+.modular-diary-plan-month-cell.is-today { border-color: var(--interactive-accent); }
+.modular-diary-plan-month-cell.is-past { opacity: .75; }
+.modular-diary-container .modular-diary-plan-month-cell button.modular-diary-plan-month-day {
+  position: absolute; right: 4px; top: 4px; width: 18px; height: 18px; min-width: 0; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; box-shadow: none; color: var(--text-muted); font-size: var(--modular-diary-font-caption); line-height: 18px; text-align: center;
+}
+.modular-diary-container .modular-diary-plan-month-cell.is-today button.modular-diary-plan-month-day { background: var(--interactive-accent); color: var(--text-on-accent); font-weight: 600; }
+.modular-diary-container .modular-diary-plan-month-cell button.modular-diary-plan-month-day:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.modular-diary-plan-month-cell .modular-diary-plan-pill { padding: 1px 6px; font-size: var(--modular-diary-font-micro); }
+.modular-diary-plan-more { color: var(--text-faint); font-size: var(--modular-diary-font-micro); padding-left: 4px; }
+.modular-diary-plan-month-cell.is-actual { padding: 6px 7px 7px; justify-content: flex-end; }
+.modular-diary-plan-hours { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.modular-diary-plan-hours small { margin-left: 2px; color: var(--text-muted); font-weight: 400; font-size: var(--modular-diary-font-micro); }
+.modular-diary-plan-stack { display: flex; height: 10px; margin-top: 4px; border-radius: 5px; overflow: hidden; background: var(--background-modifier-border); }
+.modular-diary-plan-stack > div { height: 100%; }
+.modular-diary-plan-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0 12px 10px; color: var(--text-muted); font-size: var(--modular-diary-font-caption); }
+.modular-diary-plan-legend > span::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 2px; background: var(--c); vertical-align: -1px; }
+
+.modular-diary-period-days-row.is-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.modular-diary-period-days-row.is-month .modular-diary-period-day-dot { height: 20px; }
+.modular-diary-period-day-dot.is-blank { background: transparent; }
