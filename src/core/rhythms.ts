@@ -17,7 +17,7 @@ import type { WeeklyTodoDefinition } from "./todos"
 export type RhythmCadence = "daily" | "weekdays" | "weekly" | "biweekly" | "monthly"
 export type RhythmZone = "am" | "pm" | "ev"
 /** A duration remembers the unit it was written in, so "60分钟" never reopens as "1小时". */
-export type RhythmQuota = { kind: "count"; count: number } | { kind: "duration"; minutes: number; unit?: "minutes" | "hours" }
+export type RhythmQuota = { kind: "count"; count: number } | { kind: "duration"; minutes: number; unit?: "minutes" | "hours"; /** An upper bound (每天 1小时以下): done when the day stays under it. */ limit?: boolean }
 export type RhythmSpan = { kind: "slot" } | { kind: "allDay" } | { kind: "days"; min: number; max: number }
 
 export interface Rhythm {
@@ -78,10 +78,10 @@ export function parseRhythmLine(text: string, line = 0): Rhythm | null {
       if (start !== null && end !== null && end > start) { rhythm.startMin = start; rhythm.endMin = end }
     } else if (!quotaSeen && (match = /^(\d+)次$/.exec(token))) {
       rhythm.quota = { kind: "count", count: Math.max(1, Number(match[1])) }; quotaSeen = true
-    } else if (!quotaSeen && (match = /^(\d+(?:\.\d+)?)(小时|h)$/i.exec(token))) {
-      rhythm.quota = { kind: "duration", minutes: Math.round(Number(match[1]) * 60), unit: "hours" }; quotaSeen = true
-    } else if (!quotaSeen && (match = /^(\d+)(分钟|分|m|min)$/i.exec(token))) {
-      rhythm.quota = { kind: "duration", minutes: Number(match[1]), unit: "minutes" }; quotaSeen = true
+    } else if (!quotaSeen && (match = /^(?:少于|不超过)?(\d+(?:\.\d+)?)(小时|h)(以下|以内)?$/i.exec(token))) {
+      rhythm.quota = { kind: "duration", minutes: Math.round(Number(match[1]) * 60), unit: "hours", ...(match[3] || /^(少于|不超过)/.test(token) ? { limit: true } : {}) }; quotaSeen = true
+    } else if (!quotaSeen && (match = /^(?:少于|不超过)?(\d+)(分钟|分|m|min)(以下|以内)?$/i.exec(token))) {
+      rhythm.quota = { kind: "duration", minutes: Number(match[1]), unit: "minutes", ...(match[3] || /^(少于|不超过)/.test(token) ? { limit: true } : {}) }; quotaSeen = true
     } else if (token.startsWith("@") && token.length > 1) {
       rhythm.type = token.slice(1)
     } else if (token.startsWith("#") && token.length > 1) {
@@ -151,7 +151,7 @@ export function formatRhythmLine(rhythm: Omit<Rhythm, "id" | "line">): string {
   if (rhythm.startMin !== undefined && rhythm.endMin !== undefined) parts.push(`${clock(rhythm.startMin)}-${clock(rhythm.endMin)}`)
   if (rhythm.quota.kind === "duration") {
     const hours = rhythm.quota.unit === "hours" || (rhythm.quota.unit === undefined && rhythm.quota.minutes % 60 === 0)
-    parts.push(hours ? `${+(rhythm.quota.minutes / 60).toFixed(2)}小时` : `${rhythm.quota.minutes}分钟`)
+    parts.push(`${hours ? `${+(rhythm.quota.minutes / 60).toFixed(2)}小时` : `${rhythm.quota.minutes}分钟`}${rhythm.quota.limit ? "以下" : ""}`)
   }
   else if (rhythm.quota.count !== 1) parts.push(`${rhythm.quota.count}次`)
   parts.push(rhythm.name)
@@ -203,7 +203,7 @@ export function rhythmToHabit(rhythm: Rhythm, order: number): HabitDefinition | 
         ? { kind: "weekly", weekdays: [rhythm.weekday] }
         : { kind: "daily" }
   if (rhythm.quota.kind === "duration") {
-    return { ...base, schedule, targetMinutes: rhythm.quota.minutes, targetPeriod: weekly ? "week" : "day", targetMetric: "duration" }
+    return { ...base, schedule, targetMinutes: rhythm.quota.minutes, targetPeriod: weekly ? "week" : "day", targetMetric: "duration", ...(rhythm.quota.limit && !weekly ? { durationComparison: "below" as const } : {}) }
   }
   return weekly
     ? { ...base, schedule, targetMinutes: 0, targetPeriod: "week", targetMetric: "count", targetCount: rhythm.quota.count }

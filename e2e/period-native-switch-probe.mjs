@@ -59,7 +59,7 @@ try{
  const until=async(fn,ms=8000)=>{const t=Date.now();while(Date.now()-t<ms){if(await page.evaluate(fn))return Date.now()-t;await new Promise(r=>setTimeout(r,100))}return -1}
  const results=[]
  const check=(name,v)=>{results.push([name,v]);console.log('STEP',name,v)}
- const viewBtn=(i)=>page.locator('.modular-diary-view-bar button, .modular-diary-period-toolbar .modular-diary-seg:not(.is-soft) button').nth(i)
+ const viewBtn=(i)=>page.locator('.modular-diary-view-bar .modular-diary-seg button, .modular-diary-period-toolbar .modular-diary-seg:not(.is-soft) button').nth(i)
  const addTodo=async(text)=>{await page.locator('.modular-diary-period-todos .modular-diary-component-actions button').last().click();await page.locator('.modular-diary-period-todos .modular-diary-todo-title-input').first().fill(text);await page.locator('.modular-diary-period-todos .modular-diary-todo-title-input').first().press('Enter')}
  await viewBtn(1).click()
  check('day→week ms', await until(()=>!!document.querySelector('.modular-diary-period.is-plan')))

@@ -83,22 +83,29 @@ function attachPillPreview(el: HTMLElement, lines: string[]): void {
   let pop: HTMLElement | null = null
   let timer = 0
   const dom = el.ownerDocument
-  const hide = (): void => { if (timer) { dom.defaultView?.clearTimeout(timer); timer = 0 } pop?.remove(); pop = null }
+  const hide = (): void => { if (timer) { dom.defaultView?.clearTimeout(timer); timer = 0 } pop?.remove(); pop = null; dom.removeEventListener("pointerdown", hide, true) }
   const show = (): void => {
     hide()
-    pop = dom.body.createDiv({ cls: "modular-diary-plan-pop" })
-    lines.forEach((line, index) => pop!.createDiv({ cls: index === 0 ? "modular-diary-plan-pop-title" : "modular-diary-plan-pop-line", text: line }))
+    // The pill may have been redrawn away while the timer ran: nothing to point at.
+    if (!el.isConnected) return
     const rect = el.getBoundingClientRect()
+    if (!rect.width) return
+    pop = dom.body.createDiv({ cls: "modular-diary-plan-pop" })
+    dom.addEventListener("pointerdown", hide, true)
+    lines.forEach((line, index) => pop!.createDiv({ cls: index === 0 ? "modular-diary-plan-pop-title" : "modular-diary-plan-pop-line", text: line }))
     const width = Math.min(280, (dom.defaultView?.innerWidth ?? 800) - 16)
     pop.style.left = `${Math.max(8, Math.min(rect.left, (dom.defaultView?.innerWidth ?? 800) - width - 8))}px`
     pop.style.top = `${rect.bottom + 6}px`
     pop.style.maxWidth = `${width}px`
   }
-  el.addEventListener("mouseenter", () => { timer = dom.defaultView?.setTimeout(show, 260) ?? 0 })
+  el.addEventListener("mouseenter", () => { hide(); timer = dom.defaultView?.setTimeout(show, 260) ?? 0 })
   el.addEventListener("mouseleave", hide)
   el.addEventListener("pointerdown", hide)
-  el.addEventListener("focus", show)
-  el.addEventListener("blur", hide)
+}
+
+/** Cards from a previous draw have no pill to follow any more. */
+export function clearPillPreviews(dom: Document): void {
+  dom.querySelectorAll(".modular-diary-plan-pop").forEach((node) => node.remove())
 }
 
 function renderPill(host: HTMLElement, root: HTMLElement, pill: Pill, model: PeriodViewModel, deps: PeriodViewDeps, menuFor?: (el: HTMLElement, id: string) => void): HTMLElement {
@@ -250,6 +257,12 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
       } else {
         meta.textContent = t(row.unit === "times" ? "timesDone" : "daysDone", { done: String(row.done), total: String(row.due) })
         fill.style.width = `${row.due ? Math.min(100, (row.done / row.due) * 100) : 0}%`
+        // How a day earns its tick, so the bar is not a riddle.
+        const rule = rhythm.quota.kind === "duration"
+          ? (row.limit ? t("boardRuleLimit", { type: rhythm.type ?? "", hours: formatHours(rhythm.quota.minutes) }) : t("boardRuleAtLeast", { type: rhythm.type ?? "", hours: formatHours(rhythm.quota.minutes) }))
+          : rhythm.type ? t("boardRuleAny", { type: rhythm.type }) : t("boardRuleManual")
+        el.title = rule
+        meta.title = rule
       }
       reorderOnly(el, rhythm)
     })
@@ -387,13 +400,8 @@ export function renderActualMonth(main: HTMLElement, model: PeriodViewModel, dep
       part.style.height = `${((end - start) / span) * 100}%`
       part.style.background = deps.typeColors[entry.type] ?? "var(--text-faint)"
     }
-    // The total beside the strip; the breakdown is one hover away.
-    const hours = body.createDiv({ cls: "modular-diary-plan-hours" })
-    hours.createEl("b", { text: formatTotal(total).replace(/h$/, "") })
-    hours.createEl("small", { text: "h" })
-    const breakdown = [...minutes.entries()].sort((a, b) => b[1] - a[1]).map(([type, value]) => `${type} ${formatHours(value)}`).join("\n")
-    bar.title = breakdown
-    hours.title = breakdown
+    // Just the strip: the day's shape. The hours per category are one hover away.
+    bar.title = `${formatTotal(total)}\n${[...minutes.entries()].sort((a, b) => b[1] - a[1]).map(([type, value]) => `${type} ${formatHours(value)}`).join("\n")}`
     void order
   }
   const trailing = (7 - ((lead + model.days.length) % 7)) % 7

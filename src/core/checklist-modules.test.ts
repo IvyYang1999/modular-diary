@@ -79,3 +79,16 @@ describe("checklist reorder and indent", async () => {
     expect(indentChecklistItem(module, "item3", -1)).toBe(module)
   })
 })
+
+describe("checklist headings", async () => {
+  const { moveChecklistItem, appendChecklistHeading, indentChecklistItem } = await import("./checklist-modules")
+  const module = { id: "checklist1", title: "t", items: [
+    { id: "item1", text: "早", checked: false, kind: "heading" as const }, { id: "item2", text: "a", checked: false },
+    { id: "item3", text: "晚", checked: false, kind: "heading" as const }, { id: "item4", text: "b", checked: false },
+  ] }
+  it("moves a heading with the items under it, never indents it, and appends new ones", () => {
+    expect(moveChecklistItem(module, "item3", "item1").items.map((i) => i.id)).toEqual(["item3", "item4", "item1", "item2"])
+    expect(indentChecklistItem(module, "item3", 1)).toBe(module)
+    expect(appendChecklistHeading(module, "item5", "午").items.at(-1)).toMatchObject({ id: "item5", kind: "heading" })
+  })
+})

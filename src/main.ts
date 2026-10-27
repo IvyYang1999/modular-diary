@@ -75,7 +75,7 @@ import { habitProgress, isHabitDue, moveHabitInVisibleOrder, normalizeHabitDefin
 import { extractDatedTimelineEntries, filterWeekEntries, type DatedTimelineEntries } from "./core/weekly-ledger"
 import { appendPostponedTodo, dailyNotesTodoPath, nextTodoDate, removePostponedTodo, transferPostponedTodo } from "./edit/todo-postpone"
 import { addDailyChecklists, chooseChecklistForEditor, chooseChecklistTemplate, watchNewDailyNotes } from "./checklists"
-import { isChecklistSlot, type ChecklistModule } from "./core/checklist-modules"
+import { appendChecklistHeading, isChecklistSlot, nextChecklistItemId, type ChecklistModule } from "./core/checklist-modules"
 import type { ChecklistTemplate } from "./core/checklists"
 import { addChecklistModule, updateChecklistModule } from "./edit/checklist-source"
 import { renderChecklistInto, type ChecklistDraft } from "./render/checklist-view"
@@ -663,11 +663,11 @@ export default class ModularDiaryPlugin extends Plugin {
         if (periodSource === null) {
           const stub = el.createDiv({ cls: "modular-diary-container modular-diary-period-stub" })
           stub.createEl("span", { text: tr("periodLoading") })
-          void this.periodFiles.ensure(scope).then(() => this.periodFiles.prepare(scope, this.rhythms.items)).then(() => this.rerenderMountedTimelines())
+          void this.periodFiles.ensure(scope).then(() => this.periodFiles.prepare(scope, this.rhythms.items, inferDate(null))).then(() => this.rerenderMountedTimelines())
             .catch((error) => console.error("Modular Diary: failed to open the period note", error))
           return
         }
-        void this.periodFiles.prepare(scope, this.rhythms.items).catch((error) => console.error("Modular Diary: failed to prepare the period", error))
+        void this.periodFiles.prepare(scope, this.rhythms.items, inferDate(null)).catch((error) => console.error("Modular Diary: failed to prepare the period", error))
         this.renderPeriodBlock(periodSource, el, ctx, this.parse(periodSource), { scope, key: embedKey, view: doc.dayView, onSwitchView: switchView })
         return
       }
@@ -1170,13 +1170,7 @@ export default class ModularDiaryPlugin extends Plugin {
         // 顶栏：日期+星期（跨期统计锚点）在左，记录/计划开关在右
         const topbar = dom.createElement("div")
         topbar.className = "modular-diary-timeline-topbar" // 宽度跟随元素块（槽位），非时间轴矩形
-        if (dateStr) {
-          const wd = weekdayLabel(dateStr)
-          const dateEl = buildTimelineDateControl(container, dateStr, wd, (date) => {
-            void this.applyBlockTransform(el, ctx, source, (value) => setHeaderValue(value, "date", date))
-          })
-          topbar.appendChild(dateEl)
-        }
+        // The date moved to the block's top bar (日 / 周 / 月 row); the timeline keeps only the layer toggles.
         topbar.appendChild(buildLayerToggles(this.layerView, (view) => {
           this.layerView = view
           this.applyViewClass(container, view)
@@ -1209,6 +1203,8 @@ export default class ModularDiaryPlugin extends Plugin {
               .then(({ name }) => new Notice(tr("checklistTemplateSaved", { name })))
               .catch((error: unknown) => new Notice(error instanceof Error && error.message === "checklist-needs-title" ? tr("checklistTemplateNeedsTitle") : tr("saveFailed")))
             const menu = new Menu()
+            menu.addItem((item) => item.setTitle(tr("checklistAddHeading")).setIcon("heading").onClick(() => void this.saveChecklistModule(el, ctx, source, checklist.id, (current) => appendChecklistHeading(current, nextChecklistItemId(current), tr("checklistHeadingDefault")))
+              .catch((error: unknown) => { console.error("Modular Diary: failed to add a checklist heading", error); new Notice(tr("saveFailed")) })))
             menu.addItem((item) => item.setTitle(existing ? tr("checklistUpdateTemplate", { name: existing.basename }) : tr("checklistSaveTemplate")).setIcon("save").onClick(() => save()))
             if (current) menu.addItem((item) => item.setTitle(tr("checklistTemplateDaily")).setIcon("calendar-check").setChecked(current.daily).onClick(() => save(!current.daily)))
             menu.showAtPosition({ x, y }, dom)
@@ -2074,9 +2070,15 @@ export default class ModularDiaryPlugin extends Plugin {
         const go = (date: string): void => void this.openDay(date).catch((error) => console.error("Modular Diary: failed to open the day", error))
         iconButton(switchBar, "chevron-left", tr("dayBack")).addEventListener("click", () => go(shiftDate(dateStr, -1)))
         iconButton(switchBar, "chevron-right", tr("dayForward")).addEventListener("click", () => go(shiftDate(dateStr, 1)))
-        const title = switchBar.createEl("span", { cls: "modular-diary-period-title" })
-        title.createEl("span", { cls: "modular-diary-period-title-week", text: weekday(dateStr) })
-        title.createEl("span", { text: dateStr.replace(/-/g, ".") })
+        // The date itself opens the calendar, as before on the timeline; picking a day rewrites `date:`.
+        const dateControl = buildTimelineDateControl(container, dateStr, weekday(dateStr), (date) => {
+          void this.applyBlockTransform(el, ctx, source, (value) => setHeaderValue(value, "date", date))
+        })
+        dateControl.classList.add("modular-diary-view-bar-date")
+        dateControl.replaceChildren()
+        dateControl.createEl("span", { cls: "modular-diary-period-title-week", text: weekday(dateStr) })
+        dateControl.createEl("span", { text: dateStr.replace(/-/g, ".") })
+        switchBar.appendChild(dateControl)
         const today = inferDate(null)
         if (dateStr !== today) switchBar.createEl("button", { cls: "modular-diary-period-text-button", text: tr("today"), attr: { type: "button" } }).addEventListener("click", () => go(today))
         container.prepend(switchBar)
@@ -2631,7 +2633,7 @@ export default class ModularDiaryPlugin extends Plugin {
         if (embed) {
           const next = shiftScope(embed.scope, direction)
           this.embedBrowse.set(embed.key, next)
-          void this.periodFiles.ensure(next).then(() => this.periodFiles.prepare(next, this.rhythms.items)).then(() => this.rerenderMountedTimelines())
+          void this.periodFiles.ensure(next).then(() => this.periodFiles.prepare(next, this.rhythms.items, inferDate(null))).then(() => this.rerenderMountedTimelines())
           return
         }
         const next = shiftPeriod(period, today, direction)

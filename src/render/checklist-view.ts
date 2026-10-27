@@ -1,6 +1,7 @@
 import { setIcon } from "obsidian"
 import { appendChecklistItem, indentChecklistItem, moveChecklistItem, nextChecklistItemId, type ChecklistModule } from "../core/checklist-modules"
 import { t } from "../i18n"
+import { setPointerInteractionActive } from "../edit/pointer-interaction"
 
 /** `edit.id === null` edits the title; `adding` keeps the add row open across redraws. */
 export interface ChecklistDraft { add: string; adding?: boolean; edit?: { id: string | null; text: string } }
@@ -25,7 +26,8 @@ export function renderChecklistInto(slot: HTMLElement, module: ChecklistModule, 
   let replaced = false
   const remember = (): void => deps.onDraft({ ...draft, edit: draft.edit && { ...draft.edit } })
   const title = module.title || t("checklistDefaultName")
-  const done = module.items.filter((i) => i.checked).length
+  const boxes = module.items.filter((i) => i.kind !== "heading")
+  const done = boxes.filter((i) => i.checked).length
 
   const run = async (change: (c: ChecklistModule) => ChecklistModule, after?: () => void): Promise<void> => {
     if (busy) return
@@ -106,8 +108,12 @@ export function renderChecklistInto(slot: HTMLElement, module: ChecklistModule, 
   const attachRowDrag = (grip: HTMLElement, row: HTMLElement, id: string): void => {
     grip.addEventListener("pointerdown", (event) => {
       if (event.button !== 0 || busy) return
+      // Ours alone: the slot's own "move this component" drag must not start underneath.
       event.preventDefault()
+      event.stopPropagation()
       const dom = root.ownerDocument
+      const owner = root.closest<HTMLElement>(".modular-diary-container")
+      if (owner) setPointerInteractionActive(owner, true)
       let target: { id: string | null; row: HTMLElement; before: boolean } | null = null
       let started = false
       const clear = (): void => { target?.row.classList.remove("is-drop-before", "is-drop-after"); target = null }
@@ -126,6 +132,7 @@ export function renderChecklistInto(slot: HTMLElement, module: ChecklistModule, 
         grip.removeEventListener("pointerup", up)
         grip.removeEventListener("pointercancel", up)
         row.classList.remove("is-drag-source")
+        if (owner) setPointerInteractionActive(owner, false)
         const dropped = target
         clear()
         if (!dropped || !dropped.id) return
@@ -150,7 +157,7 @@ export function renderChecklistInto(slot: HTMLElement, module: ChecklistModule, 
     const titleButton = header.createEl("button", { cls: "modular-diary-component-title modular-diary-checklist-title", text: title, attr: { type: "button", title: t("checklistRenameHint") } })
     titleButton.addEventListener("click", () => startEdit(null, title))
   }
-  if (module.items.length) header.createEl("span", { cls: `modular-diary-component-count${done === module.items.length ? " is-complete" : ""}`, text: `${done}/${module.items.length}` })
+  if (boxes.length) header.createEl("span", { cls: `modular-diary-component-count${done === boxes.length ? " is-complete" : ""}`, text: `${done}/${boxes.length}` })
   if (deps.onMenu) {
     const actions = header.createDiv({ cls: "modular-diary-component-actions" })
     const more = actions.createEl("button", { cls: "modular-diary-checklist-more", attr: { type: "button", "aria-label": t("checklistActions"), title: t("checklistActions"), "aria-haspopup": "menu" } })
@@ -165,12 +172,30 @@ export function renderChecklistInto(slot: HTMLElement, module: ChecklistModule, 
 
   const list = root.createDiv({ cls: "modular-diary-checklist-items" })
   for (const item of module.items) {
-    const row = list.createDiv({ cls: `modular-diary-checklist-row${item.checked ? " is-checked" : ""}` })
+    const heading = item.kind === "heading"
+    const row = list.createDiv({ cls: `modular-diary-checklist-row${item.checked ? " is-checked" : ""}${heading ? " is-heading" : ""}` })
     row.dataset.itemId = item.id
-    row.style.paddingInlineStart = `${Math.min(8, (item.indent?.length ?? 0) / 2) * 18}px`
+    row.style.paddingInlineStart = heading ? "0" : `${Math.min(8, (item.indent?.length ?? 0) / 2) * 18}px`
     const grip = row.createEl("button", { cls: "modular-diary-checklist-grip", attr: { type: "button", "aria-label": t("checklistReorder"), title: t("checklistReorder") } })
     setIcon(grip, "grip-vertical")
     attachRowDrag(grip, row, item.id)
+    if (heading) {
+      // A small title: rename in place, drag with everything under it, remove alone.
+      if (draft.edit?.id === item.id) {
+        inlineEditor(row, "is-item is-heading", t("checklistEditItem"), item.text, (text) => void run((current) => {
+          const target = current.items.find((i) => i.id === item.id)
+          if (!target || (target.text !== item.text && target.text !== text)) throw new Error("checklist-item-changed")
+          return { ...current, items: current.items.map((i) => i.id === item.id ? { ...i, text } : i) }
+        }, () => { draft.edit = undefined }), stopEdit)
+      } else {
+        const text = row.createEl("button", { cls: "modular-diary-checklist-text modular-diary-checklist-heading", text: item.text, attr: { type: "button", title: t("checklistEditHint") } })
+        text.addEventListener("click", () => startEdit(item.id, item.text))
+      }
+      const removeHeading = row.createEl("button", { cls: "modular-diary-checklist-remove", attr: { type: "button", "aria-label": t("checklistRemoveItem"), title: t("checklistRemoveItem") } })
+      setIcon(removeHeading, "x")
+      removeHeading.addEventListener("click", () => void run((c) => ({ ...c, items: c.items.filter((i) => i.id !== item.id) })))
+      continue
+    }
     const check = row.createEl("input", { cls: "task-list-item-checkbox", attr: { type: "checkbox", "aria-label": item.text } })
     check.checked = item.checked
     check.dataset.itemId = item.id

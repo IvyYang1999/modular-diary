@@ -4,6 +4,8 @@ export interface ChecklistModuleItem {
   text: string
   checked: boolean
   indent?: string
+  /** A small title inside the list; the items under it (to the next heading) move with it. */
+  kind?: "heading"
 }
 export interface ChecklistModule {
   id: string
@@ -23,6 +25,7 @@ export function parseChecklistModule(value: string): ChecklistModule | null {
     for (const item of c.items) {
       if (!item || typeof item.id !== "string" || !/^[a-z0-9-]+$/i.test(item.id) || seen.has(item.id)
         || typeof item.text !== "string" || typeof item.checked !== "boolean"
+        || (item.kind !== undefined && item.kind !== "heading")
         || (item.indent !== undefined && (typeof item.indent !== "string" || !/^[ \t]*$/.test(item.indent)))) return null
       seen.add(item.id)
     }
@@ -51,12 +54,22 @@ export function appendChecklistItem(module: ChecklistModule, id: string, text: s
   return { ...module, nextItem: Number(id.slice(4)) + 1, items: [...module.items, { id, text, checked: false }] }
 }
 
-/** The item plus the deeper-indented items right under it: what moves together. */
+/** The item plus what belongs under it: deeper-indented items, or for a heading everything up to the next heading. */
 function blockOf(items: ChecklistModuleItem[], index: number): number {
-  const depth = (items[index].indent ?? "").length
   let end = index + 1
-  while (end < items.length && (items[end].indent ?? "").length > depth) end++
+  if (items[index].kind === "heading") {
+    while (end < items.length && items[end].kind !== "heading") end++
+    return end
+  }
+  const depth = (items[index].indent ?? "").length
+  while (end < items.length && (items[end].indent ?? "").length > depth && items[end].kind !== "heading") end++
   return end
+}
+
+/** Add a heading at the end; items added after it fall under it. */
+export function appendChecklistHeading(module: ChecklistModule, id: string, text: string): ChecklistModule {
+  if (module.items.some((item) => item.id === id)) return module
+  return { ...module, nextItem: Number(id.slice(4)) + 1, items: [...module.items, { id, text, checked: false, kind: "heading" }] }
 }
 
 /** Move an item (and its sub-items) so it sits before `beforeId`, or last when null. Unknown ids leave the list alone. */
@@ -75,7 +88,7 @@ export function moveChecklistItem(module: ChecklistModule, id: string, beforeId:
 /** Indent one step (a sub-item of the line above) or outdent; the first item never indents. */
 export function indentChecklistItem(module: ChecklistModule, id: string, delta: 1 | -1): ChecklistModule {
   const index = module.items.findIndex((item) => item.id === id)
-  if (index < 0) return module
+  if (index < 0 || module.items[index].kind === "heading") return module
   const current = (module.items[index].indent ?? "").length
   const above = index > 0 ? (module.items[index - 1].indent ?? "").length : -1
   const next = delta > 0 ? Math.min(current + 2, above + 2, 8) : Math.max(0, current - 2)

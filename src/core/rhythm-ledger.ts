@@ -52,6 +52,8 @@ export interface RhythmBoardRow {
   unit?: "days" | "times"
   /** Duration rhythms: the quota for this period (a weekly quota times the weeks of a month). */
   targetMinutes?: number
+  /** Daily upper bound: `done` counts the days that stayed under it. */
+  limit?: boolean
 }
 
 export function mondayOf(date: string): string {
@@ -179,6 +181,17 @@ export function ensureRhythmSlots(source: string, rhythms: Rhythm[], scope: Peri
   return out
 }
 
+/**
+ * Undo a carry-over made before the previous period had ended (paging ahead
+ * used to trigger one): the shadows there come back, the owed copies here go.
+ */
+export function undoEarlyCarry(source: string, prevSource: string, scope: PeriodScope, prevKey: string): { source: string; prevSource: string } {
+  let out = source, prev = prevSource
+  for (const todo of parseTimeline(source).todos) if (todo.owed === prevKey && !todo.completed && !todo.day) out = deleteTodoSubtree(out, todo.id)
+  for (const todo of parseTimeline(prevSource).todos) if (todo.moved === scope.start) prev = updateTodo(prev, todo.id, { moved: undefined })
+  return { source: out, prevSource: prev }
+}
+
 /** Open, unskipped, not-yet-carried slots of the previous period, by rhythm. */
 export function openSlots(prevSource: string, rhythms: Rhythm[]): TodoItem[] {
   const doc = parseTimeline(prevSource)
@@ -273,12 +286,15 @@ export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: Placed
       return { rhythm, slots: [], skipped, due: 0, placed: 0, done: minutes >= rhythm.quota.minutes ? 1 : 0, minutes, owed: 0 }
     }
     const target = rhythm.quota.kind === "duration" ? rhythm.quota.minutes : 0
+    const limit = rhythm.quota.kind === "duration" && rhythm.quota.limit === true
     const doneDays = dueDays.filter((date) => {
       const day = byDate.get(date)
       if (day?.habitDone?.includes(rhythm.id)) return true
       const recorded = recordedOn(day, rhythm)
+      // A limit is kept when the day's records stay under it; a day with nothing written yet is not judged.
+      if (limit) return Boolean(day?.entries.length) && recorded < target
       return target > 0 ? recorded >= target : recorded > 0
     })
-    return { rhythm, slots: [], skipped, due: dueDays.length, placed: doneDays.length, done: doneDays.length, minutes, owed: 0 }
+    return { rhythm, slots: [], skipped, due: dueDays.length, placed: doneDays.length, done: doneDays.length, minutes, owed: 0, ...(limit ? { limit: true } : {}) }
   })
 }

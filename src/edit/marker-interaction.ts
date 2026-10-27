@@ -102,7 +102,9 @@ export function attachMarkerInteraction(container: HTMLElement, doc: TimelineDoc
 
   const local = (e: PointerEvent): { x: number; y: number; scale: number } => {
     const rect = svg.getBoundingClientRect()
-    const scale = svgWidth / rect.width
+    // Read the width at event time: a redraw may have resized the SVG since this was attached,
+    // and a stale ratio put new markers an hour or so below the pointer.
+    const scale = (Number(svg.getAttribute("width")) || svgWidth) / rect.width
     return { x: (e.clientX - rect.left) * scale, y: (e.clientY - rect.top) * scale, scale }
   }
   const snapped = (e: PointerEvent): number => {

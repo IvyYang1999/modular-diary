@@ -105,3 +105,14 @@ describe("parts of the day as a range", () => {
     expect(zoneRangeLabel(parseRhythmLine("每天 运动 下午")!)).toBe("下午")
   })
 })
+
+describe("daily limits", () => {
+  it("reads 以下 / 少于 as an upper bound and writes it back", () => {
+    const limit = parseRhythmLine("每天 1小时以下 浪费 @wasted")!
+    expect(limit.quota).toMatchObject({ kind: "duration", minutes: 60, limit: true })
+    expect(formatRhythmLine(limit)).toBe("- 每天 1小时以下 浪费 @wasted")
+    expect(parseRhythmLine("每天 少于30分钟 刷手机")!.quota).toMatchObject({ minutes: 30, limit: true })
+    expect(rhythmToHabit(limit, 0)).toMatchObject({ durationComparison: "below", targetMinutes: 60 })
+    expect(rhythmToHabit(parseRhythmLine("每天 30分钟 运动")!, 0)).not.toHaveProperty("durationComparison")
+  })
+})

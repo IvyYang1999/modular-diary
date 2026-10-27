@@ -7,7 +7,7 @@
 import { App, TFile, normalizePath, type EventRef } from "obsidian"
 import { timelineFences } from "./edit/block-identity"
 import { replaceBlockInContent } from "./edit/source-rewriter"
-import { carryOver, ensureRhythmSlots, periodKey, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
+import { carryOver, ensureRhythmSlots, periodKey, shiftScope, type PeriodScope, undoEarlyCarry } from "./core/rhythm-ledger"
 import type { Rhythm } from "./core/rhythms"
 
 export interface PeriodFilesHost {
@@ -113,7 +113,7 @@ export class PeriodFiles {
    * and last period's open slots are carried in. Idempotent; writes only
    * when something changes.
    */
-  async prepare(scope: PeriodScope, rhythms: Rhythm[]): Promise<void> {
+  async prepare(scope: PeriodScope, rhythms: Rhythm[], today: string): Promise<void> {
     const path = this.path(scope)
     if (this.preparing.has(path)) return
     this.preparing.add(path)
@@ -121,10 +121,18 @@ export class PeriodFiles {
       const prevScope = shiftScope(scope, -1)
       const prevPath = this.path(prevScope)
       const prev = this.file(prevPath) ? await this.load(prevPath) : null
+      // Open slots move on only once the previous period is over; paging ahead must not empty the current week.
+      const prevEnded = prevScope.end < today
       let prevNext: string | null = null
       const step = (source: string): string => {
-        let out = ensureRhythmSlots(source, rhythms, scope)
-        if (prev !== null) {
+        let out = source
+        if (prev !== null && !prevEnded) {
+          const undone = undoEarlyCarry(out, prev, scope, periodKey(prevScope))
+          out = undone.source
+          prevNext = undone.prevSource !== prev ? undone.prevSource : null
+        }
+        out = ensureRhythmSlots(out, rhythms, scope)
+        if (prev !== null && prevEnded) {
           const carried = carryOver(out, prev, rhythms, scope, periodKey(prevScope))
           out = carried.source
           prevNext = carried.prevSource !== prev ? carried.prevSource : null

@@ -99,3 +99,17 @@ describe("slot pruning", () => {
     expect(pruned.some((todo) => todo.rhythm === "散步")).toBe(false)
   })
 })
+
+describe("early carry-over", () => {
+  it("is undone: the shadows come back and the owed copies go", async () => {
+    const { undoEarlyCarry } = await import("./rhythm-ledger")
+    const here = ensureRhythmSlots("days: 2026-10-26..2026-11-01\n---", rhythms, week)
+    const next = ensureRhythmSlots("days: 2026-11-02..2026-11-08\n---", rhythms, shiftScope(week, 1))
+    const carried = carryOver(next, here, rhythms, shiftScope(week, 1), "2026-W44")
+    expect(parseTimeline(carried.prevSource).todos.filter((todo) => todo.moved).length).toBeGreaterThan(0)
+    const undone = undoEarlyCarry(carried.source, carried.prevSource, shiftScope(week, 1), "2026-W44")
+    expect(parseTimeline(undone.prevSource).todos.some((todo) => todo.moved)).toBe(false)
+    expect(parseTimeline(undone.source).todos.some((todo) => todo.owed)).toBe(false)
+    expect(undone.source).toBe(next)
+  })
+})

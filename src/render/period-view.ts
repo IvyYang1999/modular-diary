@@ -1,6 +1,6 @@
 import type { UpcomingItem } from "../core/upcoming"
 import type { PeriodScope, RhythmBoardRow } from "../core/rhythm-ledger"
-import { renderActualMonth, renderPlanCalendar, renderRhythmBoard } from "./plan-view"
+import { clearPillPreviews, renderActualMonth, renderPlanCalendar, renderRhythmBoard } from "./plan-view"
 import { laneLayout } from "../core/period-lanes"
 import { parsePeriodStatsWidget, shareSlices, type PeriodStatsWidget } from "../core/period-stats"
 /**
@@ -989,6 +989,7 @@ function menuForRow(deps: PeriodViewDeps): (el: HTMLElement, id: string) => void
 }
 
 export function renderPeriodInto(container: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): HTMLElement {
+  clearPillPreviews(container.ownerDocument)
   const root = container.createDiv({ cls: `modular-diary-period${model.indexReady ? "" : " is-loading"}` })
   root.style.setProperty("--modular-diary-rail-width", `${model.railWidth}px`)
   root.style.setProperty("--modular-diary-period-hour", `${PERIOD_HOUR_HEIGHT}px`)

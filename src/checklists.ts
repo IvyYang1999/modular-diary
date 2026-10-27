@@ -8,6 +8,10 @@ import type momentFactory from "moment"
 import type { ChecklistModule } from "./core/checklist-modules"
 import { appendChecklists, checklistInsertion, checklistTemplateStarter, hasChecklist, isDailyNotePath, parseChecklistTemplate, type ChecklistTemplate } from "./core/checklists"
 import { t } from "./i18n"
+import { timelineFences } from "./edit/block-identity"
+import { replaceBlockInContent } from "./edit/source-rewriter"
+import { addChecklistModule } from "./edit/checklist-source"
+import { parseTimeline } from "./core/parser"
 
 export interface ChecklistHost {
   app: App
@@ -91,6 +95,16 @@ export async function addDailyChecklists(host: ChecklistHost, file: TFile): Prom
   if (!daily.length) return []
   let added: string[] = []
   await host.app.vault.process(file, (content) => {
+    // With a diary block in the note the checklist becomes one of its modules; without one it is plain markdown.
+    const fence = timelineFences(content).next().value
+    if (fence) {
+      const have = new Set((parseTimeline(fence.source).checklists ?? []).map((module) => module.title))
+      const missing = daily.filter((template) => !have.has(template.name) && !hasChecklist(content, template.name))
+      added = missing.map((template) => template.name)
+      if (!missing.length) return content
+      const next = missing.reduce((source, template) => addChecklistModule(source, template.name, template), fence.source)
+      return replaceBlockInContent(content, fence, next)
+    }
     added = daily.filter((template) => !hasChecklist(content, template.name)).map((template) => template.name)
     return appendChecklists(content, daily)
   })

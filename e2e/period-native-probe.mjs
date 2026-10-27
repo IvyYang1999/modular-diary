@@ -56,7 +56,7 @@ try{
  const logs=[];page.on('console',m=>logs.push(m.type()+': '+m.text().slice(0,400)));page.on('pageerror',e=>logs.push('pageerror: '+String(e.stack||e).slice(0,600)))
  await page.waitForSelector('.modular-diary-view-bar',{timeout:10000})
  await page.screenshot({path:path.join(out,'before.png')})
- await page.locator('.modular-diary-view-bar button').nth(1).click()
+ await page.locator('.modular-diary-view-bar .modular-diary-seg button').nth(1).click()
  const started=Date.now()
  while(Date.now()-started<12000){
    const ok=await page.locator('.modular-diary-period').count()
