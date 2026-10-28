@@ -4740,11 +4740,12 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 8px 0 7px;
+  padding: 2px 0 4px;
   border-bottom: 1px solid var(--background-modifier-border);
   cursor: pointer;
   outline: none;
 }
+.modular-diary-period-head.is-cal { padding: 8px 0 7px; }
 .modular-diary-period-head-weekday { font-size: var(--modular-diary-font-micro, 11px); color: var(--text-muted); letter-spacing: 0.04em; }
 .modular-diary-period-head-date {
   display: inline-grid;
@@ -5832,15 +5833,19 @@ textarea.modular-diary-template-source {
 .modular-diary-container button.modular-diary-layer-overlay svg { width: 14px; height: 14px; }
 .modular-diary-container button.modular-diary-layer-overlay:hover { color: var(--text-normal); border-color: var(--background-modifier-border-hover, var(--text-faint)); }
 .modular-diary-container button.modular-diary-layer-overlay[aria-pressed="true"] { background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-primary)); border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--background-modifier-border)); color: var(--text-accent); }
-/* daily rhythms as a stamp card: one cell per day */
-.modular-diary-plan-days { grid-column: 2 / 4; display: flex; gap: 3px; }
+/* daily rhythms as a stamp card: one cell per day, in the page's own quiet palette */
+.modular-diary-plan-days { grid-column: 2 / 4; display: flex; gap: 3px; min-width: 0; }
 .modular-diary-plan-days.is-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.modular-diary-plan-day { --c: var(--interactive-accent); flex: 1; display: grid; place-items: center; height: 18px; border-radius: 4px; background: var(--modular-diary-surface-data-track, var(--background-secondary)); color: var(--text-faint); font-size: var(--modular-diary-font-micro); font-variant-numeric: tabular-nums; }
-.modular-diary-plan-day.is-done { background: var(--c); color: #fff; font-weight: 600; }
-.modular-diary-plan-day.is-today { box-shadow: inset 0 0 0 1.5px var(--text-muted); }
-.modular-diary-plan-day.is-future { opacity: .55; }
+.modular-diary-plan-day { --c: var(--interactive-accent); position: relative; flex: 1; display: grid; place-items: center; min-width: 0; height: 20px; border-radius: 5px; background: color-mix(in srgb, var(--text-normal) 5%, var(--background-primary)); color: var(--text-faint); font-size: var(--modular-diary-font-micro); font-variant-numeric: tabular-nums; }
+.modular-diary-plan-day.is-done { background: color-mix(in srgb, var(--c) 16%, var(--background-primary)); color: color-mix(in srgb, var(--c) 75%, var(--text-normal)); font-weight: 600; }
+.modular-diary-plan-day.is-missed { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-normal) 12%, transparent); color: var(--text-faint); }
+.modular-diary-plan-day.is-today { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--interactive-accent) 60%, transparent); }
+.modular-diary-plan-day.is-future { opacity: .5; }
 .modular-diary-plan-day.is-blank { background: transparent; }
-.modular-diary-plan-row.is-measured:has(.modular-diary-plan-days) { grid-template-rows: auto 18px; row-gap: 4px; padding-bottom: 4px; }
+.modular-diary-plan-day-mark { position: absolute; right: 1px; bottom: 1px; display: inline-grid; place-items: center; }
+.modular-diary-plan-day-mark svg { width: 8px; height: 8px; }
+.modular-diary-plan-day.is-missed .modular-diary-plan-day-label { text-decoration: line-through; }
+.modular-diary-plan-row.is-measured:has(.modular-diary-plan-days) { grid-template-rows: auto auto; row-gap: 4px; padding-bottom: 4px; }
 /* a period todo in a day's list */
 .modular-diary-todo-flag.is-period { color: var(--text-accent); }
 /* the date in the bar: the period title's look, the calendar popover behind it */

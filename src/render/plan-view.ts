@@ -197,7 +197,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
     }
     return section
   }
-  const rowEl = (key: string, rhythm: RhythmBoardRow["rhythm"], cls: string): HTMLElement => {
+  const rowEl = (key: string, rhythm: RhythmBoardRow["rhythm"], cls: string, rhythmMenu = true): HTMLElement => {
     const host = group(key)
     const row = host.createDiv({ cls: `modular-diary-plan-row ${cls}` })
     row.dataset.rhythm = rhythm.id
@@ -205,7 +205,8 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
     const dot = row.createEl("span", { cls: "modular-diary-plan-dot" })
     if (color) dot.style.setProperty("--c", color)
     row.createEl("span", { cls: "modular-diary-plan-name", text: rhythm.name })
-    row.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); deps.onRhythmMenu?.(rhythm.id, event.clientX, event.clientY) })
+    // A slot row has its own menu (skip this one, let an owed one go); the rhythm menu is for rows without slots.
+    if (rhythmMenu) row.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); deps.onRhythmMenu?.(rhythm.id, event.clientX, event.clientY) })
     return row
   }
   /** A row without a slot still moves within the board, so the note's order can be set by hand. */
@@ -234,7 +235,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
       row.slots.forEach((slot, index) => {
         const key = slot.done ? "boardDone" : slot.owed ? "boardOwed" : slot.placement ? "boardPlaced" : "boardUnplaced"
         queue(key, () => {
-          const el = rowEl(key, rhythm, slot.done ? "is-done" : slot.owed ? "is-owed" : slot.placement ? "is-placed" : "is-unplaced")
+          const el = rowEl(key, rhythm, slot.done ? "is-done" : slot.owed ? "is-owed" : slot.placement ? "is-placed" : "is-unplaced", !deps.onSlotMenu)
           if (row.slots.length > 1) el.querySelector(".modular-diary-plan-name")!.textContent = `${rhythm.name} ${index + 1}`
           const meta = el.createEl("span", { cls: `modular-diary-plan-meta${slot.placement ? " is-where" : ""}${slot.owed && !slot.placement ? " is-owed" : ""}` })
           meta.textContent = slot.placement ? slotWhere(slot, model) : slot.owed ? t("boardOwedFrom", { period: slot.owed }) : rhythm.span.kind === "allDay" ? t("allDay") : rhythm.span.kind === "days" ? t("spanDays", { days: rhythm.span.min === rhythm.span.max ? String(rhythm.span.min) : `${rhythm.span.min}-${rhythm.span.max}` }) : rhythm.zone ? zoneRangeLabel(rhythm, zoneLabel) : ""
@@ -282,10 +283,14 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
           const recorded = day.entries.filter((entry) => !entry.plan && entry.type === rhythm.type).reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0)
           const manual = day.habitDone?.includes(rhythm.id)
           const target = rhythm.quota.kind === "duration" ? rhythm.quota.minutes : 0
-          const hit = manual || (limit ? day.entries.length > 0 && recorded < target : target > 0 ? recorded >= target : recorded > 0)
-          const cell = cells.createDiv({ cls: `modular-diary-plan-day${hit ? " is-done" : ""}${day.date === model.today ? " is-today" : ""}${day.date > model.today ? " is-future" : ""}`, attr: { title: `${day.date} · ${hit ? t("checkedToday") : t("notChecked")}` } })
+          const judged = manual || day.entries.length > 0
+          const hit = manual || (limit ? judged && recorded < target : target > 0 ? recorded >= target : recorded > 0)
+          // A kept limit shows a tick, a broken one a cross, so a lit red cell never reads as "wasted again".
+          const state = hit ? "is-done" : limit && judged && recorded >= target ? "is-missed" : ""
+          const cell = cells.createDiv({ cls: `modular-diary-plan-day ${state}${day.date === model.today ? " is-today" : ""}${day.date > model.today ? " is-future" : ""}`.trim(), attr: { title: `${day.date} · ${hit ? t("checkedToday") : state === "is-missed" ? t("limitMissed", { hours: formatHours(recorded) }) : t("notChecked")}` } })
           if (color) cell.style.setProperty("--c", color)
-          cell.textContent = days.length > 7 ? String(Number(day.date.slice(8, 10))) : weekdayShortOf(day.date)
+          cell.createEl("span", { cls: "modular-diary-plan-day-label", text: days.length > 7 ? String(Number(day.date.slice(8, 10))) : weekdayShortOf(day.date) })
+          if (limit && (hit || state === "is-missed")) setIcon(cell.createEl("span", { cls: "modular-diary-plan-day-mark" }), hit ? "check" : "x")
         }
       } else {
         meta.textContent = t(row.unit === "times" ? "timesDone" : "daysDone", { done: String(row.done), total: String(row.due) })
@@ -333,7 +338,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
 
 /* ── main: plan calendars ── */
 
-function dayHead(host: HTMLElement, day: PeriodDayView, model: PeriodViewModel, deps: PeriodViewDeps, cls = ""): HTMLElement {
+export function dayHead(host: HTMLElement, day: PeriodDayView, model: PeriodViewModel, deps: PeriodViewDeps, cls = ""): HTMLElement {
   const isToday = day.date === model.today
   const label = day.hasNote ? t("openDayNamed", { date: shortDate(day.date) }) : t("createDayNamed", { date: shortDate(day.date) })
   const head = host.createDiv({ cls: `modular-diary-period-head${isToday ? " is-today" : ""}${day.date < model.today ? " is-past" : ""}${day.hasNote ? "" : " is-missing"} ${cls}`.trim(), attr: { role: "button", tabindex: "0", "aria-label": label, title: label } })

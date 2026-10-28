@@ -1,6 +1,6 @@
 import type { UpcomingItem } from "../core/upcoming"
 import type { PeriodScope, RhythmBoardRow } from "../core/rhythm-ledger"
-import { clearPillPreviews, renderActualMonth, renderPlanCalendar, renderRhythmBoard } from "./plan-view"
+import { clearPillPreviews, dayHead, renderActualMonth, renderPlanCalendar, renderRhythmBoard } from "./plan-view"
 import { laneLayout } from "../core/period-lanes"
 import { parsePeriodStatsWidget, shareSlices, type PeriodStatsWidget } from "../core/period-stats"
 /**
@@ -806,20 +806,11 @@ function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewM
     })
   }
 
-  // Row 1: day heads (also all-day drop targets).
+  // Row 1: day heads, the same as the plan face's (and all-day drop targets outside the records-only face).
   cal.createDiv({ cls: "modular-diary-period-corner" })
   for (const day of model.days) {
-    const isToday = day.date === model.today
-    const past = day.date < model.today
-    const label = day.hasNote ? t("openDayNamed", { date: shortDate(day.date) }) : t("createDayNamed", { date: shortDate(day.date) })
-    const head = cal.createDiv({ cls: `modular-diary-period-head${isToday ? " is-today" : ""}${past ? " is-past" : ""}${day.hasNote ? "" : " is-missing"}`, attr: { role: "button", tabindex: "0", "aria-label": label, title: label } })
-    head.dataset.zone = day.date
-    head.dataset.zoneKind = "list"
-    head.createEl("span", { cls: "modular-diary-period-head-weekday", text: weekday(day.date) })
-    head.createEl("span", { cls: "modular-diary-period-head-date", text: String(Number(day.date.slice(8))) })
-    const open = (): void => deps.onOpenDay(day.date)
-    head.addEventListener("click", open)
-    head.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open() } })
+    const head = dayHead(cal, day, model, deps, "is-cal")
+    if (!recordsOnly) { head.dataset.zone = day.date; head.dataset.zoneKind = "list" }
   }
 
   // Row 2: all-day band (plans only).
