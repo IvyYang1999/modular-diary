@@ -6009,10 +6009,10 @@ textarea.modular-diary-template-source {
 
 /* main: plan week */
 .modular-diary-period.is-plan .modular-diary-period-main { overflow: auto; }
-.modular-diary-plan-week { display: grid; grid-template-columns: repeat(var(--modular-diary-period-days, 7), minmax(0, 1fr)); grid-template-rows: auto auto minmax(64px, 1fr) minmax(64px, 1fr) minmax(64px, 1fr); gap: 0 6px; box-sizing: border-box; min-height: 100%; padding: 8px 10px 12px; }
+.modular-diary-plan-week { display: grid; grid-template-columns: repeat(var(--modular-diary-period-days, 7), minmax(0, 1fr)); grid-template-rows: auto auto minmax(84px, auto) minmax(84px, auto) minmax(84px, auto); align-content: start; gap: 0 6px; box-sizing: border-box; min-height: 100%; padding: 8px 10px 12px; }
 .modular-diary-plan-week > .modular-diary-period-head { margin-bottom: 6px; }
 .modular-diary-plan-week > .modular-diary-period-head { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px 0 4px; cursor: pointer; }
-.modular-diary-plan-cell { position: relative; display: grid; grid-row: 2 / 6; grid-template-rows: subgrid; min-height: 300px; border: 1px solid color-mix(in srgb, var(--background-modifier-border) 75%, transparent); border-radius: 8px; overflow: hidden; background: var(--background-primary); }
+.modular-diary-plan-cell { position: relative; display: grid; grid-row: 2 / 6; grid-template-rows: subgrid; border: 1px solid color-mix(in srgb, var(--background-modifier-border) 75%, transparent); border-radius: 8px; overflow: hidden; background: var(--background-primary); }
 .modular-diary-plan-cell.is-today { border-color: color-mix(in srgb, var(--interactive-accent) 30%, var(--background-modifier-border)); background: color-mix(in srgb, var(--interactive-accent) 4%, var(--background-primary)); }
 .modular-diary-plan-cell.is-past { opacity: .75; }
 .modular-diary-plan-strip { display: flex; flex-direction: column; gap: 4px; padding: 6px 6px 4px; min-height: 12px; }

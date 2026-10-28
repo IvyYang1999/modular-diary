@@ -80,11 +80,13 @@ export function quotaField(quota: RhythmDraft["quota"]): { value: number; unit: 
 }
 
 /** The quota for a typed number read in a unit: the number is the user's, the unit says what it means. */
-export function quotaFrom(value: number, unit: QuotaUnit): RhythmDraft["quota"] {
+export function quotaFrom(value: number, unit: QuotaUnit, limit = false): RhythmDraft["quota"] {
   if (unit === "count") return { kind: "count", count: Math.max(1, Math.round(value)) }
-  if (unit === "hours") return { kind: "duration", minutes: Math.max(5, Math.round(value * 60)), unit: "hours" }
-  return { kind: "duration", minutes: Math.max(5, Math.round(value)), unit: "minutes" }
+  const minutes = unit === "hours" ? Math.max(5, Math.round(value * 60)) : Math.max(5, Math.round(value))
+  return { kind: "duration", minutes, unit: unit === "hours" ? "hours" : "minutes", ...(limit ? { limit: true } : {}) }
 }
+
+const limitOf = (quota: RhythmDraft["quota"]): boolean => quota.kind === "duration" && quota.limit === true
 
 export function toDraft(rhythm: Rhythm): RhythmDraft {
   const { id: _id, line: _line, ...draft } = rhythm
@@ -320,15 +322,23 @@ export class RhythmEditorModal extends Modal {
     const quota = field(details, t("rhythmQuota"), "is-quota")
     const shown = quotaField(draft.quota)
     const amount = this.number(quota, shown.value, shown.unit === "hours" ? 0.25 : 1, shown.unit === "hours" ? 0.25 : shown.unit === "minutes" ? 5 : 1, (value) => {
-      set({ quota: quotaFrom(value, quotaField(current().quota).unit) })
+      set({ quota: quotaFrom(value, quotaField(current().quota).unit, limitOf(current().quota)) })
     }, t("rhythmQuota"))
     this.select(quota, [["count", t("timesUnit")], ["minutes", t("minutesUnit")], ["hours", t("hoursUnit")]], shown.unit, (value) => {
       const unit = value as QuotaUnit
       const typed = Number(amount.value)
       amount.step = unit === "hours" ? "0.25" : unit === "minutes" ? "5" : "1"
       amount.min = unit === "hours" ? "0.25" : "1"
-      set({ quota: quotaFrom(Number.isFinite(typed) && typed > 0 ? typed : 1, unit) })
+      set({ quota: quotaFrom(Number.isFinite(typed) && typed > 0 ? typed : 1, unit, limitOf(current().quota)) }, true)
     }, t("rhythmQuota")).classList.add("modular-diary-rhythm-unit-select")
+    if (draft.quota.kind === "duration") {
+      // A duration is a floor (至少) or a ceiling (以下): "wasted under an hour" keeps the day when it stays under.
+      this.seg(quota, [["atLeast", t("rhythmAtLeast")], ["limit", t("rhythmLimit")]], limitOf(draft.quota) ? "limit" : "atLeast", (value) => {
+        const now = current().quota
+        if (now.kind !== "duration") return
+        set({ quota: { ...now, ...(value === "limit" ? { limit: true } : { limit: undefined }) } })
+      }, t("rhythmQuota"))
+    }
 
     const when = field(details, t("rhythmWhen"), "is-when")
     const mode = whenOf(draft)
