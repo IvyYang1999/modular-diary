@@ -1,6 +1,6 @@
 import type { UpcomingItem } from "../core/upcoming"
 import type { PeriodScope, RhythmBoardRow } from "../core/rhythm-ledger"
-import { clearPillPreviews, dayHead, renderActualMonth, renderBoundTodos, renderPlanCalendar, renderRhythmBoard } from "./plan-view"
+import { clearPillPreviews, dayHead, renderActualMonth, renderPlanCalendar, renderRhythmBoard } from "./plan-view"
 import { laneLayout } from "../core/period-lanes"
 import { parsePeriodStatsWidget, shareSlices, type PeriodStatsWidget } from "../core/period-stats"
 /**
@@ -130,10 +130,8 @@ export interface PeriodViewDeps {
   onRhythmMenu?: (rhythmId: string, x: number, y: number) => void
   /** Right-click on one slot (row or pill): skip it this period, let an owed one go, edit the rhythm. */
   onSlotMenu?: (todo: PeriodTodoView, x: number, y: number) => void
-  /** An accumulation row dropped on a day / band: a session at that part of the day (null = all day). */
+  /** An accumulation row dropped on a day / band: a todo of that rhythm placed there (null = all day). */
   onSession?: (id: string, date: string, zone: "am" | "pm" | "ev" | null) => void
-  /** Remove one session (a plan block in that day's note). */
-  onRemoveSession?: (date: string, line: number) => void
   onOpenRhythms?: () => void
   /** Reorder a rhythm in the note: before `beforeId`, or last when null. */
   onReorderRhythm?: (id: string, beforeId: string | null) => void
@@ -575,16 +573,60 @@ function placementFlag(todo: PeriodTodoView, model: PeriodViewModel): { text: st
   return flags
 }
 
+/** A period todo as the shared todo-row renderer shows it. */
+function todoViewItem(todo: PeriodTodoView, model: PeriodViewModel): TodoViewItem {
+  return {
+    id: todo.id, title: todo.title, group: todo.group, type: todo.type, completed: todo.completed, weekly: false, placed: Boolean(todo.placement),
+    tags: todo.tags, note: todo.note, parent: todo.parent, partial: todo.partial, difficulty: todo.difficulty, priority: todo.priority,
+    estimateMinutes: todo.estimateMin, actualMinutes: todo.actualMinutes, flags: placementFlag(todo, model),
+  }
+}
+
+/** The whole row drags: onto a day (or band) to place it, onto another row to reorder. */
+function attachRowDrags(section: HTMLElement, root: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): void {
+  const byId = new Map(model.todos.map((todo) => [todo.id, todo]))
+  section.querySelectorAll<HTMLElement>(".modular-diary-todo-row[data-todo-id]").forEach((row) => {
+    const todo = byId.get(row.dataset.todoId ?? "")
+    if (!todo) return
+    row.classList.add("modular-diary-period-draggable")
+    attachDrag(root, row, { todo, todoRow: true, from: todo.placement && todo.placement.startMin === undefined ? (todo.zone ? `${todo.placement.date}@${todo.zone}` : todo.placement.date) : POOL_ZONE }, model, deps)
+  })
+}
+
+/**
+ * Todos hung under a goal or a rhythm row: the same rows as the list (tags,
+ * priority, numbers, inline edit, menu, drag), without a header of their own.
+ */
+export function renderBoundTodos(host: HTMLElement, todos: PeriodTodoView[], model: PeriodViewModel, deps: PeriodViewDeps, root: HTMLElement): HTMLElement {
+  const wrap = host.createDiv({ cls: "modular-diary-plan-subs" })
+  renderTodosInto(wrap, todos.map((todo) => todoViewItem(todo, model)), {
+    bare: true,
+    compactMeta: true,
+    rowGrips: false,
+    categories: deps.categories,
+    priorities: deps.priorities,
+    typeColors: deps.typeColors,
+    view: { groupBy: "none", sortBy: "manual", layout: "list" },
+    tagStyle: deps.tagStyle,
+    tagSuggest: deps.tagSuggest,
+    onAdd: () => undefined,
+    onEdit: deps.onEdit,
+    onGroupMenu: () => undefined,
+    onSortMenu: () => undefined,
+    onToggle: deps.onToggle,
+    onMove: () => undefined,
+    onMenu: (item, x, y, edit) => deps.onTodoMenu?.(item.id, x, y, edit, null),
+  })
+  attachRowDrags(wrap, root, model, deps)
+  return wrap
+}
+
 function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): void {
   const section = rail.createEl("section", { cls: "modular-diary-period-section modular-diary-period-todos" })
   section.dataset.zone = POOL_ZONE
   section.dataset.zoneKind = "list"
   // Bound todos live under their goal or rhythm on the board; pushed ones are gone from here.
-  const items: TodoViewItem[] = model.todos.filter((todo) => !todo.rhythm && !todo.under && !todo.goal && !todo.moved).map((todo) => ({
-    id: todo.id, title: todo.title, group: todo.group, type: todo.type, completed: todo.completed, weekly: false, placed: Boolean(todo.placement),
-    tags: todo.tags, note: todo.note, parent: todo.parent, partial: todo.partial, difficulty: todo.difficulty, priority: todo.priority,
-    estimateMinutes: todo.estimateMin, actualMinutes: todo.actualMinutes, flags: placementFlag(todo, model),
-  }))
+  const items: TodoViewItem[] = model.todos.filter((todo) => !todo.rhythm && !todo.under && !todo.goal && !todo.moved).map((todo) => todoViewItem(todo, model))
   renderTodosInto(section, items, {
     title: t(model.scope?.kind === "week" ? "periodTodosWeek" : model.scope?.kind === "month" ? "periodTodosMonth" : "periodTodos"),
     compactMeta: true,
@@ -608,14 +650,7 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
     onMoveGroup: deps.onMoveGroup,
     onMenu: (item, x, y, edit, addChild) => deps.onTodoMenu?.(item.id, x, y, edit, addChild),
   })
-  const byId = new Map(model.todos.map((todo) => [todo.id, todo]))
-  // The whole row drags: onto a day (or band) to place it, onto another row to reorder.
-  section.querySelectorAll<HTMLElement>(".modular-diary-todo-row[data-todo-id]").forEach((row) => {
-    const todo = byId.get(row.dataset.todoId ?? "")
-    if (!todo) return
-    row.classList.add("modular-diary-period-draggable")
-    attachDrag(root, row, { todo, todoRow: true, from: todo.placement && todo.placement.startMin === undefined ? (todo.zone ? `${todo.placement.date}@${todo.zone}` : todo.placement.date) : POOL_ZONE }, model, deps)
-  })
+  attachRowDrags(section, root, model, deps)
 }
 
 function renderTotals(rail: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): void {

@@ -63,6 +63,19 @@ export class PeriodFiles {
     return fence.source
   }
 
+  /** The block source, reading the note when it is not cached yet. */
+  async read(scope: PeriodScope): Promise<string | null> {
+    const path = this.path(scope)
+    return this.sources.get(path) ?? this.load(path)
+  }
+
+  /** A note changed on disk (any writer, any pane): re-read it when cached, and redraw only when the block differs. */
+  touched(path: string): void {
+    const cached = this.sources.get(path)
+    if (cached === undefined) return
+    void this.load(path).then((source) => { if (source !== cached) this.host.onChange() }).catch(() => undefined)
+  }
+
   /** Create the note for a scope when missing; resolves to its path. Concurrent calls share one creation. */
   ensure(scope: PeriodScope): Promise<string> {
     const path = this.path(scope)

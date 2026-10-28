@@ -26,7 +26,7 @@ fs.writeFileSync(path.join(out, "entry.ts"), `
 import { renderPeriodInto } from "${path.join(here, "../src/render/period-view")}"
 import { goalProgress, periodTotals, resolvePeriod } from "${path.join(here, "../src/core/period")}"
 import { parseTimeline } from "${path.join(here, "../src/core/parser")}"
-import { rhythmBoard, scopeContaining, ensureRhythmSlots, sessionId } from "${path.join(here, "../src/core/rhythm-ledger")}"
+import { rhythmBoard, scopeContaining, ensureRhythmSlots } from "${path.join(here, "../src/core/rhythm-ledger")}"
 import { parseRhythms } from "${path.join(here, "../src/core/rhythms")}"
 
 HTMLElement.prototype.createDiv = function (opts: any = {}) { return this.createEl("div", opts) }
@@ -72,7 +72,7 @@ const day = (date: string, source: string, hasNote = true) => { const doc = pars
 const known = new Map([
   day("2026-09-28", "07:00-07:40 睡觉 赖床\\n08:00-08:30 阅读\\n09:00-10:00 运动 跑步\\n10:00-12:30 开发 #模块日记 周视图 parser\\n12:30-13:15 吃饭\\n14:00-16:00 看剧\\n16:00-19:00 开发 #飞搜 精品内页\\n19:30-20:30 写作 #官网 方案"),
   day("2026-09-29", "07:00-07:30 睡觉\\n08:00-09:00 开发\\nplan 10:00-11:00 运动 游泳 [todo:t12]\\n14:00-15:00 家人 心理咨询\\n14:00-16:00 开发 推荐栏"),
-  day("2026-09-30", "plan 09:00-12:00 开发\\n09:15-11:40 开发 #模块日记 周视图重做\\n12:00-12:45 吃饭\\nplan 16:30-18:00 写作 官网文案\\nplan 19:00-19:30 运动\\nplan 20:00-21:00 阅读 学习 [todo:" + sessionId(rhythms.find((r) => r.id === "学习")!) + "]"),
+  day("2026-09-30", "plan 09:00-12:00 开发\\n09:15-11:40 开发 #模块日记 周视图重做\\n12:00-12:45 吃饭\\nplan 16:30-18:00 写作 官网文案\\nplan 19:00-19:30 运动"),
   day("2026-10-02", "plan 10:00-10:45 开发 装 Obsidian 测一遍 [todo:t9]"), day("2026-10-04", "plan 10:00-12:00 写作 周记"),
 ].map((d) => [d.date, d]))
 for (let n = 1; n <= 27; n++) {
@@ -96,7 +96,7 @@ const deps = {
   onSetFace: (face) => window.__events.push("face:" + face), onSwitchView: (view) => window.__events.push("view:" + view),
   onRhythmMenu: (id) => window.__events.push("rhythm-menu:" + id), onOpenRhythms: () => window.__events.push("rhythms"),
   onReorderRhythm: (id, before) => window.__events.push("reorder:" + id + ":" + before), onHeight: (px) => window.__events.push("height:" + px), onToggleShowTodos: () => window.__events.push("show-todos"),
-  onSession: (id, date, zone) => window.__events.push("session:" + id + ":" + date + ":" + zone), onRemoveSession: (date, line) => window.__events.push("remove-session:" + date + ":" + line),
+  onSession: (id, date, zone) => window.__events.push("session:" + id + ":" + date + ":" + zone),
 }
 window.mount = (kind: "week" | "month", face: "plan" | "actual") => {
   host.replaceChildren()

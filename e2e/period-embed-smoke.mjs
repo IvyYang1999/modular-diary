@@ -65,18 +65,18 @@ try{
    rows:[...el.querySelectorAll('.modular-diary-plan-row')].map(r=>r.className.replace(/modular-diary-plan-row|modular-diary-period-draggable/g,'').trim()+':'+r.querySelector('.modular-diary-plan-name')?.textContent)}))
  assert.equal(board.title,'本周协议')
  assert.deepEqual(board.rows,['is-unplaced:拍视频','is-unplaced:散步 1','is-unplaced:散步 2','is-measured  is-session-source:阅读','is-measured:运动'],JSON.stringify(board))
- // 2a. An accumulation row (每周 2小时 阅读) drags as a session: a plan block in that day's note; the row stays.
+ // 2a. An accumulation row (每周 2小时 阅读) drags like a todo: the drop makes a todo of that rhythm placed on that day and part of the day (no clock time); the row stays.
  const reading=page.locator('.modular-diary-plan-row.is-session-source',{hasText:'阅读'})
  const fromR=await reading.boundingBox(),toR=await page.locator('.modular-diary-plan-band[data-zone="2026-10-21@pm"]').boundingBox()
  await page.mouse.move(fromR.x+fromR.width/2,fromR.y+fromR.height/2);await page.mouse.down()
  await page.mouse.move(fromR.x+40,fromR.y+10);await page.mouse.move(toR.x+toR.width/2,toR.y+toR.height/2,{steps:8});await page.mouse.up()
- await page.waitForFunction(()=>Object.entries(window.files).some(([p,c])=>p!=='synthetic.md'&&/plan 13:00-14:00 study 阅读 \[todo:r-[a-z0-9]+-s\]/.test(c)))
- // The harness has no vault events, so tell the day index about the new note by hand (Obsidian's modify/create events do this live).
- await page.evaluate(()=>{for(const p of Object.keys(window.files))window.plugin.dayIndex.markDirty(p);return window.plugin.refreshDayIndex().then(()=>window.mountActual())})
- if(process.env.DEBUG_SESSION)console.log(await page.evaluate(()=>JSON.stringify([Object.keys(window.files),window.plugin.dayIndex.blocksForDate('2026-10-21').map(b=>b.entries),document.querySelector('.modular-diary-plan-board')?.innerText])))
+ await page.waitForFunction(()=>{const w=window.files['周期/2026-W43.md'];return /todo: id="todo-[^"]+"[^\n]*category="study"[^\n]*day=2026-10-21 under="阅读" zone=pm title="阅读"/.test(w)})
+ assert.ok(!(await page.evaluate(()=>Object.keys(window.files))).some((p)=>/^2026-10-21\.md$/.test(p)),'no day note is written for a band drop')
+ await page.evaluate(()=>window.mountActual())
  await page.locator('.modular-diary-plan-row.is-session-source',{hasText:'阅读'}).waitFor()
- assert.equal(await page.locator('.modular-diary-plan-session').count(),1,'the session shows under the row')
- assert.equal(await page.locator('.modular-diary-plan-band[data-zone="2026-10-21@pm"] .modular-diary-plan-pill',{hasText:'阅读'}).count(),0,'a session is not a placed pill')
+ assert.equal(await page.locator('.modular-diary-plan-board .modular-diary-plan-subs .modular-diary-todo-row',{hasText:'阅读'}).count(),1,'the new todo hangs under the row')
+ assert.equal(await page.locator('.modular-diary-plan-band[data-zone="2026-10-21@pm"] .modular-diary-plan-pill',{hasText:'阅读'}).count(),1,'and sits on the day as a pill')
+ assert.ok((await page.locator('.modular-diary-plan-row.is-session-source',{hasText:'阅读'}).innerText()).includes('已安排 1h'),'the row counts it as planned')
 
  assert.equal(await page.locator('.modular-diary-seg button[aria-pressed="true"]',{hasText:'周'}).count(),1)
  assert.equal(await page.locator('.modular-diary-plan-cell').count(),7)
@@ -128,14 +128,15 @@ try{
  await page.locator('#menu button',{hasText:'阅读'}).click()
  await page.waitForFunction(()=>/under="阅读"[^\n]*title="买菜"|title="买菜"[^\n]*under="阅读"/.test(window.files['周期/2026-W43.md']) && /category="study"[^\n]*title="买菜"/.test(window.files['周期/2026-W43.md']))
  await page.evaluate(()=>window.mountActual())
- await page.locator('.modular-diary-plan-board .modular-diary-plan-sub',{hasText:'买菜'}).waitFor()
+ await page.locator('.modular-diary-plan-board .modular-diary-plan-subs .modular-diary-todo-row',{hasText:'买菜'}).waitFor()
+ assert.equal(await page.locator('.modular-diary-plan-board .modular-diary-plan-subs .modular-diary-todo-row',{hasText:'买菜'}).locator('.modular-diary-item-meta-numbers').count(),1,'a bound row keeps its numbers')
  assert.equal(await page.locator('.modular-diary-period-todos .modular-diary-todo-row',{hasText:'买菜'}).count(),0,'a bound todo leaves the plain list')
  // 2d. 推到下周: the todo moves to next week's note (binding kept), a shadow stays here.
- await page.locator('.modular-diary-plan-board .modular-diary-plan-sub',{hasText:'买菜'}).click({button:'right'})
+ await page.locator('.modular-diary-plan-board .modular-diary-plan-subs .modular-diary-todo-row',{hasText:'买菜'}).click({button:'right'})
  await page.locator('#menu button',{hasText:'推到下周'}).click()
  await page.waitForFunction(()=>window.files['周期/2026-W44.md']&&/under="阅读"[^\n]*title="买菜"|title="买菜"[^\n]*under="阅读"/.test(window.files['周期/2026-W44.md']) && /moved=2026-10-26[^\n]*title="买菜"/.test(window.files['周期/2026-W43.md']))
  await page.evaluate(()=>window.mountActual())
- assert.equal(await page.locator('.modular-diary-plan-board .modular-diary-plan-sub',{hasText:'买菜'}).count(),0,'the pushed todo is gone from this week')
+ assert.equal(await page.locator('.modular-diary-plan-board .modular-diary-plan-subs .modular-diary-todo-row',{hasText:'买菜'}).count(),0,'the pushed todo is gone from this week')
  // 3. 计划 → 实际 flips the note's face; 日 removes the day block's view header.
  // The face is one setting for every embedded period, so paging never flips it; the week's actual face shows records only.
  await page.locator('.modular-diary-period-toolbar .modular-diary-seg.is-soft button',{hasText:'实际'}).click()
@@ -160,6 +161,15 @@ try{
  const arrival=page.locator('.modular-diary-slot-todos .modular-diary-todo-row',{hasText:'散步'})
  await arrival.waitFor()
  assert.equal(await arrival.locator('.modular-diary-todo-flag.is-period').count(),1)
+ // A period row has a day todo's powers: it drags to the timeline, and its menu edits, half-completes, pushes to tomorrow, deletes.
+ assert.equal(await arrival.locator('.modular-diary-schedule-source').count(),1,'a period row drags to the timeline')
+ await arrival.click({button:'right'})
+ const arrivalMenu=await page.locator('#menu button').allInnerTexts()
+ for(const label of ['编辑','标为半完成','推到明天','退回待安排','删除'])assert.ok(arrivalMenu.some((text)=>text.includes(label)),label+' in '+JSON.stringify(arrivalMenu))
+ await page.locator('#menu button',{hasText:'标为半完成'}).click()
+ await page.waitForFunction(()=>/- \[\/\] todo: id="r-[a-z0-9]+-1"[^\n]*day=2026-10-22/.test(window.files['周期/2026-W43.md']))
+ await page.evaluate(()=>window.mountActual())
+ await arrival.waitFor()
  await arrival.locator('button.modular-diary-todo-check').click()
  await page.waitForFunction(()=>/- \[x\] todo: id="r-[a-z0-9]+-1"[^\n]*day=2026-10-22/.test(window.files['周期/2026-W43.md']))
  // 4. 月 renders the month note with the monthly rhythm.

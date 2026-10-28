@@ -10,7 +10,7 @@ import { rhythmToHabit, zoneRangeLabel, type RhythmZone } from "../core/rhythms"
 import { isHabitDue } from "../core/habits"
 import type { UpcomingItem } from "../core/upcoming"
 import { t } from "../i18n"
-import { attachDrag, clock, formatSpan, formatTotal, goalEditor, plainTitle, POOL_ZONE, shortDate, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewDeps, type PeriodViewModel } from "./period-view"
+import { attachDrag, clock, formatSpan, formatTotal, goalEditor, plainTitle, POOL_ZONE, renderBoundTodos, shortDate, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewDeps, type PeriodViewModel } from "./period-view"
 import { sessionId } from "../core/rhythm-ledger"
 
 /** Where a timed item falls: the bands' hour edges; settings set the afternoon and evening starts. */
@@ -155,48 +155,6 @@ function slotWhere(slot: RhythmSlotView, model: PeriodViewModel): string {
 }
 
 /** Todos bound under a goal or a rhythm: a tick, the title, where it sits; draggable like any period todo. */
-export function renderBoundTodos(host: HTMLElement, todos: PeriodTodoView[], model: PeriodViewModel, deps: PeriodViewDeps, root: HTMLElement): HTMLElement {
-  const list = host.createDiv({ cls: "modular-diary-plan-subs" })
-  for (const todo of todos) {
-    const row = list.createDiv({ cls: `modular-diary-plan-sub${todo.completed ? " is-done" : ""}`, attr: { tabindex: "0" } })
-    row.dataset.todoId = todo.id
-    const check = row.createEl("button", { cls: "modular-diary-plan-sub-check", attr: { type: "button", "aria-pressed": String(todo.completed), "aria-label": t(todo.completed ? "markIncomplete" : "markComplete") } })
-    if (todo.completed) setIcon(check, "check")
-    check.addEventListener("click", (event) => { event.stopPropagation(); void deps.onToggle(todo.id, !todo.completed) })
-    row.createEl("span", { cls: "modular-diary-plan-sub-title", text: plainTitle(todo.title) })
-    const meta: string[] = []
-    if (todo.placement) meta.push(todo.placement.startMin !== undefined ? `${weekday(todo.placement.date)} ${clock(todo.placement.startMin)}` : `${model.scope?.kind === "month" ? shortDate(todo.placement.date) : weekday(todo.placement.date)}${todo.zone ? " " + zoneLabel(todo.zone) : ""}`)
-    if (todo.estimateMin > 0) meta.push(formatSpan(todo.estimateMin))
-    if (meta.length) row.createEl("span", { cls: `modular-diary-plan-sub-meta${todo.placement ? " is-where" : ""}`, text: meta.join(" · ") })
-    row.classList.add("modular-diary-period-draggable")
-    attachDrag(root, row, { todo, todoRow: false, from: todo.placement && todo.placement.startMin === undefined ? (todo.zone ? `${todo.placement.date}@${todo.zone}` : todo.placement.date) : POOL_ZONE }, model, deps)
-    row.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); deps.onTodoMenu?.(todo.id, event.clientX, event.clientY, () => undefined, null) })
-  }
-  return list
-}
-
-/** Sessions of an accumulation row: the plan blocks bound to it across the period's days. */
-function sessionsOf(id: string, model: PeriodViewModel): Array<{ date: string; startMin: number; endMin: number; line: number }> {
-  const out: Array<{ date: string; startMin: number; endMin: number; line: number }> = []
-  for (const day of model.days) for (const entry of day.entries) if (entry.plan && entry.todoId === id) out.push({ date: day.date, startMin: entry.startMin, endMin: entry.endMin, line: entry.line })
-  return out
-}
-
-function renderSessions(host: HTMLElement, id: string, model: PeriodViewModel, deps: PeriodViewDeps): void {
-  const sessions = sessionsOf(id, model)
-  if (!sessions.length) return
-  const list = host.createDiv({ cls: "modular-diary-plan-sessions" })
-  for (const session of sessions) {
-    const chip = list.createEl("span", { cls: "modular-diary-plan-session", attr: { title: `${session.date} ${clock(session.startMin)}–${clock(session.endMin)}` } })
-    chip.createEl("span", { text: `${model.scope?.kind === "month" ? shortDate(session.date) : weekday(session.date)} ${clock(session.startMin)} · ${formatSpan(session.endMin - session.startMin)}` })
-    if (deps.onRemoveSession) {
-      const remove = chip.createEl("button", { cls: "modular-diary-plan-session-remove", attr: { type: "button", "aria-label": t("removeSession") } })
-      setIcon(remove, "x")
-      remove.addEventListener("click", (event) => { event.stopPropagation(); deps.onRemoveSession?.(session.date, session.line) })
-    }
-  }
-}
-
 export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): void {
   const scope = model.scope
   if (!scope) return
@@ -322,9 +280,9 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
       if (rhythm.quota.kind === "duration" && row.due === 0) {
         // Accumulation: hours recorded against the quota; drag it as often as needed, each drop is a session.
         const target = row.targetMinutes ?? rhythm.quota.minutes
-        // Planned ahead: the sessions on the calendar plus the open todos hanging under this row.
+        // Planned ahead: the open todos hanging under this row (each drop of the row makes one).
         const bound = model.todos.filter((todo) => todo.under === rhythm.id && !todo.moved && !todo.completed)
-        const planned = sessionsOf(sessionId(rhythm), model).reduce((sum, session) => sum + session.endMin - session.startMin, 0) + bound.reduce((sum, todo) => sum + todo.estimateMin, 0)
+        const planned = bound.reduce((sum, todo) => sum + todo.estimateMin, 0)
         meta.textContent = `${formatHours(row.minutes)} / ${formatHours(target)}${planned ? ` · ${t("plannedSum", { hours: formatHours(planned) })}` : ""}`
         fill.style.width = `${Math.min(100, (row.minutes / Math.max(1, target)) * 100)}%`
         el.title = t("accumulationHint")
@@ -335,7 +293,6 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
           el.tabIndex = 0
           attachDrag(root, el, { todo: stub, from: POOL_ZONE, session: true }, model, deps)
         }
-        renderSessions(el, sessionId(rhythm), model, deps)
         attachBound(el, rhythm.id)
       } else if (progressKey === "boardDaily") {
         // Daily rhythms: one cell per day, lit when the day earned its tick (a stamp card, not a bar).

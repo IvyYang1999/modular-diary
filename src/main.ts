@@ -307,6 +307,9 @@ export default class ModularDiaryPlugin extends Plugin {
       }
       if (oldPath) this.dayIndex.rename(oldPath, file.path)
       else this.dayIndex.markDirty(file.path)
+      // A week or month note edited anywhere (another pane, the other view, sync) reaches every open period view.
+      this.periodFiles.touched(file.path)
+      if (oldPath) this.periodFiles.touched(oldPath)
       this.refreshBodyTodos(file)
       this.ledgerModifiedPaths.add(file.path)
       if (this.ledgerRefreshTimer) activeWindow.clearTimeout(this.ledgerRefreshTimer)
@@ -1497,11 +1500,27 @@ export default class ModularDiaryPlugin extends Plugin {
             const menu = new Menu()
             const arrival = periodArrivalById.get(todo.id)
             if (arrival) {
-              // A week's or month's item: tick it, send it back, or go where it is edited.
-              menu.addItem((item) => item.setTitle(tr(todo.completed ? "markIncomplete" : "markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() => void periodWrite(todo.id, (value) => setTodoCompleted(value, todo.id, !todo.completed))))
-              menu.addItem((item) => item.setTitle(tr("unplaceFromDay")).setIcon("undo-2").onClick(() => void periodWrite(todo.id, (value) => updateTodo(value, todo.id, { day: undefined, zone: undefined }))))
+              // A week's or month's item, with the same powers as a day todo; every write goes to the period note.
+              const periodFail = (error: unknown): void => {
+                console.error("Modular Diary: failed to update a period todo", error)
+                if (!(error as { modularDiaryNoticeReported?: boolean })?.modularDiaryNoticeReported) new Notice(tr("periodWriteFailed", { date: dateStr ?? "" }))
+              }
+              menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
+              if (!todo.completed) menu.addItem((item) => item.setTitle(tr("markPartial")).setIcon("circle-slash").setChecked(Boolean(todo.partial)).onClick(() =>
+                void periodWrite(todo.id, (value) => updateTodo(value, todo.id, { completed: false, partial: true })).catch(periodFail)))
+              menu.addItem((item) => item.setTitle(tr(todo.completed ? "markIncomplete" : "markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() => void periodWrite(todo.id, (value) => setTodoCompleted(value, todo.id, !todo.completed)).catch(periodFail)))
+              if (!todo.completed && dateStr) menu.addItem((item) => item.setTitle(tr("pushToTomorrow")).setIcon("calendar-arrow-right").onClick(() => void (async () => {
+                // Inside the period: the next day. Past its end: the next week's or month's note, placed on that day.
+                const next = shiftDate(dateStr, 1)
+                try {
+                  if (next <= arrival.scope.end) await periodWrite(todo.id, (value) => updateTodo(value, todo.id, { day: next }))
+                  else await this.pushPeriodTodo(arrival.scope, todo.id, next)
+                } catch (error) { periodFail(error) }
+              })()))
+              menu.addItem((item) => item.setTitle(tr("unplaceFromDay")).setIcon("undo-2").onClick(() => void periodWrite(todo.id, (value) => updateTodo(value, todo.id, { day: undefined, zone: undefined })).catch(periodFail)))
               menu.addItem((item) => item.setTitle(tr("editInPeriod")).setIcon("calendar-range").onClick(() => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "view", arrival.scope.kind))
                 .catch((error) => { console.error("Modular Diary: failed to switch the view", error); new Notice(tr("viewSwitchFailed")) })))
+              menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => void periodWrite(todo.id, (value) => deleteTodoSubtree(value, todo.id)).catch(periodFail)))
               menu.showAtPosition({ x, y }, dom)
               return
             }
@@ -2685,7 +2704,11 @@ export default class ModularDiaryPlugin extends Plugin {
       const target = doc.goals.find((goal) => goal.kind === "type" && `g-${goal.key}` === id)
       return target ? { title: target.key, type: target.key } : null
     }
-    const addSession = async (id: string, date: string, startMin: number): Promise<void> => {
+    /**
+     * A drop of an accumulation row: a todo of that rhythm placed on the day (and part of the day)
+     * it landed on, never a clock time the user did not pick. Dropping on the hour axis plans it there.
+     */
+    const addSession = async (id: string, date: string, zone: "am" | "pm" | "ev" | null, startMin?: number): Promise<void> => {
       const what = sessionOf(id)
       if (!what) return
       if (!what.type) { new Notice(tr("sessionNeedsCategory")); return }
@@ -2693,9 +2716,17 @@ export default class ModularDiaryPlugin extends Plugin {
       const quota = rhythm?.quota.kind === "duration" ? rhythm.quota.minutes : (doc.goals.find((goal) => `g-${goal.key}` === id)?.targetMinutes ?? 60)
       const recorded = rhythm ? (rhythmBoard([rhythm], scope ?? scopeContaining("week", date), [], facts, []).find(() => true)?.minutes ?? 0) : 0
       const length = Math.max(30, Math.min(60, quota - recorded))
-      const plan = buildScheduledPlan({ source: "todo", id, title: what.title, type: what.type, durationMin: length }, startMin).line
+      const todoId = `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
       try {
-        await this.writeToDay(date, (blockSource) => insertEntryLine(blockSource, plan, startMin))
+        await rewrite((current) => insertTodo(current, {
+          id: todoId, title: what.title, group: "", type: what.type, estimateMin: length, completed: false,
+          ...(rhythm ? { under: rhythm.id } : {}),
+          ...(startMin === undefined ? { day: date, ...(zone ? { zone } : {}) } : {}),
+        }))
+        if (startMin !== undefined) {
+          const plan = buildScheduledPlan({ source: "todo", id: todoId, title: what.title, type: what.type, durationMin: length }, startMin).line
+          await this.writeToDay(date, (blockSource) => insertEntryLine(blockSource, plan, startMin))
+        }
         this.rerenderMountedTimelines()
       } catch (error) { fail(date, error) }
     }
@@ -2813,14 +2844,9 @@ export default class ModularDiaryPlugin extends Plugin {
           })
         } catch (error) { fail(to, error) }
       })(),
-      onSession: (id, date, zone) => {
-        // A band drop becomes a timed session at a sensible hour of that part of the day.
-        const startMin = zone === "pm" ? ZONE_EDGES.pm + 60 : zone === "ev" ? ZONE_EDGES.ev + 60 : 9 * 60
-        void addSession(id, date, startMin)
-      },
-      onRemoveSession: (date, line) => void this.writeToDay(date, (blockSource) => deleteEntryLine(blockSource, line)).then(() => this.rerenderMountedTimelines()).catch((error) => fail(date, error)),
+      onSession: (id, date, zone) => void addSession(id, date, zone),
       onPlan: (id, date, startMin) => void (async () => {
-        if (sessionOf(id)) { await addSession(id, date, startMin); return }
+        if (sessionOf(id)) { await addSession(id, date, null, startMin); return }
         const todo = doc.todos.find((item) => item.id === id) ?? foreignTodos.find((item) => item.id === id)
         if (!todo) return
         const foreignScope = foreignTodos.find((item) => item.id === id)?.foreignScope
@@ -3772,6 +3798,25 @@ export default class ModularDiaryPlugin extends Plugin {
     if (needsCategoryMigration) await this.saveData(this.settings)
     if (this.settings.zoneEvHour <= this.settings.zonePmHour) this.settings.zoneEvHour = this.settings.zonePmHour + 1
     setZoneEdges(this.settings.zonePmHour, this.settings.zoneEvHour)
+  }
+
+  /**
+   * A period todo (with its sub-todos) moves to the next period's note; a `moved=` shadow stays here.
+   * A rhythm binding keeps, a goal binding cannot; `day` places the todo there on arrival.
+   */
+  private async pushPeriodTodo(scope: PeriodScope, id: string, day?: string): Promise<void> {
+    const source = await this.periodFiles.read(scope)
+    if (source === null) return
+    const todos = parseTimeline(source).todos
+    const ids = [id, ...indexTodoTree(todos).descendantIds(id)]
+    const moving = ids.map((sub) => todos.find((item) => item.id === sub)!).filter(Boolean)
+    const next = shiftScope(scope, 1)
+    await this.periodFiles.ensure(next)
+    await this.periodFiles.write(next, (current) => moving.reduce((out, item) => parseTimeline(out).todos.some((own) => own.id === item.id) ? out : insertTodo(out, {
+      ...item, day: item.id === id ? day : undefined, zone: item.id === id && day ? item.zone : undefined, goal: undefined, moved: undefined, owed: undefined,
+    }), current))
+    await this.periodFiles.write(scope, (current) => ids.reduce((out, sub) => updateTodo(out, sub, { moved: next.start }), current))
+    this.rerenderMountedTimelines()
   }
 
   /** Period todos placed on a day (`day=`), from the week and month notes that contain it. */

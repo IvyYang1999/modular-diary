@@ -75,6 +75,8 @@ export interface TodoEditDraft { id: string; input: NewTodoInput }
 export interface TodoViewDeps {
   /** False: no sort grips; the host attaches its own row drag (reorder and more). */
   rowGrips?: boolean
+  /** Rows only, no header or add form: a subset hung under a goal or a rhythm row. */
+  bare?: boolean
   /** Header title; defaults to the day todo list's name. */
   title?: string
   /**
@@ -407,9 +409,10 @@ export function renderTitleWithTags(el: HTMLElement, text: string, tagStyle?: (t
 }
 
 export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: TodoViewDeps): void {
-  const root = slot.createDiv({ cls: "modular-diary-todos" })
+  const root = slot.createDiv({ cls: `modular-diary-todos${deps.bare ? " is-bare" : ""}` })
   const manualSort = deps.view.sortBy === "manual"
   const header = root.createDiv({ cls: "modular-diary-component-header" })
+  if (deps.bare) header.hidden = true
   header.createEl("span", { cls: "modular-diary-component-title", text: deps.title ?? t("todoList") })
   const counted = items.filter((item) => !item.movedTo)
   const completedAtRender = counted.filter((item) => item.completed).length
@@ -835,9 +838,10 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     // A note-body todo has nowhere to store a category or an estimate, so it
     // is still draggable: the host resolves the category from the toolbar and
     // the block gets a default length the reader can then resize.
+    // A period row without an estimate (a rhythm's slot) drags with the default length too.
     const scheduleMinutes = item.estimateMinutes > 0
       ? item.estimateMinutes
-      : (item.body === true ? deps.defaultScheduleMinutes ?? 0 : 0)
+      : (item.body === true || item.period ? deps.defaultScheduleMinutes ?? 0 : 0)
     if (scheduleMinutes > 0 && (Boolean(item.type) || item.body === true) && !item.movedTo) {
       body.classList.add("modular-diary-schedule-source")
       body.dataset.scheduleSource = "todo"
@@ -861,6 +865,8 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     const hasAttachments = Boolean(item.attach?.length)
     if (hasAttachments) titleEl.classList.add("has-attachments")
     renderTitleWithTags(hasAttachments ? titleEl.createEl("span", { cls: "modular-diary-todo-title-text" }) : titleEl, item.title, deps.tagStyle)
+    // A narrow list clips the title; hovering still tells the whole of it.
+    titleEl.title = item.note ? `${item.title}\n${item.note}` : item.title
     if (item.attach?.length) {
       // Compact: a thumbnail or icon per attachment after the title; click to open.
       const strip = titleEl.createEl("span", { cls: "modular-diary-todo-attachments" })
