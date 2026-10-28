@@ -36,6 +36,7 @@ const content=window.files['synthetic.md'];const ctx={sourcePath:file.path,docId
 `
 const css=fs.readFileSync(path.join(root,'styles.css'),'utf8')
 fs.writeFileSync(path.join(out,'index.html'),`<!doctype html><meta charset="utf-8"><style>:root{--background-primary:#fff;--background-secondary:#f5f5f5;--background-modifier-border:#ccc;--background-modifier-hover:#eee;--text-normal:#222;--text-muted:#666;--text-faint:#888;--text-accent:#875bef;--interactive-accent:#875bef;--text-on-accent:#fff;--font-ui-smaller:13px}body{margin:24px;font-family:system-ui}#host{width:1000px}#menu{position:fixed;left:30px;top:30px;background:#fff;border:1px solid #bbb;z-index:99999;display:flex;flex-direction:column}${css}</style><main id="host"></main><script>${setup}</script><script>${built.outputFiles[0].text}</script><script>${init}</script>`)
+const window_files_has_face=(text)=>/^face:/m.test(text)
 const browser=await chromium.launch({headless:true})
 try{
  const page=await browser.newPage({viewport:{width:1200,height:900},timezoneId:'Asia/Shanghai'}),errors=[];page.on('pageerror',e=>errors.push(e.stack))
@@ -110,11 +111,19 @@ try{
  await page.locator('.modular-diary-plan-band[data-zone="2026-10-23@am"] .modular-diary-plan-pill',{hasText:'买菜'}).waitFor()
  assert.equal(await page.locator('.modular-diary-period-todos .modular-diary-todo-group-name',{hasText:'已安排'}).count(),1)
  // 3. 计划 → 实际 flips the note's face; 日 removes the day block's view header.
- await page.locator('.modular-diary-seg.is-soft button',{hasText:'实际'}).click()
- await page.waitForFunction(()=>window.files['周期/2026-W43.md'].includes('face: actual'))
+ // The face is one setting for every embedded period, so paging never flips it; the week's actual face shows records only.
+ await page.locator('.modular-diary-period-toolbar .modular-diary-seg.is-soft button',{hasText:'实际'}).click()
+ await page.waitForFunction(()=>window.plugin.settings.periodFace==='actual')
+ assert.ok(!window_files_has_face(await page.evaluate(()=>window.files['周期/2026-W43.md'])),'the face is not written into the note')
  await page.evaluate(()=>window.mountActual())
  await page.locator('.modular-diary-period-cal').waitFor()
  assert.equal(await page.locator('.modular-diary-period.is-plan').count(),0)
+ assert.equal(await page.locator('.modular-diary-period-gutter-label').count(),0,'no all-day band on the actual face')
+ assert.equal(await page.locator('.modular-diary-period-block.is-plan').count(),0,'no plan blocks on the actual face')
+ await page.locator('.modular-diary-period-toolbar .modular-diary-seg.is-soft button',{hasText:'计划'}).click()
+ await page.waitForFunction(()=>window.plugin.settings.periodFace==='plan')
+ await page.evaluate(()=>window.mountActual())
+ await page.locator('.modular-diary-period.is-plan').waitFor()
  await page.locator('.modular-diary-seg button',{hasText:'日'}).first().click()
  await page.waitForFunction(()=>!window.files['synthetic.md'].includes('view:'))
  await page.evaluate(()=>window.mountActual())

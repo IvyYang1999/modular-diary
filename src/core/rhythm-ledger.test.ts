@@ -114,3 +114,16 @@ describe("early carry-over", () => {
     expect(undone.source).toBe(next)
   })
 })
+
+describe("carry-over limits", () => {
+  it("never carries more copies than the quota and honours a dropped carry", () => {
+    const many = parseRhythms("- 每周 3次 游泳\n- 每周 散步")
+    let prev = ensureRhythmSlots("days: 2026-10-19..2026-10-25\n---", many, shiftScope(week, -1))
+    const one = parseRhythms("- 每周 游泳\n- 每周 散步")
+    const here = ensureRhythmSlots("days: 2026-10-26..2026-11-01\n---", one, week)
+    const carried = carryOver(here, prev, one, week, "2026-W43")
+    expect(parseTimeline(carried.source).todos.filter((todo) => todo.owed && todo.rhythm === "游泳")).toHaveLength(1)
+    const dropped = carryOver(here.replace("---", "rhythm-drop: 散步@2026-W43\n---"), prev, one, week, "2026-W43")
+    expect(parseTimeline(dropped.source).todos.some((todo) => todo.owed && todo.rhythm === "散步")).toBe(false)
+  })
+})

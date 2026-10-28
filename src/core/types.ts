@@ -53,6 +53,8 @@ export interface TimelineDoc {
   periodStats: string[]
   /** Rhythms skipped in this period (`rhythm-skip:` header, rhythm ids). */
   rhythmSkips: string[]
+  /** Carry-overs the user let go of (`rhythm-drop:` header, `rhythmId@prevKey`). */
+  rhythmDrops: string[]
   /** A period block's kind (`scope:` header): week or month; inferred from the range when absent. */
   periodScope?: "week" | "month"
   /** Which face a period block shows (`face:` header): plan (default) or actual. */

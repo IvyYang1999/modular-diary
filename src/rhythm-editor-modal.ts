@@ -248,20 +248,20 @@ export class RhythmEditorModal extends Modal {
     const current = (): RhythmDraft => this.drafts[index]
 
     // Line 1: what, and how often.
-    const head = row.createDiv({ cls: `modular-diary-rhythm-line is-head${draft.cadence === "weekly" || draft.cadence === "biweekly" ? " has-weekday" : ""}${draft.cadence === "biweekly" ? " has-anchor" : ""}` })
+    const head = row.createDiv({ cls: `modular-diary-rhythm-line is-head${draft.cadence === "weekly" || draft.cadence === "biweekly" ? " has-weekday" : ""}${draft.cadence === "biweekly" || draft.cadence === "weekly" ? " has-anchor" : ""}` })
     const grip = head.createEl("span", { cls: "modular-diary-rhythm-grip", attr: { title: t("rhythmReorder"), "aria-label": t("rhythmReorder"), role: "button", tabindex: "0" } })
     setIcon(grip, "grip-vertical")
     this.attachReorder(row, grip)
     this.select(head, CADENCES.map((cadence) => [cadence, t(`rhythmCadence_${cadence}`)]), draft.cadence, (value) => {
       const cadence = value as RhythmCadence
       const keepsWeekday = cadence === "weekly" || cadence === "biweekly"
-      set({ cadence, weekday: keepsWeekday ? current().weekday : undefined, anchor: cadence === "biweekly" ? current().anchor : undefined }, true)
+      set({ cadence, weekday: keepsWeekday ? current().weekday : undefined, anchor: keepsWeekday ? current().anchor : undefined }, true)
     }, t("rhythmCadence_weekly")).classList.add("modular-diary-rhythm-cadence-select")
     if (draft.cadence === "weekly" || draft.cadence === "biweekly") {
       const names = t("weekdayNames").split(" ")
       this.select(head, [["", t("rhythmWeekdayAny")], ...WEEKDAY_VALUES.map((day): [string, string] => [String(day), `${t("weekdayPrefix")}${names[day]}`])], draft.weekday === undefined ? "" : String(draft.weekday), (value) => set({ weekday: value === "" ? undefined : Number(value) }), t("rhythmWeekdayAny")).classList.add("modular-diary-rhythm-weekday-select")
     }
-    if (draft.cadence === "biweekly") {
+    if (draft.cadence === "biweekly" || draft.cadence === "weekly") {
       // The counting-from date decides which weeks are on, so it sits with the frequency.
       const anchor = head.createDiv({ cls: "modular-diary-rhythm-anchor", attr: { title: t("rhythmAnchor") } })
       anchor.createEl("span", { cls: "modular-diary-rhythm-unit", text: t("rhythmAnchor") })

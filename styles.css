@@ -1124,7 +1124,7 @@
  * viewport 时内容会缩放而“整个 block 的右边线”留在原地。外壳只负责
  * 挂载，产品边界由真正可缩放的 .modular-diary-container 绘制。
  */
-.cm-embed-block:has(.modular-diary-host) {
+.cm-embed-block:has(.modular-diary-host), .cm-embed-block:has(.modular-diary-period-container) {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
@@ -3911,7 +3911,7 @@ button.modular-diary-plan-mode-toggle:focus-visible {
  * 不依赖按钮是否为直接子节点，并压过 Obsidian/主题对按钮重新声明的
  * display:flex；只要当前代码块内渲染了 Modular Diary，就隐藏其后代按钮。
  */
-.cm-embed-block:has(.modular-diary-host) .edit-block-button {
+.cm-embed-block:has(.modular-diary-host) .edit-block-button, .cm-embed-block:has(.modular-diary-period-container) .edit-block-button {
   display: none !important;
 }
 
@@ -5827,6 +5827,20 @@ textarea.modular-diary-template-source {
 .modular-diary-view-bar { box-sizing: border-box; flex: 0 0 auto; width: calc(100% + 8px); margin: -4px -4px 0; display: flex; align-items: center; min-height: 41px; padding: 0 44px 0 8px; border-bottom: 1px solid var(--background-modifier-border); }
 .modular-diary-view-bar { gap: 2px; font-size: var(--modular-diary-font-body); line-height: 1.3; }
 .modular-diary-container:has(.modular-diary-view-bar .modular-diary-seg.is-soft) .modular-diary-plan-mode-toggle { display: none; }
+/* the one layer button on the timeline: overlay the other layer */
+.modular-diary-container button.modular-diary-layer-overlay { display: inline-flex; align-items: center; gap: 5px; height: 26px; min-height: 26px; padding: 0 9px; border: 1px solid var(--background-modifier-border); border-radius: 13px; background: transparent; box-shadow: none; color: var(--text-muted); font-size: var(--modular-diary-font-caption); cursor: pointer; }
+.modular-diary-container button.modular-diary-layer-overlay svg { width: 14px; height: 14px; }
+.modular-diary-container button.modular-diary-layer-overlay:hover { color: var(--text-normal); border-color: var(--background-modifier-border-hover, var(--text-faint)); }
+.modular-diary-container button.modular-diary-layer-overlay[aria-pressed="true"] { background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-primary)); border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--background-modifier-border)); color: var(--text-accent); }
+/* daily rhythms as a stamp card: one cell per day */
+.modular-diary-plan-days { grid-column: 2 / 4; display: flex; gap: 3px; }
+.modular-diary-plan-days.is-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.modular-diary-plan-day { --c: var(--interactive-accent); flex: 1; display: grid; place-items: center; height: 18px; border-radius: 4px; background: var(--modular-diary-surface-data-track, var(--background-secondary)); color: var(--text-faint); font-size: var(--modular-diary-font-micro); font-variant-numeric: tabular-nums; }
+.modular-diary-plan-day.is-done { background: var(--c); color: #fff; font-weight: 600; }
+.modular-diary-plan-day.is-today { box-shadow: inset 0 0 0 1.5px var(--text-muted); }
+.modular-diary-plan-day.is-future { opacity: .55; }
+.modular-diary-plan-day.is-blank { background: transparent; }
+.modular-diary-plan-row.is-measured:has(.modular-diary-plan-days) { grid-template-rows: auto 18px; row-gap: 4px; padding-bottom: 4px; }
 /* a period todo in a day's list */
 .modular-diary-todo-flag.is-period { color: var(--text-accent); }
 /* the date in the bar: the period title's look, the calendar popover behind it */

@@ -1170,15 +1170,25 @@ export default class ModularDiaryPlugin extends Plugin {
         // 顶栏：日期+星期（跨期统计锚点）在左，记录/计划开关在右
         const topbar = dom.createElement("div")
         topbar.className = "modular-diary-timeline-topbar" // 宽度跟随元素块（槽位），非时间轴矩形
-        // The date moved to the block's top bar (日 / 周 / 月 row); the timeline keeps only the layer toggles.
-        topbar.appendChild(buildLayerToggles(this.layerView, (view) => {
-          this.layerView = view
-          this.applyViewClass(container, view)
-          // 只剩单图层时联动画笔（都亮则不动，画笔可独立切）
-          if (view.actual && !view.plan) this.drawMode = "actual"
-          else if (view.plan && !view.actual) this.drawMode = "plan"
-          toolbar.setBrushMode(this.drawMode)
-        }, dom))
+        // The date and the 计划 / 记录 tab live in the block's top bar; here only one button remains: overlay the other layer.
+        const overlay: "actual" | "plan" = this.drawMode === "plan" ? "actual" : "plan"
+        const overlayButton = dom.createElement("button")
+        overlayButton.type = "button"
+        overlayButton.className = "modular-diary-layer-overlay"
+        const paintOverlay = (): void => {
+          const on = this.layerView[overlay]
+          overlayButton.setAttribute("aria-pressed", String(on))
+          overlayButton.replaceChildren()
+          setIcon(overlayButton, on ? "eye" : "eye-off")
+          overlayButton.createEl("span", { text: tr(overlay === "actual" ? "showRecords" : "showPlans") })
+        }
+        paintOverlay()
+        overlayButton.addEventListener("click", () => {
+          this.layerView = { ...this.layerView, [overlay]: !this.layerView[overlay], [this.drawMode]: true } as typeof this.layerView
+          this.applyViewClass(container, this.layerView)
+          paintOverlay()
+        })
+        topbar.appendChild(overlayButton)
         timelineSlot.prepend(topbar)
         // 窄槽位：图层开关退化为纯图标，顶栏永不换行（chrome 高度保持常量）。
         attachRowCompaction(topbar, TIMELINE_TOPBAR_COMPACTION)
@@ -2100,7 +2110,7 @@ export default class ModularDiaryPlugin extends Plugin {
           button.addEventListener("click", () => {
             if (this.drawMode === mode) return
             this.drawMode = mode
-            this.layerView = mode === "plan" ? { ...this.layerView, plan: true } : { ...this.layerView, actual: true }
+            this.layerView = { plan: mode === "plan", actual: mode === "actual" }
             this.rerenderMountedTimelines()
           })
         }
@@ -2109,10 +2119,10 @@ export default class ModularDiaryPlugin extends Plugin {
         iconButton(switchBar, "chevron-left", tr("dayBack")).addEventListener("click", () => go(shiftDate(dateStr, -1)))
         iconButton(switchBar, "chevron-right", tr("dayForward")).addEventListener("click", () => go(shiftDate(dateStr, 1)))
         // The date itself opens the calendar, as before on the timeline; picking a day rewrites `date:`.
-        const dateControl = buildTimelineDateControl(container, dateStr, weekday(dateStr), (date) => {
-          void this.applyBlockTransform(el, ctx, source, (value) => setHeaderValue(value, "date", date))
-        })
+        const dateControl = buildTimelineDateControl(container, dateStr, weekday(dateStr), (date) => { if (date !== dateStr) go(date) })
         dateControl.classList.add("modular-diary-view-bar-date")
+        dateControl.title = tr("jumpToDay")
+        dateControl.setAttribute("aria-label", tr("jumpToDay"))
         dateControl.replaceChildren()
         dateControl.createEl("span", { cls: "modular-diary-period-title-week", text: weekday(dateStr) })
         dateControl.createEl("span", { text: dateStr.replace(/-/g, ".") })
@@ -2614,6 +2624,7 @@ export default class ModularDiaryPlugin extends Plugin {
       allDay: todos.filter((todo) => todo.placement && todo.placement.startMin === undefined && todo.placement.date === day.date),
       upcoming: pendingForDate(this.upcoming.items, day.date),
       foreign: foreignTodos.filter((todo) => todo.placement?.date === day.date && !plannedAt.has(todo.id)),
+      habitDone: this.dayIndex.blocksForDate(day.date).flatMap((block) => block.habitDone),
     }))
     // The grid grows to fit the week's records, so early mornings, late nights and
     // after-midnight blocks are never counted in the totals but missing from the grid.
@@ -2633,7 +2644,7 @@ export default class ModularDiaryPlugin extends Plugin {
     const facts = dayData.map((day) => ({ date: day.date, entries: day.entries, habitDone: this.dayIndex.blocksForDate(day.date).flatMap((block) => block.habitDone) }))
     const model: PeriodViewModel = {
       spec: period, browsing: embed ? this.embedBrowse.has(embed.key) : Boolean(browsed), period: resolved, today,
-      scope, face: doc.periodFace ?? (scope ? "plan" : "actual"),
+      scope, face: embed ? this.settings.periodFace : doc.periodFace ?? (scope ? "plan" : "actual"),
       board: scope ? rhythmBoard(this.rhythms.items, scope, todos, facts, doc.rhythmSkips, foreignTodos) : [],
       embeddedView: embed?.view,
       goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView, days,
@@ -2691,7 +2702,34 @@ export default class ModularDiaryPlugin extends Plugin {
         else this.periodBrowse.set(browseKey, { spec: "this-week", kind: "this-week" })
         this.rerenderMountedTimelines()
       },
-      onSetFace: (face) => void rewrite((current) => face === "plan" ? removeHeaderValue(current, "face") : setHeaderValue(current, "face", face)),
+      onSetFace: (face) => {
+        if (embed) { this.settings.periodFace = face; void this.saveSettings({ rerender: true }); return }
+        void rewrite((current) => face === "plan" ? removeHeaderValue(current, "face") : setHeaderValue(current, "face", face))
+      },
+      onSlotMenu: (slot, x, y) => {
+        const menu = new Menu()
+        const scopeOfSlot = slot.foreignScope ?? (embed?.scope ?? scope)
+        const writeSlot = (transform: (current: string) => string): Promise<void> => slot.foreignScope
+          ? this.periodFiles.write(slot.foreignScope, transform).then(() => this.rerenderMountedTimelines())
+          : rewrite(transform)
+        const rhythmId = slot.rhythm ?? ""
+        if (slot.owed) {
+          // An owed copy the user forgives: it goes, and the carry is not made again.
+          menu.addItem((item) => item.setTitle(tr("dropOwed")).setIcon("x").onClick(() => void writeSlot((current) => {
+            const drops = [...new Set([...parseTimeline(current).rhythmDrops, `${rhythmId}@${slot.owed}`])]
+            return setHeaderValue(deleteTodoSubtree(current, slot.id), "rhythm-drop", drops.join(" "))
+          })))
+        } else {
+          menu.addItem((item) => item.setTitle(tr("deleteSlotHere")).setIcon("calendar-x-2").onClick(() => void writeSlot((current) => {
+            const skips = [...new Set([...parseTimeline(current).rhythmSkips, rhythmId])]
+            return setHeaderValue(current, "rhythm-skip", skips.join(" "))
+          })))
+        }
+        if (slot.placement) menu.addItem((item) => item.setTitle(tr("unassignTodo")).setIcon("undo-2").onClick(() => void writeSlot((current) => updateTodo(current, slot.id, { day: undefined, zone: undefined }))))
+        menu.addItem((item) => item.setTitle(tr("openRhythms")).setIcon("pencil").onClick(() => this.openHabitSettings()))
+        void scopeOfSlot
+        menu.showAtPosition({ x, y }, el.ownerDocument)
+      },
       onSwitchView: embed?.onSwitchView,
       onOpenRhythms: () => this.openHabitSettings(),
       onRhythmMenu: (rhythmId, x, y) => {
@@ -3646,6 +3684,7 @@ export default class ModularDiaryPlugin extends Plugin {
       zoneEvHour: Number.isInteger(data?.zoneEvHour) && (data!.zoneEvHour as number) >= 2 && (data!.zoneEvHour as number) <= 23 ? (data!.zoneEvHour as number) : DEFAULT_SETTINGS.zoneEvHour,
       periodFolder: typeof data?.periodFolder === "string" && data.periodFolder.trim() ? data.periodFolder.trim().replace(/\/+$/, "") : DEFAULT_SETTINGS.periodFolder,
       monthShowTodos: data?.monthShowTodos === true,
+      periodFace: data?.periodFace === "actual" ? "actual" : "plan",
       periodHeight: Number.isFinite(data?.periodHeight) && (data!.periodHeight as number) >= 320 && (data!.periodHeight as number) <= 1400 ? Math.round(data!.periodHeight as number) : DEFAULT_SETTINGS.periodHeight,
       todoReviewChecklist: typeof data?.todoReviewChecklist === "string" && data.todoReviewChecklist.trim() ? data.todoReviewChecklist : DEFAULT_TODO_REVIEW_CHECKLIST,
       pinnedSections: Array.isArray(data?.pinnedSections) ? [...new Set(data.pinnedSections.filter((value): value is string => typeof value === "string" && value.trim() !== ""))] : [],

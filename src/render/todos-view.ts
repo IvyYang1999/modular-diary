@@ -419,7 +419,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   const buckets = layout === "list" ? null : TODO_BUCKETS[layout]
   if (deps.onLayoutMenu) {
     const layoutButton = actions.createEl("button", { attr: { type: "button", "aria-label": t("todoLayoutRule") } })
-    setIcon(layoutButton, layout === "matrix" ? "grid-2x2" : layout === "abc" ? "columns-3" : "list")
+    setIcon(layoutButton, layout === "matrix" ? "layout-grid" : layout === "abc" ? "columns" : "list")
     layoutButton.addEventListener("click", () => {
       const rect = layoutButton.getBoundingClientRect()
       deps.onLayoutMenu?.(rect.left, rect.bottom)

@@ -46,6 +46,8 @@ export interface PeriodDayView {
   upcoming?: UpcomingItem[]
   /** Items of the other period kind placed on this date (shown, not moved). */
   foreign?: PeriodTodoView[]
+  /** Habits ticked by hand that day (rhythm ids). */
+  habitDone?: string[]
   hasNote: boolean
 }
 
@@ -126,6 +128,8 @@ export interface PeriodViewDeps {
   /** Day block embedding: switch between day / week / month. */
   onSwitchView?: (view: "day" | "week" | "month") => void
   onRhythmMenu?: (rhythmId: string, x: number, y: number) => void
+  /** Right-click on one slot (row or pill): skip it this period, let an owed one go, edit the rhythm. */
+  onSlotMenu?: (todo: PeriodTodoView, x: number, y: number) => void
   onOpenRhythms?: () => void
   /** Reorder a rhythm in the note: before `beforeId`, or last when null. */
   onReorderRhythm?: (id: string, beforeId: string | null) => void
@@ -763,6 +767,8 @@ function attachRailResize(root: HTMLElement, handle: HTMLElement, deps: PeriodVi
 
 /** Side-by-side lanes for overlapping actual records (plans stay full width underneath). */
 function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): void {
+  // The actual face of a week or month is what happened: no plans, no all-day items, no schedule.
+  const recordsOnly = model.scope !== undefined && model.face === "actual"
   const scroll = host.createDiv({ cls: "modular-diary-period-cal-scroll" })
   const cal = scroll.createDiv({ cls: "modular-diary-period-cal" })
   const count = model.days.length
@@ -816,9 +822,9 @@ function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewM
     head.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open() } })
   }
 
-  // Row 2: all-day band.
-  cal.createDiv({ cls: "modular-diary-period-gutter-label", text: t("allDay") })
-  for (const day of model.days) {
+  // Row 2: all-day band (plans only).
+  if (!recordsOnly) cal.createDiv({ cls: "modular-diary-period-gutter-label", text: t("allDay") })
+  for (const day of recordsOnly ? [] : model.days) {
     const cell = cal.createDiv({ cls: `modular-diary-period-allday${day.date === model.today ? " is-today" : ""}` })
     cell.dataset.zone = day.date
     cell.dataset.zoneKind = "list"
@@ -865,8 +871,9 @@ function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewM
     col.dataset.zone = day.date
     col.dataset.zoneKind = "axis"
     col.style.setProperty("--modular-diary-period-offset", `${(Math.ceil(model.rangeStartMin / 60) * 60 - model.rangeStartMin) / 60}`)
-    const lanes = laneLayout(day.entries)
-    const sorted = [...day.entries].sort((a, b) => Number(!a.plan) - Number(!b.plan) || a.startMin - b.startMin)
+    const shown = recordsOnly ? day.entries.filter((entry) => !entry.plan) : day.entries
+    const lanes = laneLayout(shown)
+    const sorted = [...shown].sort((a, b) => Number(!a.plan) - Number(!b.plan) || a.startMin - b.startMin)
     for (const entry of sorted) {
       if (entry.endMin <= model.rangeStartMin || entry.startMin >= model.rangeEndMin) continue
       anything = true
@@ -902,7 +909,7 @@ function renderCalendar(host: HTMLElement, root: HTMLElement, model: PeriodViewM
       }
     }
     // Scheduled ahead in Upcoming.md: a dashed outline until that day's diary takes it.
-    for (const item of day.upcoming ?? []) {
+    for (const item of recordsOnly ? [] : day.upcoming ?? []) {
       if (item.startMin === undefined || item.endMin === undefined) continue
       if (item.endMin <= model.rangeStartMin || item.startMin >= model.rangeEndMin) continue
       anything = true

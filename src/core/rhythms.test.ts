@@ -116,3 +116,13 @@ describe("daily limits", () => {
     expect(rhythmToHabit(parseRhythmLine("每天 30分钟 运动")!, 0)).not.toHaveProperty("durationComparison")
   })
 })
+
+describe("weekly rhythms counting from a date", () => {
+  it("are off before their first week and on every week after", () => {
+    const weekly = parseRhythmLine("每周 游泳 自2026-11-02")!
+    expect(rhythmWeekOn(weekly, "2026-10-28")).toBe(false)
+    expect(rhythmWeekOn(weekly, "2026-11-04")).toBe(true)
+    expect(rhythmWeekOn(weekly, "2026-11-11")).toBe(true)
+    expect(rhythmWeekOn(parseRhythmLine("每周 游泳")!, "2026-01-01")).toBe(true)
+  })
+})

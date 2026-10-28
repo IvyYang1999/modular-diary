@@ -6,7 +6,8 @@
 import { setIcon } from "obsidian"
 import { formatHours } from "../core/duration"
 import type { RhythmBoardRow, RhythmSlotView } from "../core/rhythm-ledger"
-import { zoneRangeLabel, type RhythmZone } from "../core/rhythms"
+import { rhythmToHabit, zoneRangeLabel, type RhythmZone } from "../core/rhythms"
+import { isHabitDue } from "../core/habits"
 import type { UpcomingItem } from "../core/upcoming"
 import { t } from "../i18n"
 import { attachDrag, clock, formatTotal, goalEditor, plainTitle, POOL_ZONE, shortDate, weekday, type PeriodDayView, type PeriodTodoView, type PeriodViewDeps, type PeriodViewModel } from "./period-view"
@@ -22,6 +23,11 @@ const MONTH_CELL_VISIBLE = 4
 
 export function zoneOfMinute(minute: number): RhythmZone {
   return minute < ZONE_EDGES.pm ? "am" : minute < ZONE_EDGES.ev ? "pm" : "ev"
+}
+
+function weekdayShortOf(date: string): string {
+  const day = new Date(`${date}T00:00:00`).getDay()
+  return [...t("weekdayShort")][(day + 6) % 7] ?? ""
 }
 
 function zoneLabel(zone: RhythmZone): string {
@@ -123,7 +129,10 @@ function renderPill(host: HTMLElement, root: HTMLElement, pill: Pill, model: Per
   if (pill.todo && pill.from) {
     el.tabIndex = 0
     attachDrag(root, el, { todo: pill.todo, from: pill.from }, model, deps)
-    menuFor?.(el, pill.todo.id)
+    if (pill.todo.rhythm && deps.onSlotMenu) {
+      const slot = pill.todo
+      el.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); deps.onSlotMenu?.(slot, event.clientX, event.clientY) })
+    } else menuFor?.(el, pill.todo.id)
   }
   return el
 }
@@ -207,7 +216,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
     const stub = { id: `rhythm:${rhythm.id}`, title: rhythm.name, group: "", type: rhythm.type ?? "", estimateMin: 0, completed: false, tags: [], actualMinutes: 0 } as unknown as PeriodTodoView
     attachDrag(root, row, { todo: stub, from: POOL_ZONE, rhythmId: rhythm.id, reorderOnly: true }, model, deps)
   }
-  const order = ["boardOwed", "boardUnplaced", "boardPlaced", "boardProgress", "boardDone", "boardSkipped"]
+  const order = ["boardOwed", "boardUnplaced", "boardPlaced", "boardProgress", "boardDaily", "boardDone", "boardSkipped"]
   // Slot rhythms: one row per slot, grouped by its state. Measured rhythms: one progress row.
   const rowsByKey = new Map<string, Array<() => void>>()
   const queue = (key: string, build: () => void): void => { rowsByKey.set(key, [...(rowsByKey.get(key) ?? []), build]) }
@@ -242,12 +251,15 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
           el.classList.add("modular-diary-period-draggable")
           el.tabIndex = 0
           attachDrag(root, el, { todo: slot, from: slotFrom(slot), rhythmId: rhythm.id }, model, deps)
+          if (deps.onSlotMenu) el.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); deps.onSlotMenu?.(slot, event.clientX, event.clientY) })
         })
       })
       continue
     }
-    queue("boardProgress", () => {
-      const el = rowEl("boardProgress", rhythm, row.due > 0 && row.done === row.due ? "is-done" : "is-measured")
+    // Daily rhythms are ticks per day, not things to place: their own label.
+    const progressKey = rhythm.cadence === "daily" || rhythm.cadence === "weekdays" ? "boardDaily" : "boardProgress"
+    queue(progressKey, () => {
+      const el = rowEl(progressKey, rhythm, row.due > 0 && row.done === row.due ? "is-done" : "is-measured")
       const meta = el.createEl("span", { cls: "modular-diary-plan-meta" })
       const color = rhythm.type ? deps.typeColors[rhythm.type] : undefined
       const bar = el.createDiv({ cls: "modular-diary-plan-bar" })
@@ -257,6 +269,24 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
         const target = row.targetMinutes ?? rhythm.quota.minutes
         meta.textContent = `${formatHours(row.minutes)} / ${formatHours(target)}`
         fill.style.width = `${Math.min(100, (row.minutes / Math.max(1, target)) * 100)}%`
+      } else if (progressKey === "boardDaily") {
+        // Daily rhythms: one cell per day, lit when the day earned its tick (a stamp card, not a bar).
+        meta.textContent = t("daysDone", { done: String(row.done), total: String(row.due) })
+        bar.remove()
+        const habit = rhythmToHabit(rhythm, 0)
+        const days = model.days.filter((day) => !habit || isHabitDue(habit, day.date))
+        const cells = el.createDiv({ cls: `modular-diary-plan-days${days.length > 7 ? " is-month" : ""}` })
+        if (days.length > 7) for (let i = 0; i < (new Date(`${days[0].date}T00:00:00`).getDay() + 6) % 7; i++) cells.createDiv({ cls: "modular-diary-plan-day is-blank" })
+        for (const day of days) {
+          const limit = rhythm.quota.kind === "duration" && rhythm.quota.limit === true
+          const recorded = day.entries.filter((entry) => !entry.plan && entry.type === rhythm.type).reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0)
+          const manual = day.habitDone?.includes(rhythm.id)
+          const target = rhythm.quota.kind === "duration" ? rhythm.quota.minutes : 0
+          const hit = manual || (limit ? day.entries.length > 0 && recorded < target : target > 0 ? recorded >= target : recorded > 0)
+          const cell = cells.createDiv({ cls: `modular-diary-plan-day${hit ? " is-done" : ""}${day.date === model.today ? " is-today" : ""}${day.date > model.today ? " is-future" : ""}`, attr: { title: `${day.date} · ${hit ? t("checkedToday") : t("notChecked")}` } })
+          if (color) cell.style.setProperty("--c", color)
+          cell.textContent = days.length > 7 ? String(Number(day.date.slice(8, 10))) : weekdayShortOf(day.date)
+        }
       } else {
         meta.textContent = t(row.unit === "times" ? "timesDone" : "daysDone", { done: String(row.done), total: String(row.due) })
         fill.style.width = `${row.due ? Math.min(100, (row.done / row.due) * 100) : 0}%`

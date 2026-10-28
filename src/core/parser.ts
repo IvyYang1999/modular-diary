@@ -88,6 +88,7 @@ export function parseTimeline(source: string, opts: ParseOptions = {}): Timeline
     todoGroupOrder: [],
     periodStats: [],
     rhythmSkips: [],
+    rhythmDrops: [],
     goals: [],
     texts: [],
     checklists: [],
@@ -382,6 +383,10 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       const view = parseTodoViewHeaderValue(value)
       if (view) doc.todoView = view
       else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
+      return
+    }
+    case "rhythm-drop": {
+      doc.rhythmDrops.push(...value.split(/\s+/).filter(Boolean))
       return
     }
     case "rhythm-skip": {

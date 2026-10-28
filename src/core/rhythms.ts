@@ -180,10 +180,11 @@ function mondayOf(date: string): string {
 
 /** Whether a weekly / biweekly rhythm is on in the week containing `date`. */
 export function rhythmWeekOn(rhythm: Rhythm, date: string): boolean {
-  if (rhythm.cadence !== "biweekly") return true
-  if (!rhythm.anchor) return isoWeekParity(date) === 0
+  if (rhythm.cadence !== "biweekly" && rhythm.cadence !== "weekly") return true
+  if (!rhythm.anchor) return rhythm.cadence === "weekly" || isoWeekParity(date) === 0
   const diff = (Date.parse(`${mondayOf(date)}T00:00:00Z`) - Date.parse(`${mondayOf(rhythm.anchor)}T00:00:00Z`)) / 86400000
-  return diff >= 0 && Math.round(diff / 7) % 2 === 0
+  // Before its first week a rhythm is not on; a weekly one is on every week after, a biweekly one every other.
+  return diff >= 0 && (rhythm.cadence === "weekly" || Math.round(diff / 7) % 2 === 0)
 }
 
 /**

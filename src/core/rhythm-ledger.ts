@@ -204,15 +204,16 @@ export function openSlots(prevSource: string, rhythms: Rhythm[]): TodoItem[] {
  * `owed="<prev key>"` slots; there they become shadows (`moved=`).
  */
 export function carryOver(source: string, prevSource: string, rhythms: Rhythm[], scope: PeriodScope, prevKey: string): { source: string; prevSource: string } {
-  const open = openSlots(prevSource, rhythms)
-  if (!open.length) return { source, prevSource }
   const doc = parseTimeline(source)
+  // A carry the user let go of (`rhythm-drop: id@prevKey`) is not made again; stale surplus never multiplies either.
+  const open = openSlots(prevSource, rhythms).filter((slot) => !doc.rhythmDrops.includes(`${slot.rhythm}@${prevKey}`))
+  if (!open.length) return { source, prevSource }
   let out = source, prev = prevSource
   for (const slot of open) {
     const rhythm = rhythms.find((item) => item.id === slot.rhythm)!
     const already = doc.todos.filter((todo) => todo.rhythm === rhythm.id && todo.owed === prevKey).length
     const carried = doc.todos.filter((todo) => todo.owed === prevKey && todo.rhythm === rhythm.id)
-    const needed = open.filter((item) => item.rhythm === rhythm.id).length
+    const needed = Math.min(open.filter((item) => item.rhythm === rhythm.id).length, slotCount(rhythm))
     if (carried.length >= needed) { prev = updateTodo(prev, slot.id, { moved: scope.start }); continue }
     const index = doc.todos.filter((todo) => todo.rhythm === rhythm.id).length + already + 1
     out = insertTodo(out, { id: `${slotId(rhythm, index)}-owed`, title: rhythm.name, group: "", type: rhythm.type, completed: false, estimateMin: slot.estimateMin, rhythm: rhythm.id, owed: prevKey, ...(rhythm.zone ? { zone: rhythm.zone } : {}) })
