@@ -1,6 +1,6 @@
 import type { UpcomingItem } from "../core/upcoming"
 import type { PeriodScope, RhythmBoardRow } from "../core/rhythm-ledger"
-import { clearPillPreviews, dayHead, renderActualMonth, renderPlanCalendar, renderRhythmBoard } from "./plan-view"
+import { clearPillPreviews, dayHead, renderActualMonth, renderBoundTodos, renderPlanCalendar, renderRhythmBoard } from "./plan-view"
 import { laneLayout } from "../core/period-lanes"
 import { parsePeriodStatsWidget, shareSlices, type PeriodStatsWidget } from "../core/period-stats"
 /**
@@ -130,6 +130,10 @@ export interface PeriodViewDeps {
   onRhythmMenu?: (rhythmId: string, x: number, y: number) => void
   /** Right-click on one slot (row or pill): skip it this period, let an owed one go, edit the rhythm. */
   onSlotMenu?: (todo: PeriodTodoView, x: number, y: number) => void
+  /** An accumulation row dropped on a day / band: a session at that part of the day (null = all day). */
+  onSession?: (id: string, date: string, zone: "am" | "pm" | "ev" | null) => void
+  /** Remove one session (a plan block in that day's note). */
+  onRemoveSession?: (date: string, line: number) => void
   onOpenRhythms?: () => void
   /** Reorder a rhythm in the note: before `beforeId`, or last when null. */
   onReorderRhythm?: (id: string, beforeId: string | null) => void
@@ -216,6 +220,8 @@ interface DragSubject {
   reorderOnly?: boolean
   /** A period todo row: dropping on another todo row reorders the list. */
   todoRow?: boolean
+  /** An accumulation row: every drop makes a session; the row stays where it is. */
+  session?: boolean
 }
 
 export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: DragSubject, model: PeriodViewModel, deps: PeriodViewDeps): void {
@@ -364,6 +370,11 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
       if (!dropped) return
       const to = dropped.dataset.zone ?? ""
       if (dropped.dataset.zoneKind === "axis") { if (canPlan) deps.onPlan(subject.todo.id, to, minutes) }
+      else if (subject.session) {
+        if (to === POOL_ZONE) return
+        const [date, zone] = to.split("@") as [string, "am" | "pm" | "ev" | undefined]
+        deps.onSession?.(subject.todo.id, date, zone ?? null)
+      }
       else if (to !== subject.from) deps.onAssign(subject.todo.id, to)
     }
     const onUp = (): void => finish(true)
@@ -537,8 +548,11 @@ function renderTextGoals(rail: HTMLElement, model: PeriodViewModel, deps: Period
     box.checked = item.complete
     box.addEventListener("change", () => deps.onToggleGoal?.(item.goal.line, box.checked))
     const body = row.createEl("button", { cls: "modular-diary-text-goal-body", attr: { type: "button", title: t("editTextGoal") } })
-    body.createEl("span", { cls: "modular-diary-text-goal-title", text: item.goal.key })
+    const bound = item.goal.id ? model.todos.filter((todo) => todo.goal === item.goal.id && !todo.moved) : []
+    const titleLine = body.createEl("span", { cls: "modular-diary-text-goal-title", text: item.goal.key })
+    if (bound.length) titleLine.createEl("span", { cls: "modular-diary-text-goal-count", text: ` ${bound.filter((todo) => todo.completed).length}/${bound.length}` })
     if (item.goal.note) body.createEl("span", { cls: "modular-diary-text-goal-note", text: item.goal.note })
+    if (bound.length) renderBoundTodos(list, bound, model, deps, rail.closest<HTMLElement>(".modular-diary-period") ?? rail)
     body.addEventListener("click", () => {
       closeEditor()
       row.hidden = true
@@ -565,7 +579,8 @@ function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewM
   const section = rail.createEl("section", { cls: "modular-diary-period-section modular-diary-period-todos" })
   section.dataset.zone = POOL_ZONE
   section.dataset.zoneKind = "list"
-  const items: TodoViewItem[] = model.todos.filter((todo) => !todo.rhythm).map((todo) => ({
+  // Bound todos live under their goal or rhythm on the board; pushed ones are gone from here.
+  const items: TodoViewItem[] = model.todos.filter((todo) => !todo.rhythm && !todo.under && !todo.goal && !todo.moved).map((todo) => ({
     id: todo.id, title: todo.title, group: todo.group, type: todo.type, completed: todo.completed, weekly: false, placed: Boolean(todo.placement),
     tags: todo.tags, note: todo.note, parent: todo.parent, partial: todo.partial, difficulty: todo.difficulty, priority: todo.priority,
     estimateMinutes: todo.estimateMin, actualMinutes: todo.actualMinutes, flags: placementFlag(todo, model),

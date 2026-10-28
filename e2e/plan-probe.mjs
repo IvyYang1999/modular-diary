@@ -26,7 +26,7 @@ fs.writeFileSync(path.join(out, "entry.ts"), `
 import { renderPeriodInto } from "${path.join(here, "../src/render/period-view")}"
 import { goalProgress, periodTotals, resolvePeriod } from "${path.join(here, "../src/core/period")}"
 import { parseTimeline } from "${path.join(here, "../src/core/parser")}"
-import { rhythmBoard, scopeContaining, ensureRhythmSlots } from "${path.join(here, "../src/core/rhythm-ledger")}"
+import { rhythmBoard, scopeContaining, ensureRhythmSlots, sessionId } from "${path.join(here, "../src/core/rhythm-ledger")}"
 import { parseRhythms } from "${path.join(here, "../src/core/rhythms")}"
 
 HTMLElement.prototype.createDiv = function (opts: any = {}) { return this.createEl("div", opts) }
@@ -45,10 +45,13 @@ const rhythms = parseRhythms(["- 每周 拍口播视频 @视频 整天", "- 每�
 const weekScope = scopeContaining("week", "2026-09-30"), monthScope = scopeContaining("month", "2026-09-30")
 let weekSrc = ensureRhythmSlots([
   'days: 2026-09-28..2026-10-04', 'scope: week', 'rail: 262',
-  'goal: type="运动" target=180', 'goal: tag="飞搜" target=120 note="投放前把内页做完"', 'goal: type="开发" target=1200', 'goal: text="把周视图第 3 轮改完" note="节律面板、联动、月视图"', 'goal: text="给爸妈打一次电话" done=true',
+  'goal: type="运动" target=180', 'goal: tag="飞搜" target=120 note="投放前把内页做完"', 'goal: type="开发" target=1200', 'goal: text="把周视图第 3 轮改完" id="g1" note="节律面板、联动、月视图"', 'goal: text="给爸妈打一次电话" done=true',
   'todo: id="t8" done=false estimate=60 category="写作" group="" due=2026-10-04 title="写周报 #官网"',
   'todo: id="t9" done=false estimate=45 category="开发" group="" title="装 Obsidian 测一遍 #模块日记"',
   'todo: id="t10" done=false estimate=30 category="" group="" title="回邮件"',
+  'todo: id="b1" done=false estimate=60 category="阅读" group="" under="学习" title="读第 3 章"',
+  'todo: id="b2" done=true estimate=120 category="阅读" group="" under="学习" day=2026-10-02 zone=ev title="做题"',
+  'todo: id="b3" done=false estimate=30 category="开发" group="" goal="g1" title="修拖拽"',
   'todo: id="t11" done=false estimate=90 category="开发" group="" day=2026-09-30 title="周视图重做 #模块日记"',
   'todo: id="t12" done=true estimate=60 category="运动" group="" day=2026-09-29 title="游泳"',
   'todo: id="t13" done=false estimate=60 category="开发" group="" day=2026-09-28 zone=am title="阶段 1：解决卡点"',
@@ -69,7 +72,7 @@ const day = (date: string, source: string, hasNote = true) => { const doc = pars
 const known = new Map([
   day("2026-09-28", "07:00-07:40 睡觉 赖床\\n08:00-08:30 阅读\\n09:00-10:00 运动 跑步\\n10:00-12:30 开发 #模块日记 周视图 parser\\n12:30-13:15 吃饭\\n14:00-16:00 看剧\\n16:00-19:00 开发 #飞搜 精品内页\\n19:30-20:30 写作 #官网 方案"),
   day("2026-09-29", "07:00-07:30 睡觉\\n08:00-09:00 开发\\nplan 10:00-11:00 运动 游泳 [todo:t12]\\n14:00-15:00 家人 心理咨询\\n14:00-16:00 开发 推荐栏"),
-  day("2026-09-30", "plan 09:00-12:00 开发\\n09:15-11:40 开发 #模块日记 周视图重做\\n12:00-12:45 吃饭\\nplan 16:30-18:00 写作 官网文案\\nplan 19:00-19:30 运动"),
+  day("2026-09-30", "plan 09:00-12:00 开发\\n09:15-11:40 开发 #模块日记 周视图重做\\n12:00-12:45 吃饭\\nplan 16:30-18:00 写作 官网文案\\nplan 19:00-19:30 运动\\nplan 20:00-21:00 阅读 学习 [todo:" + sessionId(rhythms.find((r) => r.id === "学习")!) + "]"),
   day("2026-10-02", "plan 10:00-10:45 开发 装 Obsidian 测一遍 [todo:t9]"), day("2026-10-04", "plan 10:00-12:00 写作 周记"),
 ].map((d) => [d.date, d]))
 for (let n = 1; n <= 27; n++) {
@@ -93,6 +96,7 @@ const deps = {
   onSetFace: (face) => window.__events.push("face:" + face), onSwitchView: (view) => window.__events.push("view:" + view),
   onRhythmMenu: (id) => window.__events.push("rhythm-menu:" + id), onOpenRhythms: () => window.__events.push("rhythms"),
   onReorderRhythm: (id, before) => window.__events.push("reorder:" + id + ":" + before), onHeight: (px) => window.__events.push("height:" + px), onToggleShowTodos: () => window.__events.push("show-todos"),
+  onSession: (id, date, zone) => window.__events.push("session:" + id + ":" + date + ":" + zone), onRemoveSession: (date, line) => window.__events.push("remove-session:" + date + ":" + line),
 }
 window.mount = (kind: "week" | "month", face: "plan" | "actual") => {
   host.replaceChildren()

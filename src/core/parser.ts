@@ -451,7 +451,8 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       if (fields && fields.has("text") && !fields.has("type") && !fields.has("tag")) {
         const text = fields.get("text")?.trim() ?? ""
         if (!text) { doc.errors.push({ line, text: raw, reason: tr("invalidGoal") }); return }
-        doc.goals.push({ kind: "text", key: text, targetMinutes: 0, line, ...(note ? { note } : {}), done: fields.get("done") === "true" })
+        const goalId = fields.get("id")?.trim()
+        doc.goals.push({ kind: "text", key: text, targetMinutes: 0, line, ...(note ? { note } : {}), ...(goalId ? { id: goalId } : {}), done: fields.get("done") === "true" })
         return
       }
       const key = fields?.get("type") ?? fields?.get("tag")

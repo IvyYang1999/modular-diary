@@ -112,9 +112,18 @@ export function rhythmsDueIn(rhythms: Rhythm[], scope: PeriodScope): Rhythm[] {
   })
 }
 
-/** Weekly, biweekly and monthly rhythms get slots to place on a day; daily ones are measured day by day. */
+/**
+ * Count rhythms (做 N 次) get slots to place on a day. Duration rhythms (累计 N 小时) are
+ * accumulation rows: placed as many times as one likes (sessions), measured by hours.
+ * Daily ones are measured day by day.
+ */
 export function takesSlots(rhythm: Rhythm): boolean {
-  return rhythm.cadence !== "daily" && rhythm.cadence !== "weekdays"
+  return rhythm.quota.kind === "count" && rhythm.cadence !== "daily" && rhythm.cadence !== "weekdays"
+}
+
+/** The id a duration rhythm's sessions (plan blocks) bind to; the same in every period. */
+export function sessionId(rhythm: Rhythm): string {
+  return `r-${hash36(rhythm.id)}-s`
 }
 
 /** How many slots a period gets: the count, or one session for a duration quota. */
@@ -251,6 +260,12 @@ export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: Placed
   return shown.map((rhythm) => {
     const skipped = skips.includes(rhythm.id)
     const weekly = rhythm.cadence === "weekly" || rhythm.cadence === "biweekly"
+    if (scope.kind === "month" && weekly && rhythm.quota.kind === "duration") {
+      // Accumulation over the month: the weekly quota times the weeks it is on.
+      const minutes = recordedIn(rhythm)
+      const target = rhythm.quota.minutes * Math.max(1, weeksOn(rhythm, scope).length)
+      return { rhythm, slots: [], skipped, due: 0, placed: 0, done: minutes >= target ? 1 : 0, minutes, owed: 0, targetMinutes: target }
+    }
     if (scope.kind === "month" && weekly) {
       // Seen from the month: the weeks' own slots, as rows one can place on a day of their week.
       const minutes = recordedIn(rhythm)

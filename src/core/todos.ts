@@ -262,6 +262,8 @@ export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem, n
     ...(todo.ownCategory !== undefined ? [`own-category=${JSON.stringify(todo.ownCategory)}`] : []),
     ...(todo.attach?.length ? [`attach=${JSON.stringify(todo.attach.join("\n"))}`] : []),
     ...(todo.rhythm ? [`rhythm=${JSON.stringify(todo.rhythm)}`] : []),
+    ...(todo.under ? [`under=${JSON.stringify(todo.under)}`] : []),
+    ...(todo.goal ? [`goal=${JSON.stringify(todo.goal)}`] : []),
     ...(todo.zone ? [`zone=${todo.zone}`] : []),
     ...(todo.owed ? [`owed=${todo.owed}`] : []),
     ...(noteSourceValue === undefined && todo.note ? [`note=${JSON.stringify(todo.note)}`] : []),
@@ -347,7 +349,7 @@ export function todoNoteSourceValue(text: string): string | undefined {
 function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | null {
   const fields = parseReadableFields(value)
   const keys = ["id", "done", "estimate", "category", "group", "title"]
-  const optional = ["due", "moved", "day", "bucket", "note", "parent", "own-category", "attach", "rhythm", "zone", "owed", "difficulty", "priority"]
+  const optional = ["due", "moved", "day", "bucket", "note", "parent", "own-category", "attach", "rhythm", "under", "goal", "zone", "owed", "difficulty", "priority"]
   if (!fields || keys.some((key) => !fields.has(key)) || [...fields.keys()].some((key) => !keys.includes(key) && !optional.includes(key))) return null
   const due = fields.get("due")
   const moved = fields.get("moved")
@@ -387,6 +389,8 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
     ...(fields.has("own-category") ? { ownCategory: fields.get("own-category") } : {}),
     ...(fields.get("attach") ? { attach: fields.get("attach")!.split("\n").map((item) => item.trim()).filter(Boolean) } : {}),
     ...(fields.get("rhythm") ? { rhythm: fields.get("rhythm") } : {}),
+    ...(fields.get("under") ? { under: fields.get("under") } : {}),
+    ...(fields.get("goal") ? { goal: fields.get("goal") } : {}),
     ...(zone ? { zone: zone as "am" | "pm" | "ev" } : {}),
     ...(fields.get("owed") ? { owed: fields.get("owed") } : {}),
     line,

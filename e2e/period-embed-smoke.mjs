@@ -13,14 +13,14 @@ import {chromium} from 'playwright'
 const root=path.dirname(path.dirname(fileURLToPath(import.meta.url))),out=fs.mkdtempSync(path.join(os.tmpdir(),'modular-diary-period-embed-'))
 const built=await esbuild.build({entryPoints:[path.join(root,'src/main.ts')],bundle:true,write:false,platform:'browser',format:'iife',globalName:'MDPlugin',external:['obsidian','node:*','child_process']})
 const daySource='date: 2026-10-22\nrange: 9-11\nlayout: toolbar@0,0,6,3 todos@0,3,6,8 timeline@6,0,6,14\noff: dialog stats\n---\n09:00-10:00 work'
-const rhythms='# 节律\n\n- 每周 拍视频 @work 整天\n- 每周 2次 散步 @study 下午\n- 每天 30分钟 运动 @study\n- 每月 旅游 @study 2-3天\n'
+const rhythms='# 节律\n\n- 每周 拍视频 @work 整天\n- 每周 2次 散步 @study 下午\n- 每天 30分钟 运动 @study\n- 每月 旅游 @study 2-3天\n- 每周 2小时 阅读 @study\n'
 const setup=`
 for(const [method,tag] of [['createDiv','div'],['createSpan','span'],['createEl',null]])HTMLElement.prototype[method]=function(a={},b={}){const opts=tag?a:b,el=document.createElement(tag||a);if(opts.cls)el.className=Array.isArray(opts.cls)?opts.cls.join(' '):opts.cls;if(opts.text)el.textContent=opts.text;for(const [k,v] of Object.entries(opts.attr||{}))el.setAttribute(k,v);this.append(el);return el}
 HTMLElement.prototype.empty=function(){this.replaceChildren()};HTMLElement.prototype.addClass=function(...c){this.classList.add(...c)};HTMLElement.prototype.removeClass=function(...c){this.classList.remove(...c)};HTMLElement.prototype.toggleClass=function(c,v){this.classList.toggle(c,v)};HTMLElement.prototype.setText=function(t){this.textContent=t};
 const cleanup=[];class Base{registerDomEvent(target,name,cb,opts){target.addEventListener(name,cb,opts);cleanup.push(()=>target.removeEventListener(name,cb,opts))}registerEvent(){}register(){}addChild(){}}
 class TFile{constructor(p){this.path=p;this.basename=p.split('/').pop().replace(/\\.md$/,'');this.extension='md'}};class TFolder{};class MarkdownView{};
 class Modal{constructor(app){this.app=app;this.modalEl=document.createElement('div');this.modalEl.className='modal';this.titleEl=document.createElement('h2');this.contentEl=document.createElement('div');this.modalEl.append(this.titleEl,this.contentEl);document.body.appendChild(this.modalEl);this.modalEl.__modal=this}setTitle(v){this.titleEl.textContent=v;return this}open(){this.onOpen()}close(){this.onClose();this.modalEl.remove()}onOpen(){}onClose(){}}
-class Menu{constructor(){this.items=[]}addItem(cb){let title='',handler=()=>{};const item=new Proxy({setTitle:t=>{title=t;return item},onClick:cb=>{handler=cb;return item}},{get:(o,k)=>o[k]||(()=>item)});cb(item);this.items.push({title,handler});return this}addSeparator(){return this}showAtPosition(){document.querySelector('#menu')?.remove();const m=document.body.createDiv({});m.id='menu';m.setAttribute('role','menu');for(const i of this.items){const b=m.createEl('button',{text:i.title,attr:{type:'button'}});b.onclick=()=>{m.remove();i.handler()}}}}
+class Menu{constructor(){this.items=[]}addItem(cb){let title='',handler=()=>{},sub=null;const item=new Proxy({setTitle:t=>{title=t;return item},onClick:cb=>{handler=cb;return item},setSubmenu:()=>{sub=new Menu();return sub}},{get:(o,k)=>o[k]||(()=>item)});cb(item);this.items.push({get title(){return title},handler,get sub(){return sub}});return this}addSeparator(){return this}flat(){return this.items.flatMap(i=>i.sub?i.sub.flat():[i])}showAtPosition(){document.querySelector('#menu')?.remove();const m=document.body.createDiv({});m.id='menu';m.setAttribute('role','menu');for(const i of this.flat()){const b=m.createEl('button',{text:i.title,attr:{type:'button'}});b.onclick=()=>{m.remove();i.handler()}}}}
 const obsidian=new Proxy({Plugin:Base,PluginSettingTab:Base,Modal,MarkdownRenderChild:Base,FuzzySuggestModal:Base,TFile,TFolder,MarkdownView,Menu,Platform:{isDesktopApp:false,isMobile:false},getLanguage:()=> 'zh',normalizePath:p=>p.replace(/^\\/+/,''),setIcon:(el,name)=>{const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.innerHTML='<path d="M5 12h14M12 5v14" stroke="currentColor"/>';el.append(svg)},MarkdownRenderer:{render:async(_a,text,el)=>{el.textContent=text}},Notice:class{constructor(text){window.notices.push(text)}},moment:()=>({format:()=> '2026-10-22'})},{get:(o,k)=>o[k]??Base});
 window.activeWindow=window;window.activeDocument=document;window.notices=[];window.require=n=>n==='obsidian'?obsidian:n==='node:os'?{homedir:()=>'/synthetic'}:n==='node:path'?{join:(...p)=>p.join('/')}:{};
 window.__base={obsidian,cleanup};
@@ -64,7 +64,20 @@ try{
    title:el.querySelector('.modular-diary-component-title')?.textContent,
    rows:[...el.querySelectorAll('.modular-diary-plan-row')].map(r=>r.className.replace(/modular-diary-plan-row|modular-diary-period-draggable/g,'').trim()+':'+r.querySelector('.modular-diary-plan-name')?.textContent)}))
  assert.equal(board.title,'本周协议')
- assert.deepEqual(board.rows,['is-unplaced:拍视频','is-unplaced:散步 1','is-unplaced:散步 2','is-measured:运动'],JSON.stringify(board))
+ assert.deepEqual(board.rows,['is-unplaced:拍视频','is-unplaced:散步 1','is-unplaced:散步 2','is-measured  is-session-source:阅读','is-measured:运动'],JSON.stringify(board))
+ // 2a. An accumulation row (每周 2小时 阅读) drags as a session: a plan block in that day's note; the row stays.
+ const reading=page.locator('.modular-diary-plan-row.is-session-source',{hasText:'阅读'})
+ const fromR=await reading.boundingBox(),toR=await page.locator('.modular-diary-plan-band[data-zone="2026-10-21@pm"]').boundingBox()
+ await page.mouse.move(fromR.x+fromR.width/2,fromR.y+fromR.height/2);await page.mouse.down()
+ await page.mouse.move(fromR.x+40,fromR.y+10);await page.mouse.move(toR.x+toR.width/2,toR.y+toR.height/2,{steps:8});await page.mouse.up()
+ await page.waitForFunction(()=>Object.entries(window.files).some(([p,c])=>p!=='synthetic.md'&&/plan 13:00-14:00 study 阅读 \[todo:r-[a-z0-9]+-s\]/.test(c)))
+ // The harness has no vault events, so tell the day index about the new note by hand (Obsidian's modify/create events do this live).
+ await page.evaluate(()=>{for(const p of Object.keys(window.files))window.plugin.dayIndex.markDirty(p);return window.plugin.refreshDayIndex().then(()=>window.mountActual())})
+ if(process.env.DEBUG_SESSION)console.log(await page.evaluate(()=>JSON.stringify([Object.keys(window.files),window.plugin.dayIndex.blocksForDate('2026-10-21').map(b=>b.entries),document.querySelector('.modular-diary-plan-board')?.innerText])))
+ await page.locator('.modular-diary-plan-row.is-session-source',{hasText:'阅读'}).waitFor()
+ assert.equal(await page.locator('.modular-diary-plan-session').count(),1,'the session shows under the row')
+ assert.equal(await page.locator('.modular-diary-plan-band[data-zone="2026-10-21@pm"] .modular-diary-plan-pill',{hasText:'阅读'}).count(),0,'a session is not a placed pill')
+
  assert.equal(await page.locator('.modular-diary-seg button[aria-pressed="true"]',{hasText:'周'}).count(),1)
  assert.equal(await page.locator('.modular-diary-plan-cell').count(),7)
  // 2. Drag the first 散步 slot into Thursday afternoon: the slot gets day= and zone=pm in the week note.
@@ -110,6 +123,19 @@ try{
  await page.evaluate(()=>window.mountActual())
  await page.locator('.modular-diary-plan-band[data-zone="2026-10-23@am"] .modular-diary-plan-pill',{hasText:'买菜'}).waitFor()
  assert.equal(await page.locator('.modular-diary-period-todos .modular-diary-todo-group-name',{hasText:'已安排'}).count(),1)
+ // 2c. 挂到…: the todo goes under the 阅读 rhythm (taking its category) and hangs off that row; unbound it returns to the list.
+ await page.locator('.modular-diary-period-todos .modular-diary-todo-row',{hasText:'买菜'}).click({button:'right'})
+ await page.locator('#menu button',{hasText:'阅读'}).click()
+ await page.waitForFunction(()=>/under="阅读"[^\n]*title="买菜"|title="买菜"[^\n]*under="阅读"/.test(window.files['周期/2026-W43.md']) && /category="study"[^\n]*title="买菜"/.test(window.files['周期/2026-W43.md']))
+ await page.evaluate(()=>window.mountActual())
+ await page.locator('.modular-diary-plan-board .modular-diary-plan-sub',{hasText:'买菜'}).waitFor()
+ assert.equal(await page.locator('.modular-diary-period-todos .modular-diary-todo-row',{hasText:'买菜'}).count(),0,'a bound todo leaves the plain list')
+ // 2d. 推到下周: the todo moves to next week's note (binding kept), a shadow stays here.
+ await page.locator('.modular-diary-plan-board .modular-diary-plan-sub',{hasText:'买菜'}).click({button:'right'})
+ await page.locator('#menu button',{hasText:'推到下周'}).click()
+ await page.waitForFunction(()=>window.files['周期/2026-W44.md']&&/under="阅读"[^\n]*title="买菜"|title="买菜"[^\n]*under="阅读"/.test(window.files['周期/2026-W44.md']) && /moved=2026-10-26[^\n]*title="买菜"/.test(window.files['周期/2026-W43.md']))
+ await page.evaluate(()=>window.mountActual())
+ assert.equal(await page.locator('.modular-diary-plan-board .modular-diary-plan-sub',{hasText:'买菜'}).count(),0,'the pushed todo is gone from this week')
  // 3. 计划 → 实际 flips the note's face; 日 removes the day block's view header.
  // The face is one setting for every embedded period, so paging never flips it; the week's actual face shows records only.
  await page.locator('.modular-diary-period-toolbar .modular-diary-seg.is-soft button',{hasText:'实际'}).click()
@@ -165,7 +191,7 @@ try{
  // 5. The board's pencil opens the rhythms panel (forms, not markdown); edits write back to 节律.md.
  await page.locator('.modular-diary-plan-board .modular-diary-component-actions button').nth(1).click()
  await page.locator('.modular-diary-rhythm-modal .modular-diary-rhythm-item').nth(3).waitFor()
- assert.equal(await page.locator('.modular-diary-rhythm-item').count(),4)
+ assert.equal(await page.locator('.modular-diary-rhythm-item').count(),5)
  const nameInput=page.locator('.modular-diary-rhythm-item').nth(3).locator('.modular-diary-rhythm-name-input')
  assert.equal(await nameInput.inputValue(),'旅游')
  await nameInput.fill('远行');await nameInput.press('Enter')

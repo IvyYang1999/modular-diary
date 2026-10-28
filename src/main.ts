@@ -1,7 +1,7 @@
-import { setZoneEdges } from "./render/plan-view"
+import { setZoneEdges, ZONE_EDGES } from "./render/plan-view"
 import { parseChecklistTemplate } from "./core/checklists"
 import { PeriodFiles } from "./period-files"
-import { periodKey, rhythmBoard, scopeContaining, scopeOfRange, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
+import { periodKey, rhythmBoard, scopeContaining, scopeOfRange, sessionId, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
 import { RhythmsNote } from "./rhythms-note"
 import { isDailyNote, findChecklistTemplateFile, saveChecklistAsTemplate } from "./checklists"
 import { AddUpcomingModal, createUpcomingSchedule, watchUpcoming, type UpcomingVaultOptions } from "./upcoming"
@@ -2678,6 +2678,45 @@ export default class ModularDiaryPlugin extends Plugin {
     const setView = (patch: Partial<typeof doc.todoView>): void => {
       void rewrite((value) => setHeaderValue(value, "todo-view", formatTodoViewHeaderValue({ ...todoView, ...patch })))
     }
+    /** What an accumulation id stands for: a duration rhythm's session, or an hour target of a category. */
+    const sessionOf = (id: string): { title: string; type: string | undefined } | null => {
+      const rhythm = this.rhythms.items.find((item) => sessionId(item) === id)
+      if (rhythm) return { title: rhythm.name, type: rhythm.type }
+      const target = doc.goals.find((goal) => goal.kind === "type" && `g-${goal.key}` === id)
+      return target ? { title: target.key, type: target.key } : null
+    }
+    const addSession = async (id: string, date: string, startMin: number): Promise<void> => {
+      const what = sessionOf(id)
+      if (!what) return
+      if (!what.type) { new Notice(tr("sessionNeedsCategory")); return }
+      const rhythm = this.rhythms.items.find((item) => sessionId(item) === id)
+      const quota = rhythm?.quota.kind === "duration" ? rhythm.quota.minutes : (doc.goals.find((goal) => `g-${goal.key}` === id)?.targetMinutes ?? 60)
+      const recorded = rhythm ? (rhythmBoard([rhythm], scope ?? scopeContaining("week", date), [], facts, []).find(() => true)?.minutes ?? 0) : 0
+      const length = Math.max(30, Math.min(60, quota - recorded))
+      const plan = buildScheduledPlan({ source: "todo", id, title: what.title, type: what.type, durationMin: length }, startMin).line
+      try {
+        await this.writeToDay(date, (blockSource) => insertEntryLine(blockSource, plan, startMin))
+        this.rerenderMountedTimelines()
+      } catch (error) { fail(date, error) }
+    }
+    /** All todos bound under a goal or rhythm done → the goal ticks / the rhythm's first open slot completes. */
+    const propagateCompletion = (current: string, id: string): string => {
+      const live = parseTimeline(current)
+      const todo = live.todos.find((item) => item.id === id)
+      if (!todo) return current
+      let out = current
+      if (todo.goal) {
+        const siblings = live.todos.filter((item) => item.goal === todo.goal && !item.moved)
+        const goal = live.goals.find((item) => item.kind === "text" && item.id === todo.goal)
+        if (goal && siblings.length && siblings.every((item) => item.completed) && !goal.done) out = replaceEntryLine(out, goal.line, formatGoalLine({ ...goal, done: true }))
+      }
+      if (todo.under) {
+        const siblings = live.todos.filter((item) => item.under === todo.under && !item.moved)
+        const slot = live.todos.find((item) => item.rhythm === todo.under && !item.completed && !item.moved)
+        if (slot && siblings.length && siblings.every((item) => item.completed)) out = setTodoCompleted(out, slot.id, true)
+      }
+      return out
+    }
     renderPeriodInto(container, model, {
       typeColors: { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors },
       categories: Object.keys(this.settings.spanTypeColors),
@@ -2774,7 +2813,14 @@ export default class ModularDiaryPlugin extends Plugin {
           })
         } catch (error) { fail(to, error) }
       })(),
+      onSession: (id, date, zone) => {
+        // A band drop becomes a timed session at a sensible hour of that part of the day.
+        const startMin = zone === "pm" ? ZONE_EDGES.pm + 60 : zone === "ev" ? ZONE_EDGES.ev + 60 : 9 * 60
+        void addSession(id, date, startMin)
+      },
+      onRemoveSession: (date, line) => void this.writeToDay(date, (blockSource) => deleteEntryLine(blockSource, line)).then(() => this.rerenderMountedTimelines()).catch((error) => fail(date, error)),
       onPlan: (id, date, startMin) => void (async () => {
+        if (sessionOf(id)) { await addSession(id, date, startMin); return }
         const todo = doc.todos.find((item) => item.id === id) ?? foreignTodos.find((item) => item.id === id)
         if (!todo) return
         const foreignScope = foreignTodos.find((item) => item.id === id)?.foreignScope
@@ -2803,7 +2849,7 @@ export default class ModularDiaryPlugin extends Plugin {
         return input.parent ? insertChildTodo(current, input.parent, value) : insertTodo(current, value)
       }),
       onEdit: (id, input) => void rewrite((current) => updateTodo(current, id, { title: input.title, type: input.type, estimateMin: input.estimateMinutes, note: input.note, difficulty: input.difficulty, priority: input.priority })),
-      onToggle: (id, completed) => rewrite((current) => setTodoCompleted(current, id, completed)),
+      onToggle: (id, completed) => rewrite((current) => propagateCompletion(setTodoCompleted(current, id, completed), id)),
       onDelete: (id) => void rewrite((current) => deleteTodoSubtree(current, id)),
       onMove: (id, targetIndex) => void rewrite((current) => moveTodoSubtree(current, id, targetIndex)),
       collapsed: (id) => this.todoCollapsed.has(id),
@@ -2854,6 +2900,36 @@ export default class ModularDiaryPlugin extends Plugin {
               } catch (error) { fail(date, error) }
             })()))
         })
+        // 挂到…: under a written goal, or under one of this period's rhythms (the todo takes the rhythm's category).
+        menu.addItem((item) => {
+          item.setTitle(tr("bindTo")).setIcon("link")
+          const withSub = item as unknown as { setSubmenu?: () => Menu }
+          const sub = withSub.setSubmenu?.() ?? menu
+          const textGoals = doc.goals.filter((goal) => goal.kind === "text")
+          if (textGoals.length) sub.addItem((label) => label.setTitle(tr("bindToGoal")).setIsLabel(true))
+          for (const goal of textGoals) sub.addItem((goalItem) => goalItem.setTitle(goal.key).setChecked(Boolean(goal.id) && todo.goal === goal.id).onClick(() => void rewrite((current) => {
+            const live = parseTimeline(current).goals.find((item) => item.line === goal.line) ?? goal
+            const goalId = live.id ?? `g-${Date.now().toString(36)}`
+            const withId = live.id ? current : replaceEntryLine(current, live.line, formatGoalLine({ ...live, id: goalId }))
+            return updateTodo(withId, id, { goal: goalId, under: undefined })
+          })))
+          const rhythms = model.board.map((row) => row.rhythm).filter((rhythm) => rhythm.cadence !== "daily" && rhythm.cadence !== "weekdays")
+          if (rhythms.length) sub.addItem((label) => label.setTitle(tr("bindToRhythm")).setIsLabel(true))
+          for (const rhythm of rhythms) sub.addItem((rhythmItem) => rhythmItem.setTitle(rhythm.name).setChecked(todo.under === rhythm.id).onClick(() =>
+            void rewrite((current) => updateTodo(current, id, { under: rhythm.id, goal: undefined, ...(rhythm.type ? { type: rhythm.type } : {}) }))))
+          if (todo.under || todo.goal) { sub.addSeparator(); sub.addItem((unbind) => unbind.setTitle(tr("unbind")).setIcon("unlink").onClick(() => void rewrite((current) => updateTodo(current, id, { under: undefined, goal: undefined })))) }
+        })
+        if (scope) menu.addItem((item) => item.setTitle(tr(scope.kind === "month" ? "pushToNextMonth" : "pushToNextWeek")).setIcon("calendar-arrow-right").onClick(() => void (async () => {
+          // The todo (with its sub-todos) moves to the next period's note; a shadow stays here. A rhythm binding keeps, a goal binding cannot.
+          const next = shiftScope(scope, 1)
+          const ids = [id, ...indexTodoTree(doc.todos).descendantIds(id)]
+          const moving = ids.map((sub) => doc.todos.find((item) => item.id === sub)!).filter(Boolean)
+          try {
+            await this.periodFiles.ensure(next)
+            await this.periodFiles.write(next, (current) => moving.reduce((out, item) => parseTimeline(out).todos.some((own) => own.id === item.id) ? out : insertTodo(out, { ...item, day: undefined, zone: undefined, goal: undefined, moved: undefined, owed: undefined }), current))
+            await rewrite((current) => ids.reduce((out, sub) => updateTodo(out, sub, { moved: next.start }), current))
+          } catch (error) { fail(next.start, error) }
+        })()))
         menu.addItem((item) => item.setTitle(todo.completed ? tr("markIncomplete") : tr("markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() =>
           void rewrite((current) => setTodoCompleted(current, id, !todo.completed))))
         if (todo.placement) menu.addItem((item) => item.setTitle(tr("unassignTodo")).setIcon("undo-2").onClick(() => void (async () => {

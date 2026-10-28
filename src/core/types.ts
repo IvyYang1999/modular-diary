@@ -133,6 +133,10 @@ export interface TodoItem {
   attach?: string[]
   /** This todo is a slot of a rhythm (`rhythm="<id>"`, see core/rhythms); the period plan board groups by it. */
   rhythm?: string
+  /** Bound under a rhythm of the period (`under="学习"`): a piece of that commitment. */
+  under?: string
+  /** Bound under a written goal of the period (`goal="g-…"`). */
+  goal?: string
   /** Part of the day for an all-day placement: `zone=am|pm|ev`. */
   zone?: "am" | "pm" | "ev"
   /** Carried over from an earlier period that did not finish it (`owed="2026-W43"`). */
@@ -170,6 +174,8 @@ export interface PeriodGoal {
   note?: string
   /** Text goals only. */
   done?: boolean
+  /** Stable id (`id=`), given once a todo is bound to the goal. */
+  id?: string
   line: number
 }
 
