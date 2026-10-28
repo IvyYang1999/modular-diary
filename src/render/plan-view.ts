@@ -33,6 +33,8 @@ interface Pill {
   type?: string
   time?: string
   kind: "slot" | "todo" | "upcoming" | "due" | "foreign"
+  /** Lives in another period's note (shown with ↗); draggable when its scope is known. */
+  foreign?: boolean
   done?: boolean
   owed?: boolean
   todo?: PeriodTodoView
@@ -63,7 +65,8 @@ function pillsOf(day: PeriodDayView, model: PeriodViewModel): Record<"all" | Rhy
   }
   // The other period kind's items on this day: the month's rhythms in a week, a week's in the month.
   for (const todo of day.foreign ?? []) {
-    out[todo.zone ?? "all"].push({ text: plainTitle(todo.title), type: todo.type, kind: "foreign", done: todo.completed, title: `${todo.foreign ?? ""} · ${todo.title}` })
+    const draggable = Boolean(todo.foreignScope)
+    out[todo.zone ?? "all"].push({ text: plainTitle(todo.title), type: todo.type, kind: draggable ? (todo.rhythm ? "slot" : "todo") : "foreign", foreign: true, done: todo.completed, owed: Boolean(todo.owed), title: `${todo.foreign ?? ""} · ${todo.title}`, ...(draggable ? { todo, from: todo.zone ? `${day.date}@${todo.zone}` : day.date } : {}) })
   }
   const foreignById = new Map((model.foreignTodos ?? []).map((todo) => [todo.id, todo]))
   for (const entry of day.entries) {
@@ -109,7 +112,7 @@ export function clearPillPreviews(dom: Document): void {
 }
 
 function renderPill(host: HTMLElement, root: HTMLElement, pill: Pill, model: PeriodViewModel, deps: PeriodViewDeps, menuFor?: (el: HTMLElement, id: string) => void): HTMLElement {
-  const el = host.createDiv({ cls: `modular-diary-plan-pill is-${pill.kind}${pill.done ? " is-done" : ""}${pill.owed ? " is-owed" : ""}` })
+  const el = host.createDiv({ cls: `modular-diary-plan-pill is-${pill.kind}${pill.foreign ? " is-foreign" : ""}${pill.done ? " is-done" : ""}${pill.owed ? " is-owed" : ""}` })
   const small = [pill.time, pill.todo?.type, pill.todo?.note].filter((line): line is string => Boolean(line))
   attachPillPreview(el, [pill.title && pill.title !== pill.text ? pill.title : pill.text, ...small.filter((line) => !(pill.title ?? "").includes(line))])
   const color = pill.type ? deps.typeColors[pill.type] : undefined
@@ -348,7 +351,8 @@ function renderPlanMonth(main: HTMLElement, root: HTMLElement, model: PeriodView
     const number = cell.createEl("button", { cls: "modular-diary-plan-month-day", text: String(Number(day.date.slice(8, 10))), attr: { type: "button", title: day.hasNote ? t("openDayNamed", { date: shortDate(day.date) }) : t("createDayNamed", { date: shortDate(day.date) }) } })
     number.addEventListener("click", () => deps.onOpenDay(day.date))
     const pills = pillsOf(day, model)
-    const flat = [...pills.all, ...pills.am, ...pills.pm, ...pills.ev]
+    // Month cells show what happens on the day (rhythm slots, schedule items); plain todos only on request.
+    const flat = [...pills.all, ...pills.am, ...pills.pm, ...pills.ev].filter((pill) => model.showTodos || pill.kind !== "todo" || !pill.todo || Boolean(pill.todo.rhythm))
     const shown = flat.length > MONTH_CELL_VISIBLE ? flat.slice(0, MONTH_CELL_VISIBLE - 1) : flat
     const column = (lead + model.days.indexOf(day)) % 7
     for (const pill of shown) {

@@ -37,7 +37,7 @@ window.errors=[]
 const host=document.querySelector('#host')
 function mount(){
  host.replaceChildren();const doc=parseTimeline(source);if(doc.errors.length)throw Error(JSON.stringify(doc.errors))
- renderTodosInto(host,doc.todos.map(t=>({...t,...todoMetrics(t,doc.entries),weekly:false})),{
+ renderTodosInto(host,doc.todos.map(t=>({...t,...todoMetrics(t,doc.entries),weekly:false,movedTo:t.moved})),{
  categories:['work'],priorities:['马上','随时'],typeColors:{work:'#777'},view:doc.todoView,editDraft,
  onEditDraftChange:d=>editDraft=d,
  onAdd:i=>persist(s=>insertTodo(s,{id:'new',title:i.title,group:'',type:i.type,estimateMin:i.estimateMinutes,completed:false,note:i.note,difficulty:i.difficulty,priority:i.priority})),
@@ -190,8 +190,11 @@ try {
  await page.getByRole('button',{name:'推到明天 → '+destination,exact:true}).hover()
  await page.screenshot({path:path.join(out,'todo-daily-notes-destination.png')})
  await page.getByRole('button',{name:'推到明天 → '+destination,exact:true}).click();await page.evaluate(()=>window.whenSaved())
- assert.equal(await row('low').count(),0)
- assert.ok(!fs.readFileSync(sourceFile,'utf8').includes('id="low"'))
+ // The pushed row stays behind as a shadow (recallable); the copy lives on tomorrow's note.
+ assert.equal(await row('low').count(),1)
+ assert.ok(await row('low').evaluate(el=>el.classList.contains('is-moved')))
+ const lowLine=fs.readFileSync(sourceFile,'utf8').split('\n').find(l=>l.includes('id="low"'))||''
+ assert.ok(lowLine.includes('moved=2026-10-11'),'shadow line: '+lowLine)
  assert.ok(tomorrowContent.includes('- [/] todo: id="low"'))
  assert.ok(tomorrowContent.includes('date: 2026-10-11'))
  // New Todos use the same picker and persist explicit values from an unset start.

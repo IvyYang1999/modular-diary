@@ -251,17 +251,18 @@ export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: Placed
     const skipped = skips.includes(rhythm.id)
     const weekly = rhythm.cadence === "weekly" || rhythm.cadence === "biweekly"
     if (scope.kind === "month" && weekly) {
-      // Seen from the month: the weeks' own slots, summed. No week file yet means nothing done yet.
-      const weeks = weeksOn(rhythm, scope).length
-      const slots = weekTodos.filter((todo) => todo.rhythm === rhythm.id && !todo.moved)
+      // Seen from the month: the weeks' own slots, as rows one can place on a day of their week.
       const minutes = recordedIn(rhythm)
-      if (rhythm.quota.kind === "duration") {
-        const target = rhythm.quota.minutes * Math.max(1, weeks)
-        return { rhythm, slots: [], skipped, due: 0, placed: 0, done: minutes >= target ? 1 : 0, minutes, owed: 0, targetMinutes: target }
+      const slots: RhythmSlotView[] = weekTodos.filter((todo) => todo.rhythm === rhythm.id && !todo.moved).map((todo) => ({
+        ...todo, actualMinutes: todo.actualMinutes ?? 0, done: slotDone(todo, rhythm, minutes),
+      }))
+      const weeks = weeksOn(rhythm, scope).length
+      return {
+        rhythm, slots, skipped,
+        due: Math.max(slots.length, rhythm.quota.kind === "count" ? rhythm.quota.count * weeks : weeks),
+        placed: slots.filter((slot) => slot.placement).length, done: slots.filter((slot) => slot.done).length,
+        minutes, owed: slots.filter((slot) => slot.owed).length, unit: "times",
       }
-      const due = Math.max(rhythm.quota.count * weeks, slots.length)
-      const done = slots.filter((slot) => slotDone(slot, rhythm, minutes)).length
-      return { rhythm, slots: [], skipped, due, placed: slots.filter((slot) => slot.placement).length, done, minutes, owed: 0, unit: "times" }
     }
     if (takesSlots(rhythm)) {
       const minutes = recordedIn(rhythm)

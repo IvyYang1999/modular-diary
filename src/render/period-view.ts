@@ -32,6 +32,8 @@ export interface PeriodTodoView extends TodoItem {
   placement?: { date: string; startMin?: number }
   /** Set on items that belong to another period (the month seen from a week, or the reverse): where they come from. */
   foreign?: string
+  /** The period note that item lives in, so a drop writes there. */
+  foreignScope?: PeriodScope
 }
 
 export interface PeriodDayView {
@@ -77,6 +79,8 @@ export interface PeriodViewModel {
   height?: number
   /** Every todo of the overlapping periods of the other kind, for plan entries bound to them. */
   foreignTodos?: PeriodTodoView[]
+  /** Month cells: also show placed todos (the plan face shows rhythm slots and schedule items regardless). */
+  showTodos?: boolean
 }
 
 export interface GoalDraft { kind: PeriodGoal["kind"]; key: string; targetMinutes: number; note?: string; done?: boolean }
@@ -127,6 +131,8 @@ export interface PeriodViewDeps {
   onReorderRhythm?: (id: string, beforeId: string | null) => void
   /** The block's fixed height was dragged (0 = back to the default). */
   onHeight?: (px: number) => void
+  /** Month plan: toggle todos in the cells. */
+  onToggleShowTodos?: () => void
 }
 
 /** Starting hour height; the rendered block adapts it to the rail's height (22–40px). */
@@ -1021,6 +1027,10 @@ export function renderPeriodInto(container: HTMLElement, model: PeriodViewModel,
       ? `${shortDate(model.period.start)} – ${shortDate(model.period.end)}`
       : t("periodTitle", { start: shortDate(model.period.start), end: shortDate(model.period.end), days: String(model.period.days.length) }) })
   if (model.spec.kind !== "this-week") bar.createEl("button", { cls: "modular-diary-period-text-button", text: t(isMonth ? "thisMonth" : "thisWeek"), attr: { type: "button" } }).addEventListener("click", deps.onToday)
+  if (isMonth && model.face === "plan" && deps.onToggleShowTodos) {
+    const toggle = bar.createEl("button", { cls: "modular-diary-period-text-button is-toggle", text: t("monthShowTodos"), attr: { type: "button", "aria-pressed": String(Boolean(model.showTodos)), title: t("monthShowTodosHint") } })
+    toggle.addEventListener("click", () => deps.onToggleShowTodos?.())
+  }
   // Paging is a view state; only an explicit pin rewrites the note.
   if (model.browsing) {
     const pin = bar.createEl("button", { cls: "modular-diary-period-text-button is-pin", attr: { type: "button", title: t("pinPeriodHint") } })

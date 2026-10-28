@@ -81,7 +81,8 @@ describe("rhythm board", () => {
     const month = rhythmBoard(rhythms, scopeContaining("month", "2026-11-10"), [], days, [])
     expect(month.map((item) => item.rhythm.id)).toEqual(rhythms.map((item) => item.id))
     expect(month.find((item) => item.rhythm.id === "拍口播视频")).toMatchObject({ unit: "times", due: 6, done: 0 })
-    expect(month.find((item) => item.rhythm.id === "学习")).toMatchObject({ targetMinutes: 180 * 6, minutes: 0 })
+    // Without week notes a weekly duration rhythm has no slots yet; the month still knows how many weeks it is due.
+    expect(month.find((item) => item.rhythm.id === "学习")).toMatchObject({ slots: [], due: 6, unit: "times" })
   })
 })
 

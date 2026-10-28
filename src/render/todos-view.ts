@@ -14,6 +14,10 @@ export interface TodoViewItem {
   id: string
   title: string
   group: string
+  /** In a day's list: this row lives in the week / month note (label of where); it ticks here, edits there. */
+  period?: string
+  /** Period todos: placed on a day of the period (grouping by placement). */
+  placed?: boolean
   type?: string
   completed: boolean
   partial?: boolean
@@ -684,7 +688,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
   const renderRow = (item: TodoViewItem, sourceIndex: number, node: HTMLElement, siblings: HTMLElement, containerIds: string[] | null, depth: number, childCount: number, collapsed: boolean): void => {
     // Bucket cells are chosen per root; children follow their root's cell.
     // Alt+↑/↓ reorders whenever the order is manual; the pointer grip can be left to the host.
-    const keyReorder = !item.body && (buckets ? !item.weekly && Boolean(deps.onSetBucket) && todoTree.parentOf(item.id) === null : manualSort && (!grouped || !item.weekly))
+    const keyReorder = !item.body && !item.period && (buckets ? !item.weekly && Boolean(deps.onSetBucket) && todoTree.parentOf(item.id) === null : manualSort && (!grouped || !item.weekly))
     const rowDraggable = deps.rowGrips !== false && keyReorder
     const row = node.createDiv({ cls: `modular-diary-todo-row${item.completed ? " is-complete" : item.partial ? " is-partial" : ""}${rowDraggable ? " is-manual" : ""}${item.movedTo ? " is-moved" : ""}` })
     if (depth > 0) row.style.setProperty("--modular-diary-todo-depth", String(depth))
@@ -742,7 +746,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     // Lets a sibling surface (a period block's calendar pill) open this row's editor.
     row.addEventListener("modular-diary-edit", edit)
     row.addEventListener("modular-diary-add-child", () => {
-      if (!item.weekly && !item.body && !item.movedTo) addChildFor(item.id)
+      if (!item.weekly && !item.body && !item.movedTo && !item.period) addChildFor(item.id)
     })
     if (buckets && rowDraggable) row.addEventListener("keydown", (event) => {
       if (!event.altKey || event.target !== row) return
@@ -781,13 +785,13 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     row.addEventListener("contextmenu", (event) => {
       event.preventDefault()
       event.stopPropagation()
-      deps.onMenu(item, event.clientX, event.clientY, edit, !item.weekly && !item.body && !item.movedTo ? () => addChildFor(item.id) : null)
+      deps.onMenu(item, event.clientX, event.clientY, edit, !item.weekly && !item.body && !item.movedTo && !item.period ? () => addChildFor(item.id) : null)
     })
     row.addEventListener("keydown", (event) => {
       if ((event.shiftKey && event.key === "F10") || event.key === "ContextMenu") {
         event.preventDefault()
         const rect = row.getBoundingClientRect()
-        deps.onMenu(item, rect.left, rect.bottom, edit, !item.weekly && !item.body && !item.movedTo ? () => addChildFor(item.id) : null)
+        deps.onMenu(item, rect.left, rect.bottom, edit, !item.weekly && !item.body && !item.movedTo && !item.period ? () => addChildFor(item.id) : null)
       }
     })
     const check = row.createEl("button", { cls: "modular-diary-todo-check", attr: { type: "button", "aria-pressed": String(item.completed), "aria-label": item.completed ? t("markIncomplete") : t("markComplete") } })
@@ -869,6 +873,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
       }
     }
     if (item.movedTo) titleEl.createEl("span", { cls: "modular-diary-todo-moved", text: t("movedToBadge", { date: item.movedTo.slice(5).replace("-", ".") }) })
+    if (item.period) titleEl.createEl("span", { cls: "modular-diary-todo-flag is-period", text: item.period })
     if (!deps.compactMeta) for (const flag of item.flags ?? []) titleEl.createEl("span", { cls: `modular-diary-todo-flag is-${flag.tone ?? "placed"}`, text: flag.text })
     // A parent row reports its whole subtree: totals roll up, plus a done/total count.
     const subtree = item.weekly || item.movedTo ? null : (todoTree.childrenOf(item.id).length > 0 ? rollupOf(item.id) : null)

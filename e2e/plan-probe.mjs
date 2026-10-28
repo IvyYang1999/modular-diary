@@ -52,6 +52,7 @@ let weekSrc = ensureRhythmSlots([
   'todo: id="t11" done=false estimate=90 category="开发" group="" day=2026-09-30 title="周视图重做 #模块日记"',
   'todo: id="t12" done=true estimate=60 category="运动" group="" day=2026-09-29 title="游泳"',
   'todo: id="t13" done=false estimate=60 category="开发" group="" day=2026-09-28 zone=am title="阶段 1：解决卡点"',
+  ...[1,2,3,4,5,6].map((n) => 'todo: id="am' + n + '" done=false estimate=30 category="写作" group="" day=2026-09-29 zone=am title="上午的事 ' + n + '"'),
   'todo: id="r-owed-1" done=false estimate=0 category="活动" group="" rhythm="线下-ai-活动" owed=2026-W39 title="线下 AI 活动"',
   '---',
 ].join("\\n"), rhythms, weekScope)
@@ -91,7 +92,7 @@ const deps = {
   onAddStatsWidget: () => {}, onRemoveStatsWidget: () => {},
   onSetFace: (face) => window.__events.push("face:" + face), onSwitchView: (view) => window.__events.push("view:" + view),
   onRhythmMenu: (id) => window.__events.push("rhythm-menu:" + id), onOpenRhythms: () => window.__events.push("rhythms"),
-  onReorderRhythm: (id, before) => window.__events.push("reorder:" + id + ":" + before), onHeight: (px) => window.__events.push("height:" + px),
+  onReorderRhythm: (id, before) => window.__events.push("reorder:" + id + ":" + before), onHeight: (px) => window.__events.push("height:" + px), onToggleShowTodos: () => window.__events.push("show-todos"),
 }
 window.mount = (kind: "week" | "month", face: "plan" | "actual") => {
   host.replaceChildren()
@@ -113,7 +114,7 @@ window.mount = (kind: "week" | "month", face: "plan" | "actual") => {
     days: days.map((d) => ({ ...d, allDay: todos.filter((t) => t.placement && t.placement.startMin === undefined && t.placement.date === d.date), foreign: foreignTodos.filter((t) => t.placement.date === d.date),
       upcoming: d.date === "2026-10-03" ? [{ line: 0, date: d.date, startMin: 840, endMin: 900, type: "运动", text: "爬山", done: false }, { line: 1, date: d.date, text: "交房租", done: false, zone: "ev" }] : d.date === "2026-09-25" ? [{ line: 2, date: d.date, text: "去某地", done: false, zone: "pm" }] : [] })),
     rangeStartMin: 7 * 60, rangeEndMin: 23 * 60, indexReady: true, railWidth: 262, statsWidgets: ["share", "days:运动"],
-    scope, face, board: rhythmBoard(rhythms, scope, todos, facts, block.rhythmSkips), embeddedView: kind,
+    scope, face, board: rhythmBoard(rhythms, scope, todos, facts, block.rhythmSkips, foreignTodos.map((t) => ({ ...t, foreignScope: scopeContaining("week", t.placement.date) }))), embeddedView: kind,
     height: face === "plan" ? 560 : undefined,
   }, deps)
 }

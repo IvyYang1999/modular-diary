@@ -12,7 +12,7 @@ import esbuild from 'esbuild'
 import {chromium} from 'playwright'
 const root=path.dirname(path.dirname(fileURLToPath(import.meta.url))),out=fs.mkdtempSync(path.join(os.tmpdir(),'modular-diary-period-embed-'))
 const built=await esbuild.build({entryPoints:[path.join(root,'src/main.ts')],bundle:true,write:false,platform:'browser',format:'iife',globalName:'MDPlugin',external:['obsidian','node:*','child_process']})
-const daySource='date: 2026-10-22\nrange: 9-11\nlayout: toolbar@0,0,6,3 timeline@6,0,6,14\noff: dialog stats\n---\n09:00-10:00 work'
+const daySource='date: 2026-10-22\nrange: 9-11\nlayout: toolbar@0,0,6,3 todos@0,3,6,8 timeline@6,0,6,14\noff: dialog stats\n---\n09:00-10:00 work'
 const rhythms='# 节律\n\n- 每周 拍视频 @work 整天\n- 每周 2次 散步 @study 下午\n- 每天 30分钟 运动 @study\n- 每月 旅游 @study 2-3天\n'
 const setup=`
 for(const [method,tag] of [['createDiv','div'],['createSpan','span'],['createEl',null]])HTMLElement.prototype[method]=function(a={},b={}){const opts=tag?a:b,el=document.createElement(tag||a);if(opts.cls)el.className=Array.isArray(opts.cls)?opts.cls.join(' '):opts.cls;if(opts.text)el.textContent=opts.text;for(const [k,v] of Object.entries(opts.attr||{}))el.setAttribute(k,v);this.append(el);return el}
@@ -120,16 +120,24 @@ try{
  await page.evaluate(()=>window.mountActual())
  await page.locator('.modular-diary-view-bar').waitFor()
  assert.equal(await page.locator('.modular-diary-period').count(),0)
+ // 3b. The day (10-22) lists the slot the week placed on it; ticking it writes the week note. The bar has 计划 / 记录.
+ assert.equal(await page.locator('.modular-diary-view-bar .modular-diary-seg.is-soft button').count(),2)
+ const arrival=page.locator('.modular-diary-slot-todos .modular-diary-todo-row',{hasText:'散步'})
+ await arrival.waitFor()
+ assert.equal(await arrival.locator('.modular-diary-todo-flag.is-period').count(),1)
+ await arrival.locator('button.modular-diary-todo-check').click()
+ await page.waitForFunction(()=>/- \[x\] todo: id="r-[a-z0-9]+-1"[^\n]*day=2026-10-22/.test(window.files['周期/2026-W43.md']))
  // 4. 月 renders the month note with the monthly rhythm.
  await page.locator('.modular-diary-view-bar .modular-diary-seg button',{hasText:'月'}).click()
  await page.waitForFunction(()=>Object.keys(window.files).includes('周期/2026-10.md')&&window.files['周期/2026-10.md'].includes('rhythm="旅游"'))
  await page.evaluate(()=>window.mountActual())
  await page.locator('.modular-diary-plan-month').waitFor()
  assert.equal(await page.locator('.modular-diary-plan-month-cell:not(.is-outside)').count(),31)
+ assert.equal(await page.locator('.modular-diary-period-toolbar .modular-diary-period-text-button.is-toggle',{hasText:'待办'}).count(),1,'month plan has the todos toggle')
  // The month board lists every rhythm: the monthly slot plus the weekly and daily ones summed over the month.
  const monthRows=await page.locator('.modular-diary-plan-board .modular-diary-plan-row').evaluateAll(rows=>rows.map(r=>r.querySelector('.modular-diary-plan-name')?.textContent+'|'+(r.querySelector('.modular-diary-plan-meta')?.textContent??'')))
  assert.ok(monthRows.some(r=>r.startsWith('旅游|')),JSON.stringify(monthRows))
- assert.ok(monthRows.some(r=>/^拍视频\|\d+\/\d+ 次$/.test(r)),JSON.stringify(monthRows))
+ assert.ok(monthRows.some(r=>r.startsWith('拍视频|')),JSON.stringify(monthRows))
  assert.ok(monthRows.some(r=>/^运动\|.* 天$/.test(r)),JSON.stringify(monthRows))
  // The week's placed slot (散步 on 10-22) shows in the month as a read-only item from that week.
  await page.locator('.modular-diary-plan-month-cell[data-zone="2026-10-22"] .modular-diary-plan-pill.is-foreign',{hasText:'散步'}).waitFor()

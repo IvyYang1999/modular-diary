@@ -75,6 +75,8 @@ export interface ModularDiarySettings {
   periodFolder: string
   /** Fixed height of the week / month views embedded in a diary (px). */
   periodHeight: number
+  /** Month plan cells also show placed todos (rhythm slots and schedule items always show). */
+  monthShowTodos: boolean
   /** On the hour, ask in the status bar what the last hour went into. */
   hourlyNudge: boolean
   /** Hours the nudge may ask about: an hour starting at or after start, ending at or before end. */
@@ -121,6 +123,7 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
   zoneEvHour: 18,
   periodFolder: "周期",
   periodHeight: 600,
+  monthShowTodos: false,
   hourlyNudge: true,
   nudgeStartHour: 9,
   nudgeEndHour: 24,

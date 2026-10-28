@@ -137,7 +137,7 @@ import {
   type MarkerEditState,
   type SpanEditState,
 } from "./edit/block-edit-state"
-import type { Annotation, Entry, TimelineDoc } from "./core/types"
+import type { Annotation, Entry, TimelineDoc, TodoItem } from "./core/types"
 
 class MountedTimelineChild extends MarkdownRenderChild {
   constructor(
@@ -1286,6 +1286,21 @@ export default class ModularDiaryPlugin extends Plugin {
             .reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0),
         })),
       ]
+      // What the week and month notes placed on this day: ticked here, edited there.
+      const periodArrivals = dateStr ? this.periodTodosOn(dateStr) : []
+      const periodArrivalById = new Map(periodArrivals.map((arrival) => [arrival.todo.id, arrival]))
+      for (const { todo, scope } of periodArrivals) {
+        if (doc.todos.some((own) => own.id === todo.id)) continue
+        todoViewItems.push({
+          ...todo, weekly: false, placed: true, estimateMinutes: todo.estimateMin,
+          actualMinutes: doc.entries.filter((entry) => !entry.plan && entry.todoId === todo.id).reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0),
+          period: tr(scope.kind === "week" ? "fromWeekPlan" : "fromMonthPlan"),
+        })
+      }
+      const periodWrite = (id: string, transform: (current: string) => string): Promise<void> => {
+        const arrival = periodArrivalById.get(id)!
+        return this.periodFiles.write(arrival.scope, transform).then(() => this.rerenderMountedTimelines())
+      }
       const bodyTodoById = new Map(bodyTodos.map((todo) => [todo.id, todo]))
       if (todosSlot) {
         const draftKey = this.scrollTransactionKey(el, ctx)
@@ -1411,6 +1426,7 @@ export default class ModularDiaryPlugin extends Plugin {
                 : insertTodo(this.addComponentSlot(current, doc, container, "todos"), value))
           },
           onEdit: (id, input) => {
+            if (periodArrivalById.has(id)) return periodWrite(id, (value) => updateTodo(value, id, { title: input.title, type: input.type, estimateMin: input.estimateMinutes, note: input.note, difficulty: input.difficulty, priority: input.priority }))
             const inNote = bodyTodoById.get(id)
             if (inNote) {
               // A body todo has no estimate or category to store; the title
@@ -1443,6 +1459,7 @@ export default class ModularDiaryPlugin extends Plugin {
             }))
           },
           onToggle: (id, completed) => {
+            if (periodArrivalById.has(id)) return periodWrite(id, (value) => setTodoCompleted(value, id, completed))
             const inNote = bodyTodoById.get(id)
             if (inNote) {
               return this.applyBodyTodoEdit(ctx.sourcePath, (content) =>
@@ -1453,7 +1470,7 @@ export default class ModularDiaryPlugin extends Plugin {
           onMove: (id, targetIndex) => {
             // Body todos keep the note's own order; dragging one would have to
             // move a line the user owns, so it stays put.
-            if (bodyTodoById.has(id)) return
+            if (bodyTodoById.has(id) || periodArrivalById.has(id)) return
             const weekly = this.settings.weeklyTodos.find((item) => item.id === id)
             if (weekly) {
               // The view maps weekly drops onto the weekly list itself.
@@ -1468,6 +1485,16 @@ export default class ModularDiaryPlugin extends Plugin {
           },
           onMenu: (todo, x, y, edit, addChild) => {
             const menu = new Menu()
+            const arrival = periodArrivalById.get(todo.id)
+            if (arrival) {
+              // A week's or month's item: tick it, send it back, or go where it is edited.
+              menu.addItem((item) => item.setTitle(tr(todo.completed ? "markIncomplete" : "markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() => void periodWrite(todo.id, (value) => setTodoCompleted(value, todo.id, !todo.completed))))
+              menu.addItem((item) => item.setTitle(tr("unplaceFromDay")).setIcon("undo-2").onClick(() => void periodWrite(todo.id, (value) => updateTodo(value, todo.id, { day: undefined, zone: undefined }))))
+              menu.addItem((item) => item.setTitle(tr("editInPeriod")).setIcon("calendar-range").onClick(() => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "view", arrival.scope.kind))
+                .catch((error) => { console.error("Modular Diary: failed to switch the view", error); new Notice(tr("viewSwitchFailed")) })))
+              menu.showAtPosition({ x, y }, dom)
+              return
+            }
             menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
             const inNote = bodyTodoById.get(todo.id)
             if (inNote) {
@@ -2066,6 +2093,17 @@ export default class ModularDiaryPlugin extends Plugin {
           if (view !== "day") button.addEventListener("click", () => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "view", view))
             .catch((error) => { console.error("Modular Diary: failed to switch the view", error); new Notice(tr("viewSwitchFailed")) }))
         }
+        // 计划 / 记录: which layer the brush writes to; the chosen layer is shown, the eyes still hide or show either.
+        const faceSeg = switchBar.createDiv({ cls: "modular-diary-seg is-soft", attr: { role: "group", "aria-label": tr("dayFaceSwitch") } })
+        for (const [mode, label] of [["plan", tr("dayFacePlan")], ["actual", tr("dayFaceRecord")]] as const) {
+          const button = faceSeg.createEl("button", { text: label, attr: { type: "button", "aria-pressed": String(this.drawMode === mode) } })
+          button.addEventListener("click", () => {
+            if (this.drawMode === mode) return
+            this.drawMode = mode
+            this.layerView = mode === "plan" ? { ...this.layerView, plan: true } : { ...this.layerView, actual: true }
+            this.rerenderMountedTimelines()
+          })
+        }
         // The same bar as the week and month: a day back or forward, the date, and the way home.
         const go = (date: string): void => void this.openDay(date).catch((error) => console.error("Modular Diary: failed to open the day", error))
         iconButton(switchBar, "chevron-left", tr("dayBack")).addEventListener("click", () => go(shiftDate(dateStr, -1)))
@@ -2080,7 +2118,7 @@ export default class ModularDiaryPlugin extends Plugin {
         dateControl.createEl("span", { text: dateStr.replace(/-/g, ".") })
         switchBar.appendChild(dateControl)
         const today = inferDate(null)
-        if (dateStr !== today) switchBar.createEl("button", { cls: "modular-diary-period-text-button", text: tr("today"), attr: { type: "button" } }).addEventListener("click", () => go(today))
+        if (dateStr !== today) switchBar.createEl("button", { cls: "modular-diary-period-text-button", text: tr("backToToday"), attr: { type: "button" } }).addEventListener("click", () => go(today))
         container.prepend(switchBar)
       }
       // 当前 block 的低频附加操作：组件管理 + 布局，不再误用「添加」语义。
@@ -2555,14 +2593,19 @@ export default class ModularDiaryPlugin extends Plugin {
       const others: PeriodScope[] = []
       const push = (other: PeriodScope): void => { if (!others.some((item) => item.start === other.start)) others.push(other) }
       if (scopeForForeign.kind === "week") { push(scopeContaining("month", resolved.start)); push(scopeContaining("month", resolved.end)) }
-      else { for (let date = resolved.start; date <= resolved.end; date = shiftDate(date, 7)) push(scopeContaining("week", date)); push(scopeContaining("week", resolved.end)) }
+      else {
+        for (let date = resolved.start; date <= resolved.end; date = shiftDate(date, 7)) push(scopeContaining("week", date))
+        push(scopeContaining("week", resolved.end))
+        // A month plans its weeks: their notes exist and carry their slots, so the rows here are real.
+        if (embed) for (const other of others) if (!this.periodFiles.sources.has(this.periodFiles.path(other))) void this.periodFiles.ensure(other).then(() => this.periodFiles.prepare(other, this.rhythms.items, inferDate(null))).catch((error) => console.error("Modular Diary: failed to prepare a week", error))
+      }
       for (const other of others) {
         const otherSource = this.periodFiles.source(other)
         if (otherSource === null) continue
         const label = other.kind === "month" ? tr("foreignFromMonth") : tr("foreignFromWeek", { week: periodKey(other).replace(/^.*W0?/, "") })
         for (const todo of this.parse(otherSource).todos) {
           if (todo.moved) continue
-          foreignTodos.push({ ...todo, actualMinutes: 0, placement: todo.day ? { date: todo.day } : undefined, foreign: label })
+          foreignTodos.push({ ...todo, actualMinutes: 0, placement: plannedAt.get(todo.id) ?? (todo.day ? { date: todo.day } : undefined), foreign: label, foreignScope: other })
         }
       }
     }
@@ -2601,6 +2644,7 @@ export default class ModularDiaryPlugin extends Plugin {
       // Embedded views keep one height for all weeks and months; a standalone block sets its own with `height:`.
       height: embed ? this.settings.periodHeight : doc.periodHeight,
       foreignTodos,
+      showTodos: this.settings.monthShowTodos,
     }
     const container = el.createDiv({ cls: "modular-diary-container modular-diary-period-container" })
     const fail = (date: string, error: unknown): void => {
@@ -2664,8 +2708,19 @@ export default class ModularDiaryPlugin extends Plugin {
       onPin: () => void rewrite((current) => setHeaderValue(current, "days", formatPeriodSpec(period)))
         .then(() => { this.periodBrowse.delete(browseKey); this.rerenderMountedTimelines() }),
       onOpenDay: (date) => void this.openDay(date),
+      onToggleShowTodos: () => { this.settings.monthShowTodos = !this.settings.monthShowTodos; void this.saveSettings({ rerender: true }) },
       onAssign: (id, to) => void (async () => {
         try {
+          const foreign = foreignTodos.find((todo) => todo.id === id)
+          if (foreign?.foreignScope) {
+            // A week's item stays in its week: the month cannot move it elsewhere.
+            const [day, zone] = to === POOL_ZONE ? [undefined, undefined] : to.split("@") as [string, "am" | "pm" | "ev" | undefined]
+            if (day && (day < foreign.foreignScope.start || day > foreign.foreignScope.end)) { new Notice(tr("foreignDropOutsideWeek", { week: periodKey(foreign.foreignScope).replace(/^.*W0?/, "") })); return }
+            await unplan(id)
+            await this.periodFiles.write(foreign.foreignScope, (current) => updateTodo(current, id, { day, zone }))
+            this.rerenderMountedTimelines()
+            return
+          }
           await unplan(id)
           // Scheduling a parent all-day carries the subtree: planned children keep their own time slots.
           const ids = [id, ...indexTodoTree(doc.todos).descendantIds(id)]
@@ -2682,8 +2737,9 @@ export default class ModularDiaryPlugin extends Plugin {
         } catch (error) { fail(to, error) }
       })(),
       onPlan: (id, date, startMin) => void (async () => {
-        const todo = doc.todos.find((item) => item.id === id)
+        const todo = doc.todos.find((item) => item.id === id) ?? foreignTodos.find((item) => item.id === id)
         if (!todo) return
+        const foreignScope = foreignTodos.find((item) => item.id === id)?.foreignScope
         if (!todo.type) { new Notice(tr("periodTodoNeedsCategory")); return }
         const plan = buildScheduledPlan({ source: "todo", id, title: todo.title, type: todo.type, durationMin: todo.estimateMin }, startMin).line
         try {
@@ -2693,7 +2749,11 @@ export default class ModularDiaryPlugin extends Plugin {
             return insertEntryLine(out, plan, startMin)
           })
           await unplan(id, date)
-          if (todo.day || todo.zone) await rewrite((current) => updateTodo(current, id, { day: undefined, zone: undefined }))
+          if (todo.day || todo.zone) {
+            if (foreignScope) await this.periodFiles.write(foreignScope, (current) => updateTodo(current, id, { day: undefined, zone: undefined }))
+            else await rewrite((current) => updateTodo(current, id, { day: undefined, zone: undefined }))
+          }
+          this.rerenderMountedTimelines()
         } catch (error) { fail(date, error) }
       })(),
       onAdd: (input) => void rewrite((current) => {
@@ -3552,7 +3612,8 @@ export default class ModularDiaryPlugin extends Plugin {
           const live = parseTimeline(current)
           const currentIds = [id, ...indexTodoTree(live.todos).descendantIds(id)]
           if (JSON.stringify(currentIds) !== JSON.stringify(ids)) throw new Error("postponement-subtree-changed")
-          return todos.reduce((out, todo) => removePostponedTodo(out, todo), current)
+          // The row stays as a shadow ("pushed to …", with recall); the copy lives on tomorrow's note.
+          return todos.reduce((out, todo) => updateTodo(out, todo.id, { moved: tomorrow }), current)
         })
       },
     })
@@ -3584,6 +3645,7 @@ export default class ModularDiaryPlugin extends Plugin {
       zonePmHour: Number.isInteger(data?.zonePmHour) && (data!.zonePmHour as number) >= 1 && (data!.zonePmHour as number) <= 22 ? (data!.zonePmHour as number) : DEFAULT_SETTINGS.zonePmHour,
       zoneEvHour: Number.isInteger(data?.zoneEvHour) && (data!.zoneEvHour as number) >= 2 && (data!.zoneEvHour as number) <= 23 ? (data!.zoneEvHour as number) : DEFAULT_SETTINGS.zoneEvHour,
       periodFolder: typeof data?.periodFolder === "string" && data.periodFolder.trim() ? data.periodFolder.trim().replace(/\/+$/, "") : DEFAULT_SETTINGS.periodFolder,
+      monthShowTodos: data?.monthShowTodos === true,
       periodHeight: Number.isFinite(data?.periodHeight) && (data!.periodHeight as number) >= 320 && (data!.periodHeight as number) <= 1400 ? Math.round(data!.periodHeight as number) : DEFAULT_SETTINGS.periodHeight,
       todoReviewChecklist: typeof data?.todoReviewChecklist === "string" && data.todoReviewChecklist.trim() ? data.todoReviewChecklist : DEFAULT_TODO_REVIEW_CHECKLIST,
       pinnedSections: Array.isArray(data?.pinnedSections) ? [...new Set(data.pinnedSections.filter((value): value is string => typeof value === "string" && value.trim() !== ""))] : [],
@@ -3595,6 +3657,18 @@ export default class ModularDiaryPlugin extends Plugin {
     if (needsCategoryMigration) await this.saveData(this.settings)
     if (this.settings.zoneEvHour <= this.settings.zonePmHour) this.settings.zoneEvHour = this.settings.zonePmHour + 1
     setZoneEdges(this.settings.zonePmHour, this.settings.zoneEvHour)
+  }
+
+  /** Period todos placed on a day (`day=`), from the week and month notes that contain it. */
+  private periodTodosOn(date: string): Array<{ todo: TodoItem; scope: PeriodScope }> {
+    const out: Array<{ todo: TodoItem; scope: PeriodScope }> = []
+    for (const kind of ["week", "month"] as const) {
+      const scope = scopeContaining(kind, date)
+      const periodSource = this.periodFiles.source(scope)
+      if (periodSource === null) continue
+      for (const todo of this.parse(periodSource).todos) if (todo.day === date && !todo.moved) out.push({ todo, scope })
+    }
+    return out
   }
 
   private openSettings(): void {
