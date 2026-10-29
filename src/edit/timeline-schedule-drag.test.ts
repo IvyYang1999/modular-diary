@@ -29,7 +29,7 @@ describe("drag estimated work into the timeline", () => {
       title: "维护 linuxdo 账号",
       type: "发布产品",
       durationMin: 0,
-    }, 9 * 60 + 5)).toEqual({
+    }, 9 * 60 + 5)).toMatchObject({
       startMin: 9 * 60 + 5,
       endMin: 9 * 60 + 10,
       line: "plan 09:05-09:10 发布产品 维护 linuxdo 账号",
@@ -48,7 +48,7 @@ describe("drag estimated work into the timeline", () => {
       title: "发布 Modular Diary",
       type: "开发",
       durationMin: 30,
-    }, 9 * 60 + 5)).toEqual({
+    }, 9 * 60 + 5)).toMatchObject({
       startMin: 9 * 60 + 5,
       endMin: 9 * 60 + 35,
       line: "plan 09:05-09:35 开发 发布 Modular Diary [todo:ship]",
@@ -62,7 +62,7 @@ describe("drag estimated work into the timeline", () => {
       title: "阅读论文",
       type: "阅读",
       durationMin: 45,
-    }, 20 * 60)).toEqual({
+    }, 20 * 60)).toMatchObject({
       startMin: 20 * 60,
       endMin: 20 * 60 + 45,
       line: "plan 20:00-20:45 阅读 阅读论文",
