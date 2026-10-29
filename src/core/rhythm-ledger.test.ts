@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { parseTimeline } from "./parser"
-import { carryOver, ensureRhythmSlots, periodKey, rhythmBoard, scopeContaining, scopeOfRange, shiftScope } from "./rhythm-ledger"
+import { carryOver, ensureRhythmSlots, periodKey, propagateBoundCompletion, rhythmBoard, rhythmsDueIn, scopeContaining, scopeOfRange, shiftScope } from "./rhythm-ledger"
+import { insertTodo, setTodoCompleted } from "../edit/source-rewriter"
+import { formatGoalLine } from "./period"
 import { parseRhythms } from "./rhythms"
 import type { Entry } from "./types"
 
@@ -125,5 +127,56 @@ describe("carry-over limits", () => {
     expect(parseTimeline(carried.source).todos.filter((todo) => todo.owed && todo.rhythm === "游泳")).toHaveLength(1)
     const dropped = carryOver(here.replace("---", "rhythm-drop: 散步@2026-W43\n---"), prev, one, week, "2026-W43")
     expect(parseTimeline(dropped.source).todos.some((todo) => todo.owed && todo.rhythm === "散步")).toBe(false)
+  })
+})
+
+describe("a weekly rhythm with a start date", () => {
+  const started = parseRhythms("- 每周 泡脚 @玩耍 自2026-10-28")
+  it("is not due in the weeks before it, and a month counts only the weeks it is on", () => {
+    expect(rhythmsDueIn(started, scopeContaining("week", "2026-10-20"))).toEqual([])
+    expect(rhythmsDueIn(started, week).map((item) => item.id)).toEqual(["泡脚"])
+    expect(ensureRhythmSlots("days: 2026-10-19..2026-10-25\n---", started, scopeContaining("week", "2026-10-20"))).not.toContain("泡脚")
+    // October: only the week of the 26th is on; September does not list it at all.
+    expect(rhythmBoard(started, scopeContaining("month", "2026-10-05"), [], [], []).find((item) => item.rhythm.id === "泡脚")).toMatchObject({ due: 1, unit: "times" })
+    expect(rhythmBoard(started, scopeContaining("month", "2026-09-05"), [], [], [])).toEqual([])
+  })
+  it("prunes the slot an earlier week got before the start date was set", () => {
+    const early = scopeContaining("week", "2026-10-20")
+    const before = ensureRhythmSlots("days: 2026-10-19..2026-10-25\n---", parseRhythms("- 每周 泡脚 @玩耍"), early)
+    expect(before).toContain('rhythm="泡脚"')
+    expect(ensureRhythmSlots(before, started, early)).not.toContain('rhythm="泡脚"')
+  })
+})
+
+describe("a daily limit", () => {
+  it("is judged only on days with actual records: a day that only has plans is not stamped", () => {
+    const limited = parseRhythms("- 每天 1小时以下 消费 @消费")
+    const days = [
+      { date: "2026-10-26", entries: [entry("消费", 600, 700)] },
+      { date: "2026-10-27", entries: [entry("消费", 600, 630)] },
+      { date: "2026-10-30", entries: [entry("消费", 600, 630, true), entry("学习", 700, 800, true)] },
+    ]
+    expect(rhythmBoard(limited, week, [], days, [])[0]).toMatchObject({ limit: true, due: 7, done: 1 })
+  })
+})
+
+describe("bound todos and their rhythm slot", () => {
+  const rhythm = parseRhythms("- 每周 参加一次线下AI活动 @出门")
+  const base = ensureRhythmSlots("days: 2026-10-26..2026-11-01\n---", rhythm, week)
+  const slot = parseTimeline(base).todos[0]
+  const withBound = insertTodo(base, { id: "t1", title: "参加Tab宣讲", group: "", type: "出门", estimateMin: 240, completed: false, under: rhythm[0].id })
+  it("completes the slot when every bound todo is done, and reopens it when one is reopened", () => {
+    const done = propagateBoundCompletion(setTodoCompleted(withBound, "t1", true), "t1")
+    expect(parseTimeline(done).todos.find((item) => item.id === slot.id)?.completed).toBe(true)
+    const undone = propagateBoundCompletion(setTodoCompleted(done, "t1", false), "t1")
+    expect(parseTimeline(undone).todos.find((item) => item.id === slot.id)?.completed).toBe(false)
+  })
+  it("ticks a text goal when its bound todos are all done and unticks it when one is reopened", () => {
+    const goalSource = `days: 2026-10-26..2026-11-01\n${formatGoalLine({ kind: "text", key: "搬家", targetMinutes: 0, id: "g1" })}\n---`
+    const bound = insertTodo(goalSource, { id: "t2", title: "打包", group: "", type: "", estimateMin: 0, completed: false, goal: "g1" })
+    const done = propagateBoundCompletion(setTodoCompleted(bound, "t2", true), "t2")
+    expect(done).toContain("done=true")
+    const undone = propagateBoundCompletion(setTodoCompleted(done, "t2", false), "t2")
+    expect(undone).not.toContain("done=true")
   })
 })

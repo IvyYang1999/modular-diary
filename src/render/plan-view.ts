@@ -307,7 +307,8 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
           const recorded = day.entries.filter((entry) => !entry.plan && entry.type === rhythm.type).reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0)
           const manual = day.habitDone?.includes(rhythm.id)
           const target = rhythm.quota.kind === "duration" ? rhythm.quota.minutes : 0
-          const judged = manual || day.entries.length > 0
+          // Only a day that has happened and has actual records is judged: plans ahead stamp nothing.
+          const judged = manual || (day.date <= model.today && day.entries.some((entry) => !entry.plan))
           const hit = manual || (limit ? judged && recorded < target : target > 0 ? recorded >= target : recorded > 0)
           // A kept limit shows a tick, a broken one a cross, so a lit red cell never reads as "wasted again".
           const state = hit ? "is-done" : limit && judged && recorded >= target ? "is-missed" : ""

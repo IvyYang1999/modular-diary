@@ -11,7 +11,8 @@
  * day count or minutes against the quota.
  */
 import { isHabitDue } from "./habits"
-import { deleteTodoSubtree, insertTodo, setHeaderValue, updateTodo } from "../edit/source-rewriter"
+import { deleteTodoSubtree, insertTodo, replaceEntryLine, setHeaderValue, setTodoCompleted, updateTodo } from "../edit/source-rewriter"
+import { formatGoalLine } from "./period"
 import { parseTimeline } from "./parser"
 import { rhythmToHabit, rhythmWeekOn, type Rhythm } from "./rhythms"
 import { shiftDate } from "./daily-notes"
@@ -107,8 +108,8 @@ export function rhythmsDueIn(rhythms: Rhythm[], scope: PeriodScope): Rhythm[] {
   return rhythms.filter((rhythm) => {
     if (scope.kind === "month") return rhythm.cadence === "monthly"
     if (rhythm.cadence === "monthly") return false
-    if (rhythm.cadence === "biweekly") return rhythmWeekOn(rhythm, scope.start)
-    return true
+    // A weekly rhythm with a start date (自2026-10-28) is not due in the weeks before it; a biweekly one every other week after.
+    return rhythmWeekOn(rhythm, scope.start)
   })
 }
 
@@ -232,6 +233,38 @@ export function carryOver(source: string, prevSource: string, rhythms: Rhythm[],
   return { source: out, prevSource: prev }
 }
 
+/**
+ * After a bound todo (`under=` a rhythm, `goal=` a text goal) is toggled: when every
+ * todo bound there is done, the rhythm's first open slot completes / the goal ticks;
+ * when one is reopened, the slot that completion ticked reopens / the goal unticks.
+ * Doing the bound todos is doing the rhythm, so the two never disagree.
+ */
+export function propagateBoundCompletion(source: string, id: string): string {
+  const live = parseTimeline(source)
+  const todo = live.todos.find((item) => item.id === id)
+  if (!todo) return source
+  let out = source
+  if (todo.goal) {
+    const siblings = live.todos.filter((item) => item.goal === todo.goal && !item.moved)
+    const goal = live.goals.find((item) => item.kind === "text" && item.id === todo.goal)
+    const allDone = siblings.length > 0 && siblings.every((item) => item.completed)
+    if (goal && goal.done !== allDone && (allDone || !todo.completed)) out = replaceEntryLine(out, goal.line, formatGoalLine({ ...goal, done: allDone }))
+  }
+  if (todo.under) {
+    const siblings = live.todos.filter((item) => item.under === todo.under && !item.moved)
+    const slots = live.todos.filter((item) => item.rhythm === todo.under && !item.moved)
+    if (siblings.length && siblings.every((item) => item.completed)) {
+      const open = slots.find((item) => !item.completed)
+      if (open) out = setTodoCompleted(out, open.id, true)
+    } else if (!todo.completed) {
+      // The slot the last tick completed is the last one done; reopen it.
+      const done = [...slots].reverse().find((item) => item.completed)
+      if (done) out = setTodoCompleted(out, done.id, false)
+    }
+  }
+  return out
+}
+
 function recordedOn(day: PeriodDayFacts | undefined, rhythm: Rhythm): number {
   if (!day || !rhythm.type) return 0
   return day.entries.filter((entry) => !entry.plan && entry.type === rhythm.type).reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0)
@@ -240,7 +273,7 @@ function recordedOn(day: PeriodDayFacts | undefined, rhythm: Rhythm): number {
 /** Weeks (Mondays) a weekly / biweekly rhythm is on inside a scope. */
 function weeksOn(rhythm: Rhythm, scope: PeriodScope): string[] {
   const mondays = [...new Set(daysOf(scope).map(mondayOf))]
-  return rhythm.cadence === "biweekly" ? mondays.filter((monday) => rhythmWeekOn(rhythm, monday)) : mondays
+  return mondays.filter((monday) => rhythmWeekOn(rhythm, monday))
 }
 
 /**
@@ -252,7 +285,8 @@ type PlacedTodo = TodoItem & { placement?: { date: string; startMin?: number }; 
 
 export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: PlacedTodo[], days: PeriodDayFacts[], skips: string[], weekTodos: PlacedTodo[] = []): RhythmBoardRow[] {
   const byDate = new Map(days.map((day) => [day.date, day]))
-  const shown = scope.kind === "month" ? rhythms : rhythmsDueIn(rhythms, scope)
+  // A month lists every rhythm, except a weekly one that has not started yet (no week of the month is on).
+  const shown = scope.kind === "month" ? rhythms.filter((rhythm) => rhythm.cadence !== "weekly" && rhythm.cadence !== "biweekly" || weeksOn(rhythm, scope).length > 0) : rhythmsDueIn(rhythms, scope)
   const recordedIn = (rhythm: Rhythm): number => daysOf(scope).reduce((sum, date) => sum + recordedOn(byDate.get(date), rhythm), 0)
   /** A slot is done when ticked, or (count) its day has a record, or (duration) the period's hours reach the quota. */
   const slotDone = (todo: PlacedTodo, rhythm: Rhythm, minutes: number): boolean => todo.completed
@@ -308,8 +342,8 @@ export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: Placed
       const day = byDate.get(date)
       if (day?.habitDone?.includes(rhythm.id)) return true
       const recorded = recordedOn(day, rhythm)
-      // A limit is kept when the day's records stay under it; a day with nothing written yet is not judged.
-      if (limit) return Boolean(day?.entries.length) && recorded < target
+      // A limit is kept when the day's records stay under it; a day with nothing recorded yet (plans are not records) is not judged.
+      if (limit) return Boolean(day?.entries.some((entry) => !entry.plan)) && recorded < target
       return target > 0 ? recorded >= target : recorded > 0
     })
     return { rhythm, slots: [], skipped, due: dueDays.length, placed: doneDays.length, done: doneDays.length, minutes, owed: 0, ...(limit ? { limit: true } : {}) }

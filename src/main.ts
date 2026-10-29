@@ -1,7 +1,7 @@
 import { setZoneEdges, ZONE_EDGES } from "./render/plan-view"
 import { parseChecklistTemplate } from "./core/checklists"
 import { PeriodFiles } from "./period-files"
-import { periodKey, rhythmBoard, scopeContaining, scopeOfRange, sessionId, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
+import { periodKey, propagateBoundCompletion, rhythmBoard, scopeContaining, scopeOfRange, sessionId, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
 import { RhythmsNote } from "./rhythms-note"
 import { isDailyNote, findChecklistTemplateFile, saveChecklistAsTemplate } from "./checklists"
 import { AddUpcomingModal, createUpcomingSchedule, watchUpcoming, type UpcomingVaultOptions } from "./upcoming"
@@ -1472,7 +1472,7 @@ export default class ModularDiaryPlugin extends Plugin {
             }))
           },
           onToggle: (id, completed) => {
-            if (periodArrivalById.has(id)) return periodWrite(id, (value) => setTodoCompleted(value, id, completed))
+            if (periodArrivalById.has(id)) return periodWrite(id, (value) => propagateBoundCompletion(setTodoCompleted(value, id, completed), id))
             const inNote = bodyTodoById.get(id)
             if (inNote) {
               return this.applyBodyTodoEdit(ctx.sourcePath, (content) =>
@@ -1508,7 +1508,7 @@ export default class ModularDiaryPlugin extends Plugin {
               menu.addItem((item) => item.setTitle(tr("editTodo")).setIcon("pencil").onClick(edit))
               if (!todo.completed) menu.addItem((item) => item.setTitle(tr("markPartial")).setIcon("circle-slash").setChecked(Boolean(todo.partial)).onClick(() =>
                 void periodWrite(todo.id, (value) => updateTodo(value, todo.id, { completed: false, partial: true })).catch(periodFail)))
-              menu.addItem((item) => item.setTitle(tr(todo.completed ? "markIncomplete" : "markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() => void periodWrite(todo.id, (value) => setTodoCompleted(value, todo.id, !todo.completed)).catch(periodFail)))
+              menu.addItem((item) => item.setTitle(tr(todo.completed ? "markIncomplete" : "markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() => void periodWrite(todo.id, (value) => propagateBoundCompletion(setTodoCompleted(value, todo.id, !todo.completed), todo.id)).catch(periodFail)))
               if (!todo.completed && dateStr) menu.addItem((item) => item.setTitle(tr("pushToTomorrow")).setIcon("calendar-arrow-right").onClick(() => void (async () => {
                 // Inside the period: the next day. Past its end: the next week's or month's note, placed on that day.
                 const next = shiftDate(dateStr, 1)
@@ -2730,24 +2730,6 @@ export default class ModularDiaryPlugin extends Plugin {
         this.rerenderMountedTimelines()
       } catch (error) { fail(date, error) }
     }
-    /** All todos bound under a goal or rhythm done → the goal ticks / the rhythm's first open slot completes. */
-    const propagateCompletion = (current: string, id: string): string => {
-      const live = parseTimeline(current)
-      const todo = live.todos.find((item) => item.id === id)
-      if (!todo) return current
-      let out = current
-      if (todo.goal) {
-        const siblings = live.todos.filter((item) => item.goal === todo.goal && !item.moved)
-        const goal = live.goals.find((item) => item.kind === "text" && item.id === todo.goal)
-        if (goal && siblings.length && siblings.every((item) => item.completed) && !goal.done) out = replaceEntryLine(out, goal.line, formatGoalLine({ ...goal, done: true }))
-      }
-      if (todo.under) {
-        const siblings = live.todos.filter((item) => item.under === todo.under && !item.moved)
-        const slot = live.todos.find((item) => item.rhythm === todo.under && !item.completed && !item.moved)
-        if (slot && siblings.length && siblings.every((item) => item.completed)) out = setTodoCompleted(out, slot.id, true)
-      }
-      return out
-    }
     renderPeriodInto(container, model, {
       typeColors: { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors },
       categories: Object.keys(this.settings.spanTypeColors),
@@ -2875,7 +2857,7 @@ export default class ModularDiaryPlugin extends Plugin {
         return input.parent ? insertChildTodo(current, input.parent, value) : insertTodo(current, value)
       }),
       onEdit: (id, input) => void rewrite((current) => updateTodo(current, id, { title: input.title, type: input.type, estimateMin: input.estimateMinutes, note: input.note, difficulty: input.difficulty, priority: input.priority })),
-      onToggle: (id, completed) => rewrite((current) => propagateCompletion(setTodoCompleted(current, id, completed), id)),
+      onToggle: (id, completed) => rewrite((current) => propagateBoundCompletion(setTodoCompleted(current, id, completed), id)),
       onDelete: (id) => void rewrite((current) => deleteTodoSubtree(current, id)),
       onMove: (id, targetIndex) => void rewrite((current) => moveTodoSubtree(current, id, targetIndex)),
       collapsed: (id) => this.todoCollapsed.has(id),

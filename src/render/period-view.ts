@@ -1074,7 +1074,9 @@ export function renderPeriodInto(container: HTMLElement, model: PeriodViewModel,
     : isWeek
       ? `${shortDate(model.period.start)} – ${shortDate(model.period.end)}`
       : t("periodTitle", { start: shortDate(model.period.start), end: shortDate(model.period.end), days: String(model.period.days.length) }) })
-  if (model.spec.kind !== "this-week") bar.createEl("button", { cls: "modular-diary-period-text-button", text: t(isMonth ? "thisMonth" : "thisWeek"), attr: { type: "button" } }).addEventListener("click", deps.onToday)
+  // "Back to this week" only when the view is somewhere else; on the current period there is nowhere to go back to.
+  const onCurrent = isMonth ? model.period.start.slice(0, 7) === model.today.slice(0, 7) : model.period.start <= model.today && model.today <= model.period.end
+  if (!onCurrent) bar.createEl("button", { cls: "modular-diary-period-text-button", text: t(isMonth ? "thisMonth" : "thisWeek"), attr: { type: "button" } }).addEventListener("click", deps.onToday)
   if (isMonth && model.face === "plan" && deps.onToggleShowTodos) {
     const toggle = bar.createEl("button", { cls: "modular-diary-period-text-button is-toggle", text: t("monthShowTodos"), attr: { type: "button", "aria-pressed": String(Boolean(model.showTodos)), title: t("monthShowTodosHint") } })
     toggle.addEventListener("click", () => deps.onToggleShowTodos?.())
