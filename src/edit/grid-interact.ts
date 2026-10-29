@@ -72,7 +72,7 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
     ? domWindow.cancelAnimationFrame.bind(domWindow)
     : (): void => undefined
   // 清理可能残留的拖拽克隆（pointer capture 中断时没删掉）
-  dom.querySelectorAll(".modular-diary-drag-clone").forEach((c) => c.remove())
+  dom.querySelectorAll(".modular-diary-drag-clone-host, .modular-diary-drag-clone").forEach((c) => c.remove())
   const slots = Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot"))
 
   const finish = (priorityId?: SlotId, preserveColumns = false): void => {
@@ -130,7 +130,13 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
       clone.style.height = `${slotRect.height}px`
       clone.style.left = `${slotRect.left}px`
       clone.style.top = `${slotRect.top}px`
-      dom.body.appendChild(clone)
+      // The clone floats on <body>, outside the block: a host carrying the container's
+      // classes gives it the same design tokens, so the content keeps its look.
+      const cloneHost = dom.createElement("div")
+      cloneHost.className = `${pointerOwner.className} modular-diary-drag-clone-host`
+      cloneHost.style.display = "contents"
+      cloneHost.appendChild(clone)
+      dom.body.appendChild(cloneHost)
       slot.classList.add("is-placeholder")
 
       const item = itemFromSlot(slot)
@@ -176,7 +182,7 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
         dom.removeEventListener("pointercancel", onCancel)
         grip.removeEventListener("lostpointercapture", onLostPointerCapture)
         domWindow?.removeEventListener("blur", onWindowBlur)
-        clone.remove()
+        cloneHost.remove()
         slot.classList.remove("is-placeholder")
         body.classList.remove("is-grid-interacting")
         setPointerInteractionActive(pointerOwner, false)
@@ -200,7 +206,7 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
         domWindow?.removeEventListener("blur", onWindowBlur)
         applyGridToBody(body, initialItems)
         body.style.height = `${gridRows(initialItems) * GRID_ROW_H}px`
-        clone.remove()
+        cloneHost.remove()
         slot.classList.remove("is-placeholder")
         body.classList.remove("is-grid-interacting")
         setPointerInteractionActive(pointerOwner, false)

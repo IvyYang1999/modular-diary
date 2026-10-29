@@ -208,9 +208,11 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
     if (color) dot.style.setProperty("--c", color)
     row.createEl("span", { cls: "modular-diary-plan-name", text: rhythm.name })
     // A slot row has its own menu (skip this one, let an owed one go); the rhythm menu is for rows without slots.
-    if (rhythmMenu) row.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); deps.onRhythmMenu?.(rhythm.id, event.clientX, event.clientY) })
+    if (rhythmMenu) row.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); deps.onRhythmMenu?.(rhythm.id, event.clientX, event.clientY, { addTodo: () => boundOpeners.get(rhythm.id)?.() }) })
     return row
   }
+  /** Each rhythm's bound list opens its add form from the row's menu. */
+  const boundOpeners = new Map<string, () => void>()
   /** A row without a slot still moves within the board, so the note's order can be set by hand. */
   const reorderOnly = (row: HTMLElement, rhythm: RhythmBoardRow["rhythm"]): void => {
     if (!deps.onReorderRhythm) return
@@ -226,7 +228,10 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
     if (boundDone.has(rhythmId)) return
     boundDone.add(rhythmId)
     const bound = model.todos.filter((todo) => todo.under === rhythmId && !todo.moved)
-    if (bound.length) el.insertAdjacentElement("afterend", renderBoundTodos(section, bound, model, deps, root))
+    // Always a list, even an empty one: the row's menu opens its add form.
+    const { wrap, openAdd } = renderBoundTodos(section, bound, model, deps, root, { rhythmId })
+    el.insertAdjacentElement("afterend", wrap)
+    boundOpeners.set(rhythmId, openAdd)
   }
   // Slot rhythms: one row per slot, grouped by its state. Measured rhythms: one progress row.
   const rowsByKey = new Map<string, Array<() => void>>()
@@ -262,7 +267,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
           el.classList.add("modular-diary-period-draggable")
           el.tabIndex = 0
           attachDrag(root, el, { todo: slot, from: slotFrom(slot), rhythmId: rhythm.id }, model, deps)
-          if (deps.onSlotMenu) el.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); deps.onSlotMenu?.(slot, event.clientX, event.clientY) })
+          if (deps.onSlotMenu) el.addEventListener("contextmenu", (event) => { event.preventDefault(); event.stopPropagation(); deps.onSlotMenu?.(slot, event.clientX, event.clientY, { addTodo: () => boundOpeners.get(rhythm.id)?.() }) })
           attachBound(el, rhythm.id)
         })
       })
@@ -317,6 +322,8 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
           cell.createEl("span", { cls: "modular-diary-plan-day-label", text: days.length > 7 ? String(Number(day.date.slice(8, 10))) : weekdayShortOf(day.date) })
           if (limit && (hit || state === "is-missed")) setIcon(cell.createEl("span", { cls: "modular-diary-plan-day-mark" }), hit ? "check" : "x")
         }
+        // A daily rhythm plans too: the todos under it say what each day's tick will be.
+        attachBound(el, rhythm.id)
       } else {
         meta.textContent = t(row.unit === "times" ? "timesDone" : "daysDone", { done: String(row.done), total: String(row.due) })
         fill.style.width = `${row.due ? Math.min(100, (row.done / row.due) * 100) : 0}%`

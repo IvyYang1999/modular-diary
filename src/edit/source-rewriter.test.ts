@@ -331,3 +331,15 @@ describe("diary bodies travel with their line", () => {
     expect(parseTimeline(out).spans[0]).toMatchObject({ startMin: 615, endMin: 640, body: "回 issue", tags: ["飞搜"] })
   })
 })
+
+describe("moveTextGoalLine", () => {
+  it("reorders written goals among themselves and leaves other lines alone", async () => {
+    const { moveTextGoalLine } = await import("./source-rewriter")
+    const source = ['days: 2026-10-26..2026-11-01', 'goal: text="甲"', 'goal: tag="x" target=60', 'goal: text="乙"', 'goal: text="丙"', '---'].join("\n")
+    const lines = (out: string): string[] => out.split("\n").filter((line) => line.startsWith("goal: text=")).map((line) => line.slice(11, 14))
+    expect(lines(moveTextGoalLine(source, 1, 2))).toEqual(['"乙"', '"丙"', '"甲"'])
+    expect(lines(moveTextGoalLine(source, 4, 0))).toEqual(['"丙"', '"甲"', '"乙"'])
+    expect(moveTextGoalLine(source, 4, 0).split("\n")[3]).toBe('goal: tag="x" target=60')
+    expect(moveTextGoalLine(source, 2, 0)).toBe(source)
+  })
+})

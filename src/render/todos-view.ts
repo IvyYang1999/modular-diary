@@ -42,6 +42,13 @@ export interface TodoViewItem {
   attach?: string[]
   /** Quiet status pills after the title (a period todo's placement, its deadline). */
   flags?: Array<{ text: string; tone?: "placed" | "due" | "elsewhere" }>
+  /** Period todos: the date they sit on (grouping by day). */
+  day?: string
+}
+
+/** What a rendered list hands back: a way to open its add form from outside (a goal's or rhythm's menu). */
+export interface TodoListHandle {
+  openAdd: () => void
 }
 
 export interface NewTodoInput {
@@ -408,7 +415,7 @@ export function renderTitleWithTags(el: HTMLElement, text: string, tagStyle?: (t
   if (cursor < text.length) el.appendChild(el.ownerDocument.createTextNode(text.slice(cursor)))
 }
 
-export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: TodoViewDeps): void {
+export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: TodoViewDeps): TodoListHandle {
   const root = slot.createDiv({ cls: `modular-diary-todos${deps.bare ? " is-bare" : ""}` })
   const manualSort = deps.view.sortBy === "manual"
   const header = root.createDiv({ cls: "modular-diary-component-header" })
@@ -469,11 +476,14 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     childHint.textContent = ""
     if (addFormHome.isConnected) addFormHome.before(addForm.form)
   }
-  add.addEventListener("click", () => {
+  const openAdd = (): void => {
     addIntoBucket = undefined
     addIntoParent = undefined
     homeAddForm()
-    if (addForm.form.hidden) addForm.open({ title: "", estimateMinutes: 30, estimateUnit: "minutes" })
+    addForm.open({ title: "", estimateMinutes: 30, estimateUnit: "minutes" })
+  }
+  add.addEventListener("click", () => {
+    if (addForm.form.hidden) openAdd()
     else addForm.close()
   })
   /**
@@ -508,7 +518,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     setIcon(icon, "plus")
     empty.createEl("span", { text: t("addFirstTodo") })
     empty.addEventListener("click", () => addForm.open({ title: "", estimateMinutes: 30, estimateUnit: "minutes" }))
-    return
+    return { openAdd }
   }
 
   const dom = root.ownerDocument
@@ -964,6 +974,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     const done = rows.filter((row) => row.classList.contains("is-complete")).length
     cell.querySelector(".modular-diary-todo-bucket-count")!.textContent = rows.length ? `${done}/${rows.length}` : ""
   })
+  return { openAdd }
 }
 
 /**

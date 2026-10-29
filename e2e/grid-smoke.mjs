@@ -161,8 +161,10 @@ await page.mouse.move(grip.x + 4, grip.y + 4 + 100, { steps: 4 })
 const during = await page.evaluate(() => ({
   clone: document.querySelector(".modular-diary-drag-clone") !== null,
   placeholder: document.querySelector('.modular-diary-slot[data-slot="toolbar"]')?.classList.contains("is-placeholder") ?? false,
+  // The clone floats on <body>; its host carries the container's classes so the block's design tokens still apply.
+  styled: document.querySelector(".modular-diary-drag-clone")?.parentElement?.classList.contains("modular-diary-container") ?? false,
 }))
-if (!during.clone || !during.placeholder) { console.error("missing clone/placeholder", during); process.exit(1) }
+if (!during.clone || !during.placeholder || !during.styled) { console.error("missing clone/placeholder/styled host", during); process.exit(1) }
 await page.mouse.up()
 const movePointerReleased = await page.evaluate(() => ({
   active: document.querySelector("#base")?.dataset.modularDiaryPointerActive ?? "",

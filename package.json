@@ -28,7 +28,7 @@
     "e2e:hourlog": "node e2e/hourlog-smoke.mjs",
     "e2e:phase4": "node e2e/phase4-smoke.mjs",
     "e2e:checklists": "node e2e/checklist-smoke.mjs && node e2e/checklist-wiring-smoke.mjs",
-    "e2e:period-embed": "node e2e/period-embed-smoke.mjs"
+    "e2e:period-embed": "node e2e/period-embed-smoke.mjs && node e2e/bound-todos-smoke.mjs"
   },
   "keywords": [
     "obsidian",

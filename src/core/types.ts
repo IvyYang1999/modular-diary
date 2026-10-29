@@ -47,6 +47,8 @@ export interface TimelineDoc {
   todos: TodoItem[]
   /** Block-local presentation rule for the Todo component. */
   todoView: TodoViewConfig
+  /** How todos hung under goals and rhythms are grouped (`bound-view:` header). */
+  boundView?: TodoViewConfig
   /** Dragged group order for the todo list (`todo-groups:` header, flat composite keys). */
   todoGroupOrder: string[]
   /** Period block statistics widgets (`period-stats:` header); see core/period-stats. */
@@ -179,9 +181,9 @@ export interface PeriodGoal {
   line: number
 }
 
-export type TodoGroupBy = "none" | "category" | "status" | "tag" | "placement"
+export type TodoGroupBy = "none" | "category" | "status" | "tag" | "placement" | "day"
 /** Second grouping level inside a primary group; never "none" when present, never equal to groupBy. */
-export type TodoSubGroupBy = "category" | "status" | "tag" | "placement"
+export type TodoSubGroupBy = "category" | "status" | "tag" | "placement" | "day"
 export type TodoSortBy = "manual" | "estimate" | "actual" | "difficulty" | "priority"
 export type TimelineDrawTool = "span" | "marker"
 

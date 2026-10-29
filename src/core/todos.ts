@@ -21,9 +21,9 @@ export function parseTodoViewHeaderValue(value: string): TodoViewConfig | null {
   const sortBy = fields.sort
   const group2 = fields.group2
   const layout = fields.layout ?? "list"
-  if (!(["none", "category", "status", "tag", "placement"] as string[]).includes(groupBy)) return null
+  if (!(["none", "category", "status", "tag", "placement", "day"] as string[]).includes(groupBy)) return null
   if (!(["manual", "estimate", "actual", "difficulty", "priority"] as string[]).includes(sortBy)) return null
-  if (group2 !== undefined && !(["category", "status", "tag", "placement"] as string[]).includes(group2)) return null
+  if (group2 !== undefined && !(["category", "status", "tag", "placement", "day"] as string[]).includes(group2)) return null
   if (!(["list", "abc", "matrix"] as string[]).includes(layout)) return null
   return normalizeTodoView({ groupBy, sortBy, ...(group2 ? { group2 } : {}), ...(layout !== "list" ? { layout } : {}) } as TodoViewConfig)
 }
@@ -47,6 +47,15 @@ export interface TodoGroupable {
   title?: string
   /** Period todos: already on a day (or at a time) of the period. */
   placed?: boolean
+  /** Period todos: the date they sit on (`day=`, or the day of their plan block). */
+  day?: string
+}
+
+/** 周一 10.26: a day group's label. */
+function dayGroupLabel(date: string): string {
+  const [y, m, d] = date.split("-").map(Number)
+  const index = new Date(y, m - 1, d).getDay()
+  return `${t("weekdayPrefix")}${t("weekdayNames").split(" ")[index] ?? ""} ${m}.${d}`
 }
 
 /** Stable, locale-free identity of an item's group: `c:分类` / `s:open|s:done` / `t:标签` (empty value = none). */
@@ -54,6 +63,7 @@ export function todoGroupKey(item: TodoGroupable, by: TodoSubGroupBy): string {
   if (by === "category") return `c:${item.type ?? ""}`
   if (by === "status") return item.completed ? "s:done" : item.partial ? "s:partial" : "s:open"
   if (by === "placement") return item.completed ? "p:done" : item.placed ? "p:placed" : "p:open"
+  if (by === "day") return `d:${item.day ?? ""}`
   const tag = item.tags?.[0] ?? (item.title ? extractTags(item.title)[0] : undefined)
   return `t:${tag ?? ""}`
 }
@@ -65,6 +75,7 @@ export function todoGroupLabel(key: string): string {
   if (leaf.startsWith("c:")) return value || t("noCategory")
   if (leaf.startsWith("s:")) return value === "done" ? t("complete") : value === "partial" ? t("todoPartial") : t("incomplete")
   if (leaf.startsWith("p:")) return value === "done" ? t("boardDone") : value === "placed" ? t("boardPlaced") : t("boardUnplaced")
+  if (leaf.startsWith("d:")) return value ? dayGroupLabel(value) : t("todoGroupNoDay")
   return value ? `#${value}` : t("noTag")
 }
 
@@ -95,11 +106,13 @@ export function groupTodoItems<T extends TodoGroupable>(items: T[], by: TodoSubG
   }
   const keys = [...buckets.keys()]
   // The "none" bucket (no category / no tag) always comes last, not into the label sort.
-  const emptyKey = (key: string): boolean => /(?:^|\n)[ct]:$/.test(key)
+  const emptyKey = (key: string): boolean => /(?:^|\n)[ctd]:$/.test(key)
   if (by === "status" || by === "placement") {
     const rank = (key: string): number => key.endsWith(":done") ? 2 : key.endsWith(":partial") || key.endsWith(":placed") ? 1 : 0
     keys.sort((a, b) => rank(a) - rank(b))
   }
+  // Days in calendar order, the unscheduled ones last.
+  else if (by === "day") keys.sort((a, b) => Number(emptyKey(a)) - Number(emptyKey(b)) || a.localeCompare(b))
   else keys.sort((a, b) => Number(emptyKey(a)) - Number(emptyKey(b)) || todoGroupLabel(a).localeCompare(todoGroupLabel(b)))
   const position = new Map(order.map((key, index) => [key, index]))
   keys.sort((a, b) => {

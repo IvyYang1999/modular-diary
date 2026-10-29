@@ -74,3 +74,20 @@ describe("Todo priority choices", () => {
       .toEqual([{ priority: "P0" }, { priority: "P1" }, { priority: "retired" }])
   })
 })
+
+describe("grouping by day", () => {
+  it("keys period todos by the day they sit on, in calendar order, unscheduled last", async () => {
+    const { groupTodoItems, todoGroupLabel } = await import("./todos")
+    const items = [
+      { id: "a", completed: false, day: "2026-10-28" },
+      { id: "b", completed: false },
+      { id: "c", completed: false, day: "2026-10-26" },
+      { id: "d", completed: true, day: "2026-10-28" },
+    ]
+    const groups = groupTodoItems(items, "day")
+    expect(groups.map((group) => group.key)).toEqual(["d:2026-10-26", "d:2026-10-28", "d:"])
+    expect(groups[1].items.map((item) => item.id)).toEqual(["a", "d"])
+    expect(todoGroupLabel("d:2026-10-26")).toMatch(/10\.26$/)
+    expect(todoGroupLabel("d:")).not.toBe("")
+  })
+})

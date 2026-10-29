@@ -23,6 +23,8 @@ import type { GoalProgress, ResolvedPeriod } from "../core/period"
 import type { Entry, PeriodGoal, PeriodSpec, SpanNote, TodoItem, TodoViewConfig } from "../core/types"
 import { attachTagSuggest, type TagSuggestDeps } from "../edit/tag-suggest"
 import { setPointerInteractionActive } from "../edit/pointer-interaction"
+import { attachPointerRowSort } from "../edit/row-sort"
+import { appendSixDotGrip } from "./grip"
 import { t } from "../i18n"
 import { renderTodosInto, type NewTodoInput, type TodoViewItem } from "./todos-view"
 
@@ -63,6 +65,8 @@ export interface PeriodViewModel {
   statsWidgets?: string[]
   todos: PeriodTodoView[]
   todoView: TodoViewConfig
+  /** How todos hung under goals and rhythms are grouped (`bound-view:` header). */
+  boundView?: TodoViewConfig
   /** Dragged todo group order (`todo-groups:` header). */
   todoGroupOrder: string[]
   days: PeriodDayView[]
@@ -86,6 +90,9 @@ export interface PeriodViewModel {
 }
 
 export interface GoalDraft { kind: PeriodGoal["kind"]; key: string; targetMinutes: number; note?: string; done?: boolean }
+
+/** Where a bound todo hangs: under a written goal (its line) or under a rhythm. */
+export type BoundTarget = { goalLine: number } | { rhythmId: string }
 
 export interface PeriodViewDeps {
   typeColors: Record<string, string>
@@ -117,6 +124,12 @@ export interface PeriodViewDeps {
   onTodoMenu?: (id: string, x: number, y: number, edit: () => void, addChild: (() => void) | null) => void
   onSaveGoal: (line: number | null, goal: GoalDraft) => void
   onDeleteGoal: (line: number) => void
+  /** A new todo hung straight under a written goal (by its line) or a rhythm. */
+  onAddBound?: (input: NewTodoInput, target: BoundTarget) => void
+  /** Right-click on a written goal: add a todo under it, group its todos, delete it. */
+  onTextGoalMenu?: (line: number, x: number, y: number, actions: { addTodo: () => void }) => void
+  /** Drag a written goal among the others: its new index among the text goals. */
+  onMoveGoal?: (line: number, targetIndex: number) => void
   /** Tick or untick a written goal. */
   onToggleGoal?: (line: number, done: boolean) => void
   onRailWidth: (px: number) => void
@@ -127,9 +140,9 @@ export interface PeriodViewDeps {
   onSetFace?: (face: "plan" | "actual") => void
   /** Day block embedding: switch between day / week / month. */
   onSwitchView?: (view: "day" | "week" | "month") => void
-  onRhythmMenu?: (rhythmId: string, x: number, y: number) => void
+  onRhythmMenu?: (rhythmId: string, x: number, y: number, actions?: { addTodo: () => void }) => void
   /** Right-click on one slot (row or pill): skip it this period, let an owed one go, edit the rhythm. */
-  onSlotMenu?: (todo: PeriodTodoView, x: number, y: number) => void
+  onSlotMenu?: (todo: PeriodTodoView, x: number, y: number, actions?: { addTodo: () => void }) => void
   /** An accumulation row dropped on a day / band: a todo of that rhythm placed there (null = all day). */
   onSession?: (id: string, date: string, zone: "am" | "pm" | "ev" | null) => void
   onOpenRhythms?: () => void
@@ -230,6 +243,7 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
     const dom = root.ownerDocument
     const startX = event.clientX, startY = event.clientY
     let ghost: HTMLElement | null = null
+    const rowList = subject.todoRow ? handle.closest<HTMLElement>(".modular-diary-plan-subs, .modular-diary-period-todos") : null
     let zone: HTMLElement | null = null
     let preview: HTMLElement | null = null
     let startMin = 0
@@ -297,9 +311,11 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
       const hit = dom.elementFromPoint(move.clientX, move.clientY)
       // Over another board row: this is a reorder, not a placement.
       const row = subject.rhythmId ? (hit?.closest(".modular-diary-plan-row[data-rhythm]") ?? null) as HTMLElement | null
-        : subject.todoRow ? (hit?.closest(".modular-diary-period-todos .modular-diary-todo-row[data-todo-id]") ?? null) as HTMLElement | null : null
+        : subject.todoRow ? (hit?.closest(".modular-diary-period-todos .modular-diary-todo-row[data-todo-id], .modular-diary-plan-subs .modular-diary-todo-row[data-todo-id]") ?? null) as HTMLElement | null : null
       const sameRow = subject.rhythmId ? row?.dataset.rhythm === subject.rhythmId : row?.dataset.todoId === subject.todo.id
-      if (row && !sameRow && root.contains(row)) {
+      // A row reorders only within its own list: the main list, or the todos under one goal / rhythm.
+      const sameList = !row || !rowList || rowList.contains(row)
+      if (row && sameList && !sameRow && root.contains(row)) {
         const rect = row.getBoundingClientRect()
         const before = move.clientY < rect.top + rect.height / 2
         if (rowTarget?.row !== row || rowTarget.before !== before) {
@@ -346,6 +362,9 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
       handle.classList.remove("is-drag-source")
       if (!commit || !dragged) return
       if (reorder && subject.todoRow) {
+        // Dropped among the rows of another day group: that is a move to that day, not a reorder.
+        const groupZone = reorder.row.closest<HTMLElement>(".modular-diary-todo-group-section[data-zone]")?.dataset.zone
+        if (groupZone !== undefined && groupZone.split("@")[0] !== subject.from.split("@")[0]) { deps.onAssign(subject.todo.id, groupZone); return }
         // Reorder in source order: the index the dragged subtree takes among the other todos.
         const targetId = reorder.row.dataset.todoId ?? ""
         const moving = new Set<string>([subject.todo.id])
@@ -540,8 +559,17 @@ function renderTextGoals(rail: HTMLElement, model: PeriodViewModel, deps: Period
     empty.createEl("span", { text: t("textGoalEmpty") })
     empty.addEventListener("click", () => { empty.remove(); add.click() })
   }
+  const root = rail.closest<HTMLElement>(".modular-diary-period") ?? rail
   for (const item of goals) {
-    const row = list.createDiv({ cls: `modular-diary-text-goal${item.complete ? " is-done" : ""}` })
+    // A goal and the todos under it travel together when the goal is dragged among the others.
+    const group = list.createDiv({ cls: "modular-diary-text-goal-group" })
+    const row = group.createDiv({ cls: `modular-diary-text-goal${item.complete ? " is-done" : ""}` })
+    if (deps.onMoveGoal) {
+      const grip = row.createEl("button", { cls: "modular-diary-item-drag modular-diary-text-goal-grip", attr: { type: "button", "aria-label": t("dragGoal", { name: item.goal.key }) } })
+      grip.tabIndex = -1
+      appendSixDotGrip(grip)
+      attachPointerRowSort({ list, row: group, handle: grip, rowSelector: ".modular-diary-text-goal-group", onMove: (targetIndex) => deps.onMoveGoal?.(item.goal.line, targetIndex) })
+    }
     const box = row.createEl("input", { cls: "task-list-item-checkbox", attr: { type: "checkbox", "aria-label": t("toggleGoalDone") } })
     box.checked = item.complete
     box.addEventListener("change", () => deps.onToggleGoal?.(item.goal.line, box.checked))
@@ -550,12 +578,17 @@ function renderTextGoals(rail: HTMLElement, model: PeriodViewModel, deps: Period
     const titleLine = body.createEl("span", { cls: "modular-diary-text-goal-title", text: item.goal.key })
     if (bound.length) titleLine.createEl("span", { cls: "modular-diary-text-goal-count", text: ` ${bound.filter((todo) => todo.completed).length}/${bound.length}` })
     if (item.goal.note) body.createEl("span", { cls: "modular-diary-text-goal-note", text: item.goal.note })
-    if (bound.length) renderBoundTodos(list, bound, model, deps, rail.closest<HTMLElement>(".modular-diary-period") ?? rail)
+    // Always a list, even an empty one: the goal's menu opens its add form.
+    const { openAdd } = renderBoundTodos(group, bound, model, deps, root, { goalLine: item.goal.line })
     body.addEventListener("click", () => {
       closeEditor()
       row.hidden = true
       open = goalEditor(list, { kind: "text", key: item.goal.key, targetMinutes: 0, note: item.goal.note, done: item.goal.done }, item.goal.line, deps, closeEditor, "text")
-      list.insertBefore(open, row)
+      row.before(open)
+    })
+    if (deps.onTextGoalMenu) row.addEventListener("contextmenu", (event) => {
+      event.preventDefault(); event.stopPropagation()
+      deps.onTextGoalMenu?.(item.goal.line, event.clientX, event.clientY, { addTodo: openAdd })
     })
   }
 }
@@ -577,6 +610,7 @@ function placementFlag(todo: PeriodTodoView, model: PeriodViewModel): { text: st
 function todoViewItem(todo: PeriodTodoView, model: PeriodViewModel): TodoViewItem {
   return {
     id: todo.id, title: todo.title, group: todo.group, type: todo.type, completed: todo.completed, weekly: false, placed: Boolean(todo.placement),
+    day: todo.placement?.date ?? todo.day,
     tags: todo.tags, note: todo.note, parent: todo.parent, partial: todo.partial, difficulty: todo.difficulty, priority: todo.priority,
     estimateMinutes: todo.estimateMin, actualMinutes: todo.actualMinutes, flags: placementFlag(todo, model),
   }
@@ -597,28 +631,35 @@ function attachRowDrags(section: HTMLElement, root: HTMLElement, model: PeriodVi
  * Todos hung under a goal or a rhythm row: the same rows as the list (tags,
  * priority, numbers, inline edit, menu, drag), without a header of their own.
  */
-export function renderBoundTodos(host: HTMLElement, todos: PeriodTodoView[], model: PeriodViewModel, deps: PeriodViewDeps, root: HTMLElement): HTMLElement {
+export function renderBoundTodos(host: HTMLElement, todos: PeriodTodoView[], model: PeriodViewModel, deps: PeriodViewDeps, root: HTMLElement, target: BoundTarget): { wrap: HTMLElement; openAdd: () => void } {
   const wrap = host.createDiv({ cls: "modular-diary-plan-subs" })
-  renderTodosInto(wrap, todos.map((todo) => todoViewItem(todo, model)), {
+  const view = model.boundView ?? { groupBy: "none", sortBy: "manual" }
+  const handle = renderTodosInto(wrap, todos.map((todo) => todoViewItem(todo, model)), {
     bare: true,
     compactMeta: true,
     rowGrips: false,
     categories: deps.categories,
     priorities: deps.priorities,
     typeColors: deps.typeColors,
-    view: { groupBy: "none", sortBy: "manual", layout: "list" },
+    view: { groupBy: view.groupBy, sortBy: view.sortBy, ...(view.group2 ? { group2: view.group2 } : {}), layout: "list" },
     tagStyle: deps.tagStyle,
     tagSuggest: deps.tagSuggest,
-    onAdd: () => undefined,
+    onAdd: (input) => deps.onAddBound?.(input, target),
     onEdit: deps.onEdit,
     onGroupMenu: () => undefined,
     onSortMenu: () => undefined,
     onToggle: deps.onToggle,
-    onMove: () => undefined,
+    onMove: deps.onMove,
     onMenu: (item, x, y, edit) => deps.onTodoMenu?.(item.id, x, y, edit, null),
   })
+  // Grouped by day, each group is a drop target for that day (the empty one takes a todo back to unscheduled).
+  wrap.querySelectorAll<HTMLElement>('.modular-diary-todo-group-section[data-group-key^="d:"]').forEach((section) => {
+    const date = (section.dataset.groupKey ?? "").slice(2)
+    section.dataset.zone = date || POOL_ZONE
+    section.dataset.zoneKind = "list"
+  })
   attachRowDrags(wrap, root, model, deps)
-  return wrap
+  return { wrap, openAdd: handle.openAdd }
 }
 
 function renderTodoList(rail: HTMLElement, root: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps): void {

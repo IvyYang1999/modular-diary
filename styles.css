@@ -5887,7 +5887,16 @@ textarea.modular-diary-template-source {
 .modular-diary-plan-row.is-session-source { cursor: grab; }
 .modular-diary-plan-subs { margin: -2px 0 4px 14px; }
 /* Bound rows reuse the todo list's rows: no header, no add form, tighter spacing. */
-.modular-diary-plan-subs .modular-diary-todos.is-bare > .modular-diary-component-header, .modular-diary-plan-subs .modular-diary-todos.is-bare > .modular-diary-todo-add-form { display: none; }
+.modular-diary-plan-subs .modular-diary-todos.is-bare > .modular-diary-component-header, .modular-diary-plan-subs .modular-diary-todos.is-bare > .modular-diary-component-empty { display: none; }
+/* A list with nothing under its goal / rhythm takes no room until its add form opens. */
+.modular-diary-plan-subs:not(:has(.modular-diary-todo-row)):not(:has(.modular-diary-todo-add-form:not([hidden]))) { display: none; }
+/* Grouped by day, a group is a drop target for that day. */
+.modular-diary-plan-subs .modular-diary-todo-group-section.is-over { outline: 1px dashed var(--text-accent); outline-offset: 2px; border-radius: var(--modular-diary-radius-control, 4px); }
+/* A goal with its todos: dragged as one by the grip that shows on hover. */
+.modular-diary-text-goal-group { position: relative; }
+.modular-diary-container button.modular-diary-text-goal-grip { position: absolute; left: -18px; top: 4px; opacity: 0; width: 14px; height: 18px; padding: 0; border: 0; background: transparent; box-shadow: none; cursor: grab; display: grid; place-content: center; gap: 2px 2px; grid-auto-flow: row; grid-template-columns: repeat(2, 1.5px); }
+.modular-diary-text-goal-group:hover > .modular-diary-text-goal > .modular-diary-text-goal-grip, .modular-diary-text-goal-grip:focus-visible { opacity: 1; }
+.modular-diary-text-goal-group.modular-diary-item-sort-placeholder { opacity: 0.35; }
 .modular-diary-plan-subs .modular-diary-todos.is-bare { margin: 0; padding: 0; }
 .modular-diary-plan-subs .modular-diary-todo-row { min-height: 26px; font-size: var(--modular-diary-font-caption); }
 .modular-diary-text-goal-count { margin-left: 6px; color: var(--text-muted); font-size: var(--modular-diary-font-caption); font-variant-numeric: tabular-nums; }

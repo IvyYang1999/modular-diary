@@ -385,6 +385,12 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
       return
     }
+    case "bound-view": {
+      const view = parseTodoViewHeaderValue(value)
+      if (view) doc.boundView = view
+      else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
+      return
+    }
     case "rhythm-drop": {
       doc.rhythmDrops.push(...value.split(/\s+/).filter(Boolean))
       return
