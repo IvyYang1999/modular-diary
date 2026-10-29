@@ -4,6 +4,7 @@
  * the actual face of a month (one stacked bar per day).
  */
 import { setIcon } from "obsidian"
+import { boundWithChildren } from "./period-view"
 import { formatHours } from "../core/duration"
 import type { RhythmBoardRow, RhythmSlotView } from "../core/rhythm-ledger"
 import { rhythmToHabit, zoneRangeLabel, type RhythmZone } from "../core/rhythms"
@@ -227,7 +228,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
   const attachBound = (el: HTMLElement, rhythmId: string): void => {
     if (boundDone.has(rhythmId)) return
     boundDone.add(rhythmId)
-    const bound = model.todos.filter((todo) => todo.under === rhythmId && !todo.moved)
+    const bound = boundWithChildren(model, model.todos.filter((todo) => todo.under === rhythmId && !todo.moved))
     // Always a list, even an empty one: the row's menu opens its add form.
     const { wrap, openAdd } = renderBoundTodos(section, bound, model, deps, root, { rhythmId })
     el.insertAdjacentElement("afterend", wrap)
@@ -310,7 +311,7 @@ export function renderRhythmBoard(rail: HTMLElement, root: HTMLElement, model: P
         for (const day of days) {
           const limit = rhythm.quota.kind === "duration" && rhythm.quota.limit === true
           const recorded = day.entries.filter((entry) => !entry.plan && entry.type === rhythm.type).reduce((sum, entry) => sum + entry.endMin - entry.startMin, 0)
-          const manual = day.habitDone?.includes(rhythm.id)
+          const manual = day.habitDone?.includes(rhythm.id) || model.todos.some((todo) => todo.under === rhythm.id && todo.completed && !todo.moved && (todo.placement?.date ?? todo.day) === day.date)
           const target = rhythm.quota.kind === "duration" ? rhythm.quota.minutes : 0
           // Only a day that has happened and has actual records is judged: plans ahead stamp nothing.
           const judged = manual || (day.date <= model.today && day.entries.some((entry) => !entry.plan))

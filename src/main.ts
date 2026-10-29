@@ -1,7 +1,7 @@
 import { setZoneEdges, ZONE_EDGES } from "./render/plan-view"
 import { parseChecklistTemplate } from "./core/checklists"
 import { PeriodFiles } from "./period-files"
-import { periodKey, propagateBoundCompletion, rhythmBoard, scopeContaining, scopeOfRange, sessionId, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
+import { periodKey, propagateBoundCompletion, propagateGoalCompletion, rhythmBoard, scopeContaining, scopeOfRange, sessionId, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
 import { RhythmsNote } from "./rhythms-note"
 import { isDailyNote, findChecklistTemplateFile, saveChecklistAsTemplate } from "./checklists"
 import { AddUpcomingModal, createUpcomingSchedule, watchUpcoming, type UpcomingVaultOptions } from "./upcoming"
@@ -224,6 +224,8 @@ export default class ModularDiaryPlugin extends Plugin {
   })
   /** View state: a day block paging its embedded period away from its own week / month. */
   private readonly embedBrowse = new Map<string, PeriodScope>()
+  /** Where each period view's rail was scrolled, so a write does not send it back to the top. */
+  private readonly periodRailScroll = new Map<string, number>()
   private sourceDrafts = new WeakMap<HTMLElement, SourceModeSession>()
   private readonly ledgerModifiedPaths = new Set<string>()
   /** Cross-day reads (weekly goals, push to tomorrow) go through this incremental index. */
@@ -1220,11 +1222,16 @@ export default class ModularDiaryPlugin extends Plugin {
               .catch((error: unknown) => { console.error("Modular Diary: failed to add a checklist heading", error); new Notice(tr("saveFailed")) })))
             menu.addItem((item) => item.setTitle(existing ? tr("checklistUpdateTemplate", { name: existing.basename }) : tr("checklistSaveTemplate")).setIcon("save").onClick(() => save()))
             if (current) menu.addItem((item) => item.setTitle(tr("checklistTemplateDaily")).setIcon("calendar-check").setChecked(current.daily).onClick(() => save(!current.daily)))
+            menu.addSeparator()
+            // Off in this note only (`off:`): the template and the other days keep it.
+            menu.addItem((item) => item.setTitle(tr("hideInThisNote")).setIcon("eye-off").onClick(() => void this.applyBlockTransform(el, ctx, source, (s) => addOffSlot(s, checklist.id))))
             menu.showAtPosition({ x, y }, dom)
           })(),
         })
       }
       const habitsSlot = container.querySelector<HTMLElement>(".modular-diary-slot-habits")
+      // A todo planned under a rhythm for this day and ticked in the week note is this day's tick.
+      const boundDoneHabits = new Set(dateStr ? this.periodTodosOn(dateStr).filter((arrival) => arrival.todo.completed && arrival.todo.under).map((arrival) => arrival.todo.under as string) : [])
       if (habitsSlot) {
         renderHabitsInto(habitsSlot, dueHabits.map((habit) => ({
           habit,
@@ -1232,7 +1239,7 @@ export default class ModularDiaryPlugin extends Plugin {
             habit,
             habit.targetPeriod === "week" ? weeklyEntries : doc.entries,
             habit.targetPeriod === "week" ? weeklyDatedEntries : [],
-            doc.habitDone.includes(habit.id),
+            doc.habitDone.includes(habit.id) || boundDoneHabits.has(habit.id),
           ),
         })), {
           typeColors: spanPaletteForRender,
@@ -2668,6 +2675,7 @@ export default class ModularDiaryPlugin extends Plugin {
       embeddedView: embed?.view,
       goals: goalProgress(doc.goals, dayData), totals: periodTotals(dayData), todos, todoView, days,
       boundView: doc.boundView,
+      boundViews: doc.boundViews,
       todoGroupOrder: doc.todoGroupOrder,
       statsWidgets: doc.periodStats,
       rangeStartMin, rangeEndMin,
@@ -2698,16 +2706,25 @@ export default class ModularDiaryPlugin extends Plugin {
     const setView = (patch: Partial<typeof doc.todoView>): void => {
       void rewrite((value) => setHeaderValue(value, "todo-view", formatTodoViewHeaderValue({ ...todoView, ...patch })))
     }
-    /** 子待办分组 ›: how the todos under every goal and rhythm of this period are grouped (`bound-view:`). */
-    const boundGroupMenu = (menu: Menu): void => {
-      const current = doc.boundView?.groupBy ?? "none"
+    /** 子待办分组 ›: how the todos under this goal (`subs=` on its line) or this rhythm (`bound-view:` map) are grouped. */
+    const boundGroupMenu = (menu: Menu, target: { goalLine: number } | { rhythmId: string }): void => {
+      const current = ("goalLine" in target ? doc.goals.find((goal) => goal.line === target.goalLine)?.subs : doc.boundViews?.[target.rhythmId]) ?? doc.boundView?.groupBy ?? "none"
       menu.addItem((item) => {
         item.setTitle(tr("boundGroupRule")).setIcon("layers")
         const withSub = item as unknown as { setSubmenu?: () => Menu }
         const sub = withSub.setSubmenu?.() ?? menu
         const titles = { none: tr("todoGroupNone"), day: tr("todoGroupDay"), tag: tr("todoGroupTag"), category: tr("todoGroupCategory"), status: tr("todoGroupStatus") }
-        for (const value of ["none", "day", "tag", "category", "status"] as const) sub.addItem((choice) => choice.setTitle(titles[value]).setChecked(current === value).onClick(() => void rewrite((source) =>
-          value === "none" ? removeHeaderValue(source, "bound-view") : setHeaderValue(source, "bound-view", formatTodoViewHeaderValue({ groupBy: value, sortBy: "manual" })))))
+        for (const value of ["none", "day", "tag", "category", "status"] as const) sub.addItem((choice) => choice.setTitle(titles[value]).setChecked(current === value).onClick(() => void rewrite((source) => {
+          const live = parseTimeline(source)
+          if ("goalLine" in target) {
+            const goal = live.goals.find((item) => item.line === target.goalLine)
+            return goal ? replaceEntryLine(source, goal.line, formatGoalLine({ ...goal, subs: value === "none" ? undefined : value })) : source
+          }
+          const map = { ...(live.boundViews ?? {}) }
+          if (value === "none") delete map[target.rhythmId]
+          else map[target.rhythmId] = value
+          return Object.keys(map).length ? setHeaderValue(source, "bound-view", JSON.stringify(map)) : removeHeaderValue(source, "bound-view")
+        })))
       })
     }
     /** What an accumulation id stands for: a duration rhythm's session, or an hour target of a category. */
@@ -2743,6 +2760,15 @@ export default class ModularDiaryPlugin extends Plugin {
         this.rerenderMountedTimelines()
       } catch (error) { fail(date, error) }
     }
+    // The rail scrolls inside the block; a write redraws the block, so its position is remembered per view.
+    const restoreRail = (): void => {
+      const rail = container.querySelector<HTMLElement>(".modular-diary-period-rail")
+      if (!rail) return
+      const saved = this.periodRailScroll.get(browseKey)
+      if (saved) { rail.scrollTop = saved; dom.defaultView?.requestAnimationFrame(() => { rail.scrollTop = saved }) }
+      rail.addEventListener("scroll", () => this.periodRailScroll.set(browseKey, rail.scrollTop), { passive: true })
+    }
+    queueMicrotask(restoreRail)
     renderPeriodInto(container, model, {
       typeColors: { ...this.settings.spanRetiredTypeColors, ...this.settings.spanTypeColors },
       categories: Object.keys(this.settings.spanTypeColors),
@@ -2779,6 +2805,7 @@ export default class ModularDiaryPlugin extends Plugin {
           : rewrite(transform)
         const rhythmId = slot.rhythm ?? ""
         if (actions) menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("plus").onClick(() => actions.addTodo()))
+        if (actions) boundGroupMenu(menu, { rhythmId })
         if (slot.owed) {
           // An owed copy the user forgives: it goes, and the carry is not made again.
           menu.addItem((item) => item.setTitle(tr("dropOwed")).setIcon("x").onClick(() => void writeSlot((current) => {
@@ -2818,7 +2845,8 @@ export default class ModularDiaryPlugin extends Plugin {
       onTextGoalMenu: (line, x, y, actions) => {
         const menu = new Menu()
         menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("plus").onClick(() => actions.addTodo()))
-        boundGroupMenu(menu)
+        menu.addItem((item) => item.setTitle(tr("addSubGoal")).setIcon("list-plus").onClick(() => actions.addGoal()))
+        boundGroupMenu(menu, { goalLine: line })
         menu.addSeparator()
         menu.addItem((item) => item.setTitle(tr("deleteGoal")).setIcon("trash").onClick(() => void rewrite((current) => deleteEntryLine(current, line))))
         menu.showAtPosition({ x, y }, el.ownerDocument)
@@ -2826,7 +2854,7 @@ export default class ModularDiaryPlugin extends Plugin {
       onRhythmMenu: (rhythmId, x, y, actions) => {
         const menu = new Menu()
         if (actions) menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("plus").onClick(() => actions.addTodo()))
-        boundGroupMenu(menu)
+        boundGroupMenu(menu, { rhythmId })
         const skipped = doc.rhythmSkips.includes(rhythmId)
         menu.addItem((item) => item.setTitle(tr(skipped ? "unskipRhythm" : scope?.kind === "month" ? "skipRhythmMonth" : "skipRhythmWeek")).setIcon(skipped ? "undo-2" : "calendar-x-2").onClick(() => void rewrite((current) => {
           const rest = parseTimeline(current).rhythmSkips.filter((value) => value !== rhythmId)
@@ -2988,13 +3016,28 @@ export default class ModularDiaryPlugin extends Plugin {
         menu.addItem((item) => item.setTitle(childCount > 0 ? tr("deleteTodoWithChildren", { count: childCount }) : tr("deleteTodo")).setIcon("trash").onClick(() => void rewrite((current) => deleteTodoSubtree(current, id))))
         menu.showAtPosition({ x, y }, dom)
       },
-      onSaveGoal: (line, goal) => void rewrite((current) => line === null
-        ? insertHeaderLine(current, "goal", formatGoalLine(goal))
-        : replaceEntryLine(current, line, formatGoalLine(goal))),
+      onSaveGoal: (line, goal) => void rewrite((current) => {
+        const live = parseTimeline(current)
+        if (line !== null) {
+          // Editing keeps what the form does not show: the id, the parent, the grouping.
+          const existing = live.goals.find((item) => item.line === line)
+          return replaceEntryLine(current, line, formatGoalLine({ ...(existing ?? {}), ...goal }))
+        }
+        if (goal.parentLine === undefined) return insertHeaderLine(current, "goal", formatGoalLine(goal))
+        // A sub-goal: the parent gets an id if it has none, the child points at it.
+        const parent = live.goals.find((item) => item.kind === "text" && item.line === goal.parentLine)
+        if (!parent) return insertHeaderLine(current, "goal", formatGoalLine(goal))
+        const parentId = parent.id ?? `g-${Date.now().toString(36)}`
+        const withId = parent.id ? current : replaceEntryLine(current, parent.line, formatGoalLine({ ...parent, id: parentId }))
+        return insertHeaderLine(withId, "goal", formatGoalLine({ ...goal, parent: parentId }))
+      }),
       onDeleteGoal: (line) => void rewrite((current) => deleteEntryLine(current, line)),
       onToggleGoal: (line, done) => {
         const goal = doc.goals.find((item) => item.line === line)
-        if (goal) void rewrite((current) => replaceEntryLine(current, line, formatGoalLine({ ...goal, done })))
+        if (goal) void rewrite((current) => {
+          const ticked = replaceEntryLine(current, line, formatGoalLine({ ...goal, done }))
+          return goal.parent && goal.id ? propagateGoalCompletion(ticked, goal.id) : ticked
+        })
       },
       onRailWidth: (px) => void rewrite((current) => setHeaderValue(current, "rail", String(px))),
       onHeight: (px) => {

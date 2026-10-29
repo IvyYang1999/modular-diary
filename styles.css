@@ -2428,9 +2428,13 @@ button.modular-diary-todo-group-toggle svg {
   grid-column: 1 / -1;
 }
 
+.modular-diary-todo-form-actions { grid-column: 4; grid-row: 1; display: flex; align-items: center; gap: 2px; }
+.modular-diary-todo-form button.modular-diary-todo-cancel { color: var(--text-muted); }
+.modular-diary-todo-form.is-body-todo > .modular-diary-todo-form-actions { grid-column: 2; grid-row: 1; }
+.modular-diary-period-rail .modular-diary-todo-form .modular-diary-todo-form-actions { grid-area: save; }
 .modular-diary-todo-form {
   display: grid;
-  grid-template-columns: minmax(110px, 2fr) minmax(80px, 1fr) 108px 26px;
+  grid-template-columns: minmax(110px, 2fr) minmax(80px, 1fr) 108px auto;
   gap: 3px;
   padding: 3px 0 5px;
   border-bottom: 1px solid var(--background-modifier-border);
@@ -2576,7 +2580,7 @@ button.modular-diary-todo-group-toggle svg {
 
 @media (max-width: 700px) {
   .modular-diary-todo-form {
-    grid-template-columns: minmax(100px, 1fr) minmax(70px, 1fr) 52px 26px;
+    grid-template-columns: minmax(100px, 1fr) minmax(70px, 1fr) 52px auto;
   }
 
   .modular-diary-todo-title-input {
@@ -4665,18 +4669,21 @@ body.is-tablet .modular-diary-container.is-layout-editing .modular-diary-block-r
 
 /* period todo list: the day todo component, re-flowed for a narrow rail */
 .modular-diary-period-rail .modular-diary-todo-form {
-  grid-template-columns: minmax(0, 1fr) 26px;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas: "title save" "category category" "estimate estimate" "error error";
   gap: 4px;
 }
 .modular-diary-period-rail .modular-diary-todo-form .modular-diary-todo-estimate-field { grid-template-columns: 64px minmax(0, 1fr); }
-.modular-diary-container .modular-diary-period-rail .modular-diary-todo-form button.modular-diary-todo-save {
+.modular-diary-container .modular-diary-period-rail .modular-diary-todo-form button.modular-diary-todo-save,
+.modular-diary-container .modular-diary-period-rail .modular-diary-todo-form button.modular-diary-todo-cancel {
   border: 0;
   background: transparent;
   box-shadow: none;
   color: var(--text-accent);
 }
-.modular-diary-container .modular-diary-period-rail .modular-diary-todo-form button.modular-diary-todo-save:hover { background: var(--background-modifier-hover); }
+.modular-diary-container .modular-diary-period-rail .modular-diary-todo-form button.modular-diary-todo-cancel { color: var(--text-muted); }
+.modular-diary-container .modular-diary-period-rail .modular-diary-todo-form button.modular-diary-todo-save:hover,
+.modular-diary-container .modular-diary-period-rail .modular-diary-todo-form button.modular-diary-todo-cancel:hover { background: var(--background-modifier-hover); }
 .modular-diary-period-rail .modular-diary-todo-form .modular-diary-todo-title-input { grid-area: title; }
 .modular-diary-period-rail .modular-diary-todo-form .modular-diary-todo-category-select { grid-area: category; }
 .modular-diary-period-rail .modular-diary-todo-form .modular-diary-todo-estimate-field { grid-area: estimate; }
@@ -5897,6 +5904,10 @@ textarea.modular-diary-template-source {
 .modular-diary-container button.modular-diary-text-goal-grip { position: absolute; left: -18px; top: 4px; opacity: 0; width: 14px; height: 18px; padding: 0; border: 0; background: transparent; box-shadow: none; cursor: grab; display: grid; place-content: center; gap: 2px 2px; grid-auto-flow: row; grid-template-columns: repeat(2, 1.5px); }
 .modular-diary-text-goal-group:hover > .modular-diary-text-goal > .modular-diary-text-goal-grip, .modular-diary-text-goal-grip:focus-visible { opacity: 1; }
 .modular-diary-text-goal-group.modular-diary-item-sort-placeholder { opacity: 0.35; }
+/* Sub-goals sit one step in under their goal, after its todos. */
+.modular-diary-text-goal-children { margin-left: 18px; }
+.modular-diary-text-goal-children:empty { display: none; }
+.modular-diary-text-goal-group.is-sub > .modular-diary-text-goal .modular-diary-text-goal-title { font-weight: 500; }
 .modular-diary-plan-subs .modular-diary-todos.is-bare { margin: 0; padding: 0; }
 .modular-diary-plan-subs .modular-diary-todo-row { min-height: 26px; font-size: var(--modular-diary-font-caption); }
 .modular-diary-text-goal-count { margin-left: 6px; color: var(--text-muted); font-size: var(--modular-diary-font-caption); font-variant-numeric: tabular-nums; }
@@ -5918,12 +5929,17 @@ textarea.modular-diary-template-source {
 .modular-diary-plan-row.is-goal.is-done .modular-diary-plan-name { text-decoration: none; color: var(--text-normal); }
 .modular-diary-plan-row.is-goal.is-done .modular-diary-plan-meta { color: var(--text-accent); }
 .modular-diary-plan-row.is-drag-source { opacity: .35; }
-.modular-diary-plan-row.is-drop-before { box-shadow: 0 -2px 0 0 var(--interactive-accent); }
-.modular-diary-plan-row.is-drop-after { box-shadow: 0 2px 0 0 var(--interactive-accent); }
+.modular-diary-plan-row.is-drop-before, .modular-diary-plan-row.is-drop-after { position: relative; box-shadow: none; }
+.modular-diary-plan-row.is-drop-before::after, .modular-diary-plan-row.is-drop-after::after { content: ""; position: absolute; left: 14px; right: 4px; height: 2px; border-radius: 1px; background: var(--interactive-accent); pointer-events: none; }
+.modular-diary-plan-row.is-drop-before::after { top: -2px; }
+.modular-diary-plan-row.is-drop-after::after { bottom: -2px; }
 .modular-diary-period-rail .modular-diary-todo-row.modular-diary-period-draggable { cursor: grab; }
 .modular-diary-period-rail .modular-diary-todo-row.is-drag-source { opacity: .35; }
-.modular-diary-period-rail .modular-diary-todo-row.is-drop-before { box-shadow: 0 -2px 0 0 var(--interactive-accent); }
-.modular-diary-period-rail .modular-diary-todo-row.is-drop-after { box-shadow: 0 2px 0 0 var(--interactive-accent); }
+/* A straight line between rows, not a glow that follows the row's corners. */
+.modular-diary-period-rail .modular-diary-todo-row.is-drop-before, .modular-diary-period-rail .modular-diary-todo-row.is-drop-after { position: relative; box-shadow: none; }
+.modular-diary-period-rail .modular-diary-todo-row.is-drop-before::after, .modular-diary-period-rail .modular-diary-todo-row.is-drop-after::after { content: ""; position: absolute; left: 22px; right: 4px; height: 2px; border-radius: 1px; background: var(--interactive-accent); pointer-events: none; }
+.modular-diary-period-rail .modular-diary-todo-row.is-drop-before::after { top: -2px; }
+.modular-diary-period-rail .modular-diary-todo-row.is-drop-after::after { bottom: -2px; }
 .modular-diary-plan-row:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -1px; }
 
 /* fixed height: the rail and the calendar scroll inside the block */

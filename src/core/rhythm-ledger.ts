@@ -247,8 +247,12 @@ export function propagateBoundCompletion(source: string, id: string): string {
   if (todo.goal) {
     const siblings = live.todos.filter((item) => item.goal === todo.goal && !item.moved)
     const goal = live.goals.find((item) => item.kind === "text" && item.id === todo.goal)
-    const allDone = siblings.length > 0 && siblings.every((item) => item.completed)
-    if (goal && goal.done !== allDone && (allDone || !todo.completed)) out = replaceEntryLine(out, goal.line, formatGoalLine({ ...goal, done: allDone }))
+    const subGoalsDone = live.goals.filter((item) => item.kind === "text" && item.parent === todo.goal).every((item) => item.done)
+    const allDone = siblings.length > 0 && siblings.every((item) => item.completed) && subGoalsDone
+    if (goal && goal.done !== allDone && (allDone || !todo.completed)) {
+      out = replaceEntryLine(out, goal.line, formatGoalLine({ ...goal, done: allDone }))
+      if (goal.parent) out = propagateGoalCompletion(out, goal.id ?? "")
+    }
   }
   if (todo.under) {
     const siblings = live.todos.filter((item) => item.under === todo.under && !item.moved)
@@ -261,6 +265,27 @@ export function propagateBoundCompletion(source: string, id: string): string {
       const done = [...slots].reverse().find((item) => item.completed)
       if (done) out = setTodoCompleted(out, done.id, false)
     }
+  }
+  return out
+}
+
+/**
+ * After a written goal's tick changed: each parent above it is done exactly when all
+ * of its sub-goals and all of the todos bound to it are done.
+ */
+export function propagateGoalCompletion(source: string, goalId: string): string {
+  let out = source
+  let cursor: string | undefined = goalId
+  for (let depth = 0; cursor && depth < 20; depth++) {
+    const live = parseTimeline(out)
+    const goal = live.goals.find((item) => item.kind === "text" && item.id === cursor)
+    const parent = goal?.parent ? live.goals.find((item) => item.kind === "text" && item.id === goal.parent) : undefined
+    if (!parent) break
+    const children = live.goals.filter((item) => item.kind === "text" && item.parent === parent.id)
+    const bound = live.todos.filter((item) => item.goal === parent.id && !item.moved)
+    const done = children.every((item) => item.done) && bound.every((item) => item.completed) && (children.length > 0 || bound.length > 0)
+    if (parent.done !== done) out = replaceEntryLine(out, parent.line, formatGoalLine({ ...parent, done }))
+    cursor = parent.id
   }
   return out
 }
@@ -341,6 +366,8 @@ export function rhythmBoard(rhythms: Rhythm[], scope: PeriodScope, todos: Placed
     const doneDays = dueDays.filter((date) => {
       const day = byDate.get(date)
       if (day?.habitDone?.includes(rhythm.id)) return true
+      // A todo planned under the rhythm for that day and ticked is that day's tick.
+      if (todos.some((todo) => todo.under === rhythm.id && todo.completed && !todo.moved && (todo.placement?.date ?? todo.day) === date)) return true
       const recorded = recordedOn(day, rhythm)
       // A limit is kept when the day's records stay under it; a day with nothing recorded yet (plans are not records) is not judged.
       if (limit) return Boolean(day?.entries.some((entry) => !entry.plan)) && recorded < target

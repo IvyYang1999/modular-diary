@@ -47,8 +47,10 @@ export interface TimelineDoc {
   todos: TodoItem[]
   /** Block-local presentation rule for the Todo component. */
   todoView: TodoViewConfig
-  /** How todos hung under goals and rhythms are grouped (`bound-view:` header). */
+  /** Legacy `bound-view: group=…`: one grouping for every bound list. */
   boundView?: TodoViewConfig
+  /** `bound-view: {"<rhythm id>":"day"}`: how the todos under each rhythm are grouped. */
+  boundViews?: Record<string, TodoGroupBy>
   /** Dragged group order for the todo list (`todo-groups:` header, flat composite keys). */
   todoGroupOrder: string[]
   /** Period block statistics widgets (`period-stats:` header); see core/period-stats. */
@@ -178,6 +180,10 @@ export interface PeriodGoal {
   done?: boolean
   /** Stable id (`id=`), given once a todo is bound to the goal. */
   id?: string
+  /** Text goals: the id of the goal this one sits under (`parent=`). */
+  parent?: string
+  /** Text goals: how the todos under this goal are grouped (`subs=`). */
+  subs?: TodoGroupBy
   line: number
 }
 

@@ -320,3 +320,16 @@ describe("habit and todo metadata", () => {
     expect(doc.rangeEnd).toBe(23 * 60 + 30)
   })
 })
+
+describe("goal line extras", () => {
+  it("keeps a sub-goal's parent and a goal's own grouping, and reads the per-rhythm bound-view map", async () => {
+    const { parseTimeline } = await import("./parser")
+    const { formatGoalLine } = await import("./period")
+    const doc = parseTimeline('goal: text="大" id="g-p" subs="day"\ngoal: text="小" id="g-c" parent="g-p"\nbound-view: {"每天运动":"tag"}\n---')
+    expect(doc.goals[0]).toMatchObject({ key: "大", subs: "day" })
+    expect(doc.goals[1]).toMatchObject({ key: "小", parent: "g-p" })
+    expect(doc.boundViews).toEqual({ 每天运动: "tag" })
+    expect(formatGoalLine(doc.goals[1])).toBe('goal: text="小" id="g-c" parent="g-p"')
+    expect(formatGoalLine(doc.goals[0])).toBe('goal: text="大" id="g-p" subs="day"')
+  })
+})

@@ -109,8 +109,8 @@ export function periodTotals(days: PeriodDay[]): Array<{ type: string; minutes: 
   return [...totals].map(([type, minutes]) => ({ type, minutes })).sort((a, b) => b.minutes - a.minutes)
 }
 
-export function formatGoalLine(goal: Pick<PeriodGoal, "kind" | "key" | "targetMinutes"> & { note?: string; done?: boolean; id?: string }): string {
+export function formatGoalLine(goal: Pick<PeriodGoal, "kind" | "key" | "targetMinutes"> & { note?: string; done?: boolean; id?: string; parent?: string; subs?: string }): string {
   const note = goal.note?.trim() ? ` note=${JSON.stringify(goal.note.trim())}` : ""
-  if (goal.kind === "text") return `goal: text=${JSON.stringify(goal.key)}${goal.id ? ` id=${JSON.stringify(goal.id)}` : ""}${note}${goal.done ? " done=true" : ""}`
+  if (goal.kind === "text") return `goal: text=${JSON.stringify(goal.key)}${goal.id ? ` id=${JSON.stringify(goal.id)}` : ""}${goal.parent ? ` parent=${JSON.stringify(goal.parent)}` : ""}${goal.subs ? ` subs=${JSON.stringify(goal.subs)}` : ""}${note}${goal.done ? " done=true" : ""}`
   return `goal: ${goal.kind}=${JSON.stringify(goal.key)} target=${Math.max(1, Math.round(goal.targetMinutes))}${note}`
 }

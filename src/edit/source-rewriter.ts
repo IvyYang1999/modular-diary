@@ -109,12 +109,14 @@ export function setItemBody(source: string, line: number, body: string | undefin
   return lines.join("\n")
 }
 
-/** Move a written goal (`goal: text=…` at `line`) to `targetIndex` among the text goals. */
+/** Move a written goal (`goal: text=…` at `line`) to `targetIndex` among its siblings (the text goals with the same parent). */
 export function moveTextGoalLine(source: string, line: number, targetIndex: number): string {
   const lines = source.split("\n")
   if (line < 0 || line >= lines.length || !/^goal:\s+text=/.test(lines[line].trim())) return source
+  const parentOf = (text: string): string => /\sparent="([^"]*)"/.exec(text)?.[1] ?? ""
+  const parent = parentOf(lines[line])
   const [moving] = lines.splice(line, 1)
-  const goals = lines.map((text, index) => (/^goal:\s+text=/.test(text.trim()) ? index : -1)).filter((index) => index >= 0)
+  const goals = lines.map((text, index) => (/^goal:\s+text=/.test(text.trim()) && parentOf(text) === parent ? index : -1)).filter((index) => index >= 0)
   const at = targetIndex < goals.length ? goals[targetIndex] : goals.length ? goals[goals.length - 1] + 1 : Math.min(line, lines.length)
   lines.splice(at, 0, moving)
   return lines.join("\n")

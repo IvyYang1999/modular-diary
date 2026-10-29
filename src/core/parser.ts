@@ -386,6 +386,15 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
       return
     }
     case "bound-view": {
+      if (value.trim().startsWith("{")) {
+        // Per rhythm: {"<rhythm id>":"day"}.
+        try {
+          const parsed = JSON.parse(value) as Record<string, unknown>
+          const groupings = ["category", "status", "tag", "placement", "day"]
+          doc.boundViews = Object.fromEntries(Object.entries(parsed).filter(([, v]) => typeof v === "string" && groupings.includes(v))) as Record<string, import("./types").TodoGroupBy>
+        } catch { doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") }) }
+        return
+      }
       const view = parseTodoViewHeaderValue(value)
       if (view) doc.boundView = view
       else doc.errors.push({ line, text: raw, reason: tr("invalidTodoView") })
@@ -458,7 +467,10 @@ function applyHeader(doc: TimelineDoc, key: string, value: string, line: number,
         const text = fields.get("text")?.trim() ?? ""
         if (!text) { doc.errors.push({ line, text: raw, reason: tr("invalidGoal") }); return }
         const goalId = fields.get("id")?.trim()
-        doc.goals.push({ kind: "text", key: text, targetMinutes: 0, line, ...(note ? { note } : {}), ...(goalId ? { id: goalId } : {}), done: fields.get("done") === "true" })
+        const parent = fields.get("parent")?.trim()
+        const subs = fields.get("subs")?.trim()
+        const groupings = ["category", "status", "tag", "placement", "day"]
+        doc.goals.push({ kind: "text", key: text, targetMinutes: 0, line, ...(note ? { note } : {}), ...(goalId ? { id: goalId } : {}), ...(parent ? { parent } : {}), ...(subs && groupings.includes(subs) ? { subs: subs as import("./types").TodoGroupBy } : {}), done: fields.get("done") === "true" })
         return
       }
       const key = fields?.get("type") ?? fields?.get("tag")

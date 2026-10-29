@@ -15,7 +15,7 @@ const root=path.dirname(path.dirname(fileURLToPath(import.meta.url))),out=fs.mkd
 const built=await esbuild.build({entryPoints:[path.join(root,'src/main.ts')],bundle:true,write:false,platform:'browser',format:'iife',globalName:'MDPlugin',external:['obsidian','node:*','child_process']})
 const daySource='date: 2026-10-22\nrange: 9-11\nview: week\n---\n09:00-10:00 work'
 const rhythms='# 节律\n\n- 每周 拍视频 @work 整天\n- 每天 30分钟 运动 @study\n'
-const weekSource=['days: 2026-10-19..2026-10-25','scope: week','goal: text="目标甲" id="g-a"','goal: text="目标乙" id="g-b"','bound-view: group=day sort=manual',
+const weekSource=['days: 2026-10-19..2026-10-25','scope: week','goal: text="目标甲" id="g-a" subs="day"','goal: text="目标乙" id="g-b"',
  '- [ ] todo: id="t-a1" estimate=30 category="work" group="" day=2026-10-19 goal="g-a" title="甲一"',
  '- [ ] todo: id="t-a2" estimate=60 category="work" group="" day=2026-10-21 goal="g-a" title="甲二"',
  '- [ ] todo: id="t-a3" estimate=30 category="work" group="" goal="g-a" title="甲三"',
@@ -60,6 +60,9 @@ try{
  assert.equal(await goalA.locator('.modular-diary-text-goal-grip').count(),1,'a goal has a drag grip')
  const groupsA=await goalA.locator('.modular-diary-plan-subs .modular-diary-todo-group-section').evaluateAll(list=>list.map(s=>s.dataset.groupKey+'|'+s.dataset.zone+'|'+s.querySelector('.modular-diary-todo-group-name')?.textContent))
  assert.deepEqual(groupsA,['d:2026-10-19|2026-10-19|周一 10.19','d:2026-10-21|2026-10-21|周三 10.21','d:|pool|未安排'],JSON.stringify(groupsA))
+ assert.equal(await goalA.locator('.modular-diary-plan-subs .modular-diary-todo-row',{hasText:'甲一'}).locator('.modular-diary-todo-flag').count(),0,'grouped by day, the row shows no day flag')
+ const goalB0=page.locator('.modular-diary-text-goal-group',{has:page.locator('.modular-diary-text-goal-title',{hasText:'目标乙'})})
+ assert.equal(await goalB0.locator('.modular-diary-todo-group-section').count(),0,'each goal groups its own list')
  // The daily rhythm row has a (still empty) list of its own; the add form is not shown until asked for.
  const dailyRow=page.locator('.modular-diary-plan-board .modular-diary-plan-row',{hasText:'运动'})
  assert.equal(await dailyRow.locator('xpath=following-sibling::*[1]').evaluate(el=>el.className),'modular-diary-plan-subs')
@@ -68,7 +71,7 @@ try{
  // 2. The goal's menu: 添加子待办 opens the add form under that goal; the new todo is bound to it.
  await goalA.locator('.modular-diary-text-goal').click({button:'right'})
  const goalMenu=await page.locator('#menu button').allInnerTexts()
- for(const label of ['添加子待办','不分组','按天','按标签','删除目标'])assert.ok(goalMenu.includes(label),label+' in '+JSON.stringify(goalMenu))
+ for(const label of ['添加子待办','添加子目标','不分组','按天','按标签','删除目标'])assert.ok(goalMenu.includes(label),label+' in '+JSON.stringify(goalMenu))
  await page.locator('#menu button',{hasText:'添加子待办'}).click()
  const formA=goalA.locator('.modular-diary-plan-subs .modular-diary-todo-add-form:not([hidden])')
  await formA.waitFor()
@@ -110,9 +113,9 @@ try{
  await page.evaluate(()=>window.mountActual())
  assert.ok((await page.locator('.modular-diary-text-goal-group').first().locator('.modular-diary-text-goal-title').textContent()).startsWith('目标乙'))
  // 6. Grouping off (from the goal's menu): bound rows reorder among themselves by dragging.
- await page.locator('.modular-diary-text-goal-group').first().locator('.modular-diary-text-goal').click({button:'right'})
+ await page.locator('.modular-diary-text-goal-group',{has:page.locator('.modular-diary-text-goal-title',{hasText:'目标甲'})}).first().locator('.modular-diary-text-goal').first().click({button:'right'})
  await page.locator('#menu button',{hasText:'不分组'}).click()
- await page.waitForFunction(()=>!window.files['周期/2026-W43.md'].includes('bound-view:'))
+ await page.waitForFunction(()=>/goal: text="目标甲" id="g-a"(?! subs=)/.test(window.files['周期/2026-W43.md']))
  await page.evaluate(()=>window.mountActual())
  const listA=page.locator('.modular-diary-text-goal-group',{has:page.locator('.modular-diary-text-goal-title',{hasText:'目标甲'})}).locator('.modular-diary-plan-subs')
  await listA.locator('.modular-diary-todo-row',{hasText:'甲四'}).waitFor()
@@ -126,6 +129,44 @@ try{
  const after=await page.locator('.modular-diary-text-goal-group',{has:page.locator('.modular-diary-text-goal-title',{hasText:'目标甲'})}).locator('.modular-diary-todo-row .modular-diary-item-title').allInnerTexts()
  assert.deepEqual(after,['甲四','甲一','甲二','甲三'],JSON.stringify(after))
  await page.screenshot({path:path.join(out,'bound-reordered.png')})
+ // 7. A sub-goal from the goal's menu: it sits under the goal, points at it, and carries its own todo list.
+ const goalA7=page.locator('.modular-diary-text-goal-group',{has:page.locator('.modular-diary-text-goal-title',{hasText:'目标甲'})}).first()
+ await goalA7.locator('.modular-diary-text-goal').first().click({button:'right'})
+ await page.locator('#menu button',{hasText:'添加子目标'}).click()
+ const subForm=goalA7.locator('.modular-diary-text-goal-children .modular-diary-period-goal-form.is-text')
+ await subForm.waitFor()
+ await subForm.locator('.modular-diary-period-goal-title').fill('甲子')
+ await subForm.evaluate(f=>f.requestSubmit())
+ await page.waitForFunction(()=>window.files['周期/2026-W43.md'].includes('goal: text="甲子" parent="g-a"'))
+ await page.evaluate(()=>window.mountActual())
+ const subGoal=page.locator('.modular-diary-text-goal-group.is-sub',{has:page.locator('.modular-diary-text-goal-title',{hasText:'甲子'})})
+ await subGoal.waitFor()
+ assert.equal(await subGoal.locator('xpath=ancestor::*[contains(@class,"modular-diary-text-goal-group")][1]//span[contains(@class,"modular-diary-text-goal-title")]').first().innerText().then(t=>t.startsWith('目标甲')),true,'the sub-goal renders inside its parent')
+ // Ticking the only sub-goal does not tick the parent while the parent still has open todos.
+ await subGoal.locator('input[type="checkbox"]').check()
+ await page.waitForFunction(()=>/goal: text="甲子" parent="g-a" done=true/.test(window.files['周期/2026-W43.md']))
+ assert.ok(!/goal: text="目标甲"[^\n]*done=true/.test(await page.evaluate(()=>window.files['周期/2026-W43.md'])),'parent stays open: its todos are not done')
+ // 8. A sub-todo under a bound todo, from the row's menu.
+ await page.evaluate(()=>window.mountActual())
+ const rowA1b=page.locator('.modular-diary-text-goal-group .modular-diary-todo-row',{hasText:'甲一'}).first()
+ await rowA1b.waitFor()
+ await rowA1b.click({button:'right'})
+ await page.locator('#menu button',{hasText:'添加子待办'}).click()
+ const childForm=page.locator('.modular-diary-text-goal-group .modular-diary-todo-add-form.is-child:not([hidden])')
+ await childForm.waitFor()
+ await childForm.locator('.modular-diary-todo-title-input').fill('甲一甲')
+ await childForm.locator('.modular-diary-todo-title-input').press('Enter')
+ await page.waitForFunction(()=>/parent="t-a1"[^\n]*title="甲一甲"/.test(window.files['周期/2026-W43.md']))
+ await page.evaluate(()=>window.mountActual())
+ await page.locator('.modular-diary-text-goal-group .modular-diary-todo-row',{hasText:'甲一甲'}).waitFor()
+ // The add form has a cancel button that closes it.
+ await page.locator('.modular-diary-text-goal-group .modular-diary-todo-row',{hasText:'甲二'}).first().click({button:'right'})
+ await page.locator('#menu button',{hasText:'添加子待办'}).click()
+ const openForm=page.locator('.modular-diary-todo-add-form:not([hidden])').first()
+ await openForm.waitFor()
+ await openForm.locator('.modular-diary-todo-cancel').click()
+ assert.equal(await page.locator('.modular-diary-todo-add-form:not([hidden])').count(),0,'cancel closes the form')
+ await page.screenshot({path:path.join(out,'sub-goal.png')})
  assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.notices),[])
  console.log('PASS bound todos: goal menu adds, daily rhythms take todos, day groups move, goals and rows reorder. Screenshots:',out)
 }catch(e){console.error(e);process.exitCode=1}finally{await browser.close()}

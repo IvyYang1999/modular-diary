@@ -20,7 +20,7 @@ import { setIcon } from "obsidian"
 import { blockTextColor } from "../core/contrast"
 import { formatHours } from "../core/duration"
 import type { GoalProgress, ResolvedPeriod } from "../core/period"
-import type { Entry, PeriodGoal, PeriodSpec, SpanNote, TodoItem, TodoViewConfig } from "../core/types"
+import type { Entry, PeriodGoal, PeriodSpec, SpanNote, TodoGroupBy, TodoItem, TodoViewConfig } from "../core/types"
 import { attachTagSuggest, type TagSuggestDeps } from "../edit/tag-suggest"
 import { setPointerInteractionActive } from "../edit/pointer-interaction"
 import { attachPointerRowSort } from "../edit/row-sort"
@@ -65,8 +65,10 @@ export interface PeriodViewModel {
   statsWidgets?: string[]
   todos: PeriodTodoView[]
   todoView: TodoViewConfig
-  /** How todos hung under goals and rhythms are grouped (`bound-view:` header). */
+  /** Legacy `bound-view: group=…`: one grouping for every bound list. */
   boundView?: TodoViewConfig
+  /** How the todos under each rhythm are grouped (`bound-view:` map). */
+  boundViews?: Record<string, TodoGroupBy>
   /** Dragged todo group order (`todo-groups:` header). */
   todoGroupOrder: string[]
   days: PeriodDayView[]
@@ -89,7 +91,7 @@ export interface PeriodViewModel {
   showTodos?: boolean
 }
 
-export interface GoalDraft { kind: PeriodGoal["kind"]; key: string; targetMinutes: number; note?: string; done?: boolean }
+export interface GoalDraft { kind: PeriodGoal["kind"]; key: string; targetMinutes: number; note?: string; done?: boolean; /** New sub-goal: the line of the goal it goes under. */ parentLine?: number }
 
 /** Where a bound todo hangs: under a written goal (its line) or under a rhythm. */
 export type BoundTarget = { goalLine: number } | { rhythmId: string }
@@ -126,8 +128,8 @@ export interface PeriodViewDeps {
   onDeleteGoal: (line: number) => void
   /** A new todo hung straight under a written goal (by its line) or a rhythm. */
   onAddBound?: (input: NewTodoInput, target: BoundTarget) => void
-  /** Right-click on a written goal: add a todo under it, group its todos, delete it. */
-  onTextGoalMenu?: (line: number, x: number, y: number, actions: { addTodo: () => void }) => void
+  /** Right-click on a written goal: add a todo or a sub-goal under it, group its todos, delete it. */
+  onTextGoalMenu?: (line: number, x: number, y: number, actions: { addTodo: () => void; addGoal: () => void }) => void
   /** Drag a written goal among the others: its new index among the text goals. */
   onMoveGoal?: (line: number, targetIndex: number) => void
   /** Tick or untick a written goal. */
@@ -430,7 +432,7 @@ export function goalEditor(host: HTMLElement, initial: GoalDraft | null, line: n
       event.preventDefault()
       const key = title.value.trim()
       if (!key) { title.focus(); title.setAttribute("aria-invalid", "true"); return }
-      deps.onSaveGoal(line, { kind: "text", key, targetMinutes: 0, note: noteInput.value.trim() || undefined, done: initial?.done })
+      deps.onSaveGoal(line, { kind: "text", key, targetMinutes: 0, note: noteInput.value.trim() || undefined, done: initial?.done, ...(initial?.parentLine !== undefined ? { parentLine: initial.parentLine } : {}) })
     })
     queueMicrotask(() => title.focus({ preventScroll: true }))
     return form
@@ -560,37 +562,58 @@ function renderTextGoals(rail: HTMLElement, model: PeriodViewModel, deps: Period
     empty.addEventListener("click", () => { empty.remove(); add.click() })
   }
   const root = rail.closest<HTMLElement>(".modular-diary-period") ?? rail
-  for (const item of goals) {
-    // A goal and the todos under it travel together when the goal is dragged among the others.
-    const group = list.createDiv({ cls: "modular-diary-text-goal-group" })
+  const known = new Set(goals.map((item) => item.goal.id).filter((id): id is string => Boolean(id)))
+  const childrenOf = (id: string | undefined): GoalProgress[] => goals.filter((item) => id ? item.goal.parent === id : !item.goal.parent || !known.has(item.goal.parent))
+  /** A goal, its todos, then its sub-goals: the group travels as one when the goal is dragged among its siblings. */
+  const renderGoal = (item: GoalProgress, host: HTMLElement, depth: number): void => {
+    const group = host.createDiv({ cls: `modular-diary-text-goal-group${depth ? " is-sub" : ""}` })
     const row = group.createDiv({ cls: `modular-diary-text-goal${item.complete ? " is-done" : ""}` })
     if (deps.onMoveGoal) {
       const grip = row.createEl("button", { cls: "modular-diary-item-drag modular-diary-text-goal-grip", attr: { type: "button", "aria-label": t("dragGoal", { name: item.goal.key }) } })
       grip.tabIndex = -1
       appendSixDotGrip(grip)
-      attachPointerRowSort({ list, row: group, handle: grip, rowSelector: ".modular-diary-text-goal-group", onMove: (targetIndex) => deps.onMoveGoal?.(item.goal.line, targetIndex) })
+      attachPointerRowSort({ list: host, row: group, handle: grip, rowSelector: ".modular-diary-text-goal-group", onMove: (targetIndex) => deps.onMoveGoal?.(item.goal.line, targetIndex) })
     }
     const box = row.createEl("input", { cls: "task-list-item-checkbox", attr: { type: "checkbox", "aria-label": t("toggleGoalDone") } })
     box.checked = item.complete
     box.addEventListener("change", () => deps.onToggleGoal?.(item.goal.line, box.checked))
     const body = row.createEl("button", { cls: "modular-diary-text-goal-body", attr: { type: "button", title: t("editTextGoal") } })
-    const bound = item.goal.id ? model.todos.filter((todo) => todo.goal === item.goal.id && !todo.moved) : []
+    const direct = item.goal.id ? model.todos.filter((todo) => todo.goal === item.goal.id && !todo.moved) : []
+    const subs = item.goal.id ? childrenOf(item.goal.id) : []
     const titleLine = body.createEl("span", { cls: "modular-diary-text-goal-title", text: item.goal.key })
-    if (bound.length) titleLine.createEl("span", { cls: "modular-diary-text-goal-count", text: ` ${bound.filter((todo) => todo.completed).length}/${bound.length}` })
+    const parts = direct.length + subs.length
+    if (parts) titleLine.createEl("span", { cls: "modular-diary-text-goal-count", text: ` ${direct.filter((todo) => todo.completed).length + subs.filter((sub) => sub.complete).length}/${parts}` })
     if (item.goal.note) body.createEl("span", { cls: "modular-diary-text-goal-note", text: item.goal.note })
     // Always a list, even an empty one: the goal's menu opens its add form.
-    const { openAdd } = renderBoundTodos(group, bound, model, deps, root, { goalLine: item.goal.line })
+    const { openAdd } = renderBoundTodos(group, boundWithChildren(model, direct), model, deps, root, { goalLine: item.goal.line })
+    const children = group.createDiv({ cls: "modular-diary-text-goal-children" })
+    for (const sub of subs) renderGoal(sub, children, depth + 1)
     body.addEventListener("click", () => {
       closeEditor()
       row.hidden = true
       open = goalEditor(list, { kind: "text", key: item.goal.key, targetMinutes: 0, note: item.goal.note, done: item.goal.done }, item.goal.line, deps, closeEditor, "text")
       row.before(open)
     })
+    const addGoal = (): void => {
+      closeEditor()
+      open = goalEditor(children, { kind: "text", key: "", targetMinutes: 0, parentLine: item.goal.line }, null, deps, closeEditor, "text")
+    }
     if (deps.onTextGoalMenu) row.addEventListener("contextmenu", (event) => {
       event.preventDefault(); event.stopPropagation()
-      deps.onTextGoalMenu?.(item.goal.line, event.clientX, event.clientY, { addTodo: openAdd })
+      deps.onTextGoalMenu?.(item.goal.line, event.clientX, event.clientY, { addTodo: openAdd, addGoal })
     })
   }
+  for (const item of childrenOf(undefined)) renderGoal(item, list, 0)
+}
+
+/** The todos hung somewhere plus their sub-todos (which carry only `parent=`), in source order. */
+export function boundWithChildren(model: PeriodViewModel, bound: PeriodTodoView[]): PeriodTodoView[] {
+  const ids = new Set(bound.map((todo) => todo.id))
+  for (let grew = true; grew;) {
+    grew = false
+    for (const todo of model.todos) if (todo.parent && ids.has(todo.parent) && !ids.has(todo.id) && !todo.moved) { ids.add(todo.id); grew = true }
+  }
+  return model.todos.filter((todo) => ids.has(todo.id))
 }
 
 function placementFlag(todo: PeriodTodoView, model: PeriodViewModel): { text: string; tone: "placed" | "due" | "elsewhere" }[] {
@@ -633,24 +656,35 @@ function attachRowDrags(section: HTMLElement, root: HTMLElement, model: PeriodVi
  */
 export function renderBoundTodos(host: HTMLElement, todos: PeriodTodoView[], model: PeriodViewModel, deps: PeriodViewDeps, root: HTMLElement, target: BoundTarget): { wrap: HTMLElement; openAdd: () => void } {
   const wrap = host.createDiv({ cls: "modular-diary-plan-subs" })
-  const view = model.boundView ?? { groupBy: "none", sortBy: "manual" }
-  const handle = renderTodosInto(wrap, todos.map((todo) => todoViewItem(todo, model)), {
+  // Each goal (`subs=`) and each rhythm (`bound-view:` map) groups its own list; the legacy header is the fallback.
+  const own = "goalLine" in target ? model.goals.find((item) => item.goal.line === target.goalLine)?.goal.subs : model.boundViews?.[target.rhythmId]
+  const groupBy = own ?? model.boundView?.groupBy ?? "none"
+  const items = todos.map((todo) => {
+    const item = todoViewItem(todo, model)
+    // Grouped by day, the day is the group's heading: the row keeps only a clock time.
+    if (groupBy !== "day") return item
+    return { ...item, flags: (item.flags ?? []).flatMap((flag) => flag.tone === "placed" ? (todo.placement?.startMin !== undefined ? [{ ...flag, text: clock(todo.placement.startMin) }] : []) : [flag]) }
+  })
+  const handle = renderTodosInto(wrap, items, {
     bare: true,
     compactMeta: true,
     rowGrips: false,
     categories: deps.categories,
     priorities: deps.priorities,
     typeColors: deps.typeColors,
-    view: { groupBy: view.groupBy, sortBy: view.sortBy, ...(view.group2 ? { group2: view.group2 } : {}), layout: "list" },
+    view: { groupBy, sortBy: "manual", layout: "list" },
+    collapsed: deps.collapsed,
+    onToggleCollapse: deps.onToggleCollapse,
+    onReparent: deps.onReparent,
     tagStyle: deps.tagStyle,
     tagSuggest: deps.tagSuggest,
-    onAdd: (input) => deps.onAddBound?.(input, target),
+    onAdd: (input) => input.parent ? deps.onAdd(input) : deps.onAddBound?.(input, target),
     onEdit: deps.onEdit,
     onGroupMenu: () => undefined,
     onSortMenu: () => undefined,
     onToggle: deps.onToggle,
     onMove: deps.onMove,
-    onMenu: (item, x, y, edit) => deps.onTodoMenu?.(item.id, x, y, edit, null),
+    onMenu: (item, x, y, edit, addChild) => deps.onTodoMenu?.(item.id, x, y, edit, addChild),
   })
   // Grouped by day, each group is a drop target for that day (the empty one takes a todo back to unscheduled).
   wrap.querySelectorAll<HTMLElement>('.modular-diary-todo-group-section[data-group-key^="d:"]').forEach((section) => {

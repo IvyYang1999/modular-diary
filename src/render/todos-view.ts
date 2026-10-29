@@ -181,8 +181,13 @@ export function createTodoForm(
     estimate.value = durationInputValue(minutes, currentUnit)
     estimateUnit.value = currentUnit
   }
-  const save = form.createEl("button", { cls: "modular-diary-todo-save", attr: { type: "submit", "aria-label": t("save") } })
+  const formActions = form.createDiv({ cls: "modular-diary-todo-form-actions" })
+  const save = formActions.createEl("button", { cls: "modular-diary-todo-save", attr: { type: "submit", "aria-label": t("save") } })
   setIcon(save, "check")
+  // A way out that is not Escape: the form closes and the draft is dropped.
+  const cancel = formActions.createEl("button", { cls: "modular-diary-todo-cancel", attr: { type: "button", "aria-label": t("cancel"), title: t("cancel") } })
+  setIcon(cancel, "x")
+  cancel.addEventListener("click", () => close())
   // Difficulty and priority share one row. Pressing the selected choice again
   // clears it, so the unset state needs no extra control.
   const rankRow = form.createDiv({ cls: "modular-diary-todo-rank-row" })

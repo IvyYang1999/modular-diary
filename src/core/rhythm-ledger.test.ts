@@ -180,3 +180,21 @@ describe("bound todos and their rhythm slot", () => {
     expect(undone).not.toContain("done=true")
   })
 })
+
+describe("sub-goals and daily ticks from bound todos", () => {
+  it("ticks a parent goal when its sub-goals and bound todos are all done, and unticks it again", async () => {
+    const { propagateGoalCompletion } = await import("./rhythm-ledger")
+    const { replaceEntryLine } = await import("../edit/source-rewriter")
+    const source = ['days: 2026-10-26..2026-11-01', 'goal: text="大" id="g-p"', 'goal: text="小一" id="g-c1" parent="g-p"', 'goal: text="小二" id="g-c2" parent="g-p" done=true', '---'].join("\n")
+    const ticked = replaceEntryLine(source, 2, 'goal: text="小一" id="g-c1" parent="g-p" done=true')
+    const out = propagateGoalCompletion(ticked, "g-c1")
+    expect(out).toContain('goal: text="大" id="g-p" done=true')
+    const unticked = replaceEntryLine(out, 2, 'goal: text="小一" id="g-c1" parent="g-p"')
+    expect(propagateGoalCompletion(unticked, "g-c1")).toContain('goal: text="大" id="g-p"\n')
+  })
+  it("counts a ticked todo under a daily rhythm as that day's stamp", () => {
+    const daily = parseRhythms("- 每天 运动 @运动")
+    const todos = [{ id: "t1", title: "跑步", group: "", type: "运动", estimateMin: 30, completed: true, under: "运动", day: "2026-10-28", line: 0 }] as unknown as Parameters<typeof rhythmBoard>[2]
+    expect(rhythmBoard(daily, week, todos, [], [])[0]).toMatchObject({ due: 7, done: 1 })
+  })
+})
