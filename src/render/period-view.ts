@@ -148,6 +148,10 @@ export interface PeriodViewDeps {
   /** An accumulation row dropped on a day / band: a todo of that rhythm placed there (null = all day). */
   onSession?: (id: string, date: string, zone: "am" | "pm" | "ev" | null) => void
   onOpenRhythms?: () => void
+  /** 新建日程: the one-line form, with the period's day (and a part of it) as defaults. */
+  onQuickAdd?: (date?: string, zone?: "am" | "pm" | "ev") => void
+  /** Right-click on an empty day cell or band: a menu to add something there. */
+  onZoneMenu?: (zone: string, x: number, y: number) => void
   /** Reorder a rhythm in the note: before `beforeId`, or last when null. */
   onReorderRhythm?: (id: string, beforeId: string | null) => void
   /** The block's fixed height was dragged (0 = back to the default). */
@@ -1141,6 +1145,7 @@ export function renderPeriodInto(container: HTMLElement, model: PeriodViewModel,
   }
   iconButton(bar, "chevron-left", t("previousPeriod")).addEventListener("click", () => deps.onShift(-1))
   iconButton(bar, "chevron-right", t("nextPeriod")).addEventListener("click", () => deps.onShift(1))
+  if (deps.onQuickAdd) iconButton(bar, "calendar-plus", t("quickSchedule")).addEventListener("click", () => deps.onQuickAdd?.())
   const title = bar.createEl("span", { cls: "modular-diary-period-title" })
   const isWeek = model.period.days.length === 7 && weekdayIndex(model.period.start) === 1
   const isMonth = model.scope?.kind === "month"

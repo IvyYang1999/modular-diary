@@ -4,7 +4,9 @@ import { PeriodFiles } from "./period-files"
 import { periodKey, propagateBoundCompletion, propagateGoalCompletion, rhythmBoard, scopeContaining, scopeOfRange, sessionId, shiftScope, type PeriodScope } from "./core/rhythm-ledger"
 import { RhythmsNote } from "./rhythms-note"
 import { isDailyNote, findChecklistTemplateFile, saveChecklistAsTemplate } from "./checklists"
-import { AddUpcomingModal, createUpcomingSchedule, watchUpcoming, type UpcomingVaultOptions } from "./upcoming"
+import { createUpcomingSchedule, watchUpcoming, type UpcomingVaultOptions } from "./upcoming"
+import { QuickScheduleModal, type QuickScheduleDefaults } from "./quick-schedule"
+import type { ParsedSchedule } from "./core/schedule-parse"
 import { pendingForDate, upcomingFrom } from "./core/upcoming"
 import { renderUpcomingInto } from "./render/upcoming-view"
 import { runEntryAgent } from "./agent/runner"
@@ -364,9 +366,19 @@ export default class ModularDiaryPlugin extends Plugin {
       watchUpcoming(this.upcoming, this.upcomingOptions, (ref) => this.registerEvent(ref), (path) => isDailyNote(this.app, path))
     })
     this.addCommand({
+      id: "quick-schedule",
+      name: tr("quickSchedule"),
+      callback: () => this.openQuickSchedule(),
+    })
+    this.addCommand({
       id: "add-upcoming",
       name: tr("addUpcoming"),
-      callback: () => this.openAddUpcoming(),
+      callback: () => this.openQuickSchedule(),
+    })
+    this.addCommand({
+      id: "import-upcoming",
+      name: tr("importUpcoming"),
+      callback: () => void this.importUpcoming().catch((error) => { console.error("Modular Diary: failed to import the schedule note", error); new Notice(tr("saveFailed")) }),
     })
     setNotePopoverTagSuggest(this.tagSuggestDeps())
     this.setupHourlyNudge()
@@ -2186,6 +2198,7 @@ export default class ModularDiaryPlugin extends Plugin {
         dateControl.createEl("span", { cls: "modular-diary-period-title-week", text: weekday(dateStr) })
         dateControl.createEl("span", { text: dateStr.replace(/-/g, ".") })
         switchBar.appendChild(dateControl)
+        iconButton(switchBar, "calendar-plus", tr("quickSchedule")).addEventListener("click", () => this.openQuickSchedule({ date: dateStr }))
         const today = inferDate(null)
         if (dateStr !== today) switchBar.createEl("button", { cls: "modular-diary-period-text-button", text: tr("backToToday"), attr: { type: "button" } }).addEventListener("click", () => go(today))
         container.prepend(switchBar)
@@ -2301,11 +2314,11 @@ export default class ModularDiaryPlugin extends Plugin {
             // Future items go to the schedule note (or straight into that day's diary when it exists).
             for (const a of actions) {
               if (a.kind !== "schedule") continue
-              await this.upcoming.add({
-                date: a.date, text: a.text,
-                ...(a.startMin !== undefined && a.endMin !== undefined ? { startMin: a.startMin, endMin: a.endMin, type: a.type ?? "" } : {}),
+              await this.createScheduledTodo({
+                date: a.date, title: a.text || a.type || "", type: a.type || undefined,
+                ...(a.startMin !== undefined && a.endMin !== undefined ? { at: a.startMin, estimateMin: a.endMin - a.startMin } : {}),
                 ...(a.zone ? { zone: a.zone } : {}),
-              })
+              }, { quiet: true })
             }
             const blockActions = actions.filter((a): a is Exclude<typeof a, { kind: "schedule" }> => a.kind !== "schedule")
             if (!blockActions.length) return
@@ -2545,10 +2558,38 @@ export default class ModularDiaryPlugin extends Plugin {
     return [...seen]
   }
 
-  /** The future schedule form; defaults to tomorrow. */
+  /** The old entry point: the schedule form now is 新建日程. */
   openAddUpcoming(date?: string): void {
-    const categories = Object.keys(this.settings.spanTypeColors)
-    new AddUpcomingModal(this.app, categories, date ?? shiftDate(inferDate(null), 1), (item) => this.upcoming.add(item)).open()
+    this.openQuickSchedule({ date: date ?? shiftDate(inferDate(null), 1) })
+  }
+
+  /** 新建日程: one line → a todo in that date's week note (`day=` with `at=` or `zone=`). */
+  openQuickSchedule(defaults: QuickScheduleDefaults = {}): void {
+    new QuickScheduleModal(this.app, inferDate(null), defaults, (parsed) => this.createScheduledTodo(parsed)).open()
+  }
+
+  async createScheduledTodo(parsed: Omit<ParsedSchedule, "dateExplicit">, options: { quiet?: boolean } = {}): Promise<void> {
+    const scope = scopeContaining("week", parsed.date)
+    await this.periodFiles.ensure(scope)
+    await this.periodFiles.prepare(scope, this.rhythms.items, inferDate(null))
+    const id = `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+    await this.periodFiles.write(scope, (current) => insertTodo(current, {
+      id, title: parsed.title, group: "", type: parsed.type, estimateMin: parsed.estimateMin ?? 0, completed: false,
+      day: parsed.date, ...(parsed.at !== undefined ? { at: parsed.at } : parsed.zone ? { zone: parsed.zone } : {}),
+    }))
+    this.rerenderMountedTimelines()
+    if (!options.quiet) new Notice(tr("quickScheduleAdded", { week: periodKey(scope), date: parsed.date, title: parsed.title }))
+  }
+
+  /** Every pending line of Upcoming.md becomes a week todo; the lines are ticked so they are never copied again. */
+  private async importUpcoming(): Promise<void> {
+    await this.upcoming.load()
+    const count = await this.upcoming.retire((item) => this.createScheduledTodo({
+      date: item.date, title: item.text || item.type || "", type: item.type || undefined,
+      ...(item.startMin !== undefined && item.endMin !== undefined ? { at: item.startMin, estimateMin: item.endMin - item.startMin } : {}),
+      ...(item.zone ? { zone: item.zone } : {}),
+    }, { quiet: true }))
+    new Notice(tr("importedUpcoming", { count: String(count) }))
   }
 
   /** Run an AI review of the day's todos (or one of them) with the dialog's backend; read-only. */
@@ -2862,6 +2903,13 @@ export default class ModularDiaryPlugin extends Plugin {
       },
       onSwitchView: embed?.onSwitchView,
       onOpenRhythms: () => this.openHabitSettings(),
+      onQuickAdd: (date, zone) => this.openQuickSchedule({ date: date ?? (resolved.days.includes(today) ? today : resolved.start), zone }),
+      onZoneMenu: (zone, x, y) => {
+        const [date, part] = zone.split("@") as [string, "am" | "pm" | "ev" | undefined]
+        const menu = new Menu()
+        menu.addItem((item) => item.setTitle(tr("newEventOn", { day: weekday(date) })).setIcon("calendar-plus").onClick(() => this.openQuickSchedule({ date, zone: part })))
+        menu.showAtPosition({ x, y }, dom)
+      },
       onAddBound: (input, target) => void rewrite((current) => {
         const value = {
           id: `todo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,

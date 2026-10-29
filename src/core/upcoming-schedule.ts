@@ -71,6 +71,17 @@ export class UpcomingSchedule {
     }
   }
 
+  /** Hand every pending item to `convert` (a week todo, say), then tick them all so they are never copied again. */
+  async retire(convert: (item: UpcomingItem) => Promise<void>): Promise<number> {
+    const pending = this.items.filter((item) => !item.done)
+    for (const item of pending) await convert(item)
+    if (pending.length) {
+      await this.host.writeNote((content) => markUpcomingDone(content, pending))
+      await this.load()
+    }
+    return pending.length
+  }
+
   /** Add an item; when that day's diary already exists it goes in right away. */
   async add(item: Omit<UpcomingItem, "line" | "done">): Promise<void> {
     await this.host.writeNote((content) => addUpcoming(content, item))

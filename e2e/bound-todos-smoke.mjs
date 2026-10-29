@@ -197,6 +197,23 @@ try{
  await page.locator('#menu button',{hasText:'取消定时'}).click()
  await page.waitForFunction(()=>!/at=\d\d:\d\d[^\n]*title="乙一"/.test(window.files['周期/2026-W43.md']) && /day=2026-10-20[^\n]*title="乙一"/.test(window.files['周期/2026-W43.md']))
  await page.screenshot({path:path.join(out,'timed-day.png')})
+ // 10. 新建日程: one line → a todo in that date's week note, timed and categorised; the preview says what will be written.
+ await page.evaluate(()=>window.plugin.openQuickSchedule())
+ const quick=page.locator('.modular-diary-quick-schedule-input')
+ await quick.waitFor()
+ await quick.fill('10月23日 下午3点 参加演出 @work 2小时')
+ const previewText=await page.locator('.modular-diary-quick-schedule-preview').innerText()
+ assert.ok(previewText.includes('15:00')&&previewText.includes('参加演出')&&previewText.includes('work'),previewText)
+ await quick.press('Enter')
+ await page.waitForFunction(()=>/estimate=120 category="work"[^\n]*day=2026-10-23[^\n]*at=15:00[^\n]*title="参加演出"/.test(window.files['周期/2026-W43.md']))
+ // Opened from a cell: the line without a date lands on that day and part of it.
+ await page.evaluate(()=>window.plugin.openQuickSchedule({date:'2026-10-24',zone:'pm'}))
+ const quick2=page.locator('.modular-diary-quick-schedule-input')
+ await quick2.waitFor()
+ await quick2.fill('买花')
+ await quick2.press('Enter')
+ await page.waitForFunction(()=>/day=2026-10-24[^\n]*zone=pm[^\n]*title="买花"/.test(window.files['周期/2026-W43.md']))
+ await page.evaluate(()=>{window.notices.length=0})
  assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>window.notices),[])
  console.log('PASS bound todos: goal menu adds, daily rhythms take todos, day groups move, goals and rows reorder. Screenshots:',out)
 }catch(e){console.error(e);process.exitCode=1}finally{await browser.close()}

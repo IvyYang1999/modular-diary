@@ -5794,6 +5794,11 @@ textarea.modular-diary-template-source {
 }
 .modular-diary-period-pill.is-upcoming { outline: 1px dashed var(--background-modifier-border-hover, var(--text-faint)); outline-offset: -1px; background: transparent; color: var(--text-muted); }
 .modular-diary-upcoming-modal .modular-diary-upcoming-form { display: grid; gap: 10px; }
+/* 新建日程: one line, parsed as typed. */
+.modular-diary-quick-schedule .modular-diary-quick-schedule-input { width: 100%; font-size: var(--font-ui-medium, 15px); padding: 8px 10px; }
+.modular-diary-quick-schedule-preview { margin: 0; min-height: 1.4em; color: var(--text-accent); font-variant-numeric: tabular-nums; }
+.modular-diary-quick-schedule-preview.is-empty { color: var(--text-faint); }
+.modular-diary-quick-schedule .modular-diary-upcoming-hint { margin: 0; color: var(--text-muted); font-size: var(--font-ui-smaller); }
 .modular-diary-upcoming-field { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); align-items: center; gap: 10px; }
 .modular-diary-upcoming-field:nth-child(2) { grid-template-columns: 6.5em auto auto auto 1fr; }
 .modular-diary-upcoming-form select:disabled { opacity: .5; }

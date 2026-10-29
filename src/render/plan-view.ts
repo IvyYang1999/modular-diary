@@ -388,6 +388,16 @@ export function dayHead(host: HTMLElement, day: PeriodDayView, model: PeriodView
   return head
 }
 
+/** Right-click on the empty part of a cell or band: 在这天新建日程… */
+function zoneMenu(el: HTMLElement, deps: PeriodViewDeps): void {
+  if (!deps.onZoneMenu) return
+  el.addEventListener("contextmenu", (event) => {
+    if ((event.target as HTMLElement).closest(".modular-diary-plan-pill, button, input")) return
+    event.preventDefault(); event.stopPropagation()
+    deps.onZoneMenu?.(el.dataset.zone ?? "", event.clientX, event.clientY)
+  })
+}
+
 export function renderPlanCalendar(main: HTMLElement, root: HTMLElement, model: PeriodViewModel, deps: PeriodViewDeps, menuFor: (el: HTMLElement, id: string) => void): void {
   if (model.scope?.kind === "month") { renderPlanMonth(main, root, model, deps, menuFor); return }
   const grid = main.createDiv({ cls: "modular-diary-plan-week" })
@@ -399,11 +409,13 @@ export function renderPlanCalendar(main: HTMLElement, root: HTMLElement, model: 
     const strip = cell.createDiv({ cls: "modular-diary-plan-strip", attr: { "data-label": t("allDay") } })
     strip.dataset.zone = day.date
     strip.dataset.zoneKind = "list"
+    zoneMenu(strip, deps)
     for (const pill of pills.all) renderPill(strip, root, pill, model, deps, menuFor)
     for (const zone of ZONES) {
       const band = cell.createDiv({ cls: `modular-diary-plan-band is-${zone}` })
       band.dataset.zone = `${day.date}@${zone}`
       band.dataset.zoneKind = "list"
+      zoneMenu(band, deps)
       band.createEl("span", { cls: "modular-diary-plan-band-label", text: zoneLabel(zone) })
       for (const pill of pills[zone]) renderPill(band, root, pill, model, deps, menuFor)
     }
@@ -422,6 +434,7 @@ function renderPlanMonth(main: HTMLElement, root: HTMLElement, model: PeriodView
     const cell = grid.createDiv({ cls: `modular-diary-plan-month-cell${day.date === model.today ? " is-today" : ""}${day.date < model.today ? " is-past" : ""}` })
     cell.dataset.zone = day.date
     cell.dataset.zoneKind = "list"
+    zoneMenu(cell, deps)
     const number = cell.createEl("button", { cls: "modular-diary-plan-month-day", text: String(Number(day.date.slice(8, 10))), attr: { type: "button", title: day.hasNote ? t("openDayNamed", { date: shortDate(day.date) }) : t("createDayNamed", { date: shortDate(day.date) }) } })
     number.addEventListener("click", () => deps.onOpenDay(day.date))
     const pills = pillsOf(day, model)
