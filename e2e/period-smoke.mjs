@@ -206,7 +206,7 @@ for (const [name, vars] of Object.entries(themes)) {
   await page.mouse.move(fri.x + fri.width / 2, fri.y + 7.5 * hourPx, { steps: 8 })
   const preview = await page.evaluate(() => { const p = document.querySelector(".modular-diary-period-drop-preview"); return p ? [p.querySelector(".modular-diary-period-drop-time").textContent, Math.round(p.getBoundingClientRect().height), p.querySelector(".modular-diary-period-drop-title").textContent] : null })
   await page.mouse.up()
-  // A todo without a category cannot land on the hours: the preview says why and nothing is written.
+  // A todo without a category lands on the hours like any other (the block is drawn in the neutral colour).
   const row10b = await page.locator('.modular-diary-period-rail .modular-diary-todo-row[data-todo-id="t10"] .modular-diary-todo-body').boundingBox()
   await page.mouse.move(row10b.x + 30, row10b.y + row10b.height / 2); await page.mouse.down()
   await page.mouse.move(fri.x + fri.width / 2, fri.y + 4 * hourPx, { steps: 8 })
@@ -266,7 +266,7 @@ for (const [name, vars] of Object.entries(themes)) {
   events = await page.evaluate(() => window.__events)
   if (!cellOver) errors.push("the all-day cell under the pointer must highlight")
   if (!preview || preview[0] !== "14:00–15:00" || Math.abs(preview[1] - hourPx) > 3 || preview[2] !== "飞搜精品内页") errors.push("axis drop preview must show the title, the time and the todo's full length: " + JSON.stringify(preview))
-  if (!invalid || !invalid[0] || !invalid[1].includes("先给它选个分类")) errors.push("an uncategorised todo must show a disabled preview over the hours: " + JSON.stringify(invalid))
+  if (!invalid || invalid[0]) errors.push("an uncategorised todo must still get a live preview over the hours: " + JSON.stringify(invalid))
   if (!menuFromKeyboard.includes("menu:t11")) errors.push("Enter on a focused pill must open its menu")
   if (formOpen !== 1) errors.push("clicking a goal opens its editor in place")
   if (formBox.overflow) errors.push("the todo add form must fit inside the rail: " + JSON.stringify(formBox))
@@ -274,6 +274,5 @@ for (const [name, vars] of Object.entries(themes)) {
 }
 await browser.close()
 for (const expected of ["assign:t10:2026-10-01", "plan:t13:2026-10-02:840", "assign:t11:pool", "goal:2:type:运动:240", "goal:null:tag:long2text:90", "add:新的周待办:30", "rail:316", "shift:1", "open:2026-10-01", "pin", "move:t9:2"]) if (!events.includes(expected)) errors.push("missing " + expected)
-if (events.some((e) => e.startsWith("plan:t10"))) errors.push("an uncategorised todo must not be planned")
 if (errors.length) { console.error("PERIOD CONTRACT FAILED", { errors, events, shots }); process.exit(1) }
 console.log("OK period smoke passed", JSON.stringify(events), "\n" + shots.join("\n"))

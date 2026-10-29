@@ -676,11 +676,21 @@ export default class ModularDiaryPlugin extends Plugin {
         this.renderPeriodBlock(periodSource, el, ctx, this.parse(periodSource), { scope, key: embedKey, view: doc.dayView, onSwitchView: switchView })
         return
       }
+      // Period todos timed on this day (`at=`) are plan blocks drawn straight from the week / month note:
+      // negative line numbers mark them, and every edit of one is written to that note.
+      const virtualPlans = new Map<number, { todo: TodoItem; scope: PeriodScope }>()
+      if (dateStr) for (const arrival of this.periodTodosOn(dateStr)) {
+        const { todo } = arrival
+        if (todo.at === undefined || doc.entries.some((entry) => entry.plan && entry.todoId === todo.id)) continue
+        const line = -1000 - virtualPlans.size
+        doc.entries.push({ plan: true, startMin: todo.at, endMin: todo.at + Math.max(30, todo.estimateMin), type: todo.type ?? "", note: todo.title, tags: [], todoId: todo.id, line })
+        virtualPlans.set(line, arrival)
+      }
       // A tag first seen on a categorized block adopts that category (yyt 2026-09-28).
       // A day whose block is still empty is refilled from todos pushed to it
       // from other days or period blocks; a day with content is left alone,
       // so a deliberate delete on that day stays deleted.
-      if (dateStr && doc.todos.length === 0 && doc.entries.length === 0 && doc.spans.length === 0 && this.dayIndexReady() && !this.backfilling.has(el)) {
+      if (dateStr && doc.todos.length === 0 && doc.entries.every((entry) => entry.line < 0) && doc.spans.length === 0 && this.dayIndexReady() && !this.backfilling.has(el)) {
         const arrivals = this.dayIndex.arrivalsFor(dateStr)
         if (arrivals.length > 0) {
           this.backfilling.add(el)
@@ -1018,6 +1028,7 @@ export default class ModularDiaryPlugin extends Plugin {
           ?.querySelector<HTMLElement>(".modular-diary-container") ?? null
       }
       const targetForEntryLine = (line: number): EntryTarget | null => {
+        if (line < 0) return null
         const entry = doc.entries.find((item) => item.line === line)
         return entry ? captureEntryTarget(entry) : null
       }
@@ -1524,7 +1535,7 @@ export default class ModularDiaryPlugin extends Plugin {
                   else await this.pushPeriodTodo(arrival.scope, todo.id, next)
                 } catch (error) { periodFail(error) }
               })()))
-              menu.addItem((item) => item.setTitle(tr("unplaceFromDay")).setIcon("undo-2").onClick(() => void periodWrite(todo.id, (value) => updateTodo(value, todo.id, { day: undefined, zone: undefined })).catch(periodFail)))
+              menu.addItem((item) => item.setTitle(tr("unplaceFromDay")).setIcon("undo-2").onClick(() => void periodWrite(todo.id, (value) => updateTodo(value, todo.id, { day: undefined, zone: undefined, at: undefined })).catch(periodFail)))
               menu.addItem((item) => item.setTitle(tr("editInPeriod")).setIcon("calendar-range").onClick(() => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "view", arrival.scope.kind))
                 .catch((error) => { console.error("Modular Diary: failed to switch the view", error); new Notice(tr("viewSwitchFailed")) })))
               menu.addItem((item) => item.setTitle(tr("deleteTodo")).setIcon("trash").onClick(() => void periodWrite(todo.id, (value) => deleteTodoSubtree(value, todo.id)).catch(periodFail)))
@@ -1757,6 +1768,9 @@ export default class ModularDiaryPlugin extends Plugin {
 
       const wireTimeline = (): void => {
         const deleteTimelineEntry = async (line: number): Promise<void> => {
+          const virtual = virtualPlans.get(line)
+          // Deleting a timed period todo's block only takes its time away; the todo stays on the day.
+          if (virtual) { await periodWrite(virtual.todo.id, (value) => updateTodo(value, virtual.todo.id, { at: undefined })); return }
           const target = targetForEntryLine(line)
           if (!target) throw new Error(tr("sourceChanged"))
           // Context-menu deletion does not pass through the keyboard handler.
@@ -1841,6 +1855,8 @@ export default class ModularDiaryPlugin extends Plugin {
           this.editing = target ? { ...blockIdentity, target } : null
         },
         onUpdateSpan: (line, startMin, endMin) => {
+          const virtual = virtualPlans.get(line)
+          if (virtual) return periodWrite(virtual.todo.id, (value) => updateTodo(value, virtual.todo.id, { at: startMin, estimateMin: Math.max(1, endMin - startMin) }))
           const target = targetForEntryLine(line)
           if (!target) return Promise.reject(new Error(tr("sourceChanged")))
           const original = doc.entries.find((entry) => entry.line === line)
@@ -1867,6 +1883,17 @@ export default class ModularDiaryPlugin extends Plugin {
           }
         },
         onBlockMenu: (line, x, y) => {
+          const virtual = virtualPlans.get(line)
+          if (virtual) {
+            const menu = new Menu()
+            const { todo, scope } = virtual
+            menu.addItem((item) => item.setTitle(tr(todo.completed ? "markIncomplete" : "markComplete")).setIcon(todo.completed ? "circle" : "check").onClick(() => void periodWrite(todo.id, (value) => propagateBoundCompletion(setTodoCompleted(value, todo.id, !todo.completed), todo.id))))
+            menu.addItem((item) => item.setTitle(tr("untimeTodo")).setIcon("clock").onClick(() => void periodWrite(todo.id, (value) => updateTodo(value, todo.id, { at: undefined }))))
+            menu.addItem((item) => item.setTitle(tr("editInPeriod")).setIcon("calendar-range").onClick(() => void this.applyBlockTransform(el, ctx, source, (current) => setHeaderValue(current, "view", scope.kind))
+              .catch((error) => { console.error("Modular Diary: failed to switch the view", error); new Notice(tr("viewSwitchFailed")) })))
+            menu.showAtPosition({ x, y }, dom)
+            return
+          }
           const entry = doc.entries.find((e) => e.line === line)
           const menuTarget = entry ? captureEntryTarget(entry) : null
           if (!entry || !menuTarget) return
@@ -1949,6 +1976,12 @@ export default class ModularDiaryPlugin extends Plugin {
           defaultType: () => blockActiveSpanType || spanPaletteTypes[0] || "",
           onCreate: (plan) => {
             clearBlockEditState()
+            // A period todo is timed in its own note (`at=`), not copied into this day.
+            if (plan.item.source === "todo" && periodArrivalById.has(plan.item.id)) {
+              void periodWrite(plan.item.id, (value) => updateTodo(value, plan.item.id, { at: plan.startMin, estimateMin: plan.endMin - plan.startMin }))
+                .catch((error) => { console.error("Modular Diary: failed to time a period todo", error); new Notice(tr("periodWriteFailed", { date: dateStr ?? "" })) })
+              return
+            }
             void this.applyBlockTransform(el, ctx, source, (value) => insertEntryLine(
               this.persistLayoutOnce(value, doc, container), plan.line, plan.startMin,
             ), { previewVisual: previewTimeline })
@@ -2617,6 +2650,14 @@ export default class ModularDiaryPlugin extends Plugin {
       if (entry.plan) { if (!plannedAt.has(entry.todoId)) plannedAt.set(entry.todoId, { date: day.date, startMin: entry.startMin }) }
       else actual.set(entry.todoId, (actual.get(entry.todoId) ?? 0) + entry.endMin - entry.startMin)
     }
+    // A todo timed with `at=` is a plan block of its day, drawn from the period note itself (no day note needed).
+    for (const todo of doc.todos) {
+      if (todo.at === undefined || !todo.day || todo.moved || plannedAt.has(todo.id)) continue
+      const day = dayData.find((item) => item.date === todo.day)
+      if (!day) continue
+      day.entries.push({ plan: true, startMin: todo.at, endMin: todo.at + Math.max(30, todo.estimateMin), type: todo.type ?? "", note: todo.title, tags: [], todoId: todo.id, line: -1 })
+      plannedAt.set(todo.id, { date: todo.day, startMin: todo.at })
+    }
     const todos: PeriodTodoView[] = doc.todos.map((todo) => ({
       ...todo,
       actualMinutes: actual.get(todo.id) ?? 0,
@@ -2751,12 +2792,8 @@ export default class ModularDiaryPlugin extends Plugin {
         await rewrite((current) => insertTodo(current, {
           id: todoId, title: what.title, group: "", type: what.type, estimateMin: length, completed: false,
           ...(rhythm ? { under: rhythm.id } : {}),
-          ...(startMin === undefined ? { day: date, ...(zone ? { zone } : {}) } : {}),
+          day: date, ...(zone ? { zone } : {}), ...(startMin !== undefined ? { at: startMin } : {}),
         }))
-        if (startMin !== undefined) {
-          const plan = buildScheduledPlan({ source: "todo", id: todoId, title: what.title, type: what.type, durationMin: length }, startMin).line
-          await this.writeToDay(date, (blockSource) => insertEntryLine(blockSource, plan, startMin))
-        }
         this.rerenderMountedTimelines()
       } catch (error) { fail(date, error) }
     }
@@ -2876,7 +2913,7 @@ export default class ModularDiaryPlugin extends Plugin {
             const [day, zone] = to === POOL_ZONE ? [undefined, undefined] : to.split("@") as [string, "am" | "pm" | "ev" | undefined]
             if (day && (day < foreign.foreignScope.start || day > foreign.foreignScope.end)) { new Notice(tr("foreignDropOutsideWeek", { week: periodKey(foreign.foreignScope).replace(/^.*W0?/, "") })); return }
             await unplan(id)
-            await this.periodFiles.write(foreign.foreignScope, (current) => updateTodo(current, id, { day, zone }))
+            await this.periodFiles.write(foreign.foreignScope, (current) => updateTodo(current, id, { day, zone, at: undefined }))
             this.rerenderMountedTimelines()
             return
           }
@@ -2889,7 +2926,7 @@ export default class ModularDiaryPlugin extends Plugin {
             let out = current
             for (const sub of ids) {
               if (sub !== id && plannedAt.has(sub)) continue
-              out = updateTodo(out, sub, { day, zone: sub === id ? zone : undefined })
+              out = updateTodo(out, sub, { day, zone: sub === id ? zone : undefined, ...(sub === id ? { at: undefined } : {}) })
             }
             return out
           })
@@ -2901,19 +2938,12 @@ export default class ModularDiaryPlugin extends Plugin {
         const todo = doc.todos.find((item) => item.id === id) ?? foreignTodos.find((item) => item.id === id)
         if (!todo) return
         const foreignScope = foreignTodos.find((item) => item.id === id)?.foreignScope
-        if (!todo.type) { new Notice(tr("periodTodoNeedsCategory")); return }
-        const plan = buildScheduledPlan({ source: "todo", id, title: todo.title, type: todo.type, durationMin: todo.estimateMin }, startMin).line
         try {
-          await this.writeToDay(date, (blockSource) => {
-            let out = blockSource
-            for (const entry of this.parse(out).entries.filter((item) => item.plan && item.todoId === id).sort((a, b) => b.line - a.line)) out = deleteEntryLine(out, entry.line)
-            return insertEntryLine(out, plan, startMin)
-          })
-          await unplan(id, date)
-          if (todo.day || todo.zone) {
-            if (foreignScope) await this.periodFiles.write(foreignScope, (current) => updateTodo(current, id, { day: undefined, zone: undefined }))
-            else await rewrite((current) => updateTodo(current, id, { day: undefined, zone: undefined }))
-          }
+          // The time lives on the todo (`day=` + `at=`); a plan block an older drop wrote into a day note goes.
+          await unplan(id)
+          const patch = { day: date, zone: undefined, at: startMin }
+          if (foreignScope) await this.periodFiles.write(foreignScope, (current) => updateTodo(current, id, patch))
+          else await rewrite((current) => updateTodo(current, id, patch))
           this.rerenderMountedTimelines()
         } catch (error) { fail(date, error) }
       })(),
@@ -2953,6 +2983,22 @@ export default class ModularDiaryPlugin extends Plugin {
         if (addChild) menu.addItem((item) => item.setTitle(tr("addChildTodo")).setIcon("list-plus").onClick(addChild))
         if (todo.parent) menu.addItem((item) => item.setTitle(tr("unparentTodo")).setIcon("corner-left-up").onClick(() =>
           void rewrite((current) => setTodoParent(current, id, undefined))))
+        // 设定时刻…: a clock time on the day it sits on (`at=`), typed, so the plan face needs no hour axis.
+        if (todo.placement?.date) menu.addItem((item) => item.setTitle(tr("setTodoTime")).setIcon("clock").onClick(() => {
+          const date = todo.placement!.date
+          const initial = todo.at !== undefined ? `${String(Math.floor(todo.at / 60)).padStart(2, "0")}:${String(todo.at % 60).padStart(2, "0")}` : "09:00"
+          openPointTimePopover(container, container, { x, y, width: 0, height: 0 }, initial, (time) => {
+            const match = /^(\d{1,2}):(\d{2})$/.exec(time)
+            if (!match) return
+            void (async () => {
+              try {
+                await unplan(id)
+                await rewrite((current) => updateTodo(current, id, { day: date, zone: undefined, at: Number(match[1]) * 60 + Number(match[2]) }))
+              } catch (error) { fail(date, error) }
+            })()
+          })
+        }))
+        if (todo.at !== undefined) menu.addItem((item) => item.setTitle(tr("untimeTodo")).setIcon("clock").onClick(() => void rewrite((current) => updateTodo(current, id, { at: undefined }))))
         menu.addItem((item) => {
           item.setTitle(tr("scheduleOn")).setIcon("calendar-plus")
           const withSub = item as unknown as { setSubmenu?: () => Menu }

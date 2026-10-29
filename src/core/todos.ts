@@ -278,6 +278,7 @@ export function formatTodoHeaderValue(todo: Omit<TodoItem, "line"> | TodoItem, n
     ...(todo.under ? [`under=${JSON.stringify(todo.under)}`] : []),
     ...(todo.goal ? [`goal=${JSON.stringify(todo.goal)}`] : []),
     ...(todo.zone ? [`zone=${todo.zone}`] : []),
+    ...(todo.at !== undefined ? [`at=${String(Math.floor(todo.at / 60)).padStart(2, "0")}:${String(todo.at % 60).padStart(2, "0")}`] : []),
     ...(todo.owed ? [`owed=${todo.owed}`] : []),
     ...(noteSourceValue === undefined && todo.note ? [`note=${JSON.stringify(todo.note)}`] : []),
     ...(todo.difficulty !== undefined ? [`difficulty=${todo.difficulty}`] : []),
@@ -362,7 +363,7 @@ export function todoNoteSourceValue(text: string): string | undefined {
 function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | null {
   const fields = parseReadableFields(value)
   const keys = ["id", "done", "estimate", "category", "group", "title"]
-  const optional = ["due", "moved", "day", "bucket", "note", "parent", "own-category", "attach", "rhythm", "under", "goal", "zone", "owed", "difficulty", "priority"]
+  const optional = ["due", "moved", "day", "bucket", "note", "parent", "own-category", "attach", "rhythm", "under", "goal", "zone", "at", "owed", "difficulty", "priority"]
   if (!fields || keys.some((key) => !fields.has(key)) || [...fields.keys()].some((key) => !keys.includes(key) && !optional.includes(key))) return null
   const due = fields.get("due")
   const moved = fields.get("moved")
@@ -383,6 +384,10 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
   if (parent !== undefined && !/^[a-z0-9_-]+$/i.test(parent)) return null
   const zone = fields.get("zone")
   if (zone !== undefined && !["am", "pm", "ev"].includes(zone)) return null
+  const atText = fields.get("at")
+  const atMatch = atText !== undefined ? /^(\d{1,2}):(\d{2})$/.exec(atText) : null
+  if (atText !== undefined && !atMatch) return null
+  const at = atMatch ? Number(atMatch[1]) * 60 + Number(atMatch[2]) : undefined
   return {
     ...(fields.has("note") ? { note: fields.get("note") } : {}),
     ...(difficulty !== undefined ? { difficulty: Number(difficulty) } : {}),
@@ -405,6 +410,7 @@ function parseReadableTodoHeaderValue(value: string, line: number): TodoItem | n
     ...(fields.get("under") ? { under: fields.get("under") } : {}),
     ...(fields.get("goal") ? { goal: fields.get("goal") } : {}),
     ...(zone ? { zone: zone as "am" | "pm" | "ev" } : {}),
+    ...(at !== undefined ? { at } : {}),
     ...(fields.get("owed") ? { owed: fields.get("owed") } : {}),
     line,
   }

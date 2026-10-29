@@ -283,7 +283,8 @@ export function attachDrag(root: HTMLElement, handle: HTMLElement, subject: Drag
       }
       if (moved && win) scrollFrame = win.requestAnimationFrame(autoscroll)
     }
-    const canPlan = Boolean(subject.todo.type)
+    // A time needs no category: the block is drawn in the neutral colour until one is chosen.
+    const canPlan = true
     const minutesAt = (axis: HTMLElement, clientY: number): number => {
       const rect = axis.getBoundingClientRect()
       const raw = model.rangeStartMin + ((clientY - rect.top) / rect.height) * (model.rangeEndMin - model.rangeStartMin) - duration / 2

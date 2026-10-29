@@ -143,6 +143,8 @@ export interface TodoItem {
   goal?: string
   /** Part of the day for an all-day placement: `zone=am|pm|ev`. */
   zone?: "am" | "pm" | "ev"
+  /** Clock time on its day (`at=15:00`, minutes from midnight): the todo is a plan block of that day, drawn from the period note. */
+  at?: number
   /** Carried over from an earlier period that did not finish it (`owed="2026-W43"`). */
   owed?: string
   /**

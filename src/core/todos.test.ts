@@ -91,3 +91,14 @@ describe("grouping by day", () => {
     expect(todoGroupLabel("d:")).not.toBe("")
   })
 })
+
+describe("timed placement (at=)", () => {
+  it("round-trips a clock time on a todo line and rejects a malformed one", () => {
+    const item = { id: "t1", title: "演出", group: "", type: "出门", estimateMin: 120, completed: false, tags: [], day: "2026-11-15", at: 15 * 60, line: 0 } as unknown as TodoItem
+    const line = formatTodoHeaderValue(item)
+    expect(line).toContain("day=2026-11-15")
+    expect(line).toContain("at=15:00")
+    expect(parseTodoHeaderValue(line, 0)).toMatchObject({ day: "2026-11-15", at: 900 })
+    expect(parseTodoHeaderValue(line.replace("at=15:00", "at=3pm"), 0)).toBeNull()
+  })
+})

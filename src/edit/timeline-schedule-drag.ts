@@ -17,6 +17,8 @@ export interface ScheduledPlan {
   startMin: number
   endMin: number
   line: string
+  /** What was dragged, so a period todo can be timed in its own note instead of copied here. */
+  item: TimelineScheduleItem
 }
 
 /** `0` is intentional for an "any record" habit; malformed/negative data stays invalid. */
@@ -47,6 +49,7 @@ export function buildScheduledPlan(item: TimelineScheduleItem, startMin: number)
   return {
     startMin,
     endMin,
+    item,
     line: formatEntryLine({
       plan: true,
       startMin,
