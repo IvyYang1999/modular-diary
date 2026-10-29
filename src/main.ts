@@ -30,7 +30,7 @@ import { attachMarkerInteraction } from "./edit/marker-interaction"
 import { showBlockMenu, showMarkerMenu } from "./edit/block-menu"
 import { attachHoverInfo, toggleBlockFocus } from "./edit/hover-info"
 import { applyGridToBody, attachGridInteract } from "./edit/grid-interact"
-import { compactGrid, defaultComponentSlot, GRID_COLS, GRID_ROW_H, gridRows, GridItem, HABITS_EMPTY_ROWS, MAX_GRID_COLS, serializeLayoutHeader } from "./core/grid-layout"
+import { compactGridVertically, defaultComponentSlot, GRID_COLS, GRID_ROW_H, gridRows, GridItem, HABITS_EMPTY_ROWS, MAX_GRID_COLS, serializeLayoutHeader } from "./core/grid-layout"
 import { inferDate, insertPeriodBlock, insertTimelineBlock, timelineTemplate } from "./insert"
 import { attachWidthHandle } from "./edit/width-handle"
 import { openNotePopover } from "./edit/note-popover"
@@ -901,7 +901,7 @@ export default class ModularDiaryPlugin extends Plugin {
                     x: Number(sl.dataset.x), y: Number(sl.dataset.y), w: Number(sl.dataset.w), h: Number(sl.dataset.h),
                   }))
                   items.push({ id: newId, x: gx, y: gy, w: 6, h: 4 })
-                  out = setHeaderValue(out, "layout", serializeLayoutHeader(compactGrid(items, newId)))
+                  out = setHeaderValue(out, "layout", serializeLayoutHeader(compactGridVertically(items, newId)))
                 }
               }
               return out
@@ -3015,7 +3015,7 @@ export default class ModularDiaryPlugin extends Plugin {
     // timeline. Rendering re-runs the same compaction, so this is what the
     // user would see anyway.
     items.push({ ...defaultComponentSlot(id, id === "habits" ? HABITS_EMPTY_ROWS : id === "quote" ? QUOTE_ROWS : id === "hourlog" ? HOURLOG_ROWS : id === "upcoming" ? UPCOMING_ROWS : 8, parsed.side), y: maxY })
-    return setHeaderValue(out, "layout", serializeLayoutHeader(compactGrid(items)))
+    return setHeaderValue(out, "layout", serializeLayoutHeader(compactGridVertically(items)))
   }
 
   /** Grow slots whose content exceeds their grid height, then re-compact (display-only). */
@@ -3037,7 +3037,7 @@ export default class ModularDiaryPlugin extends Plugin {
         }
       }
       if (!grew) return
-      const items = compactGrid(slots.map((s) => ({
+      const items = compactGridVertically(slots.map((s) => ({
         id: s.dataset.slot as GridItem["id"],
         x: Number(s.dataset.x), y: Number(s.dataset.y), w: Number(s.dataset.w), h: Number(s.dataset.h),
       })))

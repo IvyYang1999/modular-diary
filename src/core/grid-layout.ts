@@ -273,12 +273,17 @@ export function resolveGrid(
 ): GridItem[] {
   const wantTextIds = Array.from({ length: textCount }, (_, i) => (i === 0 ? "text" : `text${i + 1}`))
   const base = parsed ?? defaultGrid(textCount, side, timelineRows, statsRows, pristine)
+  // A stored layout is what the user dragged: gravity only pulls slots up, it never
+  // slides them into another column (the drag preview compacts the same way, so what
+  // was shown while the pointer was held is what renders after the drop). Only the
+  // synthetic default grid is packed fully.
+  const settle = (list: GridItem[]): GridItem[] => parsed ? compactGridVertically(resolveOverlaps(list)) : compactGrid(resolveOverlaps(list))
   // 隐藏槽位剔除；文本槽位数量与文本区数量对齐。先把已有槽位压实，再把缺失的
   // 槽位接在真正的底部：否则默认栅格里仍挂在时间轴栏下方的统计/对话框会在压实
   // 时晚于新组件落进文字栏，让新组件插到统计和对话框上面。
-  let items = compactGrid(resolveOverlaps(
+  let items = settle(
     base.filter((it) => !hiddenSlots.includes(it.id) && (!isTextSlot(it.id) || wantTextIds.includes(it.id))).map(clampItem)
-  ))
+  )
   const present = new Set(items.map((it) => it.id))
   const required: SlotId[] = [...wantTextIds, ...CORE_SLOT_IDS, ...extraSlots.map((item) => item.id)]
     .filter((id) => !hiddenSlots.includes(id))
@@ -293,7 +298,19 @@ export function resolveGrid(
     present.add(id)
   }
   items = items.map(clampItem)
-  return compactGrid(resolveOverlaps(items))
+  return settle(items)
+}
+
+/**
+ * The layout while a slot is being dragged: the dragged slot sits where the pointer
+ * put it, neighbours it passed swap with it, overlaps push down, then everything —
+ * the dragged slot included — falls up within its columns. So the placeholder never
+ * floats with a gap above it: it snaps into the seam between the slots around it,
+ * exactly where the drop will render it.
+ */
+export function dragLayout(initial: GridItem[], origin: GridItem, next: GridItem): GridItem[] {
+  const moved = initial.map((other) => other.id === origin.id ? next : other)
+  return compactGridVertically(resolveOverlaps(swapOnDownwardDrag(moved, origin, next), origin.id))
 }
 
 /**

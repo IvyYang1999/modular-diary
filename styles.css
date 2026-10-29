@@ -2767,9 +2767,8 @@ button.modular-diary-todo-group-toggle svg {
   border-radius: var(--modular-diary-radius-surface);
 }
 
-.modular-diary-body.is-grid-interacting .modular-diary-slot {
-  transition: none !important;
-}
+/* 拖拽/缩放进行中：被拖的占位框和被缩放的槽位即时跟手，其余槽位让位时保留过渡，
+   让位移是滑过去而不是跳过去。 */
 
 .modular-diary-slot-grip-anchor {
   position: sticky;

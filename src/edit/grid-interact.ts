@@ -8,8 +8,8 @@
  * Pure DOM.
  */
 import {
-  GRID_COLS, GRID_ROW_H, GridItem, SlotId, clampItem, compactGrid, gridColumns, gridRows,
-  compactGridVertically, resolveHorizontalOverlaps, resolveOverlaps, swapOnDownwardDrag,
+  GRID_COLS, GRID_ROW_H, GridItem, SlotId, clampItem, compactGrid, dragLayout, gridColumns, gridRows,
+  compactGridVertically, resolveHorizontalOverlaps, resolveOverlaps,
 } from "../core/grid-layout"
 import { t } from "../i18n"
 import { appendSixDotGrip } from "../render/grip"
@@ -77,11 +77,17 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
 
   const finish = (priorityId?: SlotId, preserveColumns = false): void => {
     const resolved = resolveOverlaps(slots.map(itemFromSlot), priorityId)
+    // A move settles the dragged slot too (it already sits there in the preview);
+    // a resize keeps the resized slot anchored and packs the rest around it.
     const items = preserveColumns
-      ? compactGridVertically(resolved, priorityId)
+      ? compactGridVertically(resolved)
       : compactGrid(resolved, priorityId)
+    // The geometry is already final: paint it without a transition so the
+    // remount overlay clones a settled block, not one mid-glide.
+    body.classList.add("is-settling")
     applyGridToBody(body, items)
     body.style.height = `${gridRows(items) * GRID_ROW_H}px`
+    domWindow?.setTimeout(() => body.classList.remove("is-settling"), 350)
     onCommit(items)
   }
 
@@ -143,14 +149,10 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
         if (next.x === item.x && next.y === item.y && !force) return
         item.x = next.x
         item.y = next.y
-        // iOS 式实时重排：被拖组件优先，其余组件立刻让位+重力压实（带 CSS 过渡）
+        // iOS 式实时重排：被拖组件优先，其余组件让位（带 CSS 过渡），然后连被拖
+        // 组件一起向上压实——占位框吸附到相邻组件之间的缝里，而不是悬在指针行上。
         // 往下拖过相邻组件的中线时两者换位，而不是把它继续往下挤。
-        const others = initialItems.map((other) => other.id === origin.id ? next : other)
-        const current = swapOnDownwardDrag(others, origin, next)
-        const items = compactGridVertically(
-          resolveOverlaps(current, slot.dataset.slot as SlotId),
-          slot.dataset.slot as SlotId,
-        )
+        const items = dragLayout(initialItems, origin, next)
         applyGridToBody(body, items)
         body.style.height = `${gridRows(items) * GRID_ROW_H}px`
         viewport.changed()

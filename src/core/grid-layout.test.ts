@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  swapOnDownwardDrag,
+  swapOnDownwardDrag, dragLayout, type GridItem,
   clampItem, compactGrid, compactGridVertically, COMPONENT_SLOT_COLS, defaultComponentSlot, defaultGrid, gridColumns, gridRows, HABITS_EMPTY_ROWS, overlaps, parseLayoutHeader, resolveGrid,
   resolveHorizontalOverlaps, resolveOverlaps, serializeLayoutHeader,
 } from "./grid-layout"
@@ -246,5 +246,38 @@ describe("swapOnDownwardDrag", () => {
     const side = { id: "habits", x: 6, y: 4, w: 6, h: 3 } as const
     expect(swapOnDownwardDrag([a, side], a, { ...a, y: 5 })).toEqual([a, side])
     expect(swapOnDownwardDrag([a, b], b, { ...b, y: 0 })).toEqual([a, b])
+  })
+})
+
+describe("dragLayout (拖拽预览 = 落位结果)", () => {
+  const dialog = { id: "dialog", x: 0, y: 0, w: 6, h: 3 }
+  const toolbar = { id: "toolbar", x: 0, y: 3, w: 6, h: 10 }
+  const habits = { id: "habits", x: 0, y: 13, w: 6, h: 18 }
+  const timeline = { id: "timeline", x: 6, y: 0, w: 6, h: 47 }
+  const initial = [dialog, toolbar, habits, timeline]
+  const at = (items: GridItem[], id: string) => items.find((item) => item.id === id)!
+  it("snaps a slot dragged up over its neighbour into that neighbour's seat, with no gap above", () => {
+    const out = dragLayout(initial, habits, { ...habits, y: 7 })
+    expect(at(out, "habits")).toMatchObject({ x: 0, y: 3 })
+    expect(at(out, "toolbar")).toMatchObject({ x: 0, y: 21 })
+    expect(at(out, "dialog")).toMatchObject({ y: 0 })
+  })
+  it("keeps a slot in place while it is dragged a little down (no gap opens), then swaps past half its height", () => {
+    expect(at(dragLayout(initial, dialog, { ...dialog, y: 1 }), "dialog")).toMatchObject({ y: 0 })
+    expect(at(dragLayout(initial, dialog, { ...dialog, y: 1 }), "toolbar")).toMatchObject({ y: 3 })
+    const swapped = dragLayout(initial, dialog, { ...dialog, y: 2 })
+    expect(at(swapped, "toolbar")).toMatchObject({ y: 0 })
+    expect(at(swapped, "dialog")).toMatchObject({ y: 10 })
+  })
+  it("lets a slot land below the timeline in the other column and stay there", () => {
+    const out = dragLayout(initial, habits, { ...habits, x: 6, y: 50 })
+    expect(at(out, "habits")).toMatchObject({ x: 6, y: 47 })
+    expect(at(out, "toolbar")).toMatchObject({ x: 0, y: 3 })
+  })
+  it("is what the render settles to: a dropped layout renders unchanged", () => {
+    const dropped = dragLayout(initial, habits, { ...habits, x: 6, y: 50 })
+    const rendered = resolveGrid(dropped, 0, undefined, 47)
+    expect(rendered.filter((item) => item.id !== "stats")).toEqual(dropped)
+    expect(resolveGrid(dragLayout(initial, habits, { ...habits, y: 7 }), 0, undefined, 47).find((item) => item.id === "habits")).toMatchObject({ x: 0, y: 3 })
   })
 })
