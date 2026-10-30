@@ -47,7 +47,8 @@ try{
  // 0. The day view's bar carries the same chrome as the period toolbar: a day back/forward, the date, and (not today) 今天.
  assert.equal(await page.locator('.modular-diary-view-bar .modular-diary-view-bar-date').textContent(),'周四2026.10.22')
  assert.equal(await page.locator('.modular-diary-timeline-topbar .modular-diary-timeline-date-control').count(),0,'the timeline no longer carries its own date control')
- assert.equal(await page.locator('.modular-diary-view-bar .modular-diary-period-icon').count(),2)
+ assert.equal(await page.locator('.modular-diary-view-bar .modular-diary-period-icon').count(),3,'day back, day forward, 新建日程')
+ assert.equal(await page.locator('.modular-diary-view-bar .modular-diary-period-icon[aria-label="新建日程"]').count(),1)
  assert.equal(await page.locator('.modular-diary-view-bar .modular-diary-period-text-button',{hasText:'今天'}).count(),1)
  // 1. 日 → 周: the day block writes `view: week`, the week note is created with slots, and renders in place.
  await page.locator('.modular-diary-view-bar .modular-diary-seg button',{hasText:'周'}).click()
