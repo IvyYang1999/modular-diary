@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/IvyYang1999/modular-diary/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/IvyYang1999/modular-diary?label=release&color=ae7ee2&sort=semver"></a>
+  <a href="https://github.com/IvyYang1999/modular-diary/releases/latest"><img alt="Version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FIvyYang1999%2Fmodular-diary%2Fmain%2Fmanifest.json&query=%24.version&label=version&color=ae7ee2&prefix=v"></a>
   <a href="https://github.com/IvyYang1999/modular-diary/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/IvyYang1999/modular-diary/total?color=53a3f2&label=downloads"></a>
   <img alt="Obsidian 1.8.7+" src="https://img.shields.io/badge/Obsidian-1.8.7%2B-a0c849?logo=obsidian&logoColor=white">
 </p>
