@@ -1,6 +1,6 @@
 {
   "name": "modular-diary",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Modular Diary for Obsidian: a daily timeline and flexible modules, with Markdown as the single source of truth.",
   "main": "main.js",
   "scripts": {
