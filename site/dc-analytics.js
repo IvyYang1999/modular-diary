@@ -99,7 +99,8 @@
     const a=event.target instanceof Element?event.target.closest('a,button[data-ga-click]'):null;
     if(!a)return;
     let name=explicit.has(a.dataset.gaClick)?a.dataset.gaClick:null,target=name?'button':null;
-    if(a instanceof HTMLAnchorElement){
+    // An explicit data-ga-click names the click whatever the link's address (obsidian://, …).
+    if(a instanceof HTMLAnchorElement&&!name){
       const raw=a.getAttribute('href')||'';
       if(/^mailto:/i.test(raw)){name='contact_click';target='email'}
       else {let u;try{u=new URL(raw,w.location.href)}catch{return}
