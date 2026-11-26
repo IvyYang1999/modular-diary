@@ -3,13 +3,14 @@
 </p>
 
 <p align="center">
+  <a href="https://community.obsidian.md/plugins/modular-diary"><img alt="Obsidian community plugin" src="https://img.shields.io/badge/Obsidian-community%20plugin-f4a437?logo=obsidian&logoColor=white"></a>
   <a href="https://github.com/IvyYang1999/modular-diary/releases/latest"><img alt="Version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FIvyYang1999%2Fmodular-diary%2Fmain%2Fmanifest.json&query=%24.version&label=version&color=ae7ee2&prefix=v"></a>
   <a href="https://github.com/IvyYang1999/modular-diary/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/IvyYang1999/modular-diary/total?color=53a3f2&label=downloads"></a>
   <img alt="Obsidian 1.8.7+" src="https://img.shields.io/badge/Obsidian-1.8.7%2B-a0c849?logo=obsidian&logoColor=white">
 </p>
 
 <p align="center">
-  <a href="#install"><b>Install</b></a> ·
+  <a href="https://community.obsidian.md/plugins/modular-diary"><b>Install in Obsidian</b></a> ·
   <a href="https://modular-diary.yytyyf.com/en/">Website</a> ·
   <a href="#中文">中文说明 ↓</a>
 </p>
@@ -75,7 +76,9 @@ Week and month plans are notes of their own (`Plans/2026-W48.md`, `Plans/2026-11
 
 ## Install
 
-Until Modular Diary is in the community directory, install it with [BRAT](https://github.com/TfTHacker/obsidian42-brat): *Add a beta plugin* → `IvyYang1999/modular-diary`. Or download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/IvyYang1999/modular-diary/releases/latest) into `.obsidian/plugins/modular-diary/`.
+In Obsidian, open **Settings → Community plugins → Browse** and search for **Modular Diary**. Or open its page in the [community directory](https://community.obsidian.md/plugins/modular-diary) and click **Install**, which opens Obsidian at the plugin (`obsidian://show-plugin?id=modular-diary`).
+
+Pre-release builds: [BRAT](https://github.com/TfTHacker/obsidian42-brat) → *Add a beta plugin* → `IvyYang1999/modular-diary`.
 
 Then open a daily note and run **Insert Modular Diary timeline block** from the command palette. Obsidian 1.8.7 or later. It is built and tested on desktop; it loads on mobile, but phone layouts are not tuned yet. The interface follows Obsidian's language (English or 中文).
 
@@ -84,10 +87,10 @@ Then open a daily note and run **Insert Modular Diary timeline block** from the 
 
 The plugin ID changed from `oneday` to `modular-diary`, so this is not an in-place update. Back up `.obsidian/plugins/oneday/` and `.obsidian/community-plugins.json` outside the synced vault first; the old `data.json` may contain your model API key.
 
-1. Install the new release into `.obsidian/plugins/modular-diary/` without overwriting the old folder.
+1. Install Modular Diary from the community directory. It goes into `.obsidian/plugins/modular-diary/` and leaves the old folder alone.
 2. Disable the old plugin. With both stopped, copy the old `data.json` into the new folder to keep your settings, then enable Modular Diary. Never enable both: both register the `timeline` code block.
 3. Check a real daily note, the settings and your hotkeys. The command is now `modular-diary:insert-timeline-block`.
-4. With BRAT, stop tracking the old repository and add `IvyYang1999/modular-diary`.
+4. If BRAT tracks the old repository, remove it there.
 5. CSS snippets that target `.oneday-*` or `--oneday-*` need `.modular-diary-*` and `--modular-diary-*`.
 
 Your `timeline` blocks need no changes. See the [release notes](RELEASE_NOTES.md) for details.
@@ -124,7 +127,7 @@ node e2e/docs-media/banner.mjs     # docs/media/banner.png
 - **Markdown 是本体。** 一天是日记里的一个 `timeline` 代码块，每段时间、每条待办都是一行能手改的文字；周、月计划是单独的笔记，格式相同。随 iCloud / Git / Obsidian Sync 同步，插件不在也能读。
 - **快速记录（可选）。** 输入「运动了半小时」，模型把它变成时间轴条目。用你自己的 API Key（兼容 OpenAI 的服务商）或本机的 Claude Code CLI，不设置就不启用。只有这类模型功能（快速记录、待办检查）会联网，插件其他部分都不联网。
 
-**安装**：上架社区目录之前，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 添加 `IvyYang1999/modular-diary`；或从 [最新 release](https://github.com/IvyYang1999/modular-diary/releases/latest) 下载 `main.js`、`manifest.json`、`styles.css` 放进 `.obsidian/plugins/modular-diary/`。然后在日记里运行命令「插入 Modular Diary 时间轴块」。Obsidian 1.8.7 以上。为桌面设计和测试；手机上能加载，但手机布局还没调。界面跟随 Obsidian 的语言（中文或英文）。
+**安装**：Obsidian 设置 → 第三方插件 → 浏览，搜 **Modular Diary**；或打开[社区插件目录里的页面](https://community.obsidian.md/plugins/modular-diary)，点 **Install** 直接在 Obsidian 里打开。预发布版用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 添加 `IvyYang1999/modular-diary`。然后在日记里运行命令「插入 Modular Diary 时间轴块」。Obsidian 1.8.7 以上。为桌面设计和测试；手机上能加载，但手机布局还没调。界面跟随 Obsidian 的语言（中文或英文）。
 
 官网：https://modular-diary.yytyyf.com
 
