@@ -201,7 +201,8 @@ try{
  await page.evaluate(()=>window.plugin.openQuickSchedule())
  const quick=page.locator('.modular-diary-quick-schedule-input')
  await quick.waitFor()
- await quick.fill('10月23日 下午3点 参加演出 @work 2小时')
+ // An explicit year: a bare month-day more than a month behind the real today means next year's (unit-tested with a fixed today).
+ await quick.fill('2026年10月23日 下午3点 参加演出 @work 2小时')
  const previewText=await page.locator('.modular-diary-quick-schedule-preview').innerText()
  assert.ok(previewText.includes('15:00')&&previewText.includes('参加演出')&&previewText.includes('work'),previewText)
  await quick.press('Enter')
