@@ -113,6 +113,7 @@ export class Setting {
   setName(value: string): this { const el = document.createElement("div"); el.className = "setting-item-name"; el.textContent = value; this.infoEl.appendChild(el); return this }
   setDesc(value: string): this { const el = document.createElement("div"); el.className = "setting-item-description"; el.textContent = value; this.infoEl.appendChild(el); return this }
   setClass(value: string): this { this.settingEl.classList.add(value); return this }
+  setHeading(): this { this.settingEl.classList.add("setting-item-heading"); return this }
   addText(callback: (control: TextControl) => void): this { callback(new TextControl(this.controlEl)); return this }
   addTextArea(callback: (control: TextareaControl) => void): this { callback(new TextareaControl(this.controlEl)); return this }
   addToggle(callback: (control: ToggleControl) => void): this { callback(new ToggleControl(this.controlEl)); return this }
@@ -248,7 +249,7 @@ const checklistState = await page.evaluate(() => {
     label: row.querySelector(".modular-diary-checklist-daily-label")?.textContent,
   }))
   return {
-    heading: section.querySelector("h3")?.textContent,
+    heading: section.querySelector(".setting-item-heading .setting-item-name")?.textContent,
     folder: section.querySelector(".setting-item input")?.value,
     rows,
     addLabel: section.querySelector(".modular-diary-settings-add-rule")?.textContent?.trim(),
@@ -329,9 +330,9 @@ const state = await page.evaluate(() => {
     globalHabitWithinRow: globalHabitChildren.every((rect) => rect.left >= globalHabitRect.left - 0.5 && rect.right <= globalHabitRect.right + 0.5),
     globalSectionGap: parseFloat(getComputedStyle(globalSections[1]).marginTop),
     globalSectionKeys: globalSections.map((section) => section.getAttribute("data-settings-section")),
-    todoRulesHeading: todoRules?.querySelector("h3")?.textContent ?? "",
-    timelineHeading: timelineSettings?.querySelector("h3")?.textContent ?? "",
-    weeklyLegacyHeadingCount: [...globalSettings.querySelectorAll("h3")].filter((heading) => heading.textContent === "每周累计待办").length,
+    todoRulesHeading: todoRules?.querySelector(".setting-item-heading .setting-item-name")?.textContent ?? "",
+    timelineHeading: timelineSettings?.querySelector(".setting-item-heading .setting-item-name")?.textContent ?? "",
+    weeklyLegacyHeadingCount: [...globalSettings.querySelectorAll(".setting-item-heading .setting-item-name")].filter((heading) => heading.textContent === "每周累计待办").length,
     addWeeklyLabel: addWeekly?.textContent?.trim() ?? "",
     addWeeklyHeight: addWeekly?.getBoundingClientRect().height ?? 0,
     addWeeklyBackground: addWeekly ? getComputedStyle(addWeekly).backgroundColor : "",
@@ -347,7 +348,7 @@ const state = await page.evaluate(() => {
       }
     })(),
     timelineTop: timelineSettings.getBoundingClientRect().top - globalSettings.getBoundingClientRect().top,
-    timelineSettingNames: timelineSettings ? [...timelineSettings.querySelectorAll(".setting-item-name")].map((el) => el.textContent) : [],
+    timelineSettingNames: timelineSettings ? [...timelineSettings.querySelectorAll(".setting-item:not(.setting-item-heading) .setting-item-name")].map((el) => el.textContent) : [],
     englishLabels: [...englishDaily.querySelectorAll(".modular-diary-rule-field-label")].map((el) => el.textContent),
     englishGoalOptions: [...englishDaily.querySelector('[data-field="goal"] select').options].map((option) => option.textContent),
     englishRepeatOptions: [...englishDaily.querySelector('[data-field="repeat"] select').options].map((option) => option.textContent),

@@ -813,7 +813,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       // The visible boundary and every inner point keep the create cursor.
       // Concrete range buttons own their own pointer cursor via CSS.
       const target = e.target as Element | null
-      svg.querySelectorAll<SVGRectElement>("rect.modular-diary-block").forEach((block) => { block.style.cursor = "" })
+      svg.querySelectorAll<SVGRectElement>("rect.modular-diary-block").forEach((block) => { block.style.removeProperty("cursor") })
       const hoveredBlock = target?.closest<SVGRectElement>("rect.modular-diary-block") ?? null
       let cursor = deps.getActiveType() ? "crosshair" : "default"
       const rect = svg.getBoundingClientRect()
@@ -862,7 +862,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
       const drag = editDrag
       editDrag = null
       svg.releasePointerCapture(e.pointerId)
-      svg.style.cursor = ""
+      svg.style.removeProperty("cursor")
       removeSpanPreview()
       setStatus("")
       if (rect) {
@@ -1058,8 +1058,8 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
   const exitEdit = (): void => {
     const rect = editingRect()
     if (editDrag) setEntryMovePreview(editDrag.line, 0)
-    if (rect) rect.style.cursor = ""
-    svg.style.cursor = ""
+    if (rect) rect.style.removeProperty("cursor")
+    svg.style.removeProperty("cursor")
     deps.setEditingLine(null)
     deactivateEditOwner()
     editDrag = null

@@ -1081,7 +1081,7 @@ function fitHourHeight(root: HTMLElement, rail: HTMLElement, main: HTMLElement, 
     if (Math.abs(rail.getBoundingClientRect().top - main.getBoundingClientRect().top) > 4) {
       root.style.setProperty("--modular-diary-period-hour", `${PERIOD_HOUR_HEIGHT}px`)
       rail.classList.remove("is-capped")
-      rail.style.maxHeight = ""
+      rail.style.removeProperty("max-height")
       return
     }
     const chrome = cal.getBoundingClientRect().height - col.getBoundingClientRect().height
@@ -1090,7 +1090,7 @@ function fitHourHeight(root: HTMLElement, rail: HTMLElement, main: HTMLElement, 
       const hour = Math.max(PERIOD_HOUR_MIN, Math.min(PERIOD_HOUR_MAX, Math.floor((main.clientHeight - chrome - 14) / hours)))
       root.style.setProperty("--modular-diary-period-hour", `${hour}px`)
       rail.classList.remove("is-capped")
-      rail.style.maxHeight = ""
+      rail.style.removeProperty("max-height")
       return
     }
     // scrollHeight, not the box: capping the rail below must not feed back into this measure.

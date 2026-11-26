@@ -1241,20 +1241,14 @@
 /* The full settings tab and focused modals share the same editor primitives,
  * but the tab needs explicit section rhythm instead of relying on Obsidian's
  * adjacent heading margins (which vary between themes). */
-.modular-diary-settings-tab > h2 {
-  margin-bottom: 0;
-}
-
 .modular-diary-settings-section {
   margin-top: var(--size-4-6, 24px);
 }
 
-.modular-diary-settings-section > h3 {
-  margin: 0 0 var(--modular-diary-settings-gap-sm);
-}
-
-.modular-diary-settings-section > .setting-item-description {
-  margin: 0 0 var(--modular-diary-settings-gap-md);
+/* Each section opens with an Obsidian setting heading (its title and description). */
+.modular-diary-settings-section > .setting-item-heading {
+  padding-top: 0;
+  margin-bottom: var(--modular-diary-settings-gap-sm);
 }
 
 .modular-diary-settings-section-editor {

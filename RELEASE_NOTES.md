@@ -1,3 +1,10 @@
+# 0.3.1 — Ready for the community directory
+
+Fixes what the Obsidian community directory's automated review blocked in 0.3.0. Nothing changes in your notes.
+
+- **Settings headings** are Obsidian's own setting headings now, so the settings page matches the rest of Obsidian. The daily quote section is titled "Daily quote".
+- **Inline styles** the plugin sets while you drag, resize or hover are cleared with `removeProperty` instead of assigning an empty value. Behaviour is the same.
+
 # 0.3.0 — Week and month plans
 
 Modular Diary grows from one page per day into a planner around it. Nothing in your existing `timeline` blocks needs to change.

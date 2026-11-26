@@ -136,6 +136,12 @@ export const DEFAULT_SETTINGS: ModularDiarySettings = {
 
 const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 
+/** A section's title, with its line of description, as an Obsidian setting heading. */
+function sectionHeading(section: HTMLElement, name: string, description?: string): void {
+  const heading = new Setting(section).setName(name).setHeading()
+  if (description) heading.setDesc(description)
+}
+
 export class ModularDiarySettingTab extends PluginSettingTab {
   /** Saves a template edit still waiting for its debounce when the tab closes. */
   private flushTemplate: (() => void) | null = null
@@ -157,8 +163,7 @@ export class ModularDiarySettingTab extends PluginSettingTab {
 
     const timelineSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     timelineSection.dataset.settingsSection = "timeline"
-    timelineSection.createEl("h3", { text: tr("timelineSettingsHeading") })
-    timelineSection.createEl("p", { text: tr("timelineSettingsDescription"), cls: "setting-item-description" })
+    sectionHeading(timelineSection, tr("timelineSettingsHeading"), tr("timelineSettingsDescription"))
     const timelineSettingsEl = timelineSection.createDiv({ cls: "modular-diary-settings-section-editor" })
 
     new Setting(timelineSettingsEl)
@@ -291,21 +296,18 @@ export class ModularDiarySettingTab extends PluginSettingTab {
     ] as const) {
       const categorySection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
       categorySection.dataset.settingsSection = `${scope}-categories`
-      categorySection.createEl("h3", { text: heading })
-      categorySection.createEl("p", { text: description, cls: "setting-item-description" })
+      sectionHeading(categorySection, heading, description)
       renderCategorySettings(categorySection.createDiv({ cls: "modular-diary-settings-section-editor" }), this.plugin, scope)
     }
 
     const habitSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     habitSection.dataset.settingsSection = "habits"
-    habitSection.createEl("h3", { text: tr("rhythmsHeading") })
-    habitSection.createEl("p", { text: tr("rhythmsDescription"), cls: "setting-item-description" })
+    sectionHeading(habitSection, tr("rhythmsHeading"), tr("rhythmsDescription"))
     this.plugin.rhythms.renderSettings(habitSection.createDiv({ cls: "modular-diary-settings-section-editor" }))
 
     const weeklyTodoSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     weeklyTodoSection.dataset.settingsSection = "todo-rules"
-    weeklyTodoSection.createEl("h3", { text: tr("todoRulesHeading") })
-    weeklyTodoSection.createEl("p", { text: tr("todoRulesDescription"), cls: "setting-item-description" })
+    sectionHeading(weeklyTodoSection, tr("todoRulesHeading"), tr("todoRulesDescription"))
     new Setting(weeklyTodoSection)
       .setName(tr("bodyTodoSection"))
       .setDesc(tr("bodyTodoSectionDescription"))
@@ -369,19 +371,17 @@ export class ModularDiarySettingTab extends PluginSettingTab {
 
     const quoteSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     quoteSection.dataset.settingsSection = "daily-quotes"
-    quoteSection.createEl("h3", { text: tr("dailyQuoteSettings") })
-    quoteSection.createEl("p", { text: tr("dailyQuoteSettingsDescription"), cls: "setting-item-description" })
+    sectionHeading(quoteSection, tr("dailyQuoteHeading"), tr("dailyQuoteSettingsDescription"))
     renderDailyQuoteSettings(quoteSection.createDiv({ cls: "modular-diary-settings-section-editor" }), this.plugin)
 
     const checklistSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     checklistSection.dataset.settingsSection = "checklists"
-    checklistSection.createEl("h3", { text: tr("checklistsHeading") })
-    checklistSection.createEl("p", { text: tr("checklistsDescription"), cls: "setting-item-description" })
+    sectionHeading(checklistSection, tr("checklistsHeading"), tr("checklistsDescription"))
     renderChecklistSettings(checklistSection.createDiv({ cls: "modular-diary-settings-section-editor" }), this.plugin)
 
     const captureSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     captureSection.dataset.settingsSection = "natural-language"
-    captureSection.createEl("h3", { text: tr("naturalLanguageHeading") })
+    sectionHeading(captureSection, tr("naturalLanguageHeading"))
     const captureEl = captureSection.createDiv({ cls: "modular-diary-settings-section-editor" })
 
     new Setting(captureEl)

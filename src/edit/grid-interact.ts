@@ -36,7 +36,7 @@ export function applyGridToBody(body: HTMLElement, items: GridItem[]): void {
     body.style.minWidth = `${canvasWidth}px`
   } else {
     body.style.width = `${(columns / GRID_COLS) * 100}%`
-    body.style.minWidth = "" // the stylesheet's 100%
+    body.style.removeProperty("min-width") // the stylesheet's 100%
   }
   for (const slot of Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot"))) {
     const item = normalized.find((it) => it.id === slot.dataset.slot)

@@ -643,7 +643,7 @@ export function renderTimelineInto(
         const fits = label.offsetWidth + 10 <= insideWidth
         if (!isOut && !fits) {
           label.classList.add("modular-diary-stat-hours-out")
-          label.style.color = ""
+          label.style.removeProperty("color")
           barWrap.classList.add("is-label-out")
           barWrap.appendChild(label)
         } else if (isOut && fits) {
