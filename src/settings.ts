@@ -154,7 +154,6 @@ export class ModularDiarySettingTab extends PluginSettingTab {
     containerEl.empty()
     containerEl.addClass("modular-diary-focused-settings")
     containerEl.addClass("modular-diary-settings-tab")
-    containerEl.createEl("h2", { text: tr("settingsTitle") })
 
     const timelineSection = containerEl.createDiv({ cls: "modular-diary-settings-section" })
     timelineSection.dataset.settingsSection = "timeline"

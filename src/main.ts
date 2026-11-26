@@ -15,7 +15,7 @@ import { obsidianTransport } from "./agent/obsidian-transport"
 import { buildTodoReviewPrompt, DEFAULT_TODO_REVIEW_CHECKLIST, type ReviewTodo } from "./agent/todo-review"
 import { TodoReviewModal } from "./agent/todo-review-modal"
 import { canTrackDays, periodStatsToken } from "./core/period-stats"
-import { getLanguage, MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownRenderer, MarkdownView, Menu, moment, normalizePath, Notice, Platform, Plugin, setIcon, TAbstractFile, TFile, TFolder } from "obsidian"
+import { Component, getLanguage, MarkdownPostProcessorContext, MarkdownRenderChild, MarkdownRenderer, MarkdownView, Menu, moment, normalizePath, Notice, Platform, Plugin, setIcon, TAbstractFile, TFile, TFolder } from "obsidian"
 import type momentFactory from "moment"
 import { normalizeSpan, parseTimeline } from "./core/parser"
 import { formatClockPlain, formatEntryLine, formatMarkerLine } from "./core/format"
@@ -46,7 +46,7 @@ import { attachBlockResize } from "./edit/block-resize"
 import { serializeBlockSize } from "./core/block-size"
 import { routeMarkdownUndo } from "./edit/undo-routing"
 import { decideTimelineOnboarding, resolveTimelineOnboardingSeen } from "./core/onboarding"
-import { configureI18n, t as tr, weekdayLabel } from "./i18n"
+import { configureI18n, resolveLocale, t as tr, weekdayLabel } from "./i18n"
 import {
   captureViewportAnchor,
   restoreViewportAnchor,
@@ -226,6 +226,8 @@ export default class ModularDiaryPlugin extends Plugin {
   })
   /** View state: a day block paging its embedded period away from its own week / month. */
   private readonly embedBrowse = new Map<string, PeriodScope>()
+  /** Rendered Markdown inside a block belongs to that block, and is unloaded with it. */
+  private readonly markdownOwners = new WeakMap<HTMLElement, Component>()
   /** Where each period view's rail was scrolled, so a write does not send it back to the top. */
   private readonly periodRailScroll = new Map<string, number>()
   private sourceDrafts = new WeakMap<HTMLElement, SourceModeSession>()
@@ -793,8 +795,9 @@ export default class ModularDiaryPlugin extends Plugin {
           renderMarkdown: (host, text) => {
             // 单换行 -> markdown 硬换行（行尾两空格）：无论 Obsidian 段落策略如何，
             // 单换行都留在同一段落内，p+p 间距只对应源码真正的空行（yyt 2026-08-19）
-            const normalized = text.replace(/(?<!\n)\n(?!\n)/g, "  \n")
-            void MarkdownRenderer.render(this.app, normalized, host, ctx.sourcePath, this)
+            // No lookbehind: iOS before 16.4 cannot parse one.
+            const normalized = text.replace(/(^|[^\n])\n(?!\n)/g, "$1  \n")
+            void MarkdownRenderer.render(this.app, normalized, host, ctx.sourcePath, this.markdownOwner(el, ctx))
           },
           onSave: saveText,
           onRenameTitle: (index, title) => this.applyBlockTransform(el, ctx, source, (s) => setTextTitle(s, index, title || undefined)),
@@ -3163,6 +3166,19 @@ export default class ModularDiaryPlugin extends Plugin {
     })
   }
 
+  /** The component that owns Markdown rendered inside a block: one per block element, unloaded with its section. */
+  private markdownOwner(el: HTMLElement, ctx: MarkdownPostProcessorContext): Component {
+    let owner = this.markdownOwners.get(el)
+    if (!owner) {
+      const child = new MarkdownRenderChild(el)
+      if (typeof ctx.addChild === "function") ctx.addChild(child)
+      else child.load()
+      owner = child
+      this.markdownOwners.set(el, owner)
+    }
+    return owner
+  }
+
   private async openDay(date: string): Promise<void> {
     const path = await this.writeToDay(date, (blockSource) => blockSource)
     await this.app.workspace.openLinkText(path, "", false)
@@ -3926,6 +3942,11 @@ export default class ModularDiaryPlugin extends Plugin {
     const palettes = migrateCategoryPalettes(data)
     // dailyQuoteDefaults: the retired card designer's appearance model (2026-09-10).
     const { typeColors: _legacyTypeColors, retiredTypeColors: _legacyRetiredTypeColors, dailyQuoteDefaults: _legacyQuoteDefaults, ...current } = (data ?? {}) as NonNullable<typeof data> & { dailyQuoteDefaults?: unknown }
+    // The rhythms note and the week / month folder (new in 0.3.0) are named in the vault's language,
+    // then written to data.json so a later language switch never moves them.
+    const zh = resolveLocale(getLanguage()) === "zh"
+    const names = { rhythmsFile: zh ? DEFAULT_SETTINGS.rhythmsFile : "Rhythms.md", periodFolder: zh ? DEFAULT_SETTINGS.periodFolder : "Plans" }
+    const namesChosen = typeof data?.rhythmsFile !== "string" || typeof data?.periodFolder !== "string"
     this.settings = {
       ...DEFAULT_SETTINGS,
       ...current,
@@ -3941,10 +3962,10 @@ export default class ModularDiaryPlugin extends Plugin {
       dailyQuoteInk: typeof data?.dailyQuoteInk === "string" ? data.dailyQuoteInk : "",
       checklistFolder: typeof data?.checklistFolder === "string" ? data.checklistFolder : DEFAULT_SETTINGS.checklistFolder,
       upcomingFile: typeof data?.upcomingFile === "string" && data.upcomingFile.trim() ? data.upcomingFile.trim() : DEFAULT_SETTINGS.upcomingFile,
-      rhythmsFile: typeof data?.rhythmsFile === "string" && data.rhythmsFile.trim() ? data.rhythmsFile.trim() : DEFAULT_SETTINGS.rhythmsFile,
+      rhythmsFile: typeof data?.rhythmsFile === "string" && data.rhythmsFile.trim() ? data.rhythmsFile.trim() : names.rhythmsFile,
       zonePmHour: Number.isInteger(data?.zonePmHour) && (data!.zonePmHour as number) >= 1 && (data!.zonePmHour as number) <= 22 ? (data!.zonePmHour as number) : DEFAULT_SETTINGS.zonePmHour,
       zoneEvHour: Number.isInteger(data?.zoneEvHour) && (data!.zoneEvHour as number) >= 2 && (data!.zoneEvHour as number) <= 23 ? (data!.zoneEvHour as number) : DEFAULT_SETTINGS.zoneEvHour,
-      periodFolder: typeof data?.periodFolder === "string" && data.periodFolder.trim() ? data.periodFolder.trim().replace(/\/+$/, "") : DEFAULT_SETTINGS.periodFolder,
+      periodFolder: typeof data?.periodFolder === "string" && data.periodFolder.trim() ? data.periodFolder.trim().replace(/\/+$/, "") : names.periodFolder,
       monthShowTodos: data?.monthShowTodos === true,
       periodFace: data?.periodFace === "actual" ? "actual" : "plan",
       periodHeight: Number.isFinite(data?.periodHeight) && (data!.periodHeight as number) >= 320 && (data!.periodHeight as number) <= 1400 ? Math.round(data!.periodHeight as number) : DEFAULT_SETTINGS.periodHeight,
@@ -3955,7 +3976,7 @@ export default class ModularDiaryPlugin extends Plugin {
         hasPersistedSettings
       ),
     }
-    if (needsCategoryMigration) await this.saveData(this.settings)
+    if (needsCategoryMigration || namesChosen) await this.saveData(this.settings)
     if (this.settings.zoneEvHour <= this.settings.zonePmHour) this.settings.zoneEvHour = this.settings.zonePmHour + 1
     setZoneEdges(this.settings.zonePmHour, this.settings.zoneEvHour)
   }

@@ -40,7 +40,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
   tooltip.className = "modular-diary-tooltip"
   tooltip.setAttribute("role", "tooltip")
   tooltip.setAttribute("aria-hidden", "true")
-  tooltip.style.display = "none"
+  tooltip.classList.add("modular-diary-is-hidden")
   container.appendChild(tooltip)
 
   const clearPairing = (): void => {
@@ -48,7 +48,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
   }
 
   const hideTooltip = (): void => {
-    tooltip.style.display = "none"
+    tooltip.classList.add("modular-diary-is-hidden")
     tooltip.setAttribute("aria-hidden", "true")
     clearPairing()
   }
@@ -76,7 +76,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
         note.textContent = first.length > 60 ? `${first.slice(0, 60)}…` : first
         tooltip.appendChild(note)
       }
-      tooltip.style.display = "block"
+      tooltip.classList.remove("modular-diary-is-hidden")
       tooltip.setAttribute("aria-hidden", "false")
       return true
     }
@@ -103,7 +103,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
         note.textContent = marker.text
         tooltip.appendChild(note)
       }
-      tooltip.style.display = "block"
+      tooltip.classList.remove("modular-diary-is-hidden")
       tooltip.setAttribute("aria-hidden", "false")
       return true
     }
@@ -145,7 +145,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
         tooltip.appendChild(l3)
       }
     }
-    tooltip.style.display = "block"
+    tooltip.classList.remove("modular-diary-is-hidden")
     tooltip.setAttribute("aria-hidden", "false")
     return true
   }
@@ -186,7 +186,7 @@ export function attachHoverInfo(container: HTMLElement, doc: TimelineDoc): void 
   })
 
   svg.addEventListener("pointermove", (e: PointerEvent) => {
-    if (tooltip.style.display === "none") return
+    if (tooltip.classList.contains("modular-diary-is-hidden")) return
     placeAtPointer(e.clientX, e.clientY)
   })
 

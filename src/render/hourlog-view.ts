@@ -7,7 +7,7 @@
  * never by line; a linked block is remembered by what it is; save state is
  * shown where the length sits; IME composition never triggers Esc/⌘↵.
  */
-import { setIcon } from "obsidian"
+import { Platform, setIcon } from "obsidian"
 import { FENCE_LINE_RE } from "../core/body-extent"
 import { formatHours } from "../core/duration"
 import type { HourlogItem, HourlogLink } from "../core/hourlog"
@@ -46,12 +46,14 @@ export interface HourlogViewDeps {
 }
 
 const clock = (minutes: number): string => `${String(Math.floor(minutes / 60) % 24).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`
-const isMac = (): boolean => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
+const isMac = (): boolean => Platform.isMacOS || Platform.isIosApp
 const sameLink = (a: HourlogLink | null, entry: Entry): boolean => Boolean(a) && a!.startMin === entry.startMin && a!.endMin === entry.endMin && a!.type === entry.type && (a!.note ?? "") === (entry.note ?? "")
 
 function autosize(area: HTMLTextAreaElement): void {
-  area.style.height = "auto"
-  area.style.height = `${area.scrollHeight}px`
+  area.classList.add("modular-diary-autosize-auto")
+  const natural = area.scrollHeight
+  area.classList.remove("modular-diary-autosize-auto")
+  area.style.height = `${natural}px`
 }
 
 /** Keys pressed while an input method is composing belong to the IME, not to us. */

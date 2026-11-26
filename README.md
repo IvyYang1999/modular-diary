@@ -77,7 +77,7 @@ Week and month plans are notes of their own (`Plans/2026-W48.md`, `Plans/2026-11
 
 Until Modular Diary is in the community directory, install it with [BRAT](https://github.com/TfTHacker/obsidian42-brat): *Add a beta plugin* → `IvyYang1999/modular-diary`. Or download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/IvyYang1999/modular-diary/releases/latest) into `.obsidian/plugins/modular-diary/`.
 
-Then open a daily note and run **Insert Modular Diary timeline block** from the command palette. Obsidian 1.8.7 or later on desktop. The interface follows Obsidian's language (English or 中文).
+Then open a daily note and run **Insert Modular Diary timeline block** from the command palette. Obsidian 1.8.7 or later. It is built and tested on desktop; it loads on mobile, but phone layouts are not tuned yet. The interface follows Obsidian's language (English or 中文).
 
 <details>
 <summary>Upgrading from 0.1 (plugin ID <code>oneday</code>)</summary>
@@ -124,8 +124,8 @@ node e2e/docs-media/banner.mjs     # docs/media/banner.png
 - **Markdown 是本体。** 一天是日记里的一个 `timeline` 代码块，每段时间、每条待办都是一行能手改的文字；周、月计划是单独的笔记，格式相同。随 iCloud / Git / Obsidian Sync 同步，插件不在也能读。
 - **快速记录（可选）。** 输入「运动了半小时」，模型把它变成时间轴条目。用你自己的 API Key（兼容 OpenAI 的服务商）或本机的 Claude Code CLI，不设置就不启用。只有这类模型功能（快速记录、待办检查）会联网，插件其他部分都不联网。
 
-**安装**：上架社区目录之前，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 添加 `IvyYang1999/modular-diary`；或从 [最新 release](https://github.com/IvyYang1999/modular-diary/releases/latest) 下载 `main.js`、`manifest.json`、`styles.css` 放进 `.obsidian/plugins/modular-diary/`。然后在日记里运行命令「插入 Modular Diary 时间轴块」。Obsidian 1.8.7 以上，桌面版。界面跟随 Obsidian 的语言（中文或英文）。
+**安装**：上架社区目录之前，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 添加 `IvyYang1999/modular-diary`；或从 [最新 release](https://github.com/IvyYang1999/modular-diary/releases/latest) 下载 `main.js`、`manifest.json`、`styles.css` 放进 `.obsidian/plugins/modular-diary/`。然后在日记里运行命令「插入 Modular Diary 时间轴块」。Obsidian 1.8.7 以上。为桌面设计和测试；手机上能加载，但手机布局还没调。界面跟随 Obsidian 的语言（中文或英文）。
 
 官网：https://modular-diary.yytyyf.com
 
-作者 [yytyyf](https://yytyyf.com)
+作者 [yytyyf](https://yytyyf.com) · MIT

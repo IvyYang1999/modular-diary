@@ -4,7 +4,6 @@ interface VisualRecord<Owner extends object> {
   key: ScrollTransactionKey<Owner>
   overlay: HTMLElement
   source: HTMLElement
-  sourceVisibility: string
   dispose: () => void
 }
 
@@ -63,8 +62,7 @@ export class RemountVisualRegistry<Owner extends object> {
     // visible as well would paint two complete Modular Diary trees until Obsidian
     // unmounts the old processor. `visibility` preserves geometry and scroll
     // state, and is restored if the write is cancelled or the bridge expires.
-    const sourceVisibility = source.style.visibility
-    source.style.visibility = "hidden"
+    source.classList.add("modular-diary-remount-hidden")
     const dom = source.ownerDocument
     const domWindow = dom.defaultView
     let resizeObserver: ResizeObserver | null = null
@@ -89,7 +87,6 @@ export class RemountVisualRegistry<Owner extends object> {
       key,
       overlay,
       source,
-      sourceVisibility,
       dispose: () => {
         dom.removeEventListener("scroll", invalidate, true)
         domWindow?.removeEventListener("resize", invalidate)
@@ -97,7 +94,7 @@ export class RemountVisualRegistry<Owner extends object> {
         domWindow?.visualViewport?.removeEventListener("resize", invalidate)
         resizeObserver?.disconnect()
         if (expiryTimer) domWindow?.clearTimeout(expiryTimer)
-        if (source.isConnected) source.style.visibility = sourceVisibility
+        if (source.isConnected) source.classList.remove("modular-diary-remount-hidden")
       },
     }
     this.records.push(record)

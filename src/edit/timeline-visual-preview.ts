@@ -1,5 +1,6 @@
 import type { TimelineDoc } from "../core/types"
 import { renderTimelineSvg, type RenderOptions } from "../render/svg-builder"
+import { setMarkup } from "../render/markup"
 
 const PREVIEW_SELECTOR = [
   ".modular-diary-preview-block",
@@ -35,7 +36,7 @@ export function previewTimelineVisual(
   // A narrow slot may have fitted the annotation lane; the preview keeps it.
   const fittedLane = Number(live.getAttribute("data-side-lane"))
   const sideLaneWidth = options.sideLaneWidth ?? (Number.isFinite(fittedLane) && live.hasAttribute("data-side-lane") ? fittedLane : undefined)
-  staging.innerHTML = renderTimelineSvg(nextDoc, { ...options, sideLaneWidth })
+  setMarkup(staging, renderTimelineSvg(nextDoc, { ...options, sideLaneWidth }))
   const next = staging.querySelector<SVGSVGElement>("svg.modular-diary-svg")
   if (!next) return null
 
@@ -44,7 +45,7 @@ export function previewTimelineVisual(
   // write; rollback means the last persisted SVG, not the temporary ghost.
   const rollbackShell = live.cloneNode(true) as SVGSVGElement
   rollbackShell.querySelectorAll(PREVIEW_SELECTOR).forEach((node) => node.remove())
-  const rollbackMarkup = rollbackShell.innerHTML
+  const rollbackNodes = Array.from(rollbackShell.childNodes)
   const rollbackFrame = {
     width: live.getAttribute("width"),
     height: live.getAttribute("height"),
@@ -56,7 +57,7 @@ export function previewTimelineVisual(
   live.dispatchEvent(new (dom.defaultView?.CustomEvent ?? CustomEvent)("modular-diary-sync-edit-visual"))
 
   return () => {
-    live.innerHTML = rollbackMarkup
+    live.replaceChildren(...rollbackNodes)
     for (const [name, value] of Object.entries(rollbackFrame)) {
       if (value === null) live.removeAttribute(name)
       else live.setAttribute(name, value)

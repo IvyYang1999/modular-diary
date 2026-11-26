@@ -11,6 +11,7 @@ const out = path.join(os.tmpdir(), "modular-diary-hourlog-smoke")
 fs.rmSync(out, { recursive: true, force: true })
 fs.mkdirSync(out, { recursive: true })
 fs.writeFileSync(path.join(out, "obsidian-stub.ts"), `
+export const Platform = { isMacOS: true, isIosApp: false }
 export function setIcon(el: HTMLElement, name: string): void {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
   svg.setAttribute("class", "svg-icon"); svg.setAttribute("viewBox", "0 0 24 24"); svg.dataset.icon = name

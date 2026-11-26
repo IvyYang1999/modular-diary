@@ -753,7 +753,7 @@ export function renderTodosInto(slot: HTMLElement, items: TodoViewItem[], deps: 
     if (item.body) for (const field of Array.from(editForm.form.querySelectorAll<HTMLElement>(".modular-diary-todo-category-select, .modular-diary-todo-estimate-field, .modular-diary-todo-rank-row, .modular-diary-todo-note-input, .modular-diary-todo-attach-field"))) {
       editForm.form.classList.add("is-body-todo")
       field.hidden = true
-      field.style.display = "none"
+      field.classList.add("modular-diary-is-hidden")
       if (field.matches("input, select, textarea, button")) (field as HTMLInputElement).disabled = true
       field.querySelectorAll<HTMLInputElement | HTMLButtonElement>("input, select, textarea, button").forEach(control => { control.disabled = true })
     }

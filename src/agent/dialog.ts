@@ -48,15 +48,17 @@ export function attachDialog(container: HTMLElement, doc: TimelineDoc, deps: Dia
   }) as unknown as HTMLInputElement
   const ta = input as unknown as HTMLTextAreaElement
   const fitInput = (): void => {
-    ta.style.height = "0px"
-    ta.style.height = `${Math.max(32, ta.scrollHeight)}px` // 最小高度兜底（yyt：输入框扁了）
+    ta.classList.add("modular-diary-autosize-measure")
+    const natural = ta.scrollHeight
+    ta.classList.remove("modular-diary-autosize-measure")
+    ta.style.height = `${Math.max(32, natural)}px` // 最小高度兜底（yyt：输入框扁了）
   }
   ta.addEventListener("input", fitInput)
   domWindow?.setTimeout(fitInput, 0)
   // loading 内联在输入行右侧（yyt：不占单独一行）
   const loading = inputRow.createEl("span", { cls: "modular-diary-dialog-loading", text: t("generating") })
   loading.setAttr("aria-hidden", "true")
-  loading.style.display = "none"
+  loading.classList.add("modular-diary-is-hidden")
   const status = box.createDiv({ cls: "modular-diary-dialog-status" })
   status.setAttrs({ role: "status", "aria-live": "polite" })
 
@@ -69,7 +71,7 @@ export function attachDialog(container: HTMLElement, doc: TimelineDoc, deps: Dia
     busy = true
     box.setAttr("aria-busy", "true")
     ta.disabled = true
-    loading.style.display = ""
+    loading.classList.remove("modular-diary-is-hidden")
     loading.setAttr("aria-hidden", "false")
     status.setText("")
     status.removeClass("modular-diary-dialog-error")
@@ -96,7 +98,7 @@ export function attachDialog(container: HTMLElement, doc: TimelineDoc, deps: Dia
         )
 
     if (!run.ok) {
-      loading.style.display = "none"
+      loading.classList.add("modular-diary-is-hidden")
       loading.setAttr("aria-hidden", "true")
       status.setText(run.reason)
       status.addClass("modular-diary-dialog-error")
@@ -108,7 +110,7 @@ export function attachDialog(container: HTMLElement, doc: TimelineDoc, deps: Dia
 
     const result = interpretActions(run.text, doc, text)
     if (!result.ok) {
-      loading.style.display = "none"
+      loading.classList.add("modular-diary-is-hidden")
       loading.setAttr("aria-hidden", "true")
       history.push({ role: "assistant", content: run.text }) // 追问留在历史里
       status.setText(result.reason)
@@ -125,7 +127,7 @@ export function attachDialog(container: HTMLElement, doc: TimelineDoc, deps: Dia
     history.length = 0
     ta.placeholder = t("quickRecordPlaceholder")
 
-    loading.style.display = "none"
+    loading.classList.add("modular-diary-is-hidden")
     loading.setAttr("aria-hidden", "true")
     try {
       await deps.writeActions(result.actions)

@@ -36,7 +36,7 @@ export function applyGridToBody(body: HTMLElement, items: GridItem[]): void {
     body.style.minWidth = `${canvasWidth}px`
   } else {
     body.style.width = `${(columns / GRID_COLS) * 100}%`
-    body.style.minWidth = "100%"
+    body.style.minWidth = "" // the stylesheet's 100%
   }
   for (const slot of Array.from(body.querySelectorAll<HTMLElement>(".modular-diary-slot"))) {
     const item = normalized.find((it) => it.id === slot.dataset.slot)
@@ -134,7 +134,6 @@ export function attachGridInteract(body: HTMLElement, onCommit: (items: GridItem
       // classes gives it the same design tokens, so the content keeps its look.
       const cloneHost = dom.createElement("div")
       cloneHost.className = `${pointerOwner.className} modular-diary-drag-clone-host`
-      cloneHost.style.display = "contents"
       cloneHost.appendChild(clone)
       dom.body.appendChild(cloneHost)
       slot.classList.add("is-placeholder")

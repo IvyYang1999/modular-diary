@@ -5,6 +5,7 @@
  */
 
 import { labelCustomMenu, showCustomMenu } from "./custom-menu"
+import { setMarkup } from "../render/markup"
 import { t } from "../i18n"
 import { attachRowCompaction, CREATION_ROW_COMPACTION } from "./row-compaction"
 import type { TimelineDrawTool } from "../core/types"
@@ -238,7 +239,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
       const icon = dom.createElement("span")
       icon.className = "modular-diary-toolbar-empty-icon"
       icon.setAttribute("aria-hidden", "true")
-      icon.innerHTML = PLUS_SVG
+      setMarkup(icon, PLUS_SVG)
       const copy = dom.createElement("span")
       copy.className = "modular-diary-toolbar-empty-label"
       copy.textContent = t("addFirstCategory")
@@ -295,7 +296,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   const moreIcon = dom.createElement("span")
   moreIcon.className = "modular-diary-category-more-icon"
   moreIcon.setAttribute("aria-hidden", "true")
-  moreIcon.innerHTML = CHEVRON_SVG
+  setMarkup(moreIcon, CHEVRON_SVG)
   moreBtn.append(moreLabel, moreIcon)
   moreBtn.addEventListener("click", (e) => {
     e.stopPropagation()
@@ -325,7 +326,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
     expandItem.type = "button"
     expandItem.className = "modular-diary-add-item modular-diary-add-new modular-diary-category-expand"
     expandItem.setAttribute("role", "menuitem")
-    expandItem.innerHTML = CHEVRON_SVG
+    setMarkup(expandItem, CHEVRON_SVG)
     expandItem.appendChild(dom.createTextNode(t("expandAllCategories")))
     expandItem.addEventListener("click", () => {
       close()
@@ -343,7 +344,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   const addBtn = dom.createElement("button")
   addBtn.type = "button"
   addBtn.className = "modular-diary-swatch modular-diary-add"
-  addBtn.innerHTML = PLUS_SVG
+  setMarkup(addBtn, PLUS_SVG)
   addBtn.setAttribute("aria-label", hidden.length > 0 ? t("manageCategories") : t("addCategory"))
   if (hidden.length > 0) {
     addBtn.setAttribute("aria-haspopup", "menu")
@@ -376,7 +377,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
       const icon = dom.createElement("span")
       icon.className = "modular-diary-menu-icon"
       icon.setAttribute("aria-hidden", "true")
-      icon.innerHTML = PLUS_SVG
+      setMarkup(icon, PLUS_SVG)
       addNew.append(icon, dom.createTextNode(`${t("addCategory")}…`))
       addNew.addEventListener("click", () => {
         close()
@@ -399,7 +400,7 @@ export function buildToolbar(deps: ToolbarDeps): ToolbarHandle {
   foldBtn.type = "button"
   foldBtn.className = "modular-diary-swatch modular-diary-category-fold"
   foldBtn.hidden = true
-  foldBtn.innerHTML = CHEVRON_UP_SVG
+  setMarkup(foldBtn, CHEVRON_UP_SVG)
   foldBtn.setAttribute("aria-label", t("collapseCategories"))
   foldBtn.addEventListener("click", (e) => {
     e.stopPropagation()
@@ -528,7 +529,7 @@ export function buildLayerToggles(view: LayerView, onChange: (view: LayerView) =
     const syncAria = (on: boolean): void => {
       btn.setAttribute("aria-pressed", String(on))
       btn.setAttribute("aria-label", on ? t("hideLayer", { name: label }) : t("showLayer", { name: label }))
-      eye.innerHTML = on ? EYE_OPEN_SVG : EYE_OFF_SVG
+      setMarkup(eye, on ? EYE_OPEN_SVG : EYE_OFF_SVG)
     }
     syncAria(state[key])
     btn.addEventListener("click", () => {

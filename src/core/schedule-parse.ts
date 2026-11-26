@@ -68,11 +68,13 @@ export function parseScheduleLine(input: string, today: string): ParsedSchedule 
   let text = input.replace(/\s+/g, " ").trim()
   if (!text) return null
   const out: ParsedSchedule = { date: today, dateExplicit: false, title: "" }
-  const take = (re: RegExp, use: (m: RegExpExecArray) => void): boolean => {
+  /** Remove what `re` matched and hand the match over; a leading `lead` group (instead of a lookbehind, which iOS before 16.4 cannot parse) stays in the text. */
+  const take = (re: RegExp, use: (m: RegExpExecArray) => void, lead = false): boolean => {
     const m = re.exec(text)
     if (!m) return false
     use(m)
-    text = `${text.slice(0, m.index)} ${text.slice(m.index + m[0].length)}`.replace(/\s+/g, " ").trim()
+    const kept = lead ? m[1] ?? "" : ""
+    text = `${text.slice(0, m.index)}${kept} ${text.slice(m.index + m[0].length)}`.replace(/\s+/g, " ").trim()
     return true
   }
   const setDate = (date: string | null): void => { if (date) { out.date = date; out.dateExplicit = true } }
@@ -93,7 +95,7 @@ export function parseScheduleLine(input: string, today: string): ParsedSchedule 
   // Date
   const dated = take(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})[日号]?/, (m) => setDate(isoDate(Number(m[1]), Number(m[2]), Number(m[3]))))
     || take(/(\d{1,2})月(\d{1,2})[日号]?/, (m) => setMonthDay(Number(m[1]), Number(m[2])))
-    || take(/(?<![\d:：])(\d{1,2})[/.](\d{1,2})(?![\d:：]|\s*(?:小时|h\b|hr))/i, (m) => setMonthDay(Number(m[1]), Number(m[2])))
+    || take(/(^|[^\d:：])(\d{1,2})[/.](\d{1,2})(?![\d:：]|\s*(?:小时|h\b|hr))/i, (m) => setMonthDay(Number(m[2]), Number(m[3])), true)
     || take(/大后天/, () => setDate(shiftDate(today, 3)))
     || take(/后天/, () => setDate(shiftDate(today, 2)))
     || take(/明天|明日/, () => setDate(shiftDate(today, 1)))

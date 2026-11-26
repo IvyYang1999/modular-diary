@@ -1,10 +1,10 @@
 {
   "id": "modular-diary",
   "name": "Modular Diary",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "minAppVersion": "1.8.7",
-  "description": "Daily timeline with flexible time categories. Markdown is the single source of truth.",
-  "author": "yyt",
-  "authorUrl": "",
+  "description": "One page for your day: a timeline you draw on, modules you arrange, and week and month plans around it, kept as plain Markdown.",
+  "author": "yytyyf",
+  "authorUrl": "https://yytyyf.com",
   "isDesktopOnly": false
 }

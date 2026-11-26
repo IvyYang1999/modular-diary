@@ -29,6 +29,7 @@ import { GRID_ROW_H, GridItem, gridRows, isTextSlot, resolveGrid } from "../core
 import { applyGridToBody } from "../edit/grid-interact"
 import type { TextDraftState } from "../edit/text-draft"
 import { captureViewportAnchor, stabilizeViewportAnchor } from "../edit/viewport-anchor"
+import { setMarkup } from "./markup"
 
 interface InlineEditorDeps {
   /** What an empty section invites you to write; defaults to the generic prompt. */
@@ -168,8 +169,10 @@ export function attachInlineTextEditor(pane: HTMLElement, initialText: string, d
       const scrollTop = scroller.scrollTop
       const oldMax = scroller.scrollHeight - scroller.clientHeight
       const wasAtBottom = scrollTop >= oldMax - 2
-      ta.style.height = "0px"
-      ta.style.height = `${Math.max(editorFloor, ta.scrollHeight)}px`
+      ta.classList.add("modular-diary-autosize-measure")
+      const natural = ta.scrollHeight
+      ta.classList.remove("modular-diary-autosize-measure")
+      ta.style.height = `${Math.max(editorFloor, natural)}px`
       // Measuring via 0px briefly collapses the overflow content and the browser
       // clamps its parent scrollTop to 0. Restore the user's viewport immediately;
       // when editing at the end, follow the newly grown bottom instead.
@@ -347,7 +350,7 @@ function attachSideLaneFit(
     const lane = fitSideLaneWidth(available, baseWidth)
     if (live.getAttribute("data-side-lane") === String(lane)) return
     const staging = dom.createElement("div")
-    staging.innerHTML = renderTimelineSvg(doc, { ...opts, width: baseWidth, sideLaneWidth: lane })
+    setMarkup(staging, renderTimelineSvg(doc, { ...opts, width: baseWidth, sideLaneWidth: lane }))
     const next = staging.querySelector<SVGSVGElement>("svg.modular-diary-svg")
     const nextLane = next?.querySelector("g.modular-diary-side-lane")
     const liveLane = live.querySelector("g.modular-diary-side-lane")
@@ -465,7 +468,7 @@ export function renderTimelineInto(
     slot.dataset.h = String(it.h)
     if (it.id === "timeline") {
       const svgHolder = slot.createDiv({ cls: "modular-diary-svg-holder" })
-      svgHolder.innerHTML = timelineSvg
+      setMarkup(svgHolder, timelineSvg)
       attachSideLaneFit(svgHolder, doc, opts, baseWidth)
       const noCategories = Object.keys(opts.typeColors).length === 0
         && Object.keys(opts.markerTypeColors ?? {}).length === 0

@@ -1077,7 +1077,7 @@ export function attachDrawInteraction(container: HTMLElement, doc: TimelineDoc, 
     if (pending) {
       const tooltip = container.querySelector<HTMLElement>(".modular-diary-tooltip")
       if (tooltip) {
-        tooltip.style.display = "none"
+        tooltip.classList.add("modular-diary-is-hidden")
         tooltip.setAttribute("aria-hidden", "true")
       }
     }

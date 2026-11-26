@@ -136,8 +136,10 @@ export function mountSourceMode(
   // the overlay's CSS min/max-height clamp it to [320px, block height]. When
   // the clamp wins, the textarea shrinks and scrolls inside the editor.
   const fitEditor = (): void => {
-    textarea.style.height = "0px"
-    textarea.style.height = `${textarea.scrollHeight}px`
+    textarea.classList.add("modular-diary-autosize-measure")
+    const natural = textarea.scrollHeight
+    textarea.classList.remove("modular-diary-autosize-measure")
+    textarea.style.height = `${natural}px`
   }
   textarea.addEventListener("input", () => {
     deps.onDraftChange(textarea.value)

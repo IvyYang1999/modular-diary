@@ -2838,6 +2838,16 @@ button.modular-diary-todo-group-toggle svg {
 
 /* 拖拽换位：浮动克隆 + 虚线占位（rbd/SortableJS 模式） */
 
+/* Shown and hidden by class, not inline styles. */
+.modular-diary-is-hidden { display: none !important; }
+/* A textarea measured for auto-height: collapsed (or natural) for one read of scrollHeight. */
+.modular-diary-autosize-measure { height: 0 !important; }
+.modular-diary-autosize-auto { height: auto !important; }
+/* The live block while its remount overlay stands in for it: geometry kept, nothing painted. */
+.modular-diary-remount-hidden { visibility: hidden !important; }
+/* Carries the container's design tokens to a drag clone on <body>, without a box of its own. */
+.modular-diary-drag-clone-host { display: contents !important; }
+
 .modular-diary-drag-clone {
   position: fixed;
   z-index: 100;

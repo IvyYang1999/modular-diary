@@ -2,8 +2,8 @@
  * Single-turn headless claude CLI runner for the dialog (D7 裁剪版 swob
  * 模式：不维护 resume、不要工具权限、JSON 出结构化条目).
  */
-import { spawn } from "node:child_process"
 import { resolveClaudeBinary } from "./cli-resolver"
+import { nodeChildProcess } from "./node"
 import { t } from "../i18n"
 
 export type AgentRunResult =
@@ -26,7 +26,7 @@ export async function runEntryAgent(userText: string, systemPrompt: string, opts
   return new Promise((resolve) => {
     let child
     try {
-      child = spawn(
+      child = nodeChildProcess().spawn(
         binary,
         ["-p", userText, "--output-format", "json", "--append-system-prompt", systemPrompt],
         { stdio: ["ignore", "pipe", "pipe"] }
